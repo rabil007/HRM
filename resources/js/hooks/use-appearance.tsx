@@ -49,7 +49,9 @@ const applyTheme = (appearance: Appearance): void => {
     const isDark = isDarkMode(appearance);
 
     document.documentElement.classList.toggle('dark', isDark);
+    document.body.classList.toggle('dark', isDark);
     document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+    document.body.style.colorScheme = isDark ? 'dark' : 'light';
 };
 
 const subscribe = (callback: () => void) => {
