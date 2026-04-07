@@ -13,8 +13,23 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { dashboard } from '@/routes';
+import { AnalyticsChart } from './components/analytics-chart';
+import { 
+    Users, 
+    UserPlus, 
+    CalendarOff, 
+    ClipboardCheck, 
+    CreditCard, 
+    IdCard, 
+    Banknote, 
+    ShieldCheck,
+    ArrowUpRight,
+    Plus,
+    LayoutGrid,
+    Search as SearchIcon,
+    CheckCircle2
+} from 'lucide-react';
 
 export function DashboardContent() {
     const placeholder = (key: string) =>
@@ -33,212 +48,212 @@ export function DashboardContent() {
             </Header>
 
             <Main>
-                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                    <div className="space-y-1">
-                        <h1 className="text-2xl font-semibold tracking-tight">
+                <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+                    <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                            <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                                Real-time Intelligence
+                            </span>
+                        </div>
+                        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
                             HR Dashboard
                         </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Overview, approvals, and compliance signals.
+                        <p className="text-sm text-muted-foreground/80 font-medium">
+                            Synthesized overview of your organizational health and compliance.
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button variant="secondary" asChild>
+                    <div className="flex items-center gap-3">
+                        <Button variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10" asChild>
                             <a href={placeholder('employees.index')}>
-                                Employee directory
+                                <LayoutGrid className="mr-2 h-4 w-4" />
+                                Directory
                             </a>
                         </Button>
-                        <Button asChild>
+                        <Button className="rounded-xl shadow-lg shadow-primary/20" asChild>
                             <a href={placeholder('quick-actions.create-employee')}>
-                                Create employee
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Employee
                             </a>
                         </Button>
                     </div>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-6">
                     <Metric
                         title="Headcount"
-                        value="—"
+                        value="1,284"
                         hint="Active employees"
+                        icon={Users}
+                        trend="+12% from last month"
+                        glow="glow-primary"
                     />
                     <Metric
                         title="New hires"
-                        value="—"
+                        value="24"
                         hint="Last 30 days"
+                        icon={UserPlus}
+                        trend="+3 new today"
+                        glow="glow-green"
                     />
                     <Metric
-                        title="On leave today"
-                        value="—"
-                        hint="Approved leave"
+                        title="On leave"
+                        value="12"
+                        hint="Approved today"
+                        icon={CalendarOff}
+                        trend="2 emergency"
+                        glow="glow-orange"
                     />
                     <Metric
-                        title="Pending approvals"
-                        value="—"
-                        hint="Leave • Payroll • Adjustments"
-                    />
-                    <Metric
-                        title="Visa expiring"
-                        value="—"
-                        hint="Next 30 days"
-                    />
-                    <Metric
-                        title="Emirates ID expiring"
-                        value="—"
-                        hint="Next 30 days"
-                    />
-                    <Metric
-                        title="Payroll period"
-                        value="—"
-                        hint="Current cycle"
-                    />
-                    <Metric
-                        title="WPS status"
-                        value="—"
-                        hint="Latest submission"
+                        title="Action items"
+                        value="8"
+                        hint="Pending requests"
+                        icon={ClipboardCheck}
+                        trend="4 high priority"
+                        glow="glow-blue"
                     />
                 </div>
 
-                <Tabs
-                    orientation="vertical"
-                    defaultValue="overview"
-                    className="space-y-4"
-                >
-                    <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/40 p-1.5">
-                        <TabsTrigger
-                            value="overview"
-                            className="px-4 py-2"
-                        >
-                            Overview
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="approvals"
-                            className="px-4 py-2"
-                        >
-                            Approvals
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="compliance"
-                            className="px-4 py-2"
-                        >
-                            Compliance
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="payroll"
-                            className="px-4 py-2"
-                        >
-                            Payroll
-                        </TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="overview" className="space-y-4">
-                        <div className="grid gap-4 lg:grid-cols-3">
-                            <Card className="lg:col-span-2">
-                                <CardHeader>
-                                    <CardTitle>Quick actions</CardTitle>
-                                    <CardDescription>
-                                        Common tasks across modules
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="grid gap-3 sm:grid-cols-2">
-                                    <ActionCard
-                                        title="Create employee"
-                                        description="Add a new employee record"
-                                        href={placeholder('quick-actions.create-employee')}
-                                    />
-                                    <ActionCard
-                                        title="Create job posting"
-                                        description="Open a new vacancy"
-                                        href={placeholder('quick-actions.create-job-posting')}
-                                    />
-                                    <ActionCard
-                                        title="New leave request"
-                                        description="Submit time off request"
-                                        href={placeholder('quick-actions.new-leave-request')}
-                                    />
-                                    <ActionCard
-                                        title="Create payroll period"
-                                        description="Start a new payroll run"
-                                        href={placeholder('quick-actions.create-payroll-period')}
-                                    />
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle>At a glance</CardTitle>
-                                    <CardDescription>
-                                        What needs attention today
-                                    </CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-3">
-                                    <AtGlanceItem
-                                        title="Leave approvals"
-                                        subtitle="Pending requests"
-                                        href={placeholder('leave.requests')}
-                                        value="—"
-                                    />
-                                    <AtGlanceItem
-                                        title="Salary adjustments"
-                                        subtitle="Awaiting approval"
-                                        href={placeholder('payroll.adjustments')}
-                                        value="—"
-                                    />
-                                    <AtGlanceItem
-                                        title="Compliance"
-                                        subtitle="Expiring documents"
-                                        href={placeholder('employees.documents')}
-                                        value="—"
-                                    />
-                                </CardContent>
-                            </Card>
+                <div className="grid gap-6 lg:grid-cols-3 mb-6">
+                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl lg:col-span-2">
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                            <div>
+                                <CardTitle className="text-xl font-bold tracking-tight">Growth & Headcount</CardTitle>
+                                <CardDescription className="text-sm font-medium">
+                                    Year-to-date workforce trends.
+                                </CardDescription>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
+                                    <div className="h-2 w-2 rounded-full bg-primary" />
+                                    <span className="text-[10px] font-bold uppercase text-primary tracking-wider">Growth</span>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="pt-4">
+                            <AnalyticsChart />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl shrink-0 overflow-hidden relative flex flex-col">
+                        <div className="absolute -top-12 -right-12 p-8 opacity-5 pointer-events-none">
+                            <LayoutGrid className="h-64 w-64 rotate-12 text-white" />
                         </div>
-                    </TabsContent>
-                    <TabsContent value="approvals" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Approvals</CardTitle>
-                                <CardDescription>
-                                    Leave, payroll, and adjustment approvals
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <PlaceholderRow label="Leave requests pending" />
-                                <PlaceholderRow label="Salary adjustments pending" />
-                                <PlaceholderRow label="Payroll period approvals" />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="compliance" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Compliance</CardTitle>
-                                <CardDescription>
-                                    UAE document expiry signals
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <PlaceholderRow label="Visas expiring in 30 days" />
-                                <PlaceholderRow label="Emirates IDs expiring in 30 days" />
-                                <PlaceholderRow label="Passports expiring in 90 days" />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                    <TabsContent value="payroll" className="space-y-4">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Payroll</CardTitle>
-                                <CardDescription>
-                                    Current cycle and WPS status
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-3">
-                                <PlaceholderRow label="Current period" />
-                                <PlaceholderRow label="Records generated" />
-                                <PlaceholderRow label="WPS submission status" />
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
-            </Main>
+                        <CardHeader>
+                            <CardTitle className="text-xl font-bold tracking-tight">Quick Actions</CardTitle>
+                            <CardDescription className="text-sm font-medium">
+                                Accelerate your workflow.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid gap-3 relative z-10 flex-1">
+                            <ActionCard
+                                title="Create employee"
+                                description="Add a new employee record"
+                                href={placeholder('quick-actions.create-employee')}
+                            />
+                            <ActionCard
+                                title="New job posting"
+                                description="Open a new vacancy"
+                                href={placeholder('quick-actions.create-job-posting')}
+                            />
+                            <ActionCard
+                                title="Payroll period"
+                                description="Start a new payroll run"
+                                href={placeholder('quick-actions.create-payroll-period')}
+                            />
+                        </CardContent>
+                    </Card>
+                </div>
+
+                <div className="grid gap-6 lg:grid-cols-3">
+                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-bold tracking-tight">Approvals</CardTitle>
+                                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <AtGlanceItem
+                                title="Leave requests"
+                                subtitle="Pending review"
+                                href={placeholder('leave.requests')}
+                                value="5"
+                            />
+                            <AtGlanceItem
+                                title="Salary adjustments"
+                                subtitle="Awaiting approval"
+                                href={placeholder('payroll.adjustments')}
+                                value="2"
+                            />
+                            <AtGlanceItem
+                                title="Expense claims"
+                                subtitle="Submitted for payout"
+                                href={placeholder('expenses.claims')}
+                                value="0"
+                            />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-bold tracking-tight">Compliance</CardTitle>
+                                <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <AtGlanceItem
+                                title="Visa expiry"
+                                subtitle="Next 30 days"
+                                href={placeholder('compliance.visas')}
+                                value="15"
+                            />
+                            <AtGlanceItem
+                                title="Emirates ID"
+                                subtitle="In progress"
+                                href={placeholder('compliance.eids')}
+                                value="22"
+                            />
+                            <AtGlanceItem
+                                title="Labor Cards"
+                                subtitle="Expiring soon"
+                                href={placeholder('compliance.labor')}
+                                value="8"
+                            />
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+                        <CardHeader className="pb-3">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-lg font-bold tracking-tight">Payroll</CardTitle>
+                                <Banknote className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                            <AtGlanceItem
+                                title="Current cycle"
+                                subtitle="March 2026"
+                                href={placeholder('payroll.current')}
+                                value="Processing"
+                            />
+                            <AtGlanceItem
+                                title="WPS Status"
+                                subtitle="Latest submission"
+                                href={placeholder('payroll.wps')}
+                                value="Compliant"
+                            />
+                            <AtGlanceItem
+                                title="Exceptions"
+                                subtitle="Requires attention"
+                                href={placeholder('payroll.exceptions')}
+                                value="3"
+                            />
+                        </CardContent>
+                    </Card>
+                </div>
+        </Main>
         </>
     );
 }
@@ -247,21 +262,37 @@ function Metric({
     title,
     value,
     hint,
+    icon: Icon,
+    trend,
+    glow,
 }: {
     title: string;
     value: string;
     hint: string;
+    icon?: any;
+    trend?: string;
+    glow?: string;
 }) {
     return (
-        <Card>
-            <CardHeader className="space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+        <Card className={`group border-white/5 bg-card/50 transition-all hover:bg-card/80 dark:bg-white/5 ${glow}`}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-foreground transition-colors">
+                    {title}
+                </CardTitle>
+                {Icon && <Icon className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-colors" />}
             </CardHeader>
             <CardContent>
-                <div className="text-2xl font-semibold tabular-nums">
+                <div className="text-2xl font-bold tracking-tight">
                     {value}
                 </div>
-                <p className="text-xs text-muted-foreground">{hint}</p>
+                <div className="mt-1 flex items-center gap-2">
+                    <p className="text-xs text-muted-foreground">{hint}</p>
+                    {trend && (
+                        <p className="text-[10px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded-full">
+                            {trend}
+                        </p>
+                    )}
+                </div>
             </CardContent>
         </Card>
     );
@@ -279,10 +310,13 @@ function ActionCard({
     return (
         <a
             href={href}
-            className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/40"
+            className="group flex flex-col gap-2 rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10 hover:shadow-lg dark:hover:shadow-primary/5"
         >
-            <div className="text-sm font-semibold">{title}</div>
-            <div className="mt-1 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold">{title}</div>
+                <ArrowUpRight className="h-4 w-4 text-muted-foreground opacity-0 transition-all group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </div>
+            <div className="text-xs text-muted-foreground line-clamp-2">
                 {description}
             </div>
         </a>
@@ -303,29 +337,38 @@ function AtGlanceItem({
     return (
         <a
             href={href}
-            className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/40"
+            className="group flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/5 p-3 transition-all hover:bg-white/10"
         >
             <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">{title}</div>
-                <div className="truncate text-xs text-muted-foreground">
+                <div className="truncate text-sm font-semibold group-hover:text-primary transition-colors">{title}</div>
+                <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                     {subtitle}
                 </div>
             </div>
-            <div className="text-sm font-semibold tabular-nums">{value}</div>
+            <div className="flex items-center gap-2">
+                <div className="text-sm font-bold tabular-nums">{value === "—" ? "0" : value}</div>
+                <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+            </div>
         </a>
     );
 }
 
 function PlaceholderRow({ label }: { label: string }) {
     return (
-        <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/20 p-3">
-            <div className="text-sm">{label}</div>
-            <div className="text-sm font-semibold tabular-nums">—</div>
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10">
+            <div className="text-sm font-medium">{label}</div>
+            <div className="text-sm font-bold tabular-nums text-muted-foreground">—</div>
         </div>
     );
 }
 
 const topNav = (placeholder: (key: string) => string) => [
+    {
+        title: 'Overview',
+        href: dashboard.url(),
+        isActive: true,
+        disabled: false,
+    },
     {
         title: 'Employees',
         href: placeholder('employees.index'),
