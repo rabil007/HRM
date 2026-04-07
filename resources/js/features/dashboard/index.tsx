@@ -1,10 +1,4 @@
-import { ConfigDrawer } from '@/components/config-drawer';
-import { Header } from '@/components/layout/header';
 import { Main } from '@/components/layout/main';
-import { TopNav } from '@/components/layout/top-nav';
-import { ProfileDropdown } from '@/components/profile-dropdown';
-import { Search } from '@/components/search';
-import { ThemeSwitch } from '@/components/theme-switch';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -37,16 +31,6 @@ export function DashboardContent() {
 
     return (
         <>
-            <Header>
-                <TopNav links={topNav(placeholder)} />
-                <div className="ms-auto flex items-center space-x-4">
-                    <Search />
-                    <ThemeSwitch />
-                    <ConfigDrawer />
-                    <ProfileDropdown />
-                </div>
-            </Header>
-
             <Main>
                 <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
                     <div className="space-y-1.5">
@@ -362,41 +346,3 @@ function PlaceholderRow({ label }: { label: string }) {
     );
 }
 
-const topNav = (placeholder: (key: string) => string) => [
-    {
-        title: 'Overview',
-        href: dashboard.url(),
-        isActive: true,
-        disabled: false,
-    },
-    {
-        title: 'Employees',
-        href: placeholder('employees.index'),
-        isActive: false,
-        disabled: false,
-    },
-    {
-        title: 'Recruitment',
-        href: placeholder('recruitment.job-postings'),
-        isActive: false,
-        disabled: false,
-    },
-    {
-        title: 'Attendance',
-        href: placeholder('attendance.records'),
-        isActive: false,
-        disabled: false,
-    },
-    {
-        title: 'Leave',
-        href: placeholder('leave.requests'),
-        isActive: false,
-        disabled: false,
-    },
-    {
-        title: 'Payroll',
-        href: placeholder('payroll.periods'),
-        isActive: false,
-        disabled: false,
-    },
-];
