@@ -26,6 +26,16 @@ const sidebarNavItems: NavItem[] = [
         href: editAppearance(),
         icon: null,
     },
+    {
+        title: 'Countries',
+        href: '/settings/master-data/countries',
+        icon: null,
+    },
+    {
+        title: 'Currencies',
+        href: '/settings/master-data/currencies',
+        icon: null,
+    },
 ];
 
 export default function SettingsLayout({ children }: PropsWithChildren) {

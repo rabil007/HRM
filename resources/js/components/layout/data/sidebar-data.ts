@@ -23,6 +23,7 @@ import {
     CalendarCheck2,
     PiggyBank,
     UserCog,
+    Globe2,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
@@ -68,6 +69,16 @@ export const sidebarData: SidebarData = {
                             title: 'Appearance',
                             url: editAppearance.url(),
                             icon: Palette,
+                        },
+                        {
+                            title: 'Countries',
+                            url: '/settings/master-data/countries',
+                            icon: Globe2,
+                        },
+                        {
+                            title: 'Currencies',
+                            url: '/settings/master-data/currencies',
+                            icon: Globe2,
                         },
                     ],
                 },
