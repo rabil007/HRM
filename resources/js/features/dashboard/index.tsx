@@ -15,15 +15,15 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { dashboard } from '@/routes';
-import { Analytics } from './components/analytics';
-import { Overview } from './components/overview';
-import { RecentSales } from './components/recent-sales';
 
 export function DashboardContent() {
+    const placeholder = (key: string) =>
+        `${dashboard.url()}?module=${encodeURIComponent(key)}`;
+
     return (
         <>
             <Header>
-                <TopNav links={topNav} />
+                <TopNav links={topNav(placeholder)} />
                 <div className="ms-auto flex items-center space-x-4">
                     <Search />
                     <ThemeSwitch />
@@ -33,177 +33,209 @@ export function DashboardContent() {
             </Header>
 
             <Main>
-                <div className="mb-2 flex items-center justify-between space-y-2">
-                    <h1 className="text-2xl font-bold tracking-tight">
-                        Dashboard
-                    </h1>
-                    <div className="flex items-center space-x-2">
-                        <Button>Download</Button>
+                <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                    <div className="space-y-1">
+                        <h1 className="text-2xl font-semibold tracking-tight">
+                            HR Dashboard
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            Overview, approvals, and compliance signals.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="secondary" asChild>
+                            <a href={placeholder('employees.index')}>
+                                Employee directory
+                            </a>
+                        </Button>
+                        <Button asChild>
+                            <a href={placeholder('quick-actions.create-employee')}>
+                                Create employee
+                            </a>
+                        </Button>
                     </div>
                 </div>
+
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <Metric
+                        title="Headcount"
+                        value="—"
+                        hint="Active employees"
+                    />
+                    <Metric
+                        title="New hires"
+                        value="—"
+                        hint="Last 30 days"
+                    />
+                    <Metric
+                        title="On leave today"
+                        value="—"
+                        hint="Approved leave"
+                    />
+                    <Metric
+                        title="Pending approvals"
+                        value="—"
+                        hint="Leave • Payroll • Adjustments"
+                    />
+                    <Metric
+                        title="Visa expiring"
+                        value="—"
+                        hint="Next 30 days"
+                    />
+                    <Metric
+                        title="Emirates ID expiring"
+                        value="—"
+                        hint="Next 30 days"
+                    />
+                    <Metric
+                        title="Payroll period"
+                        value="—"
+                        hint="Current cycle"
+                    />
+                    <Metric
+                        title="WPS status"
+                        value="—"
+                        hint="Latest submission"
+                    />
+                </div>
+
                 <Tabs
                     orientation="vertical"
                     defaultValue="overview"
                     className="space-y-4"
                 >
-                    <div className="w-full overflow-x-auto pb-2">
-                        <TabsList>
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="analytics">
-                                Analytics
-                            </TabsTrigger>
-                            <TabsTrigger value="reports" disabled>
-                                Reports
-                            </TabsTrigger>
-                            <TabsTrigger value="notifications" disabled>
-                                Notifications
-                            </TabsTrigger>
-                        </TabsList>
-                    </div>
+                    <TabsList className="h-auto w-full justify-start gap-1 rounded-xl bg-muted/40 p-1.5">
+                        <TabsTrigger
+                            value="overview"
+                            className="px-4 py-2"
+                        >
+                            Overview
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="approvals"
+                            className="px-4 py-2"
+                        >
+                            Approvals
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="compliance"
+                            className="px-4 py-2"
+                        >
+                            Compliance
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="payroll"
+                            className="px-4 py-2"
+                        >
+                            Payroll
+                        </TabsTrigger>
+                    </TabsList>
                     <TabsContent value="overview" className="space-y-4">
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">
-                                        Total Revenue
-                                    </CardTitle>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        className="h-4 w-4 text-muted-foreground"
-                                    >
-                                        <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                                    </svg>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        $45,231.89
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        +20.1% from last month
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">
-                                        Subscriptions
-                                    </CardTitle>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        className="h-4 w-4 text-muted-foreground"
-                                    >
-                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                                        <circle cx="9" cy="7" r="4" />
-                                        <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-                                    </svg>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        +2350
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        +180.1% from last month
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">
-                                        Sales
-                                    </CardTitle>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        className="h-4 w-4 text-muted-foreground"
-                                    >
-                                        <rect
-                                            width="20"
-                                            height="14"
-                                            x="2"
-                                            y="5"
-                                            rx="2"
-                                        />
-                                        <path d="M2 10h20" />
-                                    </svg>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        +12,234
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        +19% from last month
-                                    </p>
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                                    <CardTitle className="text-sm font-medium">
-                                        Active Now
-                                    </CardTitle>
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth="2"
-                                        className="h-4 w-4 text-muted-foreground"
-                                    >
-                                        <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-                                    </svg>
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="text-2xl font-bold">
-                                        +573
-                                    </div>
-                                    <p className="text-xs text-muted-foreground">
-                                        +201 since last hour
-                                    </p>
-                                </CardContent>
-                            </Card>
-                        </div>
-                        <div className="grid grid-cols-1 gap-4 lg:grid-cols-7">
-                            <Card className="col-span-1 lg:col-span-4">
+                        <div className="grid gap-4 lg:grid-cols-3">
+                            <Card className="lg:col-span-2">
                                 <CardHeader>
-                                    <CardTitle>Overview</CardTitle>
-                                </CardHeader>
-                                <CardContent className="ps-2">
-                                    <Overview />
-                                </CardContent>
-                            </Card>
-                            <Card className="col-span-1 lg:col-span-3">
-                                <CardHeader>
-                                    <CardTitle>Recent Sales</CardTitle>
+                                    <CardTitle>Quick actions</CardTitle>
                                     <CardDescription>
-                                        You made 265 sales this month.
+                                        Common tasks across modules
                                     </CardDescription>
                                 </CardHeader>
-                                <CardContent>
-                                    <RecentSales />
+                                <CardContent className="grid gap-3 sm:grid-cols-2">
+                                    <ActionCard
+                                        title="Create employee"
+                                        description="Add a new employee record"
+                                        href={placeholder('quick-actions.create-employee')}
+                                    />
+                                    <ActionCard
+                                        title="Create job posting"
+                                        description="Open a new vacancy"
+                                        href={placeholder('quick-actions.create-job-posting')}
+                                    />
+                                    <ActionCard
+                                        title="New leave request"
+                                        description="Submit time off request"
+                                        href={placeholder('quick-actions.new-leave-request')}
+                                    />
+                                    <ActionCard
+                                        title="Create payroll period"
+                                        description="Start a new payroll run"
+                                        href={placeholder('quick-actions.create-payroll-period')}
+                                    />
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>At a glance</CardTitle>
+                                    <CardDescription>
+                                        What needs attention today
+                                    </CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-3">
+                                    <AtGlanceItem
+                                        title="Leave approvals"
+                                        subtitle="Pending requests"
+                                        href={placeholder('leave.requests')}
+                                        value="—"
+                                    />
+                                    <AtGlanceItem
+                                        title="Salary adjustments"
+                                        subtitle="Awaiting approval"
+                                        href={placeholder('payroll.adjustments')}
+                                        value="—"
+                                    />
+                                    <AtGlanceItem
+                                        title="Compliance"
+                                        subtitle="Expiring documents"
+                                        href={placeholder('employees.documents')}
+                                        value="—"
+                                    />
                                 </CardContent>
                             </Card>
                         </div>
                     </TabsContent>
-                    <TabsContent value="analytics" className="space-y-4">
-                        <Analytics />
+                    <TabsContent value="approvals" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Approvals</CardTitle>
+                                <CardDescription>
+                                    Leave, payroll, and adjustment approvals
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <PlaceholderRow label="Leave requests pending" />
+                                <PlaceholderRow label="Salary adjustments pending" />
+                                <PlaceholderRow label="Payroll period approvals" />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="compliance" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Compliance</CardTitle>
+                                <CardDescription>
+                                    UAE document expiry signals
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <PlaceholderRow label="Visas expiring in 30 days" />
+                                <PlaceholderRow label="Emirates IDs expiring in 30 days" />
+                                <PlaceholderRow label="Passports expiring in 90 days" />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                    <TabsContent value="payroll" className="space-y-4">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Payroll</CardTitle>
+                                <CardDescription>
+                                    Current cycle and WPS status
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                                <PlaceholderRow label="Current period" />
+                                <PlaceholderRow label="Records generated" />
+                                <PlaceholderRow label="WPS submission status" />
+                            </CardContent>
+                        </Card>
                     </TabsContent>
                 </Tabs>
             </Main>
@@ -211,29 +243,117 @@ export function DashboardContent() {
     );
 }
 
-const topNav = [
+function Metric({
+    title,
+    value,
+    hint,
+}: {
+    title: string;
+    value: string;
+    hint: string;
+}) {
+    return (
+        <Card>
+            <CardHeader className="space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">{title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-semibold tabular-nums">
+                    {value}
+                </div>
+                <p className="text-xs text-muted-foreground">{hint}</p>
+            </CardContent>
+        </Card>
+    );
+}
+
+function ActionCard({
+    title,
+    description,
+    href,
+}: {
+    title: string;
+    description: string;
+    href: string;
+}) {
+    return (
+        <a
+            href={href}
+            className="rounded-lg border bg-card p-4 transition-colors hover:bg-muted/40"
+        >
+            <div className="text-sm font-semibold">{title}</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+                {description}
+            </div>
+        </a>
+    );
+}
+
+function AtGlanceItem({
+    title,
+    subtitle,
+    value,
+    href,
+}: {
+    title: string;
+    subtitle: string;
+    value: string;
+    href: string;
+}) {
+    return (
+        <a
+            href={href}
+            className="flex items-center justify-between gap-4 rounded-lg border bg-card p-3 transition-colors hover:bg-muted/40"
+        >
+            <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">{title}</div>
+                <div className="truncate text-xs text-muted-foreground">
+                    {subtitle}
+                </div>
+            </div>
+            <div className="text-sm font-semibold tabular-nums">{value}</div>
+        </a>
+    );
+}
+
+function PlaceholderRow({ label }: { label: string }) {
+    return (
+        <div className="flex items-center justify-between gap-4 rounded-lg border bg-muted/20 p-3">
+            <div className="text-sm">{label}</div>
+            <div className="text-sm font-semibold tabular-nums">—</div>
+        </div>
+    );
+}
+
+const topNav = (placeholder: (key: string) => string) => [
     {
-        title: 'Overview',
-        href: dashboard.url(),
-        isActive: true,
+        title: 'Employees',
+        href: placeholder('employees.index'),
+        isActive: false,
         disabled: false,
     },
     {
-        title: 'Customers',
-        href: `${dashboard.url()}/customers`,
+        title: 'Recruitment',
+        href: placeholder('recruitment.job-postings'),
         isActive: false,
-        disabled: true,
+        disabled: false,
     },
     {
-        title: 'Products',
-        href: `${dashboard.url()}/products`,
+        title: 'Attendance',
+        href: placeholder('attendance.records'),
         isActive: false,
-        disabled: true,
+        disabled: false,
     },
     {
-        title: 'Settings',
-        href: `${dashboard.url()}/settings`,
+        title: 'Leave',
+        href: placeholder('leave.requests'),
         isActive: false,
-        disabled: true,
+        disabled: false,
+    },
+    {
+        title: 'Payroll',
+        href: placeholder('payroll.periods'),
+        isActive: false,
+        disabled: false,
     },
 ];
