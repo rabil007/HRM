@@ -14,8 +14,8 @@ import { TeamSwitcher } from './team-switcher';
 
 export function AppSidebar() {
     const { collapsible, variant } = useLayout();
-    const { company_switcher_companies: companies } = usePage().props as {
-        company_switcher_companies: { id: number; name: string }[];
+    const { company_switcher_companies: companies = [] } = usePage().props as unknown as {
+        company_switcher_companies?: { id: number; name: string }[];
     };
 
     return (

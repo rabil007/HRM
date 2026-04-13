@@ -1,30 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { BranchesContent } from '@/features/organization/branches';
-
-type Company = {
-    id: number;
-    name: string;
-};
-
-type Country = {
-    code: string;
-    name: string;
-    dial_code: string | null;
-};
-
-type Branch = {
-    id: number;
-    company: { id: number; name: string | null };
-    name: string;
-    code: string | null;
-    city: string | null;
-    country: string | null;
-    phone: string | null;
-    email: string | null;
-    is_headquarters: boolean;
-    status: 'active' | 'inactive';
-    created_at: string;
-};
+import type { Branch, Company, Country } from '@/features/organization/branches/types';
 
 type Pagination<T> = {
     data: T[];
