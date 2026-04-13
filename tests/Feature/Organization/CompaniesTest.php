@@ -1,0 +1,44 @@
+<?php
+
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\User;
+
+test('guests cannot access companies pages', function () {
+    $this->get('/organization/companies')->assertRedirect(route('login'));
+    $this->get('/organization/companies/1')->assertRedirect(route('login'));
+});
+
+test('authenticated users can view company details page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'fiscal_year_start' => '01-01',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $this->get("/organization/companies/{$company->id}")->assertOk();
+});

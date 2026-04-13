@@ -1,5 +1,4 @@
 import {
-    Building,
     Building2,
     Edit2,
     ExternalLink,
@@ -49,16 +48,18 @@ export function CompanyCard({
                         align="end"
                         className="w-48 border-white/10 bg-black/90 backdrop-blur-xl p-1"
                     >
+                        <DropdownMenuItem asChild className="focus:bg-white/10 cursor-pointer gap-2 rounded-md">
+                            <a href={`/organization/companies/${company.id}`} className="flex items-center gap-2">
+                                <Building2 className="h-4 w-4" />
+                                View Details
+                            </a>
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                             onClick={() => onEdit(company)}
                             className="focus:bg-white/10 cursor-pointer gap-2 rounded-md"
                         >
                             <Edit2 className="h-4 w-4" />
                             Edit Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="focus:bg-white/10 cursor-pointer gap-2 rounded-md">
-                            <Building className="h-4 w-4 text-muted-foreground" />
-                            Manage Branches
                         </DropdownMenuItem>
                         <DropdownSeparator className="bg-white/10 my-1" />
                         <DropdownMenuItem

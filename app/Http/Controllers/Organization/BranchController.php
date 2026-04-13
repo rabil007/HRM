@@ -52,6 +52,33 @@ class BranchController extends Controller
         ]);
     }
 
+    public function show(Branch $branch)
+    {
+        $branch->load(['company:id,name,slug']);
+
+        return Inertia::render('organization/branch', [
+            'branch' => [
+                'id' => $branch->id,
+                'company' => [
+                    'id' => $branch->company_id,
+                    'name' => $branch->company?->name,
+                    'slug' => $branch->company?->slug,
+                ],
+                'name' => $branch->name,
+                'code' => $branch->code,
+                'address' => $branch->address,
+                'city' => $branch->city,
+                'country' => $branch->country,
+                'phone' => $branch->phone,
+                'email' => $branch->email,
+                'is_headquarters' => (bool) $branch->is_headquarters,
+                'status' => $branch->status,
+                'created_at' => $branch->created_at,
+                'updated_at' => $branch->updated_at,
+            ],
+        ]);
+    }
+
     public function store(StoreBranchRequest $request)
     {
         $data = $request->validated();
