@@ -1,3 +1,15 @@
+import {
+    Building,
+    Building2,
+    Edit2,
+    ExternalLink,
+    Globe,
+    Mail,
+    MapPin,
+    MoreVertical,
+    Trash2,
+    Users,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -13,18 +25,6 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {
-    Building,
-    Building2,
-    Edit2,
-    ExternalLink,
-    Globe,
-    Mail,
-    MapPin,
-    MoreVertical,
-    Trash2,
-    Users,
-} from 'lucide-react';
 import type { Company } from '../types';
 
 export function CompanyCard({

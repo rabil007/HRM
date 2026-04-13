@@ -1,3 +1,15 @@
+import {
+    Users,
+    UserPlus,
+    CalendarOff,
+    ClipboardCheck,
+    Banknote,
+    ShieldCheck,
+    ArrowUpRight,
+    Plus,
+    LayoutGrid,
+    CheckCircle2
+} from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import {
@@ -9,21 +21,6 @@ import {
 } from '@/components/ui/card';
 import { dashboard } from '@/routes';
 import { AnalyticsChart } from './components/analytics-chart';
-import { 
-    Users, 
-    UserPlus, 
-    CalendarOff, 
-    ClipboardCheck, 
-    CreditCard, 
-    IdCard, 
-    Banknote, 
-    ShieldCheck,
-    ArrowUpRight,
-    Plus,
-    LayoutGrid,
-    Search as SearchIcon,
-    CheckCircle2
-} from 'lucide-react';
 
 export function DashboardContent() {
     const placeholder = (key: string) =>
@@ -334,15 +331,6 @@ function AtGlanceItem({
                 <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
             </div>
         </a>
-    );
-}
-
-function PlaceholderRow({ label }: { label: string }) {
-    return (
-        <div className="flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/5 p-4 transition-all hover:bg-white/10">
-            <div className="text-sm font-medium">{label}</div>
-            <div className="text-sm font-bold tabular-nums text-muted-foreground">—</div>
-        </div>
     );
 }
 

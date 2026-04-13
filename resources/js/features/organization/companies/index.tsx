@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
-import { Main } from '@/components/layout/main';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { router, useForm } from '@inertiajs/react';
 import {
     Plus,
     Search,
 } from 'lucide-react';
-import { router, useForm } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
+import { Main } from '@/components/layout/main';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
@@ -156,6 +156,7 @@ export function CompaniesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
 

@@ -1,14 +1,14 @@
+import { usePage } from '@inertiajs/react';
 import { Breadcrumbs } from '@/components/breadcrumbs';
+import { ConfigDrawer } from '@/components/config-drawer';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
-import type { BreadcrumbItem } from '@/types';
 import { Header } from '@/components/layout/header';
 import { TopNav } from '@/components/layout/top-nav';
 import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Search } from '@/components/search';
 import { ThemeSwitch } from '@/components/theme-switch';
-import { ConfigDrawer } from '@/components/config-drawer';
 import { dashboard } from '@/routes';
-import { usePage } from '@inertiajs/react';
+import type { BreadcrumbItem } from '@/types';
 
 export default function AppLayout({
     breadcrumbs = [],

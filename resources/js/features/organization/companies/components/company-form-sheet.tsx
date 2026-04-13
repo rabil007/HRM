@@ -1,3 +1,4 @@
+import type { InertiaFormProps } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,7 +9,6 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import type { InertiaFormProps } from '@inertiajs/react';
 import type { Company, CompanyFormData, Country, Currency } from '../types';
 
 export function CompanyFormSheet({
