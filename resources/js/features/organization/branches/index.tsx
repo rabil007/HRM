@@ -1,8 +1,9 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus, Search } from 'lucide-react';
+import { Download, Filter, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { BranchCard } from './components/branch-card';
 import { BranchDeleteDialog } from './components/branch-delete-dialog';
@@ -178,6 +179,46 @@ export function BranchesContent({
         });
     };
 
+    const exportBranches = (format: 'csv' | 'xlsx' | 'pdf') => {
+        const params = new URLSearchParams();
+
+        if (searchQuery.trim()) {
+            params.set('search', searchQuery.trim());
+        }
+
+        if (filters.company_id) {
+            params.set('company_id', filters.company_id);
+        }
+
+        if (filters.country) {
+            params.set('country', filters.country);
+        }
+
+        if (filters.status) {
+            params.set('status', filters.status);
+        }
+
+        if (filters.city.trim()) {
+            params.set('city', filters.city.trim());
+        }
+
+        if (filters.headquartersOnly) {
+            params.set('headquartersOnly', '1');
+        }
+
+        if (filters.hasEmail) {
+            params.set('hasEmail', '1');
+        }
+
+        if (filters.hasPhone) {
+            params.set('hasPhone', '1');
+        }
+
+        params.set('format', format);
+
+        window.location.href = `/organization/branches/export?${params.toString()}`;
+    };
+
     const submit = () => {
         if (currentBranch) {
             form.put(`/organization/branches/${currentBranch.id}`, {
@@ -243,6 +284,24 @@ export function BranchesContent({
                         </span>
                     ) : null}
                 </Button>
+
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            className="rounded-xl h-12 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                        >
+                            <Download className="mr-2 h-4 w-4" />
+                            Export
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => exportBranches('csv')}>CSV</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => exportBranches('xlsx')}>Excel</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => exportBranches('pdf')}>PDF</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

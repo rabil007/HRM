@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Exports\CompaniesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Company\StoreCompanyRequest;
 use App\Http\Requests\Organization\Company\UpdateCompanyRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Filesystem\FilesystemAdapter;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
 
 class CompanyController extends Controller
 {
@@ -238,5 +243,84 @@ class CompanyController extends Controller
         $company->delete();
 
         return redirect()->route('organization.companies');
+    }
+
+    public function export(Request $request)
+    {
+        $format = strtolower((string) $request->query('format', 'csv'));
+
+        $search = trim((string) $request->query('search', ''));
+        $industry = trim((string) $request->query('industry', ''));
+        $country = trim((string) $request->query('country', ''));
+        $currency = trim((string) $request->query('currency', ''));
+        $hasLogo = filter_var($request->query('hasLogo', false), FILTER_VALIDATE_BOOL);
+        $hasEmail = filter_var($request->query('hasEmail', false), FILTER_VALIDATE_BOOL);
+        $hasWebsite = filter_var($request->query('hasWebsite', false), FILTER_VALIDATE_BOOL);
+
+        $query = Company::query()
+            ->with(['country:id,code,name', 'currency:id,code'])
+            ->latest('id');
+
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('industry', 'like', "%{$search}%")
+                    ->orWhere('city', 'like', "%{$search}%")
+                    ->orWhereHas('country', function ($cq) use ($search) {
+                        $cq->where('code', 'like', "%{$search}%")
+                            ->orWhere('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($industry !== '') {
+            $query->where('industry', 'like', "%{$industry}%");
+        }
+
+        if ($country !== '') {
+            $query->whereHas('country', function ($cq) use ($country) {
+                $cq->where('code', 'like', "%{$country}%")
+                    ->orWhere('name', 'like', "%{$country}%");
+            });
+        }
+
+        if ($currency !== '') {
+            $query->whereHas('currency', fn ($cq) => $cq->where('code', $currency));
+        }
+
+        if ($hasLogo) {
+            $query->whereNotNull('logo');
+        }
+
+        if ($hasEmail) {
+            $query->whereNotNull('email')->where('email', '!=', '');
+        }
+
+        if ($hasWebsite) {
+            $query->whereNotNull('website')->where('website', '!=', '');
+        }
+
+        $export = new CompaniesExport($query);
+
+        $timestamp = now()->format('Y-m-d_His');
+        $baseName = "companies_{$timestamp}";
+
+        if ($format === 'xlsx' || $format === 'excel') {
+            return Excel::download($export, "{$baseName}.xlsx", ExcelWriter::XLSX);
+        }
+
+        if ($format === 'pdf') {
+            $companies = $query->get();
+            $pdf = Pdf::loadView('exports.companies', [
+                'companies' => $companies,
+                'generatedAt' => now(),
+            ]);
+
+            return $pdf->download("{$baseName}.pdf");
+        }
+
+        return Excel::download($export, "{$baseName}.csv", ExcelWriter::CSV, [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
     }
 }

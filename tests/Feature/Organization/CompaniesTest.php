@@ -10,6 +10,49 @@ test('guests cannot access companies pages', function () {
     $this->get('/organization/companies/1')->assertRedirect(route('login'));
 });
 
+test('authenticated users can export companies as csv, excel, and pdf', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    Company::query()->create([
+        'name' => 'Acme Export',
+        'slug' => 'acme-export',
+        'industry' => 'Tech',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $csv = $this->get('/organization/companies/export?format=csv&search=Acme');
+    $csv->assertOk();
+    expect($csv->headers->get('content-type'))->toContain('text/csv');
+
+    $xlsx = $this->get('/organization/companies/export?format=xlsx&search=Acme');
+    $xlsx->assertOk();
+    expect($xlsx->headers->get('content-type'))->toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+
+    $pdf = $this->get('/organization/companies/export?format=pdf&search=Acme');
+    $pdf->assertOk();
+    expect($pdf->headers->get('content-type'))->toContain('application/pdf');
+});
+
 test('authenticated users can view company details page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
