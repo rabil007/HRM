@@ -15,7 +15,6 @@ export type Company = {
     website: string | null;
     currency: { id: number; code: string | null };
     timezone: string | null;
-    fiscal_year_start: string | null;
     payroll_cycle: string | null;
     working_days: number[] | null;
     wps_agent_code: string | null;
@@ -42,7 +41,6 @@ export type CompanyFormData = {
     website: string;
     currency_id: number | '';
     timezone: string;
-    fiscal_year_start: string;
     payroll_cycle: 'monthly' | 'biweekly' | 'weekly';
     working_days: number[];
     wps_agent_code: string;

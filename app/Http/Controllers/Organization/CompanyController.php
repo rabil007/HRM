@@ -58,7 +58,6 @@ class CompanyController extends Controller
                     'code' => $company->currency?->code,
                 ],
                 'timezone' => $company->timezone,
-                'fiscal_year_start' => $company->fiscal_year_start,
                 'payroll_cycle' => $company->payroll_cycle,
                 'working_days' => $company->working_days,
                 'wps_agent_code' => $company->wps_agent_code,
@@ -123,7 +122,6 @@ class CompanyController extends Controller
                     'symbol' => $company->currency?->symbol,
                 ],
                 'timezone' => $company->timezone,
-                'fiscal_year_start' => $company->fiscal_year_start,
                 'payroll_cycle' => $company->payroll_cycle,
                 'working_days' => $company->working_days,
                 'wps_agent_code' => $company->wps_agent_code,
@@ -168,7 +166,6 @@ class CompanyController extends Controller
             'email',
             'website',
             'timezone',
-            'fiscal_year_start',
             'payroll_cycle',
             'wps_agent_code',
             'wps_mol_uid',
@@ -184,7 +181,6 @@ class CompanyController extends Controller
         $data['country_id'] = $data['country_id'] ?? Country::query()->where('code', 'UAE')->value('id');
         $data['currency_id'] = $data['currency_id'] ?? Currency::query()->where('code', 'AED')->value('id');
         $data['timezone'] = $data['timezone'] ?? 'Asia/Dubai';
-        $data['fiscal_year_start'] = $data['fiscal_year_start'] ?? '01-01';
         $data['payroll_cycle'] = $data['payroll_cycle'] ?? 'monthly';
         $data['status'] = $data['status'] ?? 'active';
 
@@ -212,7 +208,6 @@ class CompanyController extends Controller
             'email',
             'website',
             'timezone',
-            'fiscal_year_start',
             'payroll_cycle',
             'wps_agent_code',
             'wps_mol_uid',

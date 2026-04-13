@@ -318,21 +318,6 @@ export function CompanyFormSheet({
                                     onChange={(e) => form.setData('timezone', e.target.value)}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label
-                                    htmlFor="fiscal_year_start"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
-                                >
-                                    Fiscal year start
-                                </Label>
-                                <Input
-                                    id="fiscal_year_start"
-                                    placeholder="01-01"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
-                                    value={form.data.fiscal_year_start}
-                                    onChange={(e) => form.setData('fiscal_year_start', e.target.value)}
-                                />
-                            </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

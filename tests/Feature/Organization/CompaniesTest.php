@@ -35,7 +35,6 @@ test('authenticated users can view company details page', function () {
         'country_id' => $country->id,
         'currency_id' => $currency->id,
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '01-01',
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
@@ -68,7 +67,6 @@ test('authenticated users can update a company with all fields', function () {
         'country_id' => $country->id,
         'currency_id' => $currency->id,
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '01-01',
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
@@ -87,7 +85,6 @@ test('authenticated users can update a company with all fields', function () {
         'website' => 'acme.test',
         'currency_id' => $currency->id,
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '04-01',
         'payroll_cycle' => 'weekly',
         'working_days' => [1, 2, 3, 4],
         'wps_agent_code' => 'AGENT-1',
@@ -108,7 +105,6 @@ test('authenticated users can update a company with all fields', function () {
         'email' => 'hr@acme.test',
         'website' => 'acme.test',
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '04-01',
         'payroll_cycle' => 'weekly',
         'wps_agent_code' => 'AGENT-1',
         'wps_mol_uid' => 'MOL-1',

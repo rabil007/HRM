@@ -42,7 +42,6 @@ test('authenticated users can view a branch details page', function () {
         'country_id' => $country->id,
         'currency_id' => $currency->id,
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '01-01',
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
@@ -85,7 +84,6 @@ test('authenticated users can create, update, and delete a branch', function () 
         'country_id' => $country->id,
         'currency_id' => $currency->id,
         'timezone' => 'Asia/Dubai',
-        'fiscal_year_start' => '01-01',
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);

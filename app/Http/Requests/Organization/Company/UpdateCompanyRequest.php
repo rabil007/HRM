@@ -41,7 +41,6 @@ class UpdateCompanyRequest extends FormRequest
             'website' => ['nullable', 'string', 'max:300'],
             'currency_id' => ['nullable', 'integer', 'exists:currencies,id'],
             'timezone' => ['nullable', 'string', 'max:100'],
-            'fiscal_year_start' => ['nullable', 'string', 'max:5'],
             'payroll_cycle' => ['nullable', 'in:monthly,biweekly,weekly'],
             'working_days' => ['nullable', 'array'],
             'working_days.*' => ['integer'],

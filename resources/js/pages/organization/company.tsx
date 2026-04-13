@@ -25,7 +25,6 @@ type Company = {
     website: string | null;
     currency: { id: number; code: string | null; name: string | null; symbol: string | null };
     timezone: string | null;
-    fiscal_year_start: string | null;
     payroll_cycle: string | null;
     working_days: number[] | null;
     wps_agent_code: string | null;
@@ -88,7 +87,6 @@ export default function CompanyDetails({
         website: company.website ?? '',
         currency_id: company.currency.id ?? '',
         timezone: company.timezone ?? 'Asia/Dubai',
-        fiscal_year_start: company.fiscal_year_start ?? '01-01',
         payroll_cycle: (company.payroll_cycle as 'monthly' | 'biweekly' | 'weekly') ?? 'monthly',
         working_days: company.working_days ?? [1, 2, 3, 4, 5],
         wps_agent_code: company.wps_agent_code ?? '',
@@ -120,7 +118,6 @@ export default function CompanyDetails({
         website: company.website,
         currency: { id: company.currency.id, code: company.currency.code },
         timezone: company.timezone,
-        fiscal_year_start: company.fiscal_year_start,
         payroll_cycle: company.payroll_cycle,
         working_days: company.working_days,
         wps_agent_code: company.wps_agent_code,
@@ -264,7 +261,6 @@ export default function CompanyDetails({
                             <CardTitle className="text-lg font-bold tracking-tight">Payroll & Compliance</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-5">
-                            <Field label="Fiscal year start" value={company.fiscal_year_start ?? '—'} />
                             <Field label="Payroll cycle" value={company.payroll_cycle ?? '—'} />
                             <Field
                                 label="Working days"
