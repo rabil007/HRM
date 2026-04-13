@@ -15,7 +15,7 @@ class CurrencyController extends Controller
     {
         $currencies = Currency::query()
             ->orderBy('code')
-            ->get(['id', 'code', 'name', 'symbol', 'precision', 'is_active']);
+            ->get(['id', 'code', 'name', 'symbol', 'is_active']);
 
         return Inertia::render('settings/master-data/currencies', [
             'currencies' => $currencies,
@@ -27,7 +27,6 @@ class CurrencyController extends Controller
         $data = $request->validated();
         $data['code'] = Str::upper($data['code']);
         $data['is_active'] = $data['is_active'] ?? true;
-        $data['precision'] = $data['precision'] ?? 2;
 
         Currency::create($data);
 

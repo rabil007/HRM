@@ -4,6 +4,7 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Sheet,
     SheetContent,
@@ -122,6 +123,22 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
         });
     };
 
+    const toggleActive = (currency: Currency) => {
+        router.put(
+            `/settings/master-data/currencies/${currency.id}`,
+            {
+                code: currency.code,
+                name: currency.name,
+                symbol: currency.symbol,
+                precision: currency.precision,
+                is_active: !currency.is_active,
+            },
+            {
+                preserveScroll: true,
+            }
+        );
+    };
+
     return (
         <>
             <Head title="Currencies" />
@@ -149,19 +166,19 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                         <div className="min-w-[760px]">
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
                         <div className="col-span-2">Code</div>
-                        <div className="col-span-4">Name</div>
+                        <div className="col-span-5">Name</div>
                         <div className="col-span-2">Symbol</div>
-                        <div className="col-span-1">Prec</div>
                         <div className="col-span-1">Active</div>
                         <div className="col-span-2 text-right">Actions</div>
                     </div>
                     {rows.map((c) => (
                         <div key={c.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
                             <div className="col-span-2 font-mono text-sm">{c.code}</div>
-                            <div className="col-span-4 text-sm truncate">{c.name}</div>
+                            <div className="col-span-5 text-sm truncate">{c.name}</div>
                             <div className="col-span-2 text-sm text-muted-foreground">{c.symbol ?? '—'}</div>
-                            <div className="col-span-1 text-sm">{c.precision}</div>
-                            <div className="col-span-1 text-sm">{c.is_active ? 'Yes' : 'No'}</div>
+                            <div className="col-span-1 flex items-center">
+                                <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+                            </div>
                             <div className="col-span-2 flex justify-end gap-2 flex-nowrap">
                                 <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
                                     Edit
@@ -225,20 +242,6 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                                 />
                                 {form.errors.symbol ? (
                                     <div className="text-xs font-medium text-destructive">{form.errors.symbol}</div>
-                                ) : null}
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="precision">Precision</Label>
-                                <Input
-                                    id="precision"
-                                    type="number"
-                                    min={0}
-                                    max={4}
-                                    value={form.data.precision}
-                                    onChange={(e) => form.setData('precision', Number(e.target.value))}
-                                />
-                                {form.errors.precision ? (
-                                    <div className="text-xs font-medium text-destructive">{form.errors.precision}</div>
                                 ) : null}
                             </div>
                         </div>

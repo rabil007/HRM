@@ -51,7 +51,6 @@ test('authenticated users can create and update a currency', function () {
         'code' => 'TST',
         'name' => 'Test Currency',
         'symbol' => 'T$',
-        'precision' => 2,
     ])->assertRedirect('/settings/master-data/currencies');
 
     $currencyId = Currency::query()->where('code', 'TST')->value('id');
@@ -61,7 +60,6 @@ test('authenticated users can create and update a currency', function () {
         'code' => 'TST',
         'name' => 'Test Currency Updated',
         'symbol' => 'T$',
-        'precision' => 2,
         'is_active' => true,
     ])->assertRedirect('/settings/master-data/currencies');
 

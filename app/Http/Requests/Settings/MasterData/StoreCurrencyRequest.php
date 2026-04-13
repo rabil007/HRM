@@ -23,7 +23,6 @@ class StoreCurrencyRequest extends FormRequest
             'code' => ['required', 'string', 'size:3', 'unique:currencies,code'],
             'name' => ['required', 'string', 'max:60'],
             'symbol' => ['nullable', 'string', 'max:10'],
-            'precision' => ['nullable', 'integer', 'min:0', 'max:4'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

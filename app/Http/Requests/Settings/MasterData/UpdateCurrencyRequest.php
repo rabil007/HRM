@@ -29,7 +29,6 @@ class UpdateCurrencyRequest extends FormRequest
             ],
             'name' => ['required', 'string', 'max:60'],
             'symbol' => ['nullable', 'string', 'max:10'],
-            'precision' => ['nullable', 'integer', 'min:0', 'max:4'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

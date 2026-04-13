@@ -4,6 +4,7 @@ import Heading from '@/components/heading';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import {
     Sheet,
     SheetContent,
@@ -118,6 +119,21 @@ export default function Countries({ countries }: { countries: Country[] }) {
         });
     };
 
+    const toggleActive = (country: Country) => {
+        router.put(
+            `/settings/master-data/countries/${country.id}`,
+            {
+                code: country.code,
+                name: country.name,
+                dial_code: country.dial_code,
+                is_active: !country.is_active,
+            },
+            {
+                preserveScroll: true,
+            }
+        );
+    };
+
     return (
         <>
             <Head title="Countries" />
@@ -155,7 +171,9 @@ export default function Countries({ countries }: { countries: Country[] }) {
                             <div className="col-span-2 font-mono text-sm">{c.code}</div>
                             <div className="col-span-4 text-sm truncate">{c.name}</div>
                             <div className="col-span-2 text-sm text-muted-foreground">{c.dial_code ?? '—'}</div>
-                            <div className="col-span-1 text-sm">{c.is_active ? 'Yes' : 'No'}</div>
+                            <div className="col-span-1 flex items-center">
+                                <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+                            </div>
                             <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
                                 <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
                                     Edit

@@ -22,11 +22,4 @@ export default function Appearance() {
     );
 }
 
-Appearance.layout = {
-    breadcrumbs: [
-        {
-            title: 'Appearance settings',
-            href: editAppearance(),
-        },
-    ],
-};
+Appearance.layout = {};

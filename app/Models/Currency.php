@@ -16,7 +16,6 @@ class Currency extends Model
     {
         return [
             'is_active' => 'boolean',
-            'precision' => 'integer',
         ];
     }
 
