@@ -1,5 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import {
+    Filter,
     Plus,
     Search,
 } from 'lucide-react';
@@ -239,6 +240,7 @@ export function CompaniesContent({
                     className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
                     onClick={() => setIsFiltersOpen(true)}
                 >
+                    <Filter className="mr-2 h-4 w-4" />
                     Filters
                 </Button>
             </div>

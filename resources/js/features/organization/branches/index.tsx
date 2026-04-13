@@ -1,11 +1,13 @@
 import { router, useForm } from '@inertiajs/react';
-import { Plus, Search } from 'lucide-react';
+import { Filter, Plus, Search } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { BranchCard } from './components/branch-card';
 import { BranchDeleteDialog } from './components/branch-delete-dialog';
+import { BranchFiltersSheet  } from './components/branch-filters-sheet';
+import type {BranchFilters} from './components/branch-filters-sheet';
 import { BranchFormSheet } from './components/branch-form-sheet';
 import type { Branch, BranchFormData, Company, Country } from './types';
 
@@ -20,8 +22,18 @@ export function BranchesContent({
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+    const [filters, setFilters] = useState<BranchFilters>({
+        company_id: '',
+        country: '',
+        status: '',
+        headquartersOnly: false,
+        hasEmail: false,
+        hasPhone: false,
+        city: '',
+    });
 
     const form = useForm<BranchFormData>({
         company_id: '',
@@ -95,20 +107,76 @@ export function BranchesContent({
     const filteredBranches = useMemo(() => {
         const query = searchQuery.trim().toLowerCase();
 
-        if (!query) {
-            return branches;
-        }
+        return branches
+            .filter((b) => {
+                if (filters.company_id && String(b.company.id ?? '') !== filters.company_id) {
+                    return false;
+                }
 
-        return branches.filter((b) => {
-            return (
-                b.name.toLowerCase().includes(query) ||
-                (b.code ?? '').toLowerCase().includes(query) ||
-                (b.company.name ?? '').toLowerCase().includes(query) ||
-                (`${b.city ?? ''} ${b.country ?? ''}`.trim().toLowerCase().includes(query)) ||
-                (b.email ?? '').toLowerCase().includes(query)
-            );
+                if (filters.country && (b.country ?? '') !== filters.country) {
+                    return false;
+                }
+
+                if (filters.status && (b.status ?? '') !== filters.status) {
+                    return false;
+                }
+
+                if (filters.headquartersOnly && b.is_headquarters !== true) {
+                    return false;
+                }
+
+                if (filters.hasEmail && !(b.email ?? '').trim()) {
+                    return false;
+                }
+
+                if (filters.hasPhone && !(b.phone ?? '').trim()) {
+                    return false;
+                }
+
+                if (filters.city && !(b.city ?? '').toLowerCase().includes(filters.city.trim().toLowerCase())) {
+                    return false;
+                }
+
+                return true;
+            })
+            .filter((b) => {
+                if (!query) {
+                    return true;
+                }
+
+                return (
+                    b.name.toLowerCase().includes(query) ||
+                    (b.code ?? '').toLowerCase().includes(query) ||
+                    (b.company.name ?? '').toLowerCase().includes(query) ||
+                    (`${b.city ?? ''} ${b.country ?? ''}`.trim().toLowerCase().includes(query)) ||
+                    (b.email ?? '').toLowerCase().includes(query)
+                );
+            });
+    }, [branches, filters, searchQuery]);
+
+    const activeFiltersCount = useMemo(() => {
+        return [
+            filters.company_id,
+            filters.country,
+            filters.status,
+            filters.city.trim(),
+            filters.headquartersOnly ? '1' : '',
+            filters.hasEmail ? '1' : '',
+            filters.hasPhone ? '1' : '',
+        ].filter(Boolean).length;
+    }, [filters]);
+
+    const resetFilters = () => {
+        setFilters({
+            company_id: '',
+            country: '',
+            status: '',
+            headquartersOnly: false,
+            hasEmail: false,
+            hasPhone: false,
+            city: '',
         });
-    }, [branches, searchQuery]);
+    };
 
     const submit = () => {
         if (currentBranch) {
@@ -161,6 +229,20 @@ export function BranchesContent({
                         className="pl-10 rounded-xl border-white/5 bg-white/5 focus-visible:ring-primary/20 focus-visible:bg-white/10 transition-all py-6 text-base"
                     />
                 </div>
+                <Button
+                    type="button"
+                    variant="secondary"
+                    className="rounded-xl h-12 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                    onClick={() => setIsFiltersOpen(true)}
+                >
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filters
+                    {activeFiltersCount ? (
+                        <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                            {activeFiltersCount}
+                        </span>
+                    ) : null}
+                </Button>
             </div>
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -195,6 +277,16 @@ export function BranchesContent({
                 onOpenChange={setIsDeleteDialogOpen}
                 branch={currentBranch}
                 onConfirm={confirmDelete}
+            />
+
+            <BranchFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                companies={companies}
+                countries={countries}
+                value={filters}
+                onChange={setFilters}
+                onReset={resetFilters}
             />
         </Main>
     );
