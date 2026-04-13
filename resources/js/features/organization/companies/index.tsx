@@ -1,20 +1,15 @@
 import { router, useForm } from '@inertiajs/react';
 import {
-    Download,
     Filter,
     Plus,
-    Search,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { EmptyState } from '@/components/empty-state';
+import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
+import { PageHeader } from '@/components/page-header';
+import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
@@ -197,7 +192,7 @@ export function CompaniesContent({
         });
     }, [companies, searchQuery, filters]);
 
-    const exportCompanies = (format: 'csv' | 'xlsx' | 'pdf') => {
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
 
         if (searchQuery.trim()) {
@@ -230,7 +225,7 @@ export function CompaniesContent({
 
         params.set('format', format);
 
-        window.location.href = `/organization/companies/export?${params.toString()}`;
+        return `/organization/companies/export?${params.toString()}`;
     };
 
     const submit = () => {
@@ -251,62 +246,40 @@ export function CompaniesContent({
 
     return (
         <Main>
-            <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-                <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
-                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                            Organization Management
-                        </span>
-                    </div>
-                    <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
-                        Companies
-                    </h1>
-                    <p className="text-sm text-muted-foreground/80 font-medium">
-                        Manage your multi-company structure and general information.
-                    </p>
-                </div>
-                <div className="flex items-center gap-3">
+            <PageHeader
+                title="Companies"
+                description="Manage your multi-company structure and general information."
+                right={
                     <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
                         <Plus className="mr-2 h-4 w-4" />
                         Add Company
                     </Button>
-                </div>
-            </div>
+                }
+            />
 
-            <div className="flex items-center gap-4 mb-8">
-                <div className="relative flex-1 group">
-                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground transition-colors group-focus-within:text-foreground" />
-                    <Input 
-                        placeholder="Search companies by name, industry, or location..." 
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-10 rounded-xl border-white/5 bg-white/5 focus-visible:ring-primary/20 focus-visible:bg-white/10 transition-all py-6 text-base"
-                    />
-                </div>
-                <Button
-                    variant="outline"
-                    className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
-                    onClick={() => setIsFiltersOpen(true)}
-                >
-                    <Filter className="mr-2 h-4 w-4" />
-                    Filters
-                </Button>
-
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export
+            <SearchBar
+                placeholder="Search companies by name, industry, or location..."
+                value={searchQuery}
+                onChange={setSearchQuery}
+                right={
+                    <>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
                         </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => exportCompanies('csv')}>CSV</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportCompanies('xlsx')}>Excel</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => exportCompanies('pdf')}>PDF</DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            </div>
+
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="outline"
+                            buttonClassName="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
+                        />
+                    </>
+                }
+            />
 
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {filteredCompanies.map((company) => (
@@ -318,6 +291,10 @@ export function CompaniesContent({
                     />
                 ))}
             </div>
+
+            {filteredCompanies.length === 0 ? (
+                <EmptyState title="No companies found." />
+            ) : null}
 
             <CompanyFormSheet
                 open={isSheetOpen}
