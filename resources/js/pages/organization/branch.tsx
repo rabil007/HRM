@@ -1,9 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { Building2, Mail, MapPin, Phone, Store } from 'lucide-react';
+import { useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BranchFormSheet } from '@/features/organization/branches/components/branch-form-sheet';
+import type { Branch as SheetBranch, BranchFormData, Company, Country } from '@/features/organization/branches/types';
 
 type Branch = {
     id: number;
@@ -32,8 +35,51 @@ function Field({ label, value }: { label: string; value: string }) {
     );
 }
 
-export default function BranchDetails({ branch }: { branch: Branch }) {
+export default function BranchDetails({
+    branch,
+    companies,
+    countries,
+}: {
+    branch: Branch;
+    companies: Company[];
+    countries: Country[];
+}) {
     const location = [branch.city, branch.country].filter(Boolean).join(', ') || '—';
+    const [editOpen, setEditOpen] = useState(false);
+
+    const form = useForm<BranchFormData>({
+        company_id: branch.company.id ?? '',
+        name: branch.name ?? '',
+        code: branch.code ?? '',
+        address: branch.address ?? '',
+        city: branch.city ?? '',
+        country: branch.country ?? '',
+        phone: branch.phone ?? '',
+        email: branch.email ?? '',
+        is_headquarters: branch.is_headquarters ?? false,
+        status: branch.status ?? 'active',
+    });
+
+    const sheetBranch: SheetBranch = {
+        id: branch.id,
+        company: { id: branch.company.id ?? 0, name: branch.company.name ?? null },
+        name: branch.name,
+        code: branch.code,
+        address: branch.address,
+        city: branch.city,
+        country: branch.country,
+        phone: branch.phone,
+        email: branch.email,
+        is_headquarters: branch.is_headquarters,
+        status: branch.status,
+    };
+
+    const submit = () => {
+        form.put(`/organization/branches/${branch.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setEditOpen(false),
+        });
+    };
 
     return (
         <>
@@ -62,6 +108,13 @@ export default function BranchDetails({ branch }: { branch: Branch }) {
                             asChild
                         >
                             <a href="/organization/branches">Back to branches</a>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
+                            onClick={() => setEditOpen(true)}
+                        >
+                            Edit
                         </Button>
                         {branch.company.id ? (
                             <Button className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6" asChild>
@@ -150,6 +203,16 @@ export default function BranchDetails({ branch }: { branch: Branch }) {
                         </CardContent>
                     </Card>
                 </div>
+
+                <BranchFormSheet
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                    branch={sheetBranch}
+                    companies={companies}
+                    countries={countries}
+                    form={form}
+                    onSubmit={submit}
+                />
             </Main>
         </>
     );

@@ -1,9 +1,12 @@
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import { Building2, ExternalLink, Globe, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { CompanyFormSheet } from '@/features/organization/companies/components/company-form-sheet';
+import type { Company as SheetCompany, CompanyFormData, Country, Currency } from '@/features/organization/companies/types';
 
 type Company = {
     id: number;
@@ -57,13 +60,80 @@ function Field({ label, value }: { label: string; value: string }) {
     );
 }
 
-export default function CompanyDetails({ company, branches }: { company: Company; branches: Branch[] }) {
+export default function CompanyDetails({
+    company,
+    branches,
+    countries,
+    currencies,
+}: {
+    company: Company;
+    branches: Branch[];
+    countries: Country[];
+    currencies: Currency[];
+}) {
+    const [editOpen, setEditOpen] = useState(false);
+
+    const form = useForm<CompanyFormData>({
+        logo: null as File | null,
+        name: company.name ?? '',
+        industry: company.industry ?? '',
+        company_size: company.company_size ?? '',
+        registration_number: company.registration_number ?? '',
+        tax_id: company.tax_id ?? '',
+        city: company.city ?? '',
+        address: company.address ?? '',
+        phone: company.phone ?? '',
+        country_id: company.country.id ?? '',
+        email: company.email ?? '',
+        website: company.website ?? '',
+        currency_id: company.currency.id ?? '',
+        timezone: company.timezone ?? 'Asia/Dubai',
+        fiscal_year_start: company.fiscal_year_start ?? '01-01',
+        payroll_cycle: (company.payroll_cycle as 'monthly' | 'biweekly' | 'weekly') ?? 'monthly',
+        working_days: company.working_days ?? [1, 2, 3, 4, 5],
+        wps_agent_code: company.wps_agent_code ?? '',
+        wps_mol_uid: company.wps_mol_uid ?? '',
+        status: (company.status as 'active' | 'suspended' | 'inactive') ?? 'active',
+    });
+
     const location = [company.city, company.country.code].filter(Boolean).join(', ') || '—';
     const website = company.website
         ? company.website.startsWith('http')
             ? company.website
             : `https://${company.website}`
         : null;
+
+    const sheetCompany: SheetCompany = {
+        id: company.id,
+        name: company.name,
+        slug: company.slug,
+        logo_url: company.logo_url,
+        industry: company.industry,
+        city: company.city,
+        country: { id: company.country.id, code: company.country.code, name: company.country.name },
+        company_size: company.company_size,
+        registration_number: company.registration_number,
+        tax_id: company.tax_id,
+        address: company.address,
+        phone: company.phone,
+        email: company.email,
+        website: company.website,
+        currency: { id: company.currency.id, code: company.currency.code },
+        timezone: company.timezone,
+        fiscal_year_start: company.fiscal_year_start,
+        payroll_cycle: company.payroll_cycle,
+        working_days: company.working_days,
+        wps_agent_code: company.wps_agent_code,
+        wps_mol_uid: company.wps_mol_uid,
+        status: company.status as 'active' | 'suspended' | 'inactive' | null,
+    };
+
+    const submit = () => {
+        form.put(`/organization/companies/${company.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setEditOpen(false),
+        });
+    };
 
     return (
         <>
@@ -92,6 +162,13 @@ export default function CompanyDetails({ company, branches }: { company: Company
                             asChild
                         >
                             <a href="/organization/companies">Back to companies</a>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
+                            onClick={() => setEditOpen(true)}
+                        >
+                            Edit
                         </Button>
                         {website ? (
                             <Button className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6" asChild>
@@ -254,6 +331,16 @@ export default function CompanyDetails({ company, branches }: { company: Company
                         </div>
                     ) : null}
                 </div>
+
+                <CompanyFormSheet
+                    open={editOpen}
+                    onOpenChange={setEditOpen}
+                    company={sheetCompany}
+                    countries={countries}
+                    currencies={currencies}
+                    form={form}
+                    onSubmit={submit}
+                />
             </Main>
         </>
     );

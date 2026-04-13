@@ -46,12 +46,24 @@ class CompanyController extends Controller
                     'code' => $company->country?->code,
                     'name' => $company->country?->name,
                 ],
+                'company_size' => $company->company_size,
+                'registration_number' => $company->registration_number,
+                'tax_id' => $company->tax_id,
+                'address' => $company->address,
+                'phone' => $company->phone,
                 'email' => $company->email,
                 'website' => $company->website,
                 'currency' => [
                     'id' => $company->currency_id,
                     'code' => $company->currency?->code,
                 ],
+                'timezone' => $company->timezone,
+                'fiscal_year_start' => $company->fiscal_year_start,
+                'payroll_cycle' => $company->payroll_cycle,
+                'working_days' => $company->working_days,
+                'wps_agent_code' => $company->wps_agent_code,
+                'wps_mol_uid' => $company->wps_mol_uid,
+                'status' => $company->status,
                 'created_at' => $company->created_at,
             ]);
 
@@ -66,6 +78,16 @@ class CompanyController extends Controller
     {
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
+
+        $countries = Country::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'code', 'name', 'dial_code']);
+
+        $currencies = Currency::query()
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name', 'symbol']);
 
         $company->load([
             'country:id,code,name,dial_code',
@@ -126,6 +148,8 @@ class CompanyController extends Controller
                     'status' => $branch->status,
                     'created_at' => $branch->created_at,
                 ]),
+            'countries' => $countries,
+            'currencies' => $currencies,
         ]);
     }
 

@@ -54,6 +54,15 @@ class BranchController extends Controller
 
     public function show(Branch $branch)
     {
+        $companies = Company::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $countries = Country::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['code', 'name', 'dial_code']);
+
         $branch->load(['company:id,name,slug']);
 
         return Inertia::render('organization/branch', [
@@ -76,6 +85,8 @@ class BranchController extends Controller
                 'created_at' => $branch->created_at,
                 'updated_at' => $branch->updated_at,
             ],
+            'companies' => $companies,
+            'countries' => $countries,
         ]);
     }
 
