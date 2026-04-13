@@ -1,3 +1,4 @@
+import { usePage } from '@inertiajs/react';
 import {
     Sidebar,
     SidebarContent,
@@ -13,11 +14,14 @@ import { TeamSwitcher } from './team-switcher';
 
 export function AppSidebar() {
     const { collapsible, variant } = useLayout();
+    const { company_switcher_companies: companies } = usePage().props as {
+        company_switcher_companies: { id: number; name: string }[];
+    };
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>
             <SidebarHeader>
-                <TeamSwitcher teams={sidebarData.teams} />
+                <TeamSwitcher teams={companies.map((c) => ({ id: c.id, name: c.name }))} />
             </SidebarHeader>
             <SidebarContent>
                 {sidebarData.navGroups.map((props) => (

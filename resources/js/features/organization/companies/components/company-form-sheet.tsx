@@ -302,22 +302,20 @@ export function CompanyFormSheet({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label
-                                    htmlFor="timezone"
-                                    className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
-                                >
-                                    Timezone
-                                </Label>
-                                <Input
-                                    id="timezone"
-                                    placeholder="Asia/Dubai"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
-                                    value={form.data.timezone}
-                                    onChange={(e) => form.setData('timezone', e.target.value)}
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="timezone"
+                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            >
+                                Timezone
+                            </Label>
+                            <Input
+                                id="timezone"
+                                placeholder="Asia/Dubai"
+                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                value={form.data.timezone}
+                                onChange={(e) => form.setData('timezone', e.target.value)}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
