@@ -3,6 +3,7 @@
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\PositionController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
@@ -29,6 +30,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/departments', [DepartmentController::class, 'store'])->name('organization.departments.store');
     Route::put('organization/departments/{department}', [DepartmentController::class, 'update'])->name('organization.departments.update');
     Route::delete('organization/departments/{department}', [DepartmentController::class, 'destroy'])->name('organization.departments.destroy');
+
+    Route::get('organization/positions', [PositionController::class, 'index'])->name('organization.positions');
+    Route::get('organization/positions/export', [PositionController::class, 'export'])->name('organization.positions.export');
+    Route::get('organization/positions/{position}', [PositionController::class, 'show'])->name('organization.positions.show');
+    Route::post('organization/positions', [PositionController::class, 'store'])->name('organization.positions.store');
+    Route::put('organization/positions/{position}', [PositionController::class, 'update'])->name('organization.positions.update');
+    Route::delete('organization/positions/{position}', [PositionController::class, 'destroy'])->name('organization.positions.destroy');
 });
 
 require __DIR__.'/settings.php';
