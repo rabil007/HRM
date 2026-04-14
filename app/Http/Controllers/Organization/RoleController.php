@@ -91,7 +91,7 @@ class RoleController extends Controller
 
         $role->syncPermissions($data['permissions'] ?? []);
 
-        return redirect()->route('organization.roles');
+        return redirect()->route('organization.roles.show', $role);
     }
 
     public function update(Request $request, Role $role)

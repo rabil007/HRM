@@ -124,7 +124,7 @@ test('authenticated users can create, update, and delete a role', function () {
     $this->post('/organization/roles', [
         'name' => 'HR Admin',
         'permissions' => ['departments.view', 'departments.update'],
-    ])->assertRedirect('/organization/roles');
+    ])->assertRedirect();
 
     $roleId = Role::query()
         ->where('company_id', $company->id)

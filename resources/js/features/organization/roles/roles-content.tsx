@@ -28,7 +28,6 @@ export function RolesContent({
 
     const form = useForm<RoleFormData>({
         name: '',
-        permissions: [],
     });
 
     const handleAdd = () => {
@@ -37,7 +36,6 @@ export function RolesContent({
         form.clearErrors();
         form.setData({
             name: '',
-            permissions: [],
         });
         setIsSheetOpen(true);
     };
@@ -48,7 +46,6 @@ export function RolesContent({
         form.clearErrors();
         form.setData({
             name: role.name ?? '',
-            permissions: role.permissions ?? [],
         });
         setIsSheetOpen(true);
     };
@@ -141,7 +138,6 @@ export function RolesContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 role={currentRole}
-                permissions={permissions}
                 form={form}
                 onSubmit={submit}
             />

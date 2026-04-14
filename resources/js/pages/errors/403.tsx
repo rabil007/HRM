@@ -1,4 +1,4 @@
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -19,8 +19,21 @@ export default function Forbidden() {
                             <Button asChild className="rounded-xl h-11 px-5">
                                 <a href="/dashboard">Back to dashboard</a>
                             </Button>
-                            <Button asChild variant="secondary" className="rounded-xl h-11 px-5 border border-white/5 bg-white/5 hover:bg-white/10">
-                                <a href="javascript:history.back()">Go back</a>
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="rounded-xl h-11 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                                onClick={() => {
+                                    if (window.history.length > 1) {
+                                        window.history.back();
+
+                                        return;
+                                    }
+
+                                    router.visit('/dashboard');
+                                }}
+                            >
+                                Go back
                             </Button>
                         </div>
                     </CardContent>
