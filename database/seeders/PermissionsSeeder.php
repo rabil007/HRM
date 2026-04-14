@@ -16,6 +16,18 @@ class PermissionsSeeder extends Seeder
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         $permissions = [
+            'settings.security.view',
+            'settings.security.update',
+            'settings.appearance.view',
+            'settings.master-data.countries.view',
+            'settings.master-data.countries.create',
+            'settings.master-data.countries.update',
+            'settings.master-data.countries.delete',
+            'settings.master-data.currencies.view',
+            'settings.master-data.currencies.create',
+            'settings.master-data.currencies.update',
+            'settings.master-data.currencies.delete',
+
             'companies.view',
             'companies.create',
             'companies.update',

@@ -7,16 +7,18 @@ import {
     SidebarRail,
 } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
-import { sidebarData } from './data/sidebar-data';
+import { getSidebarData } from './data/sidebar-data';
 import { NavGroup } from './nav-group';
 import { NavUser } from './nav-user';
 import { TeamSwitcher } from './team-switcher';
 
 export function AppSidebar() {
     const { collapsible, variant } = useLayout();
-    const { company_switcher_companies: companies = [] } = usePage().props as unknown as {
+    const { company_switcher_companies: companies = [], auth } = usePage().props as unknown as {
         company_switcher_companies?: { id: number; name: string }[];
+        auth?: { permissions?: string[] };
     };
+    const sidebarData = getSidebarData(auth?.permissions ?? []);
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>

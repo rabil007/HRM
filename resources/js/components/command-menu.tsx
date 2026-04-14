@@ -1,7 +1,8 @@
 import { router } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import { ArrowRight, ChevronRight, Laptop, Moon, Sun } from 'lucide-react';
 import React from 'react';
-import { sidebarData } from '@/components/layout/data/sidebar-data';
+import { getSidebarData } from '@/components/layout/data/sidebar-data';
 import {
     CommandDialog,
     CommandEmpty,
@@ -18,6 +19,8 @@ import { useAppearance } from '@/hooks/use-appearance';
 export function CommandMenu() {
     const { updateAppearance } = useAppearance();
     const { open, setOpen } = useSearch();
+    const { auth } = usePage().props as unknown as { auth?: { permissions?: string[] } };
+    const sidebarData = getSidebarData(auth?.permissions ?? []);
 
     const runCommand = React.useCallback(
         (command: () => unknown) => {

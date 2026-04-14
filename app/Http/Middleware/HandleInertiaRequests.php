@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
+use Spatie\Permission\PermissionRegistrar;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -49,6 +50,10 @@ class HandleInertiaRequests extends Middleware
             if (empty($companies) && $user->company_id) {
                 $fallback = Company::query()->whereKey($user->company_id)->get(['id', 'name'])->all();
                 $companies = $fallback;
+            }
+
+            if ($currentCompanyId) {
+                app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
             }
 
             $permissions = $user->getAllPermissions()->pluck('name')->all();

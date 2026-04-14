@@ -32,7 +32,7 @@ import type { SidebarData } from '../types';
 const placeholder = (key: string) =>
     `${dashboard.url()}?module=${encodeURIComponent(key)}`;
 
-export const sidebarData: SidebarData = {
+const baseSidebarData: SidebarData = {
     teams: [
         {
             name: 'OMS-HRM',
@@ -139,3 +139,85 @@ export const sidebarData: SidebarData = {
         },
     ],
 };
+
+function has(permissions: string[], permission: string): boolean {
+    return permissions.includes(permission);
+}
+
+export function getSidebarData(permissions: string[]): SidebarData {
+    const groups = baseSidebarData.navGroups
+        .map((group) => {
+            const items = group.items
+                .map((item) => {
+                    if ('items' in item && item.items) {
+                        const filteredSub = item.items.filter((sub) => {
+                            if (sub.url === editSecurity.url()) {
+                                return has(permissions, 'settings.security.view');
+                            }
+
+                            if (sub.url === editAppearance.url()) {
+                                return has(permissions, 'settings.appearance.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/countries') {
+                                return has(permissions, 'settings.master-data.countries.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/currencies') {
+                                return has(permissions, 'settings.master-data.currencies.view');
+                            }
+
+                            return true;
+                        });
+
+                        if (!filteredSub.length) {
+                            return null;
+                        }
+
+                        return {
+                            ...item,
+                            items: filteredSub,
+                        };
+                    }
+
+                    if (!('url' in item) || !item.url) {
+                        return item;
+                    }
+
+                    switch (item.url) {
+                        case '/organization/companies':
+                            return has(permissions, 'companies.view') ? item : null;
+                        case '/organization/branches':
+                            return has(permissions, 'branches.view') ? item : null;
+                        case '/organization/departments':
+                            return has(permissions, 'departments.view') ? item : null;
+                        case '/organization/positions':
+                            return has(permissions, 'positions.view') ? item : null;
+                        case '/organization/roles':
+                            return has(permissions, 'roles.view') ? item : null;
+                        case '/organization/users':
+                            return has(permissions, 'users.view') ? item : null;
+                        default:
+                            return item;
+                    }
+                })
+                .filter(Boolean);
+
+            if (!items.length) {
+                return null;
+            }
+
+            return {
+                ...group,
+                items,
+            };
+        })
+        .filter(Boolean);
+
+    return {
+        ...baseSidebarData,
+        navGroups: groups,
+    } as SidebarData;
+}
+
+export const sidebarData = baseSidebarData;

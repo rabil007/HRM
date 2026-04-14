@@ -1,9 +1,42 @@
 <?php
 
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Fortify\Features;
+
+function setupCompanyWithSettingsPermissions(User $user, array $permissions): void
+{
+    $country = Country::query()->create([
+        'code' => 'CMP',
+        'name' => 'CompanyLand',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CMP',
+        'name' => 'Company Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, $permissions);
+}
 
 test('security page is displayed', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
@@ -14,6 +47,7 @@ test('security page is displayed', function () {
     ]);
 
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view']);
 
     $this->actingAs($user)
         ->withSession(['auth.password_confirmed_at' => time()])
@@ -29,6 +63,7 @@ test('security page requires password confirmation when enabled', function () {
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view']);
 
     Features::twoFactorAuthentication([
         'confirm' => true,
@@ -45,6 +80,7 @@ test('security page does not require password confirmation when disabled', funct
     $this->skipUnlessFortifyHas(Features::twoFactorAuthentication());
 
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view']);
 
     Features::twoFactorAuthentication([
         'confirm' => true,
@@ -65,6 +101,7 @@ test('security page renders without two factor when feature is disabled', functi
     config(['fortify.features' => []]);
 
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view']);
 
     $this->actingAs($user)
         ->get(route('security.edit'))
@@ -79,6 +116,7 @@ test('security page renders without two factor when feature is disabled', functi
 
 test('password can be updated', function () {
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view', 'settings.security.update']);
 
     $response = $this
         ->actingAs($user)
@@ -98,6 +136,7 @@ test('password can be updated', function () {
 
 test('correct password must be provided to update password', function () {
     $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.security.view', 'settings.security.update']);
 
     $response = $this
         ->actingAs($user)
