@@ -19,7 +19,7 @@ export type UserFormData = {
     name: string;
     email: string;
     password: string;
-    avatar: string;
+    avatar: File | null;
     status: 'active' | 'inactive' | 'suspended';
 };
 

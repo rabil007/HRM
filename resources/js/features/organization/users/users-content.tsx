@@ -34,7 +34,7 @@ export function UsersContent({
         name: '',
         email: '',
         password: '',
-        avatar: '',
+        avatar: null,
         status: 'active',
     });
 
@@ -46,7 +46,7 @@ export function UsersContent({
             name: '',
             email: '',
             password: '',
-            avatar: '',
+            avatar: null,
             status: 'active',
         });
         setIsSheetOpen(true);
@@ -60,7 +60,7 @@ export function UsersContent({
             name: user.name ?? '',
             email: user.email ?? '',
             password: '',
-            avatar: user.avatar ?? '',
+            avatar: null,
             status: user.status ?? 'active',
         });
         setIsSheetOpen(true);
@@ -75,6 +75,7 @@ export function UsersContent({
         if (currentUser) {
             form.put(`/organization/users/${currentUser.id}`, {
                 preserveScroll: true,
+                forceFormData: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
 
@@ -83,6 +84,7 @@ export function UsersContent({
 
         form.post('/organization/users', {
             preserveScroll: true,
+            forceFormData: true,
             onSuccess: () => setIsSheetOpen(false),
         });
     };

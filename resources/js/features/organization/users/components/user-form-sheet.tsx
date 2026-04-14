@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { useId, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,13 @@ export function UserFormSheet({
     form: InertiaFormProps<UserFormData>;
     onSubmit: () => void;
 }) {
+    const avatarId = useId();
+    const avatarLabel = useMemo(() => {
+        const name = form.data.avatar?.name?.trim();
+
+        return name ? name : 'No file selected';
+    }, [form.data.avatar]);
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent side="right" className="w-full sm:max-w-lg border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
@@ -49,16 +57,32 @@ export function UserFormSheet({
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="avatar" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    Avatar URL (optional)
+                                <Label htmlFor={avatarId} className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Avatar (optional)
                                 </Label>
                                 <Input
-                                    id="avatar"
-                                    placeholder="https://..."
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
-                                    value={form.data.avatar}
-                                    onChange={(e) => form.setData('avatar', e.target.value)}
+                                    id={avatarId}
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(e) => {
+                                        const file = e.currentTarget.files?.[0] ?? null;
+                                        form.setData('avatar', file);
+                                    }}
                                 />
+                                <div className="flex items-center gap-3">
+                                    <Button
+                                        asChild
+                                        type="button"
+                                        variant="secondary"
+                                        className="rounded-xl h-11 px-4 border border-white/5 bg-white/5 hover:bg-white/10"
+                                    >
+                                        <label htmlFor={avatarId}>Upload</label>
+                                    </Button>
+                                    <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm flex items-center text-muted-foreground/80">
+                                        <span className="truncate">{avatarLabel}</span>
+                                    </div>
+                                </div>
                                 {form.errors.avatar ? <div className="text-xs font-medium text-destructive">{form.errors.avatar}</div> : null}
                             </div>
                         </div>

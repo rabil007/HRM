@@ -125,6 +125,7 @@ test('authenticated users can create, update, and delete a user', function () {
 
     $userId = User::query()->where('email', 'john@example.com')->value('id');
     expect($userId)->not->toBeNull();
+    $this->assertDatabaseHas('users', ['id' => $userId, 'company_id' => $company->id]);
 
     $this->put("/organization/users/{$userId}", [
         'name' => 'John Updated',

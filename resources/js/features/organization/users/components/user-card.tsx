@@ -28,7 +28,13 @@ export function UserCard({
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <UserIcon className="h-4 w-4 text-primary/80" />
+                            <div className="h-8 w-8 rounded-xl bg-white/6 border border-white/10 shrink-0 overflow-hidden flex items-center justify-center text-foreground/80">
+                                {user.avatar ? (
+                                    <img src={user.avatar} alt={user.name} className="h-full w-full object-cover" loading="lazy" />
+                                ) : (
+                                    <UserIcon className="h-4 w-4 text-primary/80" />
+                                )}
+                            </div>
                             <CardTitle className="text-lg font-extrabold tracking-tight line-clamp-1">{user.name}</CardTitle>
                         </div>
                         <CardDescription className="mt-2 text-sm font-medium text-muted-foreground/85">
