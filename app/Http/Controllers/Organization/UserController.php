@@ -66,11 +66,11 @@ class UserController extends Controller
             ->orderBy('companies.name')
             ->get(['companies.id', 'companies.name', 'company_user.status'])
             ->map(function (Company $company) use ($user) {
-                $roleNames = DB::table('model_has_roles')
-                    ->join('spatie_roles', 'spatie_roles.id', '=', 'model_has_roles.role_id')
-                    ->where('model_has_roles.model_type', $user::class)
-                    ->where('model_has_roles.model_id', $user->id)
-                    ->where('model_has_roles.company_id', $company->id)
+                $roleNames = DB::table('spatie_model_has_roles')
+                    ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
+                    ->where('spatie_model_has_roles.model_type', $user::class)
+                    ->where('spatie_model_has_roles.model_id', $user->id)
+                    ->where('spatie_model_has_roles.company_id', $company->id)
                     ->orderBy('spatie_roles.name')
                     ->pluck('spatie_roles.name')
                     ->all();
