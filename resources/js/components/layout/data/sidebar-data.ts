@@ -22,12 +22,10 @@ import {
     BadgeCheck,
     CalendarCheck2,
     PiggyBank,
-    UserCog,
     Globe2,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
-import { edit as editProfile } from '@/routes/profile';
 import { edit as editSecurity } from '@/routes/security';
 import type { SidebarData } from '../types';
 
@@ -55,11 +53,6 @@ export const sidebarData: SidebarData = {
                     title: 'Settings',
                     icon: Settings,
                     items: [
-                        {
-                            title: 'Profile',
-                            url: editProfile.url(),
-                            icon: UserCog,
-                        },
                         {
                             title: 'Security',
                             url: editSecurity.url(),

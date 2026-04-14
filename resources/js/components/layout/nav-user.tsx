@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/sidebar';
 import useDialogState from '@/hooks/use-dialog-state';
 import { useInitials } from '@/hooks/use-initials';
-import { edit } from '@/routes/profile';
 import type { User } from '@/types';
 
 export function NavUser() {
@@ -93,7 +92,7 @@ export function NavUser() {
                             <DropdownMenuSeparator />
                             <DropdownMenuGroup>
                                 <DropdownMenuItem asChild>
-                                    <Link href={edit().url} prefetch>
+                                    <Link href={`/organization/users/${user.id}`} prefetch>
                                         <Settings />
                                         Settings
                                     </Link>
