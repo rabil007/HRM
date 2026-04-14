@@ -38,4 +38,9 @@ class Company extends Model
     {
         return $this->hasMany(Branch::class);
     }
+
+    public function roles(): HasMany
+    {
+        return $this->hasMany(Role::class);
+    }
 }

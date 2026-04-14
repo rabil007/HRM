@@ -91,7 +91,7 @@ export const sidebarData: SidebarData = {
                 { title: 'Branches', url: '/organization/branches', icon: MapPin },
                 { title: 'Departments', url: '/organization/departments', icon: Layers },
                 { title: 'Positions', url: '/organization/positions', icon: Landmark },
-                { title: 'Roles & permissions', url: placeholder('organization.roles'), icon: BadgeCheck },
+                { title: 'Roles & permissions', url: '/organization/roles', icon: BadgeCheck },
                 { title: 'Users', url: placeholder('organization.users'), icon: Users },
             ],
         },
