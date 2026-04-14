@@ -22,6 +22,7 @@ class UpdateUserRequest extends FormRequest
             'email' => ['required', 'email', 'max:255'],
             'password' => ['nullable', 'string', 'min:8', 'max:255'],
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
+            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
         ];
     }

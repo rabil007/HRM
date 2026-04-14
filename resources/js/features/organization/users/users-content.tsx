@@ -20,8 +20,10 @@ const emptyFilters: UserFilters = {
 
 export function UsersContent({
     users,
+    roles,
 }: {
     users: User[];
+    roles: { id: number; name: string }[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -35,6 +37,7 @@ export function UsersContent({
         email: '',
         password: '',
         avatar: null,
+        role_id: '',
         status: 'active',
     });
 
@@ -47,6 +50,7 @@ export function UsersContent({
             email: '',
             password: '',
             avatar: null,
+            role_id: '',
             status: 'active',
         });
         setIsSheetOpen(true);
@@ -61,6 +65,7 @@ export function UsersContent({
             email: user.email ?? '',
             password: '',
             avatar: null,
+            role_id: user.role?.id ?? '',
             status: user.status ?? 'active',
         });
         setIsSheetOpen(true);
@@ -185,6 +190,7 @@ export function UsersContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 user={currentUser}
+                roles={roles}
                 form={form}
                 onSubmit={submit}
             />

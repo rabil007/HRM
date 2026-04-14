@@ -10,8 +10,10 @@ import type { User, UserFormData } from '@/features/organization/users/types';
 
 export default function UserDetails({
     user,
+    roles,
 }: {
     user: User & { updated_at?: string };
+    roles: { id: number; name: string }[];
 }) {
     const [open, setOpen] = useState(false);
     const form = useForm<UserFormData>({
@@ -19,6 +21,7 @@ export default function UserDetails({
         email: user.email ?? '',
         password: '',
         avatar: null,
+        role_id: user.role?.id ?? '',
         status: user.status ?? 'active',
     });
 
@@ -83,6 +86,7 @@ export default function UserDetails({
                     open={open}
                     onOpenChange={setOpen}
                     user={user}
+                    roles={roles}
                     form={form}
                     onSubmit={() => {
                         form.put(`/organization/users/${user.id}`, {

@@ -10,12 +10,14 @@ export function UserFormSheet({
     open,
     onOpenChange,
     user,
+    roles,
     form,
     onSubmit,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     user: User | null;
+    roles: { id: number; name: string }[];
     form: InertiaFormProps<UserFormData>;
     onSubmit: () => void;
 }) {
@@ -85,6 +87,26 @@ export function UserFormSheet({
                                 </div>
                                 {form.errors.avatar ? <div className="text-xs font-medium text-destructive">{form.errors.avatar}</div> : null}
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="role_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                Role (optional)
+                            </Label>
+                            <select
+                                id="role_id"
+                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                value={form.data.role_id}
+                                onChange={(e) => form.setData('role_id', e.target.value ? Number(e.target.value) : '')}
+                            >
+                                <option value="">No role</option>
+                                {roles.map((r) => (
+                                    <option key={r.id} value={r.id}>
+                                        {r.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {form.errors.role_id ? <div className="text-xs font-medium text-destructive">{form.errors.role_id}</div> : null}
                         </div>
 
                         <div className="space-y-2">

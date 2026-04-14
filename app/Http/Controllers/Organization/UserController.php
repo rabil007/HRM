@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -41,24 +42,56 @@ class UserController extends Controller
         $users = User::query()
             ->where('company_id', $companyId)
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (User $user) => [
-                'id' => $user->id,
-                'company' => $user->company_id ? [
-                    'id' => $user->company_id,
-                    'name' => null,
-                ] : null,
-                'role' => null,
-                'name' => $user->name,
-                'email' => $user->email,
-                'avatar' => $this->avatarUrl($user->avatar),
-                'status' => $user->status,
-                'last_login_at' => $user->last_login_at,
-                'created_at' => $user->created_at,
+            ->paginate(20);
+
+        $roleRows = DB::table('spatie_model_has_roles')
+            ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
+            ->where('spatie_model_has_roles.model_type', User::class)
+            ->where('spatie_model_has_roles.company_id', $companyId)
+            ->whereIn('spatie_model_has_roles.model_id', $users->getCollection()->pluck('id')->all())
+            ->orderBy('spatie_roles.name')
+            ->get([
+                'spatie_model_has_roles.model_id as user_id',
+                'spatie_roles.id as role_id',
+                'spatie_roles.name as role_name',
             ]);
+
+        $roleByUserId = $roleRows
+            ->groupBy('user_id')
+            ->map(fn ($rows) => $rows->first());
+
+        $users->setCollection(
+            $users->getCollection()->map(function (User $user) use ($roleByUserId) {
+                $role = $roleByUserId->get($user->id);
+
+                return [
+                    'id' => $user->id,
+                    'company' => $user->company_id ? [
+                        'id' => $user->company_id,
+                        'name' => null,
+                    ] : null,
+                    'role' => $role ? [
+                        'id' => (int) $role->role_id,
+                        'name' => (string) $role->role_name,
+                    ] : null,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'avatar' => $this->avatarUrl($user->avatar),
+                    'status' => $user->status,
+                    'last_login_at' => $user->last_login_at,
+                    'created_at' => $user->created_at,
+                ];
+            })
+        );
+
+        $roles = SpatieRole::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('organization/users', [
             'users' => $users,
+            'roles' => $roles,
         ]);
     }
 
@@ -66,6 +99,22 @@ class UserController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $user->company_id === $companyId, 404);
+
+        $role = DB::table('spatie_model_has_roles')
+            ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
+            ->where('spatie_model_has_roles.model_type', User::class)
+            ->where('spatie_model_has_roles.model_id', $user->id)
+            ->where('spatie_model_has_roles.company_id', $companyId)
+            ->orderBy('spatie_roles.name')
+            ->first([
+                'spatie_roles.id as role_id',
+                'spatie_roles.name as role_name',
+            ]);
+
+        $roles = SpatieRole::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('organization/user', [
             'user' => [
@@ -75,9 +124,9 @@ class UserController extends Controller
                     'name' => null,
                     'slug' => null,
                 ] : null,
-                'role' => $user->role_id ? [
-                    'id' => $user->role_id,
-                    'name' => null,
+                'role' => $role ? [
+                    'id' => (int) $role->role_id,
+                    'name' => (string) $role->role_name,
                 ] : null,
                 'name' => $user->name,
                 'email' => $user->email,
@@ -87,6 +136,7 @@ class UserController extends Controller
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
             ],
+            'roles' => $roles,
         ]);
     }
 
@@ -95,6 +145,8 @@ class UserController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->validated();
         $data['company_id'] = $companyId;
+        $roleId = $data['role_id'] ?? null;
+        unset($data['role_id']);
 
         $validated = validator($data, [
             'email' => [
@@ -119,6 +171,15 @@ class UserController extends Controller
             $companyId => ['status' => 'active'],
         ]);
 
+        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
+        if (! empty($roleId)) {
+            $role = SpatieRole::query()->whereKey((int) $roleId)->firstOrFail();
+            abort_unless((int) $role->company_id === $companyId, 422);
+            $user->syncRoles([$role->name]);
+        } else {
+            $user->syncRoles([]);
+        }
+
         return redirect()->route('organization.users');
     }
 
@@ -129,6 +190,8 @@ class UserController extends Controller
 
         $data = $request->validated();
         $data['company_id'] = $companyId;
+        $roleId = $data['role_id'] ?? null;
+        unset($data['role_id']);
 
         $validated = validator($data, [
             'email' => [
@@ -157,6 +220,15 @@ class UserController extends Controller
         }
 
         $user->update($data);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
+        if (! empty($roleId)) {
+            $role = SpatieRole::query()->whereKey((int) $roleId)->firstOrFail();
+            abort_unless((int) $role->company_id === $companyId, 422);
+            $user->syncRoles([$role->name]);
+        } else {
+            $user->syncRoles([]);
+        }
 
         return redirect()->route('organization.users');
     }

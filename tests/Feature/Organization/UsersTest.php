@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 test('guests cannot access users page', function () {
     $this->get('/organization/users')->assertRedirect(route('login'));
@@ -116,21 +117,35 @@ test('authenticated users can create, update, and delete a user', function () {
 
     grantCompanyPermissions($auth, $company, ['users.create', 'users.update', 'users.delete', 'users.view']);
 
+    $role = Role::query()->firstOrCreate([
+        'company_id' => $company->id,
+        'name' => 'HR Manager',
+        'guard_name' => 'web',
+    ]);
+
     $this->post('/organization/users', [
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'password' => 'password123',
+        'role_id' => $role->id,
         'status' => 'active',
     ])->assertRedirect('/organization/users');
 
     $userId = User::query()->where('email', 'john@example.com')->value('id');
     expect($userId)->not->toBeNull();
     $this->assertDatabaseHas('users', ['id' => $userId, 'company_id' => $company->id]);
+    $this->assertDatabaseHas('spatie_model_has_roles', [
+        'company_id' => $company->id,
+        'role_id' => $role->id,
+        'model_type' => User::class,
+        'model_id' => $userId,
+    ]);
 
     $this->put("/organization/users/{$userId}", [
         'name' => 'John Updated',
         'email' => 'john@example.com',
         'password' => '',
+        'role_id' => '',
         'status' => 'inactive',
     ])->assertRedirect('/organization/users');
 

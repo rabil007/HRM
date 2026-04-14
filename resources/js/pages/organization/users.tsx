@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { UsersContent } from '@/features/organization/users';
-import type { Company, User } from '@/features/organization/users/types';
+import type { User } from '@/features/organization/users/types';
 
 type Pagination<T> = {
     data: T[];
@@ -10,15 +10,15 @@ type Pagination<T> = {
 
 export default function Users({
     users,
-    companies,
+    roles,
 }: {
     users: Pagination<User>;
-    companies: Company[];
+    roles: { id: number; name: string }[];
 }) {
     return (
         <>
             <Head title="Users" />
-            <UsersContent users={users.data} companies={companies} />
+            <UsersContent users={users.data} roles={roles} />
         </>
     );
 }
