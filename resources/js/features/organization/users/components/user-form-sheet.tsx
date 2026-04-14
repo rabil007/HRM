@@ -1,0 +1,173 @@
+import type { InertiaFormProps } from '@inertiajs/react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import type { Company, RoleOption, User, UserFormData } from '../types';
+
+export function UserFormSheet({
+    open,
+    onOpenChange,
+    user,
+    companies,
+    roles,
+    form,
+    onSubmit,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    user: User | null;
+    companies: Company[];
+    roles: RoleOption[];
+    form: InertiaFormProps<UserFormData>;
+    onSubmit: () => void;
+}) {
+    const availableRoles = (roles ?? []).filter((r) => (form.data.company_id ? r.company_id === form.data.company_id : true));
+
+    return (
+        <Sheet open={open} onOpenChange={onOpenChange}>
+            <SheetContent side="right" className="w-full sm:max-w-lg border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
+                <SheetHeader className="p-8 pb-6 border-b border-white/5">
+                    <SheetTitle className="text-xl font-bold tracking-tight text-white">{user ? 'Edit User' : 'New User'}</SheetTitle>
+                    <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
+                        {user ? 'Update user profile and access.' : 'Create a new user.'}
+                    </SheetDescription>
+                </SheetHeader>
+
+                <div className="flex-1 overflow-y-auto p-8 space-y-8">
+                    <div className="space-y-5">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="company_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Company (optional)
+                                </Label>
+                                <select
+                                    id="company_id"
+                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    value={form.data.company_id}
+                                    onChange={(e) => {
+                                        form.setData('company_id', e.target.value ? Number(e.target.value) : '');
+                                        form.setData('role_id', '');
+                                    }}
+                                >
+                                    <option value="">None</option>
+                                    {companies.map((c) => (
+                                        <option key={c.id} value={c.id}>
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {form.errors.company_id ? <div className="text-xs font-medium text-destructive">{form.errors.company_id}</div> : null}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="role_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Role (optional)
+                                </Label>
+                                <select
+                                    id="role_id"
+                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    value={form.data.role_id}
+                                    onChange={(e) => form.setData('role_id', e.target.value ? Number(e.target.value) : '')}
+                                >
+                                    <option value="">None</option>
+                                    {availableRoles.map((r) => (
+                                        <option key={r.id} value={r.id}>
+                                            {r.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {form.errors.role_id ? <div className="text-xs font-medium text-destructive">{form.errors.role_id}</div> : null}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Status
+                                </Label>
+                                <select
+                                    id="status"
+                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    value={form.data.status}
+                                    onChange={(e) => form.setData('status', e.target.value as UserFormData['status'])}
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="inactive">Inactive</option>
+                                    <option value="suspended">Suspended</option>
+                                </select>
+                                {form.errors.status ? <div className="text-xs font-medium text-destructive">{form.errors.status}</div> : null}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="avatar" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Avatar URL (optional)
+                                </Label>
+                                <Input
+                                    id="avatar"
+                                    placeholder="https://..."
+                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    value={form.data.avatar}
+                                    onChange={(e) => form.setData('avatar', e.target.value)}
+                                />
+                                {form.errors.avatar ? <div className="text-xs font-medium text-destructive">{form.errors.avatar}</div> : null}
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                Name
+                            </Label>
+                            <Input
+                                id="name"
+                                placeholder="John Doe"
+                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                value={form.data.name}
+                                onChange={(e) => form.setData('name', e.target.value)}
+                            />
+                            {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="email" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                Email
+                            </Label>
+                            <Input
+                                id="email"
+                                placeholder="user@company.com"
+                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                value={form.data.email}
+                                onChange={(e) => form.setData('email', e.target.value)}
+                            />
+                            {form.errors.email ? <div className="text-xs font-medium text-destructive">{form.errors.email}</div> : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                {user ? 'Password (leave empty to keep)' : 'Password'}
+                            </Label>
+                            <Input
+                                id="password"
+                                type="password"
+                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                value={form.data.password}
+                                onChange={(e) => form.setData('password', e.target.value)}
+                            />
+                            {form.errors.password ? <div className="text-xs font-medium text-destructive">{form.errors.password}</div> : null}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                    <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 text-muted-foreground flex-1" onClick={() => onOpenChange(false)}>
+                        Cancel
+                    </Button>
+                    <Button className="rounded-xl h-11 px-6 flex-1 font-semibold" type="button" onClick={onSubmit} disabled={form.processing}>
+                        {user ? 'Save' : 'Create'}
+                    </Button>
+                </div>
+            </SheetContent>
+        </Sheet>
+    );
+}
+

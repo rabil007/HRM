@@ -5,6 +5,7 @@ use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
+use App\Http\Controllers\Organization\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
@@ -45,6 +46,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/roles', [RoleController::class, 'store'])->name('organization.roles.store');
     Route::put('organization/roles/{role}', [RoleController::class, 'update'])->name('organization.roles.update');
     Route::delete('organization/roles/{role}', [RoleController::class, 'destroy'])->name('organization.roles.destroy');
+
+    Route::get('organization/users', [UserController::class, 'index'])->name('organization.users');
+    Route::get('organization/users/export', [UserController::class, 'export'])->name('organization.users.export');
+    Route::get('organization/users/{user}', [UserController::class, 'show'])->name('organization.users.show');
+    Route::post('organization/users', [UserController::class, 'store'])->name('organization.users.store');
+    Route::put('organization/users/{user}', [UserController::class, 'update'])->name('organization.users.update');
+    Route::delete('organization/users/{user}', [UserController::class, 'destroy'])->name('organization.users.destroy');
 });
 
 require __DIR__.'/settings.php';

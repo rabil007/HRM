@@ -92,7 +92,7 @@ export const sidebarData: SidebarData = {
                 { title: 'Departments', url: '/organization/departments', icon: Layers },
                 { title: 'Positions', url: '/organization/positions', icon: Landmark },
                 { title: 'Roles & permissions', url: '/organization/roles', icon: BadgeCheck },
-                { title: 'Users', url: placeholder('organization.users'), icon: Users },
+                { title: 'Users', url: '/organization/users', icon: Users },
             ],
         },
         {
