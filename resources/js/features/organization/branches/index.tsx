@@ -297,7 +297,6 @@ export function BranchesContent({
             <BranchFiltersSheet
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
-                companies={companies}
                 countries={countries}
                 value={filters}
                 onChange={setFilters}
