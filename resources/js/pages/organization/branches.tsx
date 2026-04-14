@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { BranchesContent } from '@/features/organization/branches';
-import type { Branch, Company, Country } from '@/features/organization/branches/types';
+import type { Branch, Country } from '@/features/organization/branches/types';
 
 type Pagination<T> = {
     data: T[];
@@ -10,17 +10,15 @@ type Pagination<T> = {
 
 export default function Branches({
     branches,
-    companies,
     countries,
 }: {
     branches: Pagination<Branch>;
-    companies: Company[];
     countries: Country[];
 }) {
     return (
         <>
             <Head title="Branches Management" />
-            <BranchesContent branches={branches.data} companies={companies} countries={countries} />
+            <BranchesContent branches={branches.data} countries={countries} />
         </>
     );
 }

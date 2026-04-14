@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Branch\StoreBranchRequest;
 use App\Http\Requests\Organization\Branch\UpdateBranchRequest;
 use App\Models\Branch;
-use App\Models\Company;
 use App\Models\Country;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -19,9 +18,7 @@ class BranchController extends Controller
 {
     public function index()
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
 
         $countries = Country::query()
             ->where('is_active', true)
@@ -29,14 +26,14 @@ class BranchController extends Controller
             ->get(['code', 'name', 'dial_code']);
 
         $branches = Branch::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id')
             ->paginate(20)
             ->through(fn (Branch $branch) => [
                 'id' => $branch->id,
                 'company' => [
                     'id' => $branch->company_id,
-                    'name' => $branch->company?->name,
+                    'name' => null,
                 ],
                 'name' => $branch->name,
                 'code' => $branch->code,
@@ -52,31 +49,27 @@ class BranchController extends Controller
 
         return Inertia::render('organization/branches', [
             'branches' => $branches,
-            'companies' => $companies,
             'countries' => $countries,
         ]);
     }
 
     public function show(Branch $branch)
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $branch->company_id === $companyId, 404);
 
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['code', 'name', 'dial_code']);
 
-        $branch->load(['company:id,name,slug']);
-
         return Inertia::render('organization/branch', [
             'branch' => [
                 'id' => $branch->id,
                 'company' => [
                     'id' => $branch->company_id,
-                    'name' => $branch->company?->name,
-                    'slug' => $branch->company?->slug,
+                    'name' => null,
+                    'slug' => null,
                 ],
                 'name' => $branch->name,
                 'code' => $branch->code,
@@ -90,7 +83,6 @@ class BranchController extends Controller
                 'created_at' => $branch->created_at,
                 'updated_at' => $branch->updated_at,
             ],
-            'companies' => $companies,
             'countries' => $countries,
         ]);
     }
@@ -98,6 +90,7 @@ class BranchController extends Controller
     public function store(StoreBranchRequest $request)
     {
         $data = $request->validated();
+        $data['company_id'] = (int) $request->attributes->get('current_company_id');
 
         foreach (['code', 'address', 'city', 'country', 'phone', 'email'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -115,7 +108,11 @@ class BranchController extends Controller
 
     public function update(UpdateBranchRequest $request, Branch $branch)
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $branch->company_id === $companyId, 404);
+
         $data = $request->validated();
+        $data['company_id'] = $companyId;
 
         foreach (['code', 'address', 'city', 'country', 'phone', 'email'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -133,6 +130,9 @@ class BranchController extends Controller
 
     public function destroy(Branch $branch)
     {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $branch->company_id === $companyId, 404);
+
         $branch->delete();
 
         return redirect()->route('organization.branches');
@@ -143,7 +143,7 @@ class BranchController extends Controller
         $format = strtolower((string) $request->query('format', 'csv'));
 
         $search = trim((string) $request->query('search', ''));
-        $companyId = trim((string) $request->query('company_id', ''));
+        $companyId = (int) $request->attributes->get('current_company_id');
         $country = trim((string) $request->query('country', ''));
         $status = trim((string) $request->query('status', ''));
         $city = trim((string) $request->query('city', ''));
@@ -152,12 +152,8 @@ class BranchController extends Controller
         $hasPhone = filter_var($request->query('hasPhone', false), FILTER_VALIDATE_BOOL);
 
         $query = Branch::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id');
-
-        if ($companyId !== '') {
-            $query->where('company_id', $companyId);
-        }
 
         if ($country !== '') {
             $query->where('country', $country);

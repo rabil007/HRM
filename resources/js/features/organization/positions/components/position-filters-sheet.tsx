@@ -1,10 +1,9 @@
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import type { Company, DepartmentOption } from '../types';
+import type { DepartmentOption } from '../types';
 
 export type PositionFilters = {
-    company_id: string;
     department_id: string;
     status: '' | 'active' | 'inactive';
     grade: string;
@@ -13,7 +12,6 @@ export type PositionFilters = {
 export function PositionFiltersSheet({
     open,
     onOpenChange,
-    companies,
     departments,
     value,
     onChange,
@@ -21,38 +19,16 @@ export function PositionFiltersSheet({
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    companies: Company[];
     departments: DepartmentOption[];
     value: PositionFilters;
     onChange: (next: PositionFilters) => void;
     onReset: () => void;
 }) {
-    const availableDepartments = (departments ?? []).filter((d) =>
-        value.company_id ? String(d.company_id) === value.company_id : true,
-    );
+    const availableDepartments = departments ?? [];
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                    <Label htmlFor="filter-company" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Company
-                    </Label>
-                    <select
-                        id="filter-company"
-                        value={value.company_id}
-                        onChange={(e) => onChange({ ...value, company_id: e.target.value, department_id: '' })}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                    >
-                        <option value="">All</option>
-                        {companies.map((c) => (
-                            <option key={c.id} value={String(c.id)}>
-                                {c.name}
-                            </option>
-                        ))}
-                    </select>
-                </div>
-
                 <div className="space-y-2">
                     <Label htmlFor="filter-status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Status

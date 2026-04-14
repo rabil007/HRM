@@ -3,13 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import type { Company, DepartmentOption, Position, PositionFormData } from '../types';
+import type { DepartmentOption, Position, PositionFormData } from '../types';
 
 export function PositionFormSheet({
     open,
     onOpenChange,
     position,
-    companies,
     departments,
     form,
     onSubmit,
@@ -17,14 +16,11 @@ export function PositionFormSheet({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     position: Position | null;
-    companies: Company[];
     departments: DepartmentOption[];
     form: InertiaFormProps<PositionFormData>;
     onSubmit: () => void;
 }) {
-    const availableDepartments = (departments ?? []).filter((d) =>
-        form.data.company_id ? d.company_id === form.data.company_id : true,
-    );
+    const availableDepartments = departments ?? [];
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -38,30 +34,6 @@ export function PositionFormSheet({
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="company_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Company
-                            </Label>
-                            <select
-                                id="company_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.company_id}
-                                onChange={(e) => {
-                                    const next = e.target.value ? Number(e.target.value) : '';
-                                    form.setData('company_id', next);
-                                    form.setData('department_id', '');
-                                }}
-                            >
-                                <option value="">Select company</option>
-                                {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {form.errors.company_id ? <div className="text-xs font-medium text-destructive">{form.errors.company_id}</div> : null}
-                        </div>
-
                         <div className="space-y-2">
                             <Label htmlFor="department_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Department (optional)

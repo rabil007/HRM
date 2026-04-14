@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -15,11 +15,9 @@ import type { Company, Role, RoleFormData } from './types';
 export function RolesContent({
     roles,
     company,
-    permissions,
 }: {
     roles: Role[];
     company: Company | null;
-    permissions: { id: number; name: string }[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);

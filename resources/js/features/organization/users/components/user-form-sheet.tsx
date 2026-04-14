@@ -3,20 +3,18 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import type { Company, User, UserFormData } from '../types';
+import type { User, UserFormData } from '../types';
 
 export function UserFormSheet({
     open,
     onOpenChange,
     user,
-    companies,
     form,
     onSubmit,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     user: User | null;
-    companies: Company[];
     form: InertiaFormProps<UserFormData>;
     onSubmit: () => void;
 }) {
@@ -32,28 +30,6 @@ export function UserFormSheet({
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="company_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Company (optional)
-                            </Label>
-                            <select
-                                id="company_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.company_id}
-                                onChange={(e) => {
-                                    form.setData('company_id', e.target.value ? Number(e.target.value) : '');
-                                }}
-                            >
-                                <option value="">None</option>
-                                {companies.map((c) => (
-                                    <option key={c.id} value={c.id}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {form.errors.company_id ? <div className="text-xs font-medium text-destructive">{form.errors.company_id}</div> : null}
-                        </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">

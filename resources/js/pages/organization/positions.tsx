@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { PositionsContent } from '@/features/organization/positions';
-import type { Company, DepartmentOption, Position } from '@/features/organization/positions/types';
+import type { DepartmentOption, Position } from '@/features/organization/positions/types';
 
 type Pagination<T> = {
     data: T[];
@@ -10,17 +10,15 @@ type Pagination<T> = {
 
 export default function Positions({
     positions,
-    companies,
     departments,
 }: {
     positions: Pagination<Position>;
-    companies: Company[];
     departments: DepartmentOption[];
 }) {
     return (
         <>
             <Head title="Positions Management" />
-            <PositionsContent positions={positions.data} companies={companies} departments={departments} />
+            <PositionsContent positions={positions.data} departments={departments} />
         </>
     );
 }

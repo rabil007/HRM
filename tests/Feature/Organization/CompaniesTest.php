@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Spatie\Permission\Models\Role;
 
 test('guests cannot access companies pages', function () {
     $this->get('/organization/companies')->assertRedirect(route('login'));
@@ -158,5 +159,71 @@ test('authenticated users can update a company with all fields', function () {
         'wps_agent_code' => 'AGENT-1',
         'wps_mol_uid' => 'MOL-1',
         'status' => 'suspended',
+    ]);
+});
+
+test('creating a company assigns creator as owner with all permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $existingCompany = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $existingCompany, ['companies.create']);
+
+    $this->post('/organization/companies', [
+        'name' => 'NewCo',
+        'slug' => 'newco',
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'working_days' => [1, 2, 3, 4, 5],
+        'status' => 'active',
+    ])->assertRedirect('/organization/companies');
+
+    $companyId = Company::query()->where('slug', 'newco')->value('id');
+    expect($companyId)->not->toBeNull();
+
+    $this->assertDatabaseHas('company_user', [
+        'company_id' => $companyId,
+        'user_id' => $user->id,
+        'status' => 'active',
+    ]);
+
+    $ownerRoleId = Role::query()
+        ->where('company_id', $companyId)
+        ->where('name', 'Owner')
+        ->value('id');
+
+    expect($ownerRoleId)->not->toBeNull();
+
+    $this->assertDatabaseHas('spatie_model_has_roles', [
+        'company_id' => $companyId,
+        'role_id' => $ownerRoleId,
+        'model_type' => User::class,
+        'model_id' => $user->id,
     ]);
 });

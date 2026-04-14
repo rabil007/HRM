@@ -18,7 +18,6 @@ class StoreBranchRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'company_id' => ['required', 'integer', 'exists:companies,id'],
             'name' => ['required', 'string', 'max:200'],
             'code' => ['nullable', 'string', 'max:50'],
             'address' => ['nullable', 'string'],

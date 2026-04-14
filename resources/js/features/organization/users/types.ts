@@ -16,7 +16,6 @@ export type User = {
 };
 
 export type UserFormData = {
-    company_id: number | '';
     name: string;
     email: string;
     password: string;

@@ -135,7 +135,6 @@ test('authenticated users can create, update, and delete a position', function (
     grantCompanyPermissions($user, $company, ['positions.create', 'positions.update', 'positions.delete', 'positions.view']);
 
     $this->post('/organization/positions', [
-        'company_id' => $company->id,
         'department_id' => $department->id,
         'title' => 'Software Engineer',
         'grade' => 'G5',
@@ -152,7 +151,6 @@ test('authenticated users can create, update, and delete a position', function (
     expect($positionId)->not->toBeNull();
 
     $this->put("/organization/positions/{$positionId}", [
-        'company_id' => $company->id,
         'department_id' => $department->id,
         'title' => 'Senior Software Engineer',
         'grade' => 'G6',

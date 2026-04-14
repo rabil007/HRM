@@ -18,7 +18,6 @@ class StoreDepartmentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'company_id' => ['required', 'integer', 'exists:companies,id'],
             'branch_id' => ['nullable', 'integer', 'exists:branches,id'],
             'parent_id' => ['nullable', 'integer', 'exists:departments,id'],
             'manager_id' => ['nullable', 'integer', 'exists:users,id'],

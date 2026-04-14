@@ -6,7 +6,6 @@ use App\Exports\PositionsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Position\StorePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionRequest;
-use App\Models\Company;
 use App\Models\Department;
 use App\Models\Position;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -19,27 +18,25 @@ class PositionController extends Controller
 {
     public function index()
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
 
         $departments = Department::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
         $positions = Position::query()
             ->with([
-                'company:id,name',
                 'department:id,name',
             ])
+            ->where('company_id', $companyId)
             ->latest('id')
             ->paginate(20)
             ->through(fn (Position $position) => [
                 'id' => $position->id,
                 'company' => [
                     'id' => $position->company_id,
-                    'name' => $position->company?->name,
+                    'name' => null,
                 ],
                 'department' => $position->department_id ? [
                     'id' => $position->department_id,
@@ -55,24 +52,21 @@ class PositionController extends Controller
 
         return Inertia::render('organization/positions', [
             'positions' => $positions,
-            'companies' => $companies,
             'departments' => $departments,
         ]);
     }
 
     public function show(Position $position)
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $position->company_id === $companyId, 404);
 
         $departments = Department::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
         $position->load([
-            'company:id,name,slug',
             'department:id,name',
         ]);
 
@@ -81,8 +75,8 @@ class PositionController extends Controller
                 'id' => $position->id,
                 'company' => [
                     'id' => $position->company_id,
-                    'name' => $position->company?->name,
-                    'slug' => $position->company?->slug,
+                    'name' => null,
+                    'slug' => null,
                 ],
                 'department' => $position->department_id ? [
                     'id' => $position->department_id,
@@ -96,7 +90,6 @@ class PositionController extends Controller
                 'created_at' => $position->created_at,
                 'updated_at' => $position->updated_at,
             ],
-            'companies' => $companies,
             'departments' => $departments,
         ]);
     }
@@ -104,6 +97,7 @@ class PositionController extends Controller
     public function store(StorePositionRequest $request)
     {
         $data = $request->validated();
+        $data['company_id'] = (int) $request->attributes->get('current_company_id');
 
         foreach (['grade', 'min_salary', 'max_salary'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -120,7 +114,11 @@ class PositionController extends Controller
 
     public function update(UpdatePositionRequest $request, Position $position)
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $position->company_id === $companyId, 404);
+
         $data = $request->validated();
+        $data['company_id'] = $companyId;
 
         foreach (['grade', 'min_salary', 'max_salary'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -137,6 +135,9 @@ class PositionController extends Controller
 
     public function destroy(Position $position)
     {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $position->company_id === $companyId, 404);
+
         $position->delete();
 
         return redirect()->route('organization.positions');
@@ -147,18 +148,15 @@ class PositionController extends Controller
         $format = strtolower((string) $request->query('format', 'csv'));
 
         $search = trim((string) $request->query('search', ''));
-        $companyId = trim((string) $request->query('company_id', ''));
+        $companyId = (int) $request->attributes->get('current_company_id');
         $departmentId = trim((string) $request->query('department_id', ''));
         $status = trim((string) $request->query('status', ''));
         $grade = trim((string) $request->query('grade', ''));
 
         $query = Position::query()
-            ->with(['company:id,name', 'department:id,name'])
+            ->with(['department:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id');
-
-        if ($companyId !== '') {
-            $query->where('company_id', $companyId);
-        }
 
         if ($departmentId !== '') {
             $query->where('department_id', $departmentId);

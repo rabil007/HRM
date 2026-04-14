@@ -117,7 +117,6 @@ test('authenticated users can create, update, and delete a user', function () {
     grantCompanyPermissions($auth, $company, ['users.create', 'users.update', 'users.delete', 'users.view']);
 
     $this->post('/organization/users', [
-        'company_id' => $company->id,
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'password' => 'password123',
@@ -128,7 +127,6 @@ test('authenticated users can create, update, and delete a user', function () {
     expect($userId)->not->toBeNull();
 
     $this->put("/organization/users/{$userId}", [
-        'company_id' => $company->id,
         'name' => 'John Updated',
         'email' => 'john@example.com',
         'password' => '',

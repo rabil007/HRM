@@ -9,18 +9,16 @@ import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { BranchCard } from './components/branch-card';
 import { BranchDeleteDialog } from './components/branch-delete-dialog';
-import { BranchFiltersSheet  } from './components/branch-filters-sheet';
-import type {BranchFilters} from './components/branch-filters-sheet';
+import { BranchFiltersSheet } from './components/branch-filters-sheet';
+import type { BranchFilters } from './components/branch-filters-sheet';
 import { BranchFormSheet } from './components/branch-form-sheet';
-import type { Branch, BranchFormData, Company, Country } from './types';
+import type { Branch, BranchFormData, Country } from './types';
 
 export function BranchesContent({
     branches,
-    companies,
     countries,
 }: {
     branches: Branch[];
-    companies: Company[];
     countries: Country[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -29,7 +27,6 @@ export function BranchesContent({
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState<BranchFilters>({
-        company_id: '',
         country: '',
         status: '',
         headquartersOnly: false,
@@ -39,7 +36,6 @@ export function BranchesContent({
     });
 
     const form = useForm<BranchFormData>({
-        company_id: '',
         name: '',
         code: '',
         address: '',
@@ -56,7 +52,6 @@ export function BranchesContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: companies[0]?.id ?? '',
             name: '',
             code: '',
             address: '',
@@ -75,7 +70,6 @@ export function BranchesContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: branch.company.id ?? '',
             name: branch.name ?? '',
             code: branch.code ?? '',
             address: branch.address ?? '',
@@ -112,10 +106,6 @@ export function BranchesContent({
 
         return branches
             .filter((b) => {
-                if (filters.company_id && String(b.company.id ?? '') !== filters.company_id) {
-                    return false;
-                }
-
                 if (filters.country && (b.country ?? '') !== filters.country) {
                     return false;
                 }
@@ -150,7 +140,6 @@ export function BranchesContent({
                 return (
                     b.name.toLowerCase().includes(query) ||
                     (b.code ?? '').toLowerCase().includes(query) ||
-                    (b.company.name ?? '').toLowerCase().includes(query) ||
                     (`${b.city ?? ''} ${b.country ?? ''}`.trim().toLowerCase().includes(query)) ||
                     (b.email ?? '').toLowerCase().includes(query)
                 );
@@ -159,7 +148,6 @@ export function BranchesContent({
 
     const activeFiltersCount = useMemo(() => {
         return [
-            filters.company_id,
             filters.country,
             filters.status,
             filters.city.trim(),
@@ -171,7 +159,6 @@ export function BranchesContent({
 
     const resetFilters = () => {
         setFilters({
-            company_id: '',
             country: '',
             status: '',
             headquartersOnly: false,
@@ -186,10 +173,6 @@ export function BranchesContent({
 
         if (searchQuery.trim()) {
             params.set('search', searchQuery.trim());
-        }
-
-        if (filters.company_id) {
-            params.set('company_id', filters.company_id);
         }
 
         if (filters.country) {
@@ -299,7 +282,6 @@ export function BranchesContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 branch={currentBranch}
-                companies={companies}
                 countries={countries}
                 form={form}
                 onSubmit={submit}

@@ -24,7 +24,6 @@ export type Branch = {
 };
 
 export type BranchFormData = {
-    company_id: number | '';
     name: string;
     code: string;
     address: string;

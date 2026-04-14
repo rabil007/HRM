@@ -3,13 +3,12 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import type { Branch, Company, Department, DepartmentFormData, DepartmentParentOption, Manager } from '../types';
+import type { Branch, Department, DepartmentFormData, DepartmentParentOption, Manager } from '../types';
 
 export function DepartmentFormSheet({
     open,
     onOpenChange,
     department,
-    companies,
     branches,
     parents,
     managers,
@@ -19,15 +18,14 @@ export function DepartmentFormSheet({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     department: Department | null;
-    companies: Company[];
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
     form: InertiaFormProps<DepartmentFormData>;
     onSubmit: () => void;
 }) {
-    const availableBranches = (branches ?? []).filter((b) => (form.data.company_id ? b.company_id === form.data.company_id : true));
-    const availableParents = (parents ?? []).filter((d) => (form.data.company_id ? d.company_id === form.data.company_id : true));
+    const availableBranches = branches ?? [];
+    const availableParents = parents ?? [];
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -43,31 +41,6 @@ export function DepartmentFormSheet({
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label htmlFor="company_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Company
-                            </Label>
-                            <select
-                                id="company_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.company_id}
-                                onChange={(e) => {
-                                    const next = e.target.value ? Number(e.target.value) : '';
-                                    form.setData('company_id', next);
-                                    form.setData('branch_id', '');
-                                    form.setData('parent_id', '');
-                                }}
-                            >
-                                <option value="">Select company</option>
-                                {companies.map((company) => (
-                                    <option key={company.id} value={company.id}>
-                                        {company.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {form.errors.company_id ? <div className="text-xs font-medium text-destructive">{form.errors.company_id}</div> : null}
-                        </div>
-
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">

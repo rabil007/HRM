@@ -22,7 +22,6 @@ export type Position = {
 };
 
 export type PositionFormData = {
-    company_id: number | '';
     department_id: number | '';
     title: string;
     grade: string;

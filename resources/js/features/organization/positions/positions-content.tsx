@@ -12,10 +12,9 @@ import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
 import type { PositionFilters } from './components/position-filters-sheet';
 import { PositionFormSheet } from './components/position-form-sheet';
-import type { Company, DepartmentOption, Position, PositionFormData } from './types';
+import type { DepartmentOption, Position, PositionFormData } from './types';
 
 const emptyFilters: PositionFilters = {
-    company_id: '',
     department_id: '',
     status: '',
     grade: '',
@@ -23,11 +22,9 @@ const emptyFilters: PositionFilters = {
 
 export function PositionsContent({
     positions,
-    companies,
     departments,
 }: {
     positions: Position[];
-    companies: Company[];
     departments: DepartmentOption[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -38,7 +35,6 @@ export function PositionsContent({
     const [filters, setFilters] = useState<PositionFilters>(emptyFilters);
 
     const form = useForm<PositionFormData>({
-        company_id: '',
         department_id: '',
         title: '',
         grade: '',
@@ -52,7 +48,6 @@ export function PositionsContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: companies[0]?.id ?? '',
             department_id: '',
             title: '',
             grade: '',
@@ -68,7 +63,6 @@ export function PositionsContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: position.company.id ?? '',
             department_id: position.department?.id ?? '',
             title: position.title ?? '',
             grade: position.grade ?? '',
@@ -104,10 +98,6 @@ export function PositionsContent({
         const query = searchQuery.trim().toLowerCase();
 
         return positions.filter((p) => {
-            if (filters.company_id && String(p.company.id ?? '') !== filters.company_id) {
-                return false;
-            }
-
             if (filters.department_id && String(p.department?.id ?? '') !== filters.department_id) {
                 return false;
             }
@@ -127,14 +117,13 @@ export function PositionsContent({
             return (
                 p.title.toLowerCase().includes(query) ||
                 (p.grade ?? '').toLowerCase().includes(query) ||
-                (p.company.name ?? '').toLowerCase().includes(query) ||
                 (p.department?.name ?? '').toLowerCase().includes(query)
             );
         });
     }, [positions, filters, searchQuery]);
 
     const activeFiltersCount = useMemo(() => {
-        return [filters.company_id, filters.department_id, filters.status, filters.grade.trim()].filter(Boolean).length;
+        return [filters.department_id, filters.status, filters.grade.trim()].filter(Boolean).length;
     }, [filters]);
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
@@ -142,10 +131,6 @@ export function PositionsContent({
 
         if (searchQuery.trim()) {
             params.set('search', searchQuery.trim());
-        }
-
-        if (filters.company_id) {
-            params.set('company_id', filters.company_id);
         }
 
         if (filters.department_id) {
@@ -220,7 +205,6 @@ export function PositionsContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 position={currentPosition}
-                companies={companies}
                 departments={departments}
                 form={form}
                 onSubmit={submit}
@@ -229,7 +213,6 @@ export function PositionsContent({
             <PositionFiltersSheet
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
-                companies={companies}
                 departments={departments}
                 value={filters}
                 onChange={setFilters}

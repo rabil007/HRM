@@ -137,7 +137,6 @@ test('authenticated users can create, update, and delete a department', function
     grantCompanyPermissions($user, $company, ['departments.create', 'departments.update', 'departments.delete', 'departments.view']);
 
     $this->post('/organization/departments', [
-        'company_id' => $company->id,
         'branch_id' => $branch->id,
         'parent_id' => $parent->id,
         'manager_id' => $manager->id,
@@ -150,7 +149,6 @@ test('authenticated users can create, update, and delete a department', function
     expect($departmentId)->not->toBeNull();
 
     $this->put("/organization/departments/{$departmentId}", [
-        'company_id' => $company->id,
         'branch_id' => $branch->id,
         'parent_id' => $parent->id,
         'manager_id' => $manager->id,

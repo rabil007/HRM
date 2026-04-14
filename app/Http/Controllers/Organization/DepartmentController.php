@@ -7,7 +7,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Department\StoreDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentRequest;
 use App\Models\Branch;
-use App\Models\Company;
 use App\Models\Department;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -20,16 +19,15 @@ class DepartmentController extends Controller
 {
     public function index()
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
 
         $branches = Branch::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
         $parents = Department::query()
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
@@ -39,18 +37,18 @@ class DepartmentController extends Controller
 
         $departments = Department::query()
             ->with([
-                'company:id,name',
                 'branch:id,name',
                 'parent:id,name',
                 'manager:id,name',
             ])
+            ->where('company_id', $companyId)
             ->latest('id')
             ->paginate(20)
             ->through(fn (Department $department) => [
                 'id' => $department->id,
                 'company' => [
                     'id' => $department->company_id,
-                    'name' => $department->company?->name,
+                    'name' => null,
                 ],
                 'branch' => $department->branch_id ? [
                     'id' => $department->branch_id,
@@ -72,7 +70,6 @@ class DepartmentController extends Controller
 
         return Inertia::render('organization/departments', [
             'departments' => $departments,
-            'companies' => $companies,
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
@@ -81,16 +78,16 @@ class DepartmentController extends Controller
 
     public function show(Department $department)
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $department->company_id === $companyId, 404);
 
         $branches = Branch::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
         $parents = Department::query()
+            ->where('company_id', $companyId)
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
@@ -99,7 +96,6 @@ class DepartmentController extends Controller
             ->get(['id', 'name']);
 
         $department->load([
-            'company:id,name,slug',
             'branch:id,name',
             'parent:id,name',
             'manager:id,name',
@@ -110,8 +106,8 @@ class DepartmentController extends Controller
                 'id' => $department->id,
                 'company' => [
                     'id' => $department->company_id,
-                    'name' => $department->company?->name,
-                    'slug' => $department->company?->slug,
+                    'name' => null,
+                    'slug' => null,
                 ],
                 'branch' => $department->branch_id ? [
                     'id' => $department->branch_id,
@@ -131,7 +127,6 @@ class DepartmentController extends Controller
                 'created_at' => $department->created_at,
                 'updated_at' => $department->updated_at,
             ],
-            'companies' => $companies,
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
@@ -141,6 +136,7 @@ class DepartmentController extends Controller
     public function store(StoreDepartmentRequest $request)
     {
         $data = $request->validated();
+        $data['company_id'] = (int) $request->attributes->get('current_company_id');
 
         foreach (['code'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -157,7 +153,11 @@ class DepartmentController extends Controller
 
     public function update(UpdateDepartmentRequest $request, Department $department)
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $department->company_id === $companyId, 404);
+
         $data = $request->validated();
+        $data['company_id'] = $companyId;
 
         foreach (['code'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -174,6 +174,9 @@ class DepartmentController extends Controller
 
     public function destroy(Department $department)
     {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $department->company_id === $companyId, 404);
+
         $department->delete();
 
         return redirect()->route('organization.departments');
@@ -184,19 +187,16 @@ class DepartmentController extends Controller
         $format = strtolower((string) $request->query('format', 'csv'));
 
         $search = trim((string) $request->query('search', ''));
-        $companyId = trim((string) $request->query('company_id', ''));
+        $companyId = (int) $request->attributes->get('current_company_id');
         $branchId = trim((string) $request->query('branch_id', ''));
         $parentId = trim((string) $request->query('parent_id', ''));
         $managerId = trim((string) $request->query('manager_id', ''));
         $status = trim((string) $request->query('status', ''));
 
         $query = Department::query()
-            ->with(['company:id,name', 'branch:id,name', 'parent:id,name', 'manager:id,name'])
+            ->with(['branch:id,name', 'parent:id,name', 'manager:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id');
-
-        if ($companyId !== '') {
-            $query->where('company_id', $companyId);
-        }
 
         if ($branchId !== '') {
             $query->where('branch_id', $branchId);

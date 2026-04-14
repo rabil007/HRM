@@ -12,19 +12,16 @@ import { UserDeleteDialog } from './components/user-delete-dialog';
 import { UserFiltersSheet } from './components/user-filters-sheet';
 import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
-import type { Company, User, UserFormData } from './types';
+import type { User, UserFormData } from './types';
 
 const emptyFilters: UserFilters = {
-    company_id: '',
     status: '',
 };
 
 export function UsersContent({
     users,
-    companies,
 }: {
     users: User[];
-    companies: Company[];
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -34,7 +31,6 @@ export function UsersContent({
     const [filters, setFilters] = useState<UserFilters>(emptyFilters);
 
     const form = useForm<UserFormData>({
-        company_id: '',
         name: '',
         email: '',
         password: '',
@@ -47,7 +43,6 @@ export function UsersContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: companies[0]?.id ?? '',
             name: '',
             email: '',
             password: '',
@@ -62,7 +57,6 @@ export function UsersContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: user.company?.id ?? '',
             name: user.name ?? '',
             email: user.email ?? '',
             password: '',
@@ -97,10 +91,6 @@ export function UsersContent({
         const query = searchQuery.trim().toLowerCase();
 
         return users.filter((u) => {
-            if (filters.company_id && String(u.company?.id ?? '') !== filters.company_id) {
-                return false;
-            }
-
             if (filters.status && (u.status ?? '') !== filters.status) {
                 return false;
             }
@@ -119,7 +109,7 @@ export function UsersContent({
     }, [users, filters, searchQuery]);
 
     const activeFiltersCount = useMemo(() => {
-        return [filters.company_id, filters.status].filter(Boolean).length;
+        return [filters.status].filter(Boolean).length;
     }, [filters]);
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
@@ -127,10 +117,6 @@ export function UsersContent({
 
         if (searchQuery.trim()) {
             params.set('search', searchQuery.trim());
-        }
-
-        if (filters.company_id) {
-            params.set('company_id', filters.company_id);
         }
 
         if (filters.status) {
@@ -197,7 +183,6 @@ export function UsersContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 user={currentUser}
-                companies={companies}
                 form={form}
                 onSubmit={submit}
             />
@@ -205,7 +190,6 @@ export function UsersContent({
             <UserFiltersSheet
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
-                companies={companies}
                 value={filters}
                 onChange={setFilters}
                 onReset={() => setFilters(emptyFilters)}

@@ -10,13 +10,12 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
-import type { Branch, BranchFormData, Company, Country } from '../types';
+import type { Branch, BranchFormData, Country } from '../types';
 
 export function BranchFormSheet({
     open,
     onOpenChange,
     branch,
-    companies,
     countries,
     form,
     onSubmit,
@@ -24,7 +23,6 @@ export function BranchFormSheet({
     open: boolean;
     onOpenChange: (open: boolean) => void;
     branch: Branch | null;
-    companies: Company[];
     countries: Country[];
     form: InertiaFormProps<BranchFormData>;
     onSubmit: () => void;
@@ -49,33 +47,6 @@ export function BranchFormSheet({
 
                 <div className="flex-1 overflow-y-auto p-8 space-y-8">
                     <div className="space-y-5">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="company_id"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
-                            >
-                                Company
-                            </Label>
-                            <select
-                                id="company_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.company_id}
-                                onChange={(e) =>
-                                    form.setData('company_id', e.target.value ? Number(e.target.value) : '')
-                                }
-                            >
-                                <option value="">Select company</option>
-                                {companies.map((company) => (
-                                    <option key={company.id} value={company.id}>
-                                        {company.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {form.errors.company_id ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.company_id}</div>
-                            ) : null}
-                        </div>
-
                         <div className="space-y-2">
                             <Label
                                 htmlFor="name"

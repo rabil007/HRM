@@ -9,13 +9,12 @@ import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { DepartmentCard } from './components/department-card';
 import { DepartmentDeleteDialog } from './components/department-delete-dialog';
-import { DepartmentFiltersSheet  } from './components/department-filters-sheet';
-import type {DepartmentFilters} from './components/department-filters-sheet';
+import { DepartmentFiltersSheet } from './components/department-filters-sheet';
+import type { DepartmentFilters } from './components/department-filters-sheet';
 import { DepartmentFormSheet } from './components/department-form-sheet';
-import type { Branch, Company, Department, DepartmentFormData, DepartmentParentOption, Manager } from './types';
+import type { Branch, Department, DepartmentFormData, DepartmentParentOption, Manager } from './types';
 
 const emptyFilters: DepartmentFilters = {
-    company_id: '',
     branch_id: '',
     parent_id: '',
     manager_id: '',
@@ -25,13 +24,11 @@ const emptyFilters: DepartmentFilters = {
 
 export function DepartmentsContent({
     departments,
-    companies,
     branches,
     parents,
     managers,
 }: {
     departments: Department[];
-    companies: Company[];
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
@@ -44,7 +41,6 @@ export function DepartmentsContent({
     const [filters, setFilters] = useState<DepartmentFilters>(emptyFilters);
 
     const form = useForm<DepartmentFormData>({
-        company_id: '',
         branch_id: '',
         parent_id: '',
         manager_id: '',
@@ -58,7 +54,6 @@ export function DepartmentsContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: companies[0]?.id ?? '',
             branch_id: '',
             parent_id: '',
             manager_id: '',
@@ -74,7 +69,6 @@ export function DepartmentsContent({
         form.reset();
         form.clearErrors();
         form.setData({
-            company_id: department.company.id ?? '',
             branch_id: department.branch?.id ?? '',
             parent_id: department.parent?.id ?? '',
             manager_id: department.manager?.id ?? '',
@@ -110,10 +104,6 @@ export function DepartmentsContent({
         const query = searchQuery.trim().toLowerCase();
 
         return departments.filter((d) => {
-            if (filters.company_id && String(d.company.id ?? '') !== filters.company_id) {
-                return false;
-            }
-
             if (filters.branch_id && String(d.branch?.id ?? '') !== filters.branch_id) {
                 return false;
             }
@@ -141,7 +131,6 @@ export function DepartmentsContent({
             return (
                 d.name.toLowerCase().includes(query) ||
                 (d.code ?? '').toLowerCase().includes(query) ||
-                (d.company.name ?? '').toLowerCase().includes(query) ||
                 (d.branch?.name ?? '').toLowerCase().includes(query) ||
                 (d.parent?.name ?? '').toLowerCase().includes(query) ||
                 (d.manager?.name ?? '').toLowerCase().includes(query)
@@ -151,7 +140,6 @@ export function DepartmentsContent({
 
     const activeFiltersCount = useMemo(() => {
         return [
-            filters.company_id,
             filters.branch_id,
             filters.parent_id,
             filters.manager_id,
@@ -165,10 +153,6 @@ export function DepartmentsContent({
 
         if (searchQuery.trim()) {
             params.set('search', searchQuery.trim());
-        }
-
-        if (filters.company_id) {
-            params.set('company_id', filters.company_id);
         }
 
         if (filters.branch_id) {
@@ -256,7 +240,6 @@ export function DepartmentsContent({
                 open={isSheetOpen}
                 onOpenChange={setIsSheetOpen}
                 department={currentDepartment}
-                companies={companies}
                 branches={branches}
                 parents={parents}
                 managers={managers}
@@ -267,7 +250,6 @@ export function DepartmentsContent({
             <DepartmentFiltersSheet
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
-                companies={companies}
                 branches={branches}
                 parents={parents}
                 managers={managers}

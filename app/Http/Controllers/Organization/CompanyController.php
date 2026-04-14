@@ -17,6 +17,9 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role as SpatieRole;
+use Spatie\Permission\PermissionRegistrar;
 
 class CompanyController extends Controller
 {
@@ -193,7 +196,30 @@ class CompanyController extends Controller
             $data['logo'] = $request->file('logo')->store('company-logos', 'public');
         }
 
-        Company::create($data);
+        $company = Company::create($data);
+
+        $user = $request->user();
+        if ($user) {
+            $user->companies()->syncWithoutDetaching([
+                $company->id => ['status' => 'active'],
+            ]);
+
+            $role = SpatieRole::query()->firstOrCreate([
+                'company_id' => $company->id,
+                'name' => 'Owner',
+                'guard_name' => 'web',
+            ]);
+
+            $permissions = Permission::query()
+                ->where('guard_name', 'web')
+                ->pluck('name')
+                ->all();
+
+            $role->syncPermissions($permissions);
+
+            app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+            $user->assignRole($role);
+        }
 
         return redirect()->route('organization.companies');
     }

@@ -34,7 +34,6 @@ export type Department = {
 };
 
 export type DepartmentFormData = {
-    company_id: number | '';
     branch_id: number | '';
     parent_id: number | '';
     manager_id: number | '';

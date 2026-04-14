@@ -176,7 +176,6 @@ test('authenticated users can create, update, and delete a branch', function () 
     grantCompanyPermissions($user, $company, ['branches.create', 'branches.update', 'branches.delete', 'branches.view']);
 
     $this->post('/organization/branches', [
-        'company_id' => $company->id,
         'name' => 'HQ',
         'code' => 'HQ',
         'city' => 'Dubai',
@@ -191,7 +190,6 @@ test('authenticated users can create, update, and delete a branch', function () 
     expect($branchId)->not->toBeNull();
 
     $this->put("/organization/branches/{$branchId}", [
-        'company_id' => $company->id,
         'name' => 'HQ Updated',
         'code' => 'HQ',
         'city' => 'Dubai',
