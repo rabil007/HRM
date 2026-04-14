@@ -28,7 +28,7 @@ test('authenticated users can export companies as csv, excel, and pdf', function
         'is_active' => true,
     ]);
 
-    Company::query()->create([
+    $company = Company::query()->create([
         'name' => 'Acme Export',
         'slug' => 'acme-export',
         'industry' => 'Tech',
@@ -39,6 +39,8 @@ test('authenticated users can export companies as csv, excel, and pdf', function
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['companies.view', 'companies.export']);
 
     $csv = $this->get('/organization/companies/export?format=csv&search=Acme');
     $csv->assertOk();
@@ -82,6 +84,8 @@ test('authenticated users can view company details page', function () {
         'status' => 'active',
     ]);
 
+    grantCompanyPermissions($user, $company, ['companies.view']);
+
     $this->get("/organization/companies/{$company->id}")->assertOk();
 });
 
@@ -113,6 +117,8 @@ test('authenticated users can update a company with all fields', function () {
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
 
     $this->put("/organization/companies/{$company->id}", [
         'name' => 'Acme Updated',

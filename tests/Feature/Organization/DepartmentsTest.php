@@ -15,6 +15,33 @@ test('authenticated users can view departments page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['departments.view']);
+
     $this->get('/organization/departments')->assertOk();
 });
 
@@ -53,6 +80,8 @@ test('authenticated users can view a department details page', function () {
         'code' => 'HR',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['departments.view']);
 
     $this->get("/organization/departments/{$department->id}")->assertOk();
 });
@@ -104,6 +133,8 @@ test('authenticated users can create, update, and delete a department', function
         'code' => 'OPS',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['departments.create', 'departments.update', 'departments.delete', 'departments.view']);
 
     $this->post('/organization/departments', [
         'company_id' => $company->id,
@@ -173,6 +204,8 @@ test('authenticated users can export departments as csv, excel, and pdf', functi
         'code' => 'HRX',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['departments.view', 'departments.export']);
 
     $csv = $this->get('/organization/departments/export?format=csv&search=HRX');
     $csv->assertOk();

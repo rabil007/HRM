@@ -7,15 +7,17 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\User\StoreUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserRequest;
 use App\Models\Company;
-use App\Models\Role;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Permission\Models\Role as SpatieRole;
+use Spatie\Permission\PermissionRegistrar;
 
 class UserController extends Controller
 {
@@ -25,16 +27,8 @@ class UserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $roles = Role::query()
-            ->with(['company:id,name'])
-            ->orderBy('name')
-            ->get(['id', 'company_id', 'name']);
-
         $users = User::query()
-            ->with([
-                'company:id,name',
-                'role:id,name',
-            ])
+            ->with(['company:id,name'])
             ->latest('id')
             ->paginate(20)
             ->through(fn (User $user) => [
@@ -43,10 +37,7 @@ class UserController extends Controller
                     'id' => $user->company_id,
                     'name' => $user->company?->name,
                 ] : null,
-                'role' => $user->role_id ? [
-                    'id' => $user->role_id,
-                    'name' => $user->role?->name,
-                ] : null,
+                'role' => null,
                 'name' => $user->name,
                 'email' => $user->email,
                 'avatar' => $user->avatar,
@@ -58,7 +49,6 @@ class UserController extends Controller
         return Inertia::render('organization/users', [
             'users' => $users,
             'companies' => $companies,
-            'roles' => $roles,
         ]);
     }
 
@@ -68,15 +58,43 @@ class UserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $roles = Role::query()
-            ->with(['company:id,name'])
-            ->orderBy('name')
-            ->get(['id', 'company_id', 'name']);
-
         $user->load([
             'company:id,name,slug',
-            'role:id,name',
         ]);
+
+        $memberships = $user->companies()
+            ->orderBy('companies.name')
+            ->get(['companies.id', 'companies.name', 'company_user.status'])
+            ->map(function (Company $company) use ($user) {
+                $roleNames = DB::table('model_has_roles')
+                    ->join('spatie_roles', 'spatie_roles.id', '=', 'model_has_roles.role_id')
+                    ->where('model_has_roles.model_type', $user::class)
+                    ->where('model_has_roles.model_id', $user->id)
+                    ->where('model_has_roles.company_id', $company->id)
+                    ->orderBy('spatie_roles.name')
+                    ->pluck('spatie_roles.name')
+                    ->all();
+
+                return [
+                    'company' => [
+                        'id' => $company->id,
+                        'name' => $company->name,
+                    ],
+                    'status' => (string) ($company->pivot?->status ?? 'active'),
+                    'roles' => $roleNames,
+                ];
+            })
+            ->values()
+            ->all();
+
+        $availableCompanies = Company::query()
+            ->whereNotIn('id', $user->companies()->pluck('companies.id'))
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $spatieRoles = SpatieRole::query()
+            ->orderBy('name')
+            ->get(['id', 'company_id', 'name']);
 
         return Inertia::render('organization/user', [
             'user' => [
@@ -88,7 +106,7 @@ class UserController extends Controller
                 ] : null,
                 'role' => $user->role_id ? [
                     'id' => $user->role_id,
-                    'name' => $user->role?->name,
+                    'name' => null,
                 ] : null,
                 'name' => $user->name,
                 'email' => $user->email,
@@ -99,7 +117,9 @@ class UserController extends Controller
                 'updated_at' => $user->updated_at,
             ],
             'companies' => $companies,
-            'roles' => $roles,
+            'memberships' => $memberships,
+            'available_companies' => $availableCompanies,
+            'spatie_roles' => $spatieRoles,
         ]);
     }
 
@@ -161,25 +181,83 @@ class UserController extends Controller
         return redirect()->route('organization.users');
     }
 
+    public function storeMembership(Request $request, User $user)
+    {
+        $data = $request->validate([
+            'company_id' => ['required', 'integer', 'exists:companies,id'],
+            'status' => ['nullable', 'in:active,inactive'],
+            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
+        ]);
+
+        $companyId = (int) $data['company_id'];
+
+        $user->companies()->syncWithoutDetaching([
+            $companyId => [
+                'status' => (string) ($data['status'] ?? 'active'),
+            ],
+        ]);
+
+        if (! empty($data['role_id'] ?? null)) {
+            $role = SpatieRole::query()->whereKey((int) $data['role_id'])->firstOrFail();
+            abort_unless((int) $role->company_id === $companyId, 422);
+
+            app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
+            $user->syncRoles([$role->name]);
+        }
+
+        return redirect()->route('organization.users.show', $user);
+    }
+
+    public function updateMembership(Request $request, User $user, Company $company)
+    {
+        $data = $request->validate([
+            'status' => ['required', 'in:active,inactive'],
+            'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
+        ]);
+
+        abort_unless($user->companies()->whereKey($company->id)->exists(), 404);
+
+        $user->companies()->updateExistingPivot($company->id, [
+            'status' => (string) $data['status'],
+        ]);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+        if (! empty($data['role_id'] ?? null)) {
+            $role = SpatieRole::query()->whereKey((int) $data['role_id'])->firstOrFail();
+            abort_unless((int) $role->company_id === (int) $company->id, 422);
+            $user->syncRoles([$role->name]);
+        } else {
+            $user->syncRoles([]);
+        }
+
+        return redirect()->route('organization.users.show', $user);
+    }
+
+    public function destroyMembership(Request $request, User $user, Company $company)
+    {
+        $user->companies()->detach($company->id);
+
+        app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+        $user->syncRoles([]);
+
+        return redirect()->route('organization.users.show', $user);
+    }
+
     public function export(Request $request)
     {
         $format = strtolower((string) $request->query('format', 'csv'));
 
         $search = trim((string) $request->query('search', ''));
         $companyId = trim((string) $request->query('company_id', ''));
-        $roleId = trim((string) $request->query('role_id', ''));
         $status = trim((string) $request->query('status', ''));
 
         $query = User::query()
-            ->with(['company:id,name', 'role:id,name'])
+            ->with(['company:id,name'])
             ->latest('id');
 
         if ($companyId !== '') {
             $query->where('company_id', $companyId);
-        }
-
-        if ($roleId !== '') {
-            $query->where('role_id', $roleId);
         }
 
         if ($status !== '') {
@@ -190,8 +268,7 @@ class UserController extends Controller
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                     ->orWhere('email', 'like', "%{$search}%")
-                    ->orWhereHas('company', fn ($cq) => $cq->where('name', 'like', "%{$search}%"))
-                    ->orWhereHas('role', fn ($rq) => $rq->where('name', 'like', "%{$search}%"));
+                    ->orWhereHas('company', fn ($cq) => $cq->where('name', 'like', "%{$search}%"));
             });
         }
 

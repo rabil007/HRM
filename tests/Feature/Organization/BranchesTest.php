@@ -14,6 +14,33 @@ test('authenticated users can view branches page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['branches.view']);
+
     $this->get('/organization/branches')->assertOk();
 });
 
@@ -45,6 +72,8 @@ test('authenticated users can export branches as csv, excel, and pdf', function 
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['branches.view', 'branches.export']);
 
     Branch::query()->create([
         'company_id' => $company->id,
@@ -110,6 +139,8 @@ test('authenticated users can view a branch details page', function () {
         'is_headquarters' => true,
     ]);
 
+    grantCompanyPermissions($user, $company, ['branches.view']);
+
     $this->get("/organization/branches/{$branch->id}")->assertOk();
 });
 
@@ -141,6 +172,8 @@ test('authenticated users can create, update, and delete a branch', function () 
         'payroll_cycle' => 'monthly',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['branches.create', 'branches.update', 'branches.delete', 'branches.view']);
 
     $this->post('/organization/branches', [
         'company_id' => $company->id,

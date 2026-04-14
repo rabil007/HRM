@@ -25,12 +25,9 @@ type TeamSwitcherProps = {
 
 export function TeamSwitcher({ teams }: TeamSwitcherProps) {
     const { isMobile } = useSidebar();
-    const [activeTeam, setActiveTeam] = React.useState(teams[0]);
-    const { url, props } = usePage();
-    const currentCompanyId =
-        (props as any)?.company?.id && url?.startsWith('/organization/companies/')
-            ? Number((props as any).company.id)
-            : null;
+    const [activeTeam, setActiveTeam] = React.useState(teams[0] ?? { id: undefined, name: 'No company' });
+    const { props } = usePage();
+    const currentCompanyId = (props as any)?.current_company_id ? Number((props as any).current_company_id) : null;
 
     React.useEffect(() => {
         if (!currentCompanyId) {
@@ -43,6 +40,12 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
             setActiveTeam(match);
         }
     }, [currentCompanyId, teams]);
+
+    React.useEffect(() => {
+        if (!teams.length) {
+            setActiveTeam({ id: undefined, name: 'No company' });
+        }
+    }, [teams]);
 
     return (
         <SidebarMenu>
@@ -83,9 +86,11 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
                                     setActiveTeam(team);
 
                                     if (team.id) {
-                                        router.visit(`/organization/companies/${team.id}`);
-                                    } else {
-                                        router.visit('/organization/companies');
+                                        router.post(
+                                            '/organization/companies/switch',
+                                            { company_id: team.id },
+                                            { preserveScroll: true },
+                                        );
                                     }
                                 }}
                                 className="gap-2 p-2"

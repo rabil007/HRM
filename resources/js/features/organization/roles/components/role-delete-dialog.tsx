@@ -17,10 +17,8 @@ export function RoleDeleteDialog({
             onOpenChange={onOpenChange}
             title="Delete role"
             description={role ? `This will permanently delete “${role.name}”.` : 'This will permanently delete this role.'}
-            confirmText={role?.is_system ? 'System role' : undefined}
-            confirmButtonClassName={role?.is_system ? 'rounded-xl h-11 px-6 opacity-50 pointer-events-none' : undefined}
             onConfirm={() => {
-                if (!role || role.is_system) {
+                if (!role) {
                     return;
                 }
 

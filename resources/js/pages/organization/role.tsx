@@ -10,18 +10,17 @@ import type { Company, Role, RoleFormData } from '@/features/organization/roles/
 
 export default function RoleDetails({
     role,
-    companies,
+    company,
+    permissions,
 }: {
     role: Role & { updated_at?: string };
-    companies: Company[];
+    company: (Company & { slug?: string }) | null;
+    permissions: { id: number; name: string }[];
 }) {
     const [open, setOpen] = useState(false);
     const form = useForm<RoleFormData>({
-        company_id: role.company.id ?? '',
         name: role.name ?? '',
-        slug: role.slug ?? '',
         permissions: role.permissions ?? [],
-        is_system: Boolean(role.is_system),
     });
 
     return (
@@ -31,11 +30,11 @@ export default function RoleDetails({
                 <DetailsHeader
                     kicker="Organization"
                     title={role.name}
-                    description={`${role.company.name ?? '—'} • ${role.slug}`}
+                    description={company?.name ?? '—'}
                     backHref="/organization/roles"
                     backLabel="Back to roles"
                     actions={
-                        <Button className="rounded-xl h-11 px-5" onClick={() => setOpen(true)} disabled={role.is_system}>
+                        <Button className="rounded-xl h-11 px-5" onClick={() => setOpen(true)}>
                             Edit
                         </Button>
                     }
@@ -44,12 +43,6 @@ export default function RoleDetails({
                 <div className="grid gap-6 lg:grid-cols-2">
                     <Card className="border-white/5 bg-white/5">
                         <CardContent className="p-6 space-y-4">
-                            <div className="flex items-center justify-between gap-3">
-                                <div className="text-sm font-semibold text-muted-foreground/80">System</div>
-                                <Badge className="text-[10px] uppercase font-bold tracking-wider border bg-white/5 text-muted-foreground border-white/10">
-                                    {role.is_system ? 'Yes' : 'No'}
-                                </Badge>
-                            </div>
                             <div className="space-y-2">
                                 <div className="text-sm font-semibold text-muted-foreground/80">Permissions</div>
                                 <div className="flex flex-wrap gap-2">
@@ -72,13 +65,9 @@ export default function RoleDetails({
                     open={open}
                     onOpenChange={setOpen}
                     role={role}
-                    companies={companies}
+                    permissions={permissions}
                     form={form}
                     onSubmit={() => {
-                        if (role.is_system) {
-                            return;
-                        }
-
                         form.put(`/organization/roles/${role.id}`, {
                             preserveScroll: true,
                             onSuccess: () => setOpen(false),

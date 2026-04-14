@@ -2,12 +2,12 @@
 
 namespace App\Exports;
 
-use App\Models\Role;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStrictNullComparison;
+use Spatie\Permission\Models\Role;
 
 class RolesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNullComparison
 {
@@ -25,10 +25,7 @@ class RolesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
     {
         return [
             'ID',
-            'Company',
             'Name',
-            'Slug',
-            'Is System',
             'Permissions',
             'Created At',
         ];
@@ -38,11 +35,8 @@ class RolesExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
     {
         return [
             $role->id,
-            $role->company?->name,
             $role->name,
-            $role->slug,
-            (bool) $role->is_system,
-            is_array($role->permissions) ? implode(', ', $role->permissions) : null,
+            $role->permissions()->pluck('name')->implode(', '),
             optional($role->created_at)->toDateTimeString(),
         ];
     }

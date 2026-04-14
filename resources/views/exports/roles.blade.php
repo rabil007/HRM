@@ -21,10 +21,7 @@
             <thead>
                 <tr>
                     <th class="nowrap">ID</th>
-                    <th>Company</th>
                     <th>Name</th>
-                    <th class="nowrap">Slug</th>
-                    <th class="nowrap">System</th>
                     <th>Permissions</th>
                 </tr>
             </thead>
@@ -32,11 +29,8 @@
                 @foreach ($roles as $role)
                     <tr>
                         <td class="nowrap">{{ $role->id }}</td>
-                        <td>{{ $role->company?->name }}</td>
                         <td>{{ $role->name }}</td>
-                        <td class="nowrap">{{ $role->slug }}</td>
-                        <td class="nowrap">{{ $role->is_system ? 'Yes' : 'No' }}</td>
-                        <td>{{ is_array($role->permissions) ? implode(', ', $role->permissions) : '' }}</td>
+                        <td>{{ $role->permissions()->pluck('name')->implode(', ') }}</td>
                     </tr>
                 @endforeach
             </tbody>

@@ -3,12 +3,6 @@ export type Company = {
     name: string;
 };
 
-export type RoleOption = {
-    id: number;
-    company_id: number;
-    name: string;
-};
-
 export type User = {
     id: number;
     company: { id: number; name: string | null } | null;
@@ -23,7 +17,6 @@ export type User = {
 
 export type UserFormData = {
     company_id: number | '';
-    role_id: number | '';
     name: string;
     email: string;
     password: string;

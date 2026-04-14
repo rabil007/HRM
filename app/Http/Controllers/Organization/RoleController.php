@@ -4,106 +4,124 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\RolesExport;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Organization\Role\StoreRoleRequest;
-use App\Http\Requests\Organization\Role\UpdateRoleRequest;
 use App\Models\Company;
-use App\Models\Role;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
     public function index()
     {
-        $companies = Company::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $companyId = (int) request()->attributes->get('current_company_id');
 
         $roles = Role::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id')
             ->paginate(20)
             ->through(fn (Role $role) => [
                 'id' => $role->id,
-                'company' => [
-                    'id' => $role->company_id,
-                    'name' => $role->company?->name,
-                ],
                 'name' => $role->name,
-                'slug' => $role->slug,
-                'permissions' => $role->permissions ?? [],
-                'is_system' => (bool) $role->is_system,
+                'permissions' => $role->permissions()->pluck('name')->all(),
                 'created_at' => $role->created_at,
             ]);
 
+        $permissions = Permission::query()
+            ->where('guard_name', 'web')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $company = Company::query()->whereKey($companyId)->first(['id', 'name']);
+
         return Inertia::render('organization/roles', [
             'roles' => $roles,
-            'companies' => $companies,
+            'company' => $company,
+            'permissions' => $permissions,
         ]);
     }
 
     public function show(Role $role)
     {
-        $companies = Company::query()
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $role->company_id === $companyId, 404);
+
+        $permissions = Permission::query()
+            ->where('guard_name', 'web')
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $role->load(['company:id,name,slug']);
+        $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
 
         return Inertia::render('organization/role', [
             'role' => [
                 'id' => $role->id,
-                'company' => [
-                    'id' => $role->company_id,
-                    'name' => $role->company?->name,
-                    'slug' => $role->company?->slug,
-                ],
                 'name' => $role->name,
-                'slug' => $role->slug,
-                'permissions' => $role->permissions ?? [],
-                'is_system' => (bool) $role->is_system,
+                'permissions' => $role->permissions()->pluck('name')->all(),
                 'created_at' => $role->created_at,
                 'updated_at' => $role->updated_at,
             ],
-            'companies' => $companies,
+            'company' => $company,
+            'permissions' => $permissions,
         ]);
     }
 
-    public function store(StoreRoleRequest $request)
+    public function store(Request $request)
     {
-        $data = $request->validated();
+        $companyId = (int) $request->attributes->get('current_company_id');
 
-        $data['permissions'] = array_values(array_filter(array_map('strval', $data['permissions'] ?? [])));
-        $data['is_system'] = (bool) ($data['is_system'] ?? false);
-        $data['slug'] = Str::of((string) $data['slug'])->slug()->substr(0, 100)->toString();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'max:100'],
+        ]);
 
-        Role::create($data);
+        foreach (($data['permissions'] ?? []) as $permissionName) {
+            Permission::findOrCreate($permissionName, 'web');
+        }
+
+        $role = Role::query()->create([
+            'company_id' => $companyId,
+            'name' => $data['name'],
+            'guard_name' => 'web',
+        ]);
+
+        $role->syncPermissions($data['permissions'] ?? []);
 
         return redirect()->route('organization.roles');
     }
 
-    public function update(UpdateRoleRequest $request, Role $role)
+    public function update(Request $request, Role $role)
     {
-        $data = $request->validated();
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $role->company_id === $companyId, 404);
 
-        $data['permissions'] = array_values(array_filter(array_map('strval', $data['permissions'] ?? [])));
-        $data['is_system'] = (bool) ($data['is_system'] ?? false);
-        $data['slug'] = Str::of((string) $data['slug'])->slug()->substr(0, 100)->toString();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:100'],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'max:100'],
+        ]);
 
-        $role->update($data);
+        foreach (($data['permissions'] ?? []) as $permissionName) {
+            Permission::findOrCreate($permissionName, 'web');
+        }
+
+        $role->update([
+            'name' => $data['name'],
+        ]);
+
+        $role->syncPermissions($data['permissions'] ?? []);
 
         return redirect()->route('organization.roles');
     }
 
     public function destroy(Role $role)
     {
-        if ($role->is_system) {
-            return redirect()->route('organization.roles');
-        }
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $role->company_id === $companyId, 404);
 
         $role->delete();
 
@@ -115,27 +133,14 @@ class RoleController extends Controller
         $format = strtolower((string) $request->query('format', 'csv'));
 
         $search = trim((string) $request->query('search', ''));
-        $companyId = trim((string) $request->query('company_id', ''));
-        $isSystem = trim((string) $request->query('is_system', ''));
+        $companyId = (int) $request->attributes->get('current_company_id');
 
         $query = Role::query()
-            ->with(['company:id,name'])
+            ->where('company_id', $companyId)
             ->latest('id');
 
-        if ($companyId !== '') {
-            $query->where('company_id', $companyId);
-        }
-
-        if ($isSystem !== '') {
-            $query->where('is_system', filter_var($isSystem, FILTER_VALIDATE_BOOL));
-        }
-
         if ($search !== '') {
-            $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                    ->orWhere('slug', 'like', "%{$search}%")
-                    ->orWhereHas('company', fn ($cq) => $cq->where('name', 'like', "%{$search}%"));
-            });
+            $query->where('name', 'like', "%{$search}%");
         }
 
         $export = new RolesExport($query);

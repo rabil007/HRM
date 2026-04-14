@@ -15,6 +15,33 @@ test('authenticated users can view positions page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['positions.view']);
+
     $this->get('/organization/positions')->assertOk();
 });
 
@@ -64,6 +91,8 @@ test('authenticated users can view a position details page', function () {
         'status' => 'active',
     ]);
 
+    grantCompanyPermissions($user, $company, ['positions.view']);
+
     $this->get("/organization/positions/{$position->id}")->assertOk();
 });
 
@@ -102,6 +131,8 @@ test('authenticated users can create, update, and delete a position', function (
         'code' => 'ENG',
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($user, $company, ['positions.create', 'positions.update', 'positions.delete', 'positions.view']);
 
     $this->post('/organization/positions', [
         'company_id' => $company->id,
@@ -177,6 +208,8 @@ test('authenticated users can export positions as csv, excel, and pdf', function
         'status' => 'active',
     ]);
 
+    grantCompanyPermissions($user, $company, ['positions.view', 'positions.export']);
+
     $csv = $this->get('/organization/positions/export?format=csv&search=H1');
     $csv->assertOk();
     expect($csv->headers->get('content-type'))->toContain('text/csv');
@@ -189,4 +222,3 @@ test('authenticated users can export positions as csv, excel, and pdf', function
     $pdf->assertOk();
     expect($pdf->headers->get('content-type'))->toContain('application/pdf');
 });
-

@@ -24,18 +24,11 @@ export function RoleCard({
                             <Shield className="h-4 w-4 text-primary/80" />
                             <CardTitle className="text-lg font-extrabold tracking-tight line-clamp-1">{role.name}</CardTitle>
                         </div>
-                        <CardDescription className="mt-2 text-sm font-medium text-muted-foreground/85">
-                            {role.company.name ?? '—'} • <span className="font-mono text-xs">{role.slug}</span>
-                        </CardDescription>
+                        <CardDescription className="mt-2 text-sm font-medium text-muted-foreground/85">Role</CardDescription>
                         <div className="mt-3 flex flex-wrap gap-2">
                             <Badge variant="secondary" className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
                                 {role.permissions.length} permissions
                             </Badge>
-                            {role.is_system ? (
-                                <Badge className="text-[10px] uppercase font-bold tracking-wider border bg-primary/15 text-primary border-primary/25">
-                                    system
-                                </Badge>
-                            ) : null}
                         </div>
                     </div>
                 </div>
@@ -73,8 +66,7 @@ export function RoleCard({
                             e.stopPropagation();
                             onEdit(role);
                         }}
-                        title={role.is_system ? 'System roles cannot be edited' : 'Edit'}
-                        disabled={role.is_system}
+                        title="Edit"
                     >
                         <Pencil className="h-4 w-4" />
                     </Button>
@@ -87,8 +79,7 @@ export function RoleCard({
                             e.stopPropagation();
                             onDelete(role);
                         }}
-                        title={role.is_system ? 'System roles cannot be deleted' : 'Delete'}
-                        disabled={role.is_system}
+                        title="Delete"
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>

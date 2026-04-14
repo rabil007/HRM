@@ -19,7 +19,6 @@ class UpdateUserRequest extends FormRequest
     {
         return [
             'company_id' => ['nullable', 'integer', 'exists:companies,id'],
-            'role_id' => ['nullable', 'integer', 'exists:roles,id'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
             'password' => ['nullable', 'string', 'min:8', 'max:255'],

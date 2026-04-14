@@ -10,15 +10,17 @@ type Pagination<T> = {
 
 export default function Roles({
     roles,
-    companies,
+    company,
+    permissions,
 }: {
     roles: Pagination<Role>;
-    companies: Company[];
+    company: Company | null;
+    permissions: { id: number; name: string }[];
 }) {
     return (
         <>
             <Head title="Roles & Permissions" />
-            <RolesContent roles={roles.data} companies={companies} />
+            <RolesContent roles={roles.data} company={company} permissions={permissions} />
         </>
     );
 }

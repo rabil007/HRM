@@ -36,15 +36,35 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $currentCompanyId = $request->attributes->get('current_company_id');
+        $user = $request->user();
+
+        $companies = [];
+        $permissions = [];
+        $roleNames = [];
+
+        if ($user) {
+            $companies = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name'])->all();
+
+            if (empty($companies) && $user->company_id) {
+                $fallback = Company::query()->whereKey($user->company_id)->get(['id', 'name'])->all();
+                $companies = $fallback;
+            }
+
+            $permissions = $user->getAllPermissions()->pluck('name')->all();
+            $roleNames = $user->getRoleNames()->all();
+        }
+
         return [
             ...parent::share($request),
             'name' => config('app.name'),
             'auth' => [
                 'user' => $request->user(),
+                'permissions' => $permissions,
+                'roles' => $roleNames,
             ],
-            'company_switcher_companies' => $request->user()
-                ? Company::query()->orderBy('name')->get(['id', 'name'])
-                : [],
+            'company_switcher_companies' => $companies,
+            'current_company_id' => $currentCompanyId,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
     }

@@ -26,7 +26,6 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
         return [
             'ID',
             'Company',
-            'Role',
             'Name',
             'Email',
             'Status',
@@ -40,7 +39,6 @@ class UsersExport implements FromQuery, WithHeadings, WithMapping, WithStrictNul
         return [
             $user->id,
             $user->company?->name,
-            $user->role?->name,
             $user->name,
             $user->email,
             $user->status,

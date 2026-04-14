@@ -3,7 +3,6 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
-use App\Models\Role;
 use App\Models\User;
 
 test('guests cannot access users page', function () {
@@ -13,6 +12,33 @@ test('guests cannot access users page', function () {
 test('authenticated users can view users page', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['users.view']);
 
     $this->get('/organization/users')->assertOk();
 });
@@ -46,22 +72,15 @@ test('authenticated users can view a user details page', function () {
         'status' => 'active',
     ]);
 
-    $role = Role::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Viewer',
-        'slug' => 'viewer',
-        'permissions' => ['companies.view'],
-        'is_system' => false,
-    ]);
-
     $user = User::query()->create([
         'company_id' => $company->id,
-        'role_id' => $role->id,
         'name' => 'Jane Doe',
         'email' => 'jane@example.com',
         'password' => bcrypt('password123'),
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($auth, $company, ['users.view']);
 
     $this->get("/organization/users/{$user->id}")->assertOk();
 });
@@ -95,17 +114,10 @@ test('authenticated users can create, update, and delete a user', function () {
         'status' => 'active',
     ]);
 
-    $role = Role::query()->create([
-        'company_id' => $company->id,
-        'name' => 'HR Admin',
-        'slug' => 'hr-admin',
-        'permissions' => ['departments.view'],
-        'is_system' => false,
-    ]);
+    grantCompanyPermissions($auth, $company, ['users.create', 'users.update', 'users.delete', 'users.view']);
 
     $this->post('/organization/users', [
         'company_id' => $company->id,
-        'role_id' => $role->id,
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'password' => 'password123',
@@ -117,7 +129,6 @@ test('authenticated users can create, update, and delete a user', function () {
 
     $this->put("/organization/users/{$userId}", [
         'company_id' => $company->id,
-        'role_id' => $role->id,
         'name' => 'John Updated',
         'email' => 'john@example.com',
         'password' => '',
@@ -169,6 +180,8 @@ test('authenticated users can export users as csv, excel, and pdf', function () 
         'password' => bcrypt('password123'),
         'status' => 'active',
     ]);
+
+    grantCompanyPermissions($auth, $company, ['users.view', 'users.export']);
 
     $csv = $this->get('/organization/users/export?format=csv&search=export-user');
     $csv->assertOk();

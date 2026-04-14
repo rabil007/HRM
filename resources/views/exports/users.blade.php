@@ -22,7 +22,6 @@
                 <tr>
                     <th class="nowrap">ID</th>
                     <th>Company</th>
-                    <th>Role</th>
                     <th>Name</th>
                     <th>Email</th>
                     <th class="nowrap">Status</th>
@@ -34,7 +33,6 @@
                     <tr>
                         <td class="nowrap">{{ $user->id }}</td>
                         <td>{{ $user->company?->name }}</td>
-                        <td>{{ $user->role?->name }}</td>
                         <td>{{ $user->name }}</td>
                         <td>{{ $user->email }}</td>
                         <td class="nowrap">{{ $user->status }}</td>
