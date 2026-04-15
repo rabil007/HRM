@@ -133,7 +133,9 @@ class BranchController extends Controller
 
         Branch::create($data);
 
-        return redirect()->route('organization.branches');
+        return redirect()
+            ->route('organization.branches')
+            ->with('success', 'Branch created successfully.');
     }
 
     public function update(UpdateBranchRequest $request, Branch $branch)
@@ -155,7 +157,9 @@ class BranchController extends Controller
 
         $branch->update($data);
 
-        return redirect()->route('organization.branches');
+        return redirect()
+            ->route('organization.branches')
+            ->with('success', 'Branch updated successfully.');
     }
 
     public function destroy(Branch $branch)
@@ -165,7 +169,9 @@ class BranchController extends Controller
 
         $branch->delete();
 
-        return redirect()->route('organization.branches');
+        return redirect()
+            ->route('organization.branches')
+            ->with('success', 'Branch deleted successfully.');
     }
 
     public function updateStatus(UpdateBranchStatusRequest $request, Branch $branch)
@@ -177,7 +183,9 @@ class BranchController extends Controller
             'status' => $request->validated('status'),
         ]);
 
-        return redirect()->route('organization.branches');
+        return redirect()
+            ->route('organization.branches')
+            ->with('success', 'Branch status updated successfully.');
     }
 
     public function export(Request $request)

@@ -159,9 +159,6 @@ export function CompaniesContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success(`Company "${company.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
-                },
                 onError: () => {
                     toast.error('Failed to update status. Please try again.');
                 },

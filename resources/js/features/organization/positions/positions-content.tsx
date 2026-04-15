@@ -104,9 +104,6 @@ export function PositionsContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success(`Position "${position.title}" is now ${enabled ? 'Active' : 'Inactive'}.`);
-                },
                 onError: () => {
                     toast.error('Failed to update status. Please try again.');
                 },

@@ -120,7 +120,9 @@ class RoleController extends Controller
 
         $role->syncPermissions($data['permissions'] ?? []);
 
-        return redirect()->route('organization.roles.show', $role);
+        return redirect()
+            ->route('organization.roles.show', $role)
+            ->with('success', 'Role created successfully.');
     }
 
     public function update(Request $request, Role $role)
@@ -144,7 +146,9 @@ class RoleController extends Controller
 
         $role->syncPermissions($data['permissions'] ?? []);
 
-        return redirect()->route('organization.roles');
+        return redirect()
+            ->route('organization.roles')
+            ->with('success', 'Role updated successfully.');
     }
 
     public function destroy(Role $role)
@@ -154,7 +158,9 @@ class RoleController extends Controller
 
         $role->delete();
 
-        return redirect()->route('organization.roles');
+        return redirect()
+            ->route('organization.roles')
+            ->with('success', 'Role deleted successfully.');
     }
 
     public function export(Request $request)

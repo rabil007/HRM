@@ -102,9 +102,6 @@ export function UsersContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success(`User "${user.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
-                },
                 onError: () => {
                     toast.error('Failed to update status. Please try again.');
                 },

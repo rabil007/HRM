@@ -178,7 +178,9 @@ class DepartmentController extends Controller
 
         Department::create($data);
 
-        return redirect()->route('organization.departments');
+        return redirect()
+            ->route('organization.departments')
+            ->with('success', 'Department created successfully.');
     }
 
     public function update(UpdateDepartmentRequest $request, Department $department)
@@ -199,7 +201,9 @@ class DepartmentController extends Controller
 
         $department->update($data);
 
-        return redirect()->route('organization.departments');
+        return redirect()
+            ->route('organization.departments')
+            ->with('success', 'Department updated successfully.');
     }
 
     public function destroy(Department $department)
@@ -209,7 +213,9 @@ class DepartmentController extends Controller
 
         $department->delete();
 
-        return redirect()->route('organization.departments');
+        return redirect()
+            ->route('organization.departments')
+            ->with('success', 'Department deleted successfully.');
     }
 
     public function updateStatus(UpdateDepartmentStatusRequest $request, Department $department)
@@ -221,7 +227,9 @@ class DepartmentController extends Controller
             'status' => $request->validated('status'),
         ]);
 
-        return redirect()->route('organization.departments');
+        return redirect()
+            ->route('organization.departments')
+            ->with('success', 'Department status updated successfully.');
     }
 
     public function export(Request $request)

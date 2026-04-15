@@ -249,7 +249,9 @@ class CompanyController extends Controller
             $user->assignRole($role);
         }
 
-        return redirect()->route('organization.companies');
+        return redirect()
+            ->route('organization.companies')
+            ->with('success', 'Company created successfully.');
     }
 
     public function update(UpdateCompanyRequest $request, Company $company)
@@ -289,7 +291,9 @@ class CompanyController extends Controller
 
         $company->update($data);
 
-        return redirect()->route('organization.companies');
+        return redirect()
+            ->route('organization.companies')
+            ->with('success', 'Company updated successfully.');
     }
 
     public function updateStatus(UpdateCompanyStatusRequest $request, Company $company)
@@ -298,14 +302,18 @@ class CompanyController extends Controller
             'status' => $request->validated('status'),
         ]);
 
-        return redirect()->route('organization.companies');
+        return redirect()
+            ->route('organization.companies')
+            ->with('success', 'Company status updated successfully.');
     }
 
     public function destroy(Company $company)
     {
         $company->delete();
 
-        return redirect()->route('organization.companies');
+        return redirect()
+            ->route('organization.companies')
+            ->with('success', 'Company deleted successfully.');
     }
 
     public function export(Request $request)

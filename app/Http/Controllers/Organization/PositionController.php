@@ -139,7 +139,9 @@ class PositionController extends Controller
 
         Position::create($data);
 
-        return redirect()->route('organization.positions');
+        return redirect()
+            ->route('organization.positions')
+            ->with('success', 'Position created successfully.');
     }
 
     public function update(UpdatePositionRequest $request, Position $position)
@@ -160,7 +162,9 @@ class PositionController extends Controller
 
         $position->update($data);
 
-        return redirect()->route('organization.positions');
+        return redirect()
+            ->route('organization.positions')
+            ->with('success', 'Position updated successfully.');
     }
 
     public function destroy(Position $position)
@@ -170,7 +174,9 @@ class PositionController extends Controller
 
         $position->delete();
 
-        return redirect()->route('organization.positions');
+        return redirect()
+            ->route('organization.positions')
+            ->with('success', 'Position deleted successfully.');
     }
 
     public function updateStatus(UpdatePositionStatusRequest $request, Position $position)
@@ -182,7 +188,9 @@ class PositionController extends Controller
             'status' => $request->validated('status'),
         ]);
 
-        return redirect()->route('organization.positions');
+        return redirect()
+            ->route('organization.positions')
+            ->with('success', 'Position status updated successfully.');
     }
 
     public function export(Request $request)

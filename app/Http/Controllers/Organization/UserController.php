@@ -210,7 +210,9 @@ class UserController extends Controller
             $user->syncRoles([]);
         }
 
-        return redirect()->route('organization.users');
+        return redirect()
+            ->route('organization.users')
+            ->with('success', 'User created successfully.');
     }
 
     public function update(UpdateUserRequest $request, User $user)
@@ -260,7 +262,9 @@ class UserController extends Controller
             $user->syncRoles([]);
         }
 
-        return redirect()->route('organization.users');
+        return redirect()
+            ->route('organization.users')
+            ->with('success', 'User updated successfully.');
     }
 
     public function destroy(User $user)
@@ -270,7 +274,9 @@ class UserController extends Controller
 
         $user->delete();
 
-        return redirect()->route('organization.users');
+        return redirect()
+            ->route('organization.users')
+            ->with('success', 'User deleted successfully.');
     }
 
     public function updateStatus(UpdateUserStatusRequest $request, User $user)
@@ -282,7 +288,9 @@ class UserController extends Controller
             'status' => $request->validated('status'),
         ]);
 
-        return redirect()->route('organization.users');
+        return redirect()
+            ->route('organization.users')
+            ->with('success', 'User status updated successfully.');
     }
 
     public function storeMembership(Request $request, User $user)
@@ -309,7 +317,9 @@ class UserController extends Controller
             $user->syncRoles([$role->name]);
         }
 
-        return redirect()->route('organization.users.show', $user);
+        return redirect()
+            ->route('organization.users.show', $user)
+            ->with('success', 'Membership added successfully.');
     }
 
     public function updateMembership(Request $request, User $user, Company $company)
@@ -335,7 +345,9 @@ class UserController extends Controller
             $user->syncRoles([]);
         }
 
-        return redirect()->route('organization.users.show', $user);
+        return redirect()
+            ->route('organization.users.show', $user)
+            ->with('success', 'Membership updated successfully.');
     }
 
     public function destroyMembership(Request $request, User $user, Company $company)
@@ -345,7 +357,9 @@ class UserController extends Controller
         app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
         $user->syncRoles([]);
 
-        return redirect()->route('organization.users.show', $user);
+        return redirect()
+            ->route('organization.users.show', $user)
+            ->with('success', 'Membership removed successfully.');
     }
 
     public function export(Request $request)
