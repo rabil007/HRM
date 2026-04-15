@@ -28,7 +28,6 @@ class Department extends Model
                 'code',
                 'parent_id',
                 'manager_id',
-                'description',
                 'status',
             ])
             ->logOnlyDirty();

@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access branches page', function () {
     $this->get('/organization/branches')->assertRedirect(route('login'));
@@ -205,6 +206,16 @@ test('authenticated users can create, update, and delete a branch', function () 
         'name' => 'HQ Updated',
         'status' => 'inactive',
     ]);
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', Branch::class)
+        ->where('subject_id', $branchId)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull();
 
     $this->delete("/organization/branches/{$branchId}")->assertRedirect('/organization/branches');
     $this->assertDatabaseMissing('branches', ['id' => $branchId]);

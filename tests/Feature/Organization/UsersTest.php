@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
 test('guests cannot access users page', function () {
@@ -154,6 +155,16 @@ test('authenticated users can create, update, and delete a user', function () {
         'name' => 'John Updated',
         'status' => 'inactive',
     ]);
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', User::class)
+        ->where('subject_id', $userId)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull();
 
     $this->delete("/organization/users/{$userId}")->assertRedirect('/organization/users');
 });

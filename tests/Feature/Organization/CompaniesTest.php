@@ -4,6 +4,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
+use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
 test('guests cannot access companies pages', function () {
@@ -160,6 +161,16 @@ test('authenticated users can update a company with all fields', function () {
         'wps_mol_uid' => 'MOL-1',
         'status' => 'suspended',
     ]);
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', Company::class)
+        ->where('subject_id', $company->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull();
 });
 
 test('authenticated users can toggle company status', function () {

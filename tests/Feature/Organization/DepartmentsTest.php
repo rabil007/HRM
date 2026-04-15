@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\User;
+use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access departments page', function () {
     $this->get('/organization/departments')->assertRedirect(route('login'));
@@ -162,6 +163,16 @@ test('authenticated users can create, update, and delete a department', function
         'name' => 'HR Updated',
         'status' => 'inactive',
     ]);
+
+    $activity = Activity::query()
+        ->where('company_id', $company->id)
+        ->where('subject_type', Department::class)
+        ->where('subject_id', $departmentId)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull();
 
     $this->delete("/organization/departments/{$departmentId}")->assertRedirect('/organization/departments');
     $this->assertDatabaseMissing('departments', ['id' => $departmentId]);
