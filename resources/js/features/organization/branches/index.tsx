@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -7,6 +7,12 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 import { BranchCard } from './components/branch-card';
 import { BranchDeleteDialog } from './components/branch-delete-dialog';
 import { BranchFiltersSheet } from './components/branch-filters-sheet';
@@ -21,6 +27,7 @@ export function BranchesContent({
     branches: Branch[];
     countries: Country[];
 }) {
+    const [view, setView] = useViewPreference('branches:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -99,6 +106,22 @@ export function BranchesContent({
                 setCurrentBranch(null);
             },
         });
+    };
+
+    const toggleStatus = (branch: Branch, enabled: boolean) => {
+        router.put(
+            `/organization/branches/${branch.id}/status`,
+            { status: enabled ? 'active' : 'inactive' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(`Branch "${branch.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
+                },
+                onError: () => {
+                    toast.error('Failed to update status. Please try again.');
+                },
+            },
+        );
     };
 
     const filteredBranches = useMemo(() => {
@@ -239,6 +262,7 @@ export function BranchesContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -263,16 +287,110 @@ export function BranchesContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredBranches.map((branch) => (
-                    <BranchCard
-                        key={branch.id}
-                        branch={branch}
-                        onEdit={handleEdit}
-                        onDelete={handleDeleteClick}
-                    />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredBranches.map((branch) => (
+                        <BranchCard
+                            key={branch.id}
+                            branch={branch}
+                            onEdit={handleEdit}
+                            onDelete={handleDeleteClick}
+                            onToggleStatus={toggleStatus}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[980px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">Branch</TableHead>
+                                    <TableHead>Code</TableHead>
+                                    <TableHead>HQ</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Phone</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredBranches.map((branch) => (
+                                    <TableRow
+                                        key={branch.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/branches/${branch.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">{branch.name}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{branch.code ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{branch.is_headquarters ? 'Yes' : '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            {[branch.city, branch.country].filter(Boolean).join(', ') || '—'}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground/80">{branch.email ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{branch.phone ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                <Switch
+                                                    checked={branch.status === 'active'}
+                                                    onCheckedChange={(checked) => toggleStatus(branch, checked)}
+                                                />
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                    {branch.status ?? '—'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/branches/${branch.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(branch);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteClick(branch);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredBranches.length === 0 ? (
                 <EmptyState title="No branches found." />

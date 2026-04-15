@@ -6,6 +6,7 @@ use App\Exports\BranchesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Branch\StoreBranchRequest;
 use App\Http\Requests\Organization\Branch\UpdateBranchRequest;
+use App\Http\Requests\Organization\Branch\UpdateBranchStatusRequest;
 use App\Models\Branch;
 use App\Models\Country;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -163,6 +164,18 @@ class BranchController extends Controller
         abort_unless((int) $branch->company_id === $companyId, 404);
 
         $branch->delete();
+
+        return redirect()->route('organization.branches');
+    }
+
+    public function updateStatus(UpdateBranchStatusRequest $request, Branch $branch)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $branch->company_id === $companyId, 404);
+
+        $branch->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return redirect()->route('organization.branches');
     }
