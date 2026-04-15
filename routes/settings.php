@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
@@ -91,5 +92,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('genders/{gender}', [GenderController::class, 'destroy'])
             ->middleware('can:settings.master-data.genders.delete')
             ->name('genders.destroy');
+
+        Route::get('banks', [BankController::class, 'index'])
+            ->middleware('can:settings.master-data.banks.view')
+            ->name('banks.index');
+        Route::post('banks', [BankController::class, 'store'])
+            ->middleware('can:settings.master-data.banks.create')
+            ->name('banks.store');
+        Route::put('banks/{bank}', [BankController::class, 'update'])
+            ->middleware('can:settings.master-data.banks.update')
+            ->name('banks.update');
+        Route::delete('banks/{bank}', [BankController::class, 'destroy'])
+            ->middleware('can:settings.master-data.banks.delete')
+            ->name('banks.destroy');
     });
 });

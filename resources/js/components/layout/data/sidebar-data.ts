@@ -72,22 +72,27 @@ const baseSidebarData: SidebarData = {
                         {
                             title: 'Currencies',
                             url: '/settings/master-data/currencies',
-                            icon: Globe2,
+                            icon: Wallet,
                         },
                         {
                             title: 'Visa types',
                             url: '/settings/master-data/visa-types',
-                            icon: Globe2,
+                            icon: IdCard,
                         },
                         {
                             title: 'Religions',
                             url: '/settings/master-data/religions',
-                            icon: Globe2,
+                            icon: BadgeCheck,
                         },
                         {
                             title: 'Genders',
                             url: '/settings/master-data/genders',
-                            icon: Globe2,
+                            icon: Users,
+                        },
+                        {
+                            title: 'Banks',
+                            url: '/settings/master-data/banks',
+                            icon: PiggyBank,
                         },
                     ],
                 },
@@ -194,6 +199,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/genders') {
                                 return has(permissions, 'settings.master-data.genders.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/banks') {
+                                return has(permissions, 'settings.master-data.banks.view');
                             }
 
                             return true;

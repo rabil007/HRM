@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call(VisaTypesSeeder::class);
         $this->call(GendersSeeder::class);
         $this->call(ReligionsSeeder::class);
+        $this->call(BanksSeeder::class);
         $this->call(CompanySeeder::class);
         $this->call(AdminSeeder::class);
     }

@@ -10,7 +10,6 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -57,33 +56,6 @@ class RoleController extends Controller
 
         $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
 
-        $recentActivity = [];
-        $request = request();
-        if ($request->user()?->can('audit.view')) {
-            $recentActivity = Activity::query()
-                ->where('company_id', $companyId)
-                ->where('subject_type', Role::class)
-                ->where('subject_id', $role->id)
-                ->with(['causer:id,name,email'])
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (Activity $log) => [
-                    'id' => $log->id,
-                    'event' => $log->event,
-                    'description' => $log->description,
-                    'causer' => $log->causer ? [
-                        'id' => $log->causer->id,
-                        'name' => $log->causer->name,
-                        'email' => $log->causer->email,
-                    ] : null,
-                    'old_values' => $log->attribute_changes?->get('old'),
-                    'new_values' => $log->attribute_changes?->get('attributes'),
-                    'created_at' => $log->created_at,
-                ])
-                ->all();
-        }
-
         return Inertia::render('organization/role', [
             'role' => [
                 'id' => $role->id,
@@ -94,7 +66,6 @@ class RoleController extends Controller
             ],
             'company' => $company,
             'permissions' => $permissions,
-            'recent_activity' => $recentActivity,
         ]);
     }
 
