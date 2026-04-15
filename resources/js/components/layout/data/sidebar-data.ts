@@ -74,6 +74,21 @@ const baseSidebarData: SidebarData = {
                             url: '/settings/master-data/currencies',
                             icon: Globe2,
                         },
+                        {
+                            title: 'Visa types',
+                            url: '/settings/master-data/visa-types',
+                            icon: Globe2,
+                        },
+                        {
+                            title: 'Religions',
+                            url: '/settings/master-data/religions',
+                            icon: Globe2,
+                        },
+                        {
+                            title: 'Genders',
+                            url: '/settings/master-data/genders',
+                            icon: Globe2,
+                        },
                     ],
                 },
             ],
@@ -167,6 +182,18 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/currencies') {
                                 return has(permissions, 'settings.master-data.currencies.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/visa-types') {
+                                return has(permissions, 'settings.master-data.visa-types.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/religions') {
+                                return has(permissions, 'settings.master-data.religions.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/genders') {
+                                return has(permissions, 'settings.master-data.genders.view');
                             }
 
                             return true;

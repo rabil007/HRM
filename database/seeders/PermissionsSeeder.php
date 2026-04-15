@@ -28,6 +28,21 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.currencies.update',
             'settings.master-data.currencies.delete',
 
+            'settings.master-data.visa-types.view',
+            'settings.master-data.visa-types.create',
+            'settings.master-data.visa-types.update',
+            'settings.master-data.visa-types.delete',
+
+            'settings.master-data.religions.view',
+            'settings.master-data.religions.create',
+            'settings.master-data.religions.update',
+            'settings.master-data.religions.delete',
+
+            'settings.master-data.genders.view',
+            'settings.master-data.genders.create',
+            'settings.master-data.genders.update',
+            'settings.master-data.genders.delete',
+
             'companies.view',
             'companies.create',
             'companies.update',

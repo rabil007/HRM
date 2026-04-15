@@ -15,6 +15,9 @@ class DatabaseSeeder extends Seeder
         $this->call(PermissionsSeeder::class);
         $this->call(CurrencySeeder::class);
         $this->call(CountrySeeder::class);
+        $this->call(VisaTypesSeeder::class);
+        $this->call(GendersSeeder::class);
+        $this->call(ReligionsSeeder::class);
         $this->call(CompanySeeder::class);
         $this->call(AdminSeeder::class);
     }
