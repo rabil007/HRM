@@ -20,6 +20,7 @@ import {
     FileText,
     IdCard,
     BadgeCheck,
+    Activity,
     CalendarCheck2,
     PiggyBank,
     Globe2,
@@ -84,6 +85,7 @@ const baseSidebarData: SidebarData = {
                 { title: 'Branches', url: '/organization/branches', icon: MapPin },
                 { title: 'Departments', url: '/organization/departments', icon: Layers },
                 { title: 'Positions', url: '/organization/positions', icon: Landmark },
+                { title: 'Activity logs', url: '/organization/activity-logs', icon: Activity },
                 { title: 'Roles & permissions', url: '/organization/roles', icon: BadgeCheck },
                 { title: 'Users', url: '/organization/users', icon: Users },
             ],
@@ -197,6 +199,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'roles.view') ? item : null;
                         case '/organization/users':
                             return has(permissions, 'users.view') ? item : null;
+                        case '/organization/activity-logs':
+                            return has(permissions, 'audit.view') ? item : null;
                         default:
                             return item;
                     }

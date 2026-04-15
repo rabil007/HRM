@@ -63,6 +63,8 @@ class PermissionsSeeder extends Seeder
             'users.update',
             'users.delete',
             'users.export',
+
+            'audit.view',
         ];
 
         foreach ($permissions as $name) {
