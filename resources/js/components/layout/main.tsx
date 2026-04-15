@@ -6,7 +6,7 @@ type MainProps = React.HTMLAttributes<HTMLElement> & {
     ref?: React.Ref<HTMLElement>;
 };
 
-export function Main({ fixed, className, fluid, ...props }: MainProps) {
+export function Main({ fixed, className, fluid = true, ...props }: MainProps) {
     return (
         <main
             data-layout={fixed ? 'fixed' : 'auto'}

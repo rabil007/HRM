@@ -216,14 +216,14 @@ export function UsersContent({
             />
 
             {view === 'grid' ? (
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {filteredUsers.map((u) => (
                         <UserCard key={u.id} user={u} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={toggleStatus} />
                     ))}
                 </div>
             ) : (
-                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
-                    <CardContent className="p-0">
+                <Card className="w-full border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="w-full p-0 min-h-[360px]">
                         <Table className="min-w-[980px]">
                             <TableHeader>
                                 <TableRow className="border-white/10">
