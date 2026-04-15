@@ -1,8 +1,8 @@
 import { LayoutGrid, List, Pin } from 'lucide-react';
-import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { setOrganizationDefaultView } from '@/hooks/use-view-preference';
 import type { ViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 
 export function ViewToggle({
     value,

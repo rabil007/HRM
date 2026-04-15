@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
@@ -156,7 +157,15 @@ export function CompaniesContent({
         router.put(
             `/organization/companies/${company.id}/status`,
             { status: enabled ? 'active' : 'inactive' },
-            { preserveScroll: true },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(`Company "${company.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
+                },
+                onError: () => {
+                    toast.error('Failed to update status. Please try again.');
+                },
+            },
         );
     };
 

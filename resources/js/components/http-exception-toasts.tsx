@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { useEffect } from 'react';
-import { toast } from 'sonner';
+import { toast } from '@/lib/toast';
 
 export function HttpExceptionToasts() {
     useEffect(() => {
