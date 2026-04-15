@@ -20,9 +20,9 @@ export function RoleFormSheet({
 }) {
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-lg border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">{role ? 'Edit Role' : 'New Role'}</SheetTitle>
+            <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col glass-card rounded-none">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">{role ? 'Edit Role' : 'New Role'}</SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
                         {role ? 'Update role details.' : 'Create a role. You can manage permissions after.'}
                     </SheetDescription>
@@ -37,7 +37,7 @@ export function RoleFormSheet({
                             <Input
                                 id="name"
                                 placeholder="Admin"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                             />
@@ -46,7 +46,7 @@ export function RoleFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 text-muted-foreground flex-1" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>

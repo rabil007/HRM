@@ -32,9 +32,9 @@ export function CompanyDeleteDialog({
             }
             confirmText="Confirm Delete"
             onConfirm={onConfirm}
-            contentClassName="border-white/10 bg-black/90 backdrop-blur-2xl"
+            contentClassName="glass-card"
             footerClassName="mt-6 gap-3"
-            cancelButtonClassName="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6 text-muted-foreground"
+            cancelButtonClassName="glass-card rounded-xl hover:bg-accent h-12 px-6 text-muted-foreground"
             confirmButtonClassName="rounded-xl bg-destructive hover:bg-destructive/90 h-12 px-6"
         />
     );

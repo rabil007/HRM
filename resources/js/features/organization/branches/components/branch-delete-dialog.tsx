@@ -28,7 +28,7 @@ export function BranchDeleteDialog({
             }
             confirmText="Confirm"
             onConfirm={onConfirm}
-            contentClassName="border-white/5 bg-black/60 backdrop-blur-3xl"
+            contentClassName="glass-card"
             footerClassName="gap-3 sm:gap-3"
         />
     );

@@ -18,11 +18,11 @@ export function ViewToggle({
     defaultLabel?: string;
 }) {
     return (
-        <div className="flex items-center rounded-xl border border-white/5 bg-white/5 p-1">
+        <div className="glass-card flex items-center rounded-xl p-1">
             <Button
                 type="button"
                 variant={value === 'grid' ? 'default' : 'ghost'}
-                className={value === 'grid' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-white/10'}
+                className={value === 'grid' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
                 onClick={() => onChange('grid')}
                 title={gridLabel}
             >
@@ -31,18 +31,18 @@ export function ViewToggle({
             <Button
                 type="button"
                 variant={value === 'list' ? 'default' : 'ghost'}
-                className={value === 'list' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-white/10'}
+                className={value === 'list' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
                 onClick={() => onChange('list')}
                 title={listLabel}
             >
                 <List className="h-4 w-4" />
             </Button>
-            <div className="mx-1 h-6 w-px bg-white/10" />
+            <div className="mx-1 h-6 w-px bg-border/60" />
             <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-11 w-11 rounded-lg hover:bg-white/10"
+                className="h-11 w-11 rounded-lg hover:bg-accent"
                 onClick={() => {
                     setOrganizationDefaultView(value);
                     toast.success(`Default view set to ${value === 'list' ? 'List' : 'Grid'}.`);

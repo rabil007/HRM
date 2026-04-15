@@ -29,9 +29,9 @@ export function DepartmentFormSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">
+            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">
                         {department ? 'Edit Department' : 'New Department'}
                     </SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
@@ -48,7 +48,7 @@ export function DepartmentFormSheet({
                                 </Label>
                                 <select
                                     id="status"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.status}
                                     onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
                                 >
@@ -65,7 +65,7 @@ export function DepartmentFormSheet({
                                 <Input
                                     id="code"
                                     placeholder="HR"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.code}
                                     onChange={(e) => form.setData('code', e.target.value)}
                                 />
@@ -80,7 +80,7 @@ export function DepartmentFormSheet({
                             <Input
                                 id="name"
                                 placeholder="Human Resources"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                             />
@@ -93,7 +93,7 @@ export function DepartmentFormSheet({
                             </Label>
                             <select
                                 id="branch_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                 value={form.data.branch_id}
                                 onChange={(e) => form.setData('branch_id', e.target.value ? Number(e.target.value) : '')}
                             >
@@ -113,7 +113,7 @@ export function DepartmentFormSheet({
                             </Label>
                             <select
                                 id="parent_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                 value={form.data.parent_id}
                                 onChange={(e) => form.setData('parent_id', e.target.value ? Number(e.target.value) : '')}
                             >
@@ -133,7 +133,7 @@ export function DepartmentFormSheet({
                             </Label>
                             <select
                                 id="manager_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                 value={form.data.manager_id}
                                 onChange={(e) => form.setData('manager_id', e.target.value ? Number(e.target.value) : '')}
                             >
@@ -149,7 +149,7 @@ export function DepartmentFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button
                         type="button"
                         variant="ghost"

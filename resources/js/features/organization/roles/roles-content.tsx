@@ -137,7 +137,7 @@ export function RolesContent({
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
-                            buttonClassName="rounded-xl h-12 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
                     </>
                 }
@@ -150,11 +150,11 @@ export function RolesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="w-full border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                <Card className="glass-card w-full overflow-hidden">
                     <CardContent className="w-full p-0 min-h-[360px]">
                         <Table className="min-w-[980px]">
                             <TableHeader>
-                                <TableRow className="border-white/10">
+                                <TableRow className="border-border/60">
                                     <TableHead className="pl-4">Role</TableHead>
                                     <TableHead>Permissions</TableHead>
                                     <TableHead className="text-right pr-4">Actions</TableHead>
@@ -164,7 +164,7 @@ export function RolesContent({
                                 {filteredRoles.map((role) => (
                                     <TableRow
                                         key={role.id}
-                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
                                         onClick={() => router.visit(`/organization/roles/${role.id}`)}
                                     >
                                         <TableCell className="pl-4 font-semibold">{role.name}</TableCell>
@@ -178,7 +178,7 @@ export function RolesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         router.visit(`/organization/roles/${role.id}`);
@@ -191,7 +191,7 @@ export function RolesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleEdit(role);

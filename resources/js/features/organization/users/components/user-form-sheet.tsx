@@ -30,9 +30,9 @@ export function UserFormSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-lg border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">{user ? 'Edit User' : 'New User'}</SheetTitle>
+            <SheetContent side="right" className="w-full sm:max-w-lg p-0 flex flex-col glass-card rounded-none">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">{user ? 'Edit User' : 'New User'}</SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
                         {user ? 'Update user profile and access.' : 'Create a new user.'}
                     </SheetDescription>
@@ -47,7 +47,7 @@ export function UserFormSheet({
                                 </Label>
                                 <select
                                     id="status"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.status}
                                     onChange={(e) => form.setData('status', e.target.value as UserFormData['status'])}
                                 >
@@ -77,11 +77,11 @@ export function UserFormSheet({
                                         asChild
                                         type="button"
                                         variant="secondary"
-                                        className="rounded-xl h-11 px-4 border border-white/5 bg-white/5 hover:bg-white/10"
+                                        className="glass-card rounded-xl h-11 px-4 hover:bg-accent"
                                     >
                                         <label htmlFor={avatarId}>Upload</label>
                                     </Button>
-                                    <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm flex items-center text-muted-foreground/80">
+                                    <div className="min-w-0 flex-1 rounded-xl border border-border bg-card h-11 px-3 text-sm flex items-center text-muted-foreground/80">
                                         <span className="truncate">{avatarLabel}</span>
                                     </div>
                                 </div>
@@ -95,7 +95,7 @@ export function UserFormSheet({
                             </Label>
                             <select
                                 id="role_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                 value={form.data.role_id}
                                 onChange={(e) => form.setData('role_id', e.target.value ? Number(e.target.value) : '')}
                             >
@@ -116,7 +116,7 @@ export function UserFormSheet({
                             <Input
                                 id="name"
                                 placeholder="John Doe"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                             />
@@ -130,7 +130,7 @@ export function UserFormSheet({
                             <Input
                                 id="email"
                                 placeholder="user@company.com"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.email}
                                 onChange={(e) => form.setData('email', e.target.value)}
                             />
@@ -144,7 +144,7 @@ export function UserFormSheet({
                             <Input
                                 id="password"
                                 type="password"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.password}
                                 onChange={(e) => form.setData('password', e.target.value)}
                             />
@@ -153,7 +153,7 @@ export function UserFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 text-muted-foreground flex-1" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>

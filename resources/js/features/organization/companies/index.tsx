@@ -293,7 +293,7 @@ export function CompaniesContent({
 
                         <Button
                             variant="outline"
-                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
+                            className="glass-card rounded-xl py-6 px-6 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -303,7 +303,7 @@ export function CompaniesContent({
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="outline"
-                            buttonClassName="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
+                            buttonClassName="glass-card rounded-xl py-6 px-6 hover:bg-accent"
                         />
                     </>
                 }
@@ -322,11 +322,11 @@ export function CompaniesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="w-full border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                <Card className="glass-card w-full overflow-hidden">
                     <CardContent className="w-full p-0 min-h-[360px]">
                         <Table className="min-w-[860px]">
                             <TableHeader>
-                                <TableRow className="border-white/10">
+                                <TableRow className="border-border/60">
                                     <TableHead className="pl-4">Company</TableHead>
                                     <TableHead>Industry</TableHead>
                                     <TableHead>Location</TableHead>
@@ -339,7 +339,7 @@ export function CompaniesContent({
                                 {filteredCompanies.map((company) => (
                                     <TableRow
                                         key={company.id}
-                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
                                         onClick={() => router.visit(`/organization/companies/${company.id}`)}
                                     >
                                         <TableCell className="pl-4 font-semibold">
@@ -374,7 +374,7 @@ export function CompaniesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         router.visit(`/organization/companies/${company.id}`);
@@ -387,7 +387,7 @@ export function CompaniesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleEdit(company);

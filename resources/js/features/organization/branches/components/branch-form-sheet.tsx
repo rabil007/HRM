@@ -34,10 +34,10 @@ export function BranchFormSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col"
+                className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none"
             >
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">
                         {branch ? 'Edit Branch' : 'New Branch'}
                     </SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
@@ -57,7 +57,7 @@ export function BranchFormSheet({
                             <Input
                                 id="name"
                                 placeholder="Main Office"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                             />
@@ -77,7 +77,7 @@ export function BranchFormSheet({
                                 <Input
                                     id="code"
                                     placeholder="DXB-HQ"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.code}
                                     onChange={(e) => form.setData('code', e.target.value)}
                                 />
@@ -95,7 +95,7 @@ export function BranchFormSheet({
                                 </Label>
                                 <select
                                     id="status"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.status}
                                     onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
                                 >
@@ -109,7 +109,7 @@ export function BranchFormSheet({
                         </div>
                     </div>
 
-                    <div className="pt-4 space-y-5 border-t border-white/5">
+                    <div className="pt-4 space-y-5 border-t border-border/60">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="address"
@@ -120,7 +120,7 @@ export function BranchFormSheet({
                             <Input
                                 id="address"
                                 placeholder="Building 1, Street 2"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.address}
                                 onChange={(e) => form.setData('address', e.target.value)}
                             />
@@ -140,7 +140,7 @@ export function BranchFormSheet({
                                 <Input
                                     id="city"
                                     placeholder="Dubai"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.city}
                                     onChange={(e) => form.setData('city', e.target.value)}
                                 />
@@ -158,7 +158,7 @@ export function BranchFormSheet({
                                 </Label>
                                 <select
                                     id="country"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.country}
                                     onChange={(e) => form.setData('country', e.target.value)}
                                 >
@@ -192,7 +192,7 @@ export function BranchFormSheet({
                                     <Input
                                         id="phone"
                                         placeholder="Phone number"
-                                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all pl-14"
+                                        className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all pl-14"
                                         value={form.data.phone}
                                         onChange={(e) => form.setData('phone', e.target.value)}
                                     />
@@ -213,7 +213,7 @@ export function BranchFormSheet({
                                     id="email"
                                     type="email"
                                     placeholder="branch@company.com"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.email}
                                     onChange={(e) => form.setData('email', e.target.value)}
                                 />
@@ -223,7 +223,7 @@ export function BranchFormSheet({
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div className="min-w-0">
                                 <div className="text-sm font-semibold text-foreground">Headquarters</div>
                                 <div className="text-xs text-muted-foreground/80 truncate">
@@ -238,7 +238,7 @@ export function BranchFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}

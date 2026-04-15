@@ -45,10 +45,10 @@ export function CompanyFormSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col"
+                className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none"
             >
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">
                         {company ? 'Edit Company' : 'New Company'}
                     </SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
@@ -69,7 +69,7 @@ export function CompanyFormSheet({
                                 id="logo"
                                 type="file"
                                 accept="image/*"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all file:mr-4 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all file:mr-4 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-2 file:text-xs file:font-semibold file:text-foreground"
                                 onChange={(e) => form.setData('logo', e.target.files?.[0] ?? null)}
                             />
                             {form.errors.logo ? (
@@ -87,7 +87,7 @@ export function CompanyFormSheet({
                             <Input
                                 id="name"
                                 placeholder="Acme Solutions"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                             />
@@ -107,7 +107,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="industry"
                                     placeholder="Technology"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.industry}
                                     onChange={(e) => form.setData('industry', e.target.value)}
                                 />
@@ -122,7 +122,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="city"
                                     placeholder="Dubai"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.city}
                                     onChange={(e) => form.setData('city', e.target.value)}
                                 />
@@ -139,7 +139,7 @@ export function CompanyFormSheet({
                                 </Label>
                                 <select
                                     id="country_id"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.country_id}
                                     onChange={(e) =>
                                         form.setData('country_id', e.target.value ? Number(e.target.value) : '')
@@ -169,7 +169,7 @@ export function CompanyFormSheet({
                                     <Input
                                         id="phone"
                                         placeholder="Phone number"
-                                        className={`rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all ${dialCode ? 'pl-14' : ''}`}
+                                        className={`rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all ${dialCode ? 'pl-14' : ''}`}
                                         value={form.data.phone}
                                         onChange={(e) => form.setData('phone', e.target.value)}
                                     />
@@ -188,7 +188,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="registration_number"
                                     placeholder="Reg-123"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.registration_number}
                                     onChange={(e) => form.setData('registration_number', e.target.value)}
                                 />
@@ -203,7 +203,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="tax_id"
                                     placeholder="TRN..."
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.tax_id}
                                     onChange={(e) => form.setData('tax_id', e.target.value)}
                                 />
@@ -221,7 +221,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="company_size"
                                     placeholder="1-50"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.company_size}
                                     onChange={(e) => form.setData('company_size', e.target.value)}
                                 />
@@ -235,7 +235,7 @@ export function CompanyFormSheet({
                                 </Label>
                                 <select
                                     id="currency_id"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.currency_id}
                                     onChange={(e) =>
                                         form.setData('currency_id', e.target.value ? Number(e.target.value) : '')
@@ -252,7 +252,7 @@ export function CompanyFormSheet({
                         </div>
                     </div>
 
-                    <div className="pt-4 space-y-5 border-t border-white/5">
+                    <div className="pt-4 space-y-5 border-t border-border/60">
                         <div className="space-y-2">
                             <Label
                                 htmlFor="address"
@@ -263,7 +263,7 @@ export function CompanyFormSheet({
                             <Input
                                 id="address"
                                 placeholder="Building, street..."
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.address}
                                 onChange={(e) => form.setData('address', e.target.value)}
                             />
@@ -279,7 +279,7 @@ export function CompanyFormSheet({
                             <Input
                                 id="website"
                                 placeholder="company.com"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.website}
                                 onChange={(e) => form.setData('website', e.target.value)}
                             />
@@ -296,7 +296,7 @@ export function CompanyFormSheet({
                                 id="email"
                                 type="email"
                                 placeholder="hr@company.com"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.email}
                                 onChange={(e) => form.setData('email', e.target.value)}
                             />
@@ -312,7 +312,7 @@ export function CompanyFormSheet({
                             <Input
                                 id="timezone"
                                 placeholder="Asia/Dubai"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.timezone}
                                 onChange={(e) => form.setData('timezone', e.target.value)}
                             />
@@ -328,7 +328,7 @@ export function CompanyFormSheet({
                                 </Label>
                                 <select
                                     id="payroll_cycle"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.payroll_cycle}
                                     onChange={(e) =>
                                         form.setData('payroll_cycle', e.target.value as 'monthly' | 'biweekly' | 'weekly')
@@ -348,7 +348,7 @@ export function CompanyFormSheet({
                                 </Label>
                                 <select
                                     id="status"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.status}
                                     onChange={(e) =>
                                         form.setData('status', e.target.value as 'active' | 'suspended' | 'inactive')
@@ -375,7 +375,7 @@ export function CompanyFormSheet({
                                             className={`flex items-center gap-2 rounded-xl border px-3 h-11 text-sm transition-all cursor-pointer ${
                                                 checked
                                                     ? 'border-primary/30 bg-primary/10 text-foreground'
-                                                    : 'border-white/10 bg-white/5 text-muted-foreground'
+                                                    : 'border-border bg-card text-muted-foreground'
                                             }`}
                                         >
                                             <input
@@ -407,7 +407,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="wps_agent_code"
                                     placeholder="Agent..."
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.wps_agent_code}
                                     onChange={(e) => form.setData('wps_agent_code', e.target.value)}
                                 />
@@ -422,7 +422,7 @@ export function CompanyFormSheet({
                                 <Input
                                     id="wps_mol_uid"
                                     placeholder="UID..."
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.wps_mol_uid}
                                     onChange={(e) => form.setData('wps_mol_uid', e.target.value)}
                                 />
@@ -431,7 +431,7 @@ export function CompanyFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button
                         variant="ghost"
                         onClick={() => onOpenChange(false)}

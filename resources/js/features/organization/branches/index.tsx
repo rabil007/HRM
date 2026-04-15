@@ -266,7 +266,7 @@ export function BranchesContent({
                         <Button
                             type="button"
                             variant="secondary"
-                            className="rounded-xl h-12 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                            className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                             onClick={() => setIsFiltersOpen(true)}
                         >
                             <Filter className="mr-2 h-4 w-4" />
@@ -281,7 +281,7 @@ export function BranchesContent({
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
-                            buttonClassName="rounded-xl h-12 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
                         />
                     </>
                 }
@@ -300,11 +300,11 @@ export function BranchesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="w-full border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                <Card className="glass-card w-full overflow-hidden">
                     <CardContent className="w-full p-0 min-h-[360px]">
                         <Table className="min-w-[980px]">
                             <TableHeader>
-                                <TableRow className="border-white/10">
+                                <TableRow className="border-border/60">
                                     <TableHead className="pl-4">Branch</TableHead>
                                     <TableHead>Code</TableHead>
                                     <TableHead>HQ</TableHead>
@@ -319,7 +319,7 @@ export function BranchesContent({
                                 {filteredBranches.map((branch) => (
                                     <TableRow
                                         key={branch.id}
-                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
                                         onClick={() => router.visit(`/organization/branches/${branch.id}`)}
                                     >
                                         <TableCell className="pl-4 font-semibold">{branch.name}</TableCell>
@@ -347,7 +347,7 @@ export function BranchesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         router.visit(`/organization/branches/${branch.id}`);
@@ -360,7 +360,7 @@ export function BranchesContent({
                                                     type="button"
                                                     variant="ghost"
                                                     size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleEdit(branch);

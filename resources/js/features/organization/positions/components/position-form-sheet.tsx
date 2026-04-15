@@ -24,9 +24,9 @@ export function PositionFormSheet({
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">{position ? 'Edit Position' : 'New Position'}</SheetTitle>
+            <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none">
+                <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                    <SheetTitle className="text-xl font-bold tracking-tight">{position ? 'Edit Position' : 'New Position'}</SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
                         {position ? 'Update position details.' : 'Add a new position.'}
                     </SheetDescription>
@@ -40,7 +40,7 @@ export function PositionFormSheet({
                             </Label>
                             <select
                                 id="department_id"
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                 value={form.data.department_id}
                                 onChange={(e) => form.setData('department_id', e.target.value ? Number(e.target.value) : '')}
                             >
@@ -61,7 +61,7 @@ export function PositionFormSheet({
                             <Input
                                 id="title"
                                 placeholder="Software Engineer"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.title}
                                 onChange={(e) => form.setData('title', e.target.value)}
                             />
@@ -75,7 +75,7 @@ export function PositionFormSheet({
                                 </Label>
                                 <select
                                     id="status"
-                                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                                     value={form.data.status}
                                     onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
                                 >
@@ -92,7 +92,7 @@ export function PositionFormSheet({
                                 <Input
                                     id="grade"
                                     placeholder="G5"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.grade}
                                     onChange={(e) => form.setData('grade', e.target.value)}
                                 />
@@ -109,7 +109,7 @@ export function PositionFormSheet({
                                     id="min_salary"
                                     inputMode="decimal"
                                     placeholder="0"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.min_salary}
                                     onChange={(e) => form.setData('min_salary', e.target.value)}
                                 />
@@ -124,7 +124,7 @@ export function PositionFormSheet({
                                     id="max_salary"
                                     inputMode="decimal"
                                     placeholder="0"
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                    className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                     value={form.data.max_salary}
                                     onChange={(e) => form.setData('max_salary', e.target.value)}
                                 />
@@ -134,7 +134,7 @@ export function PositionFormSheet({
                     </div>
                 </div>
 
-                <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                     <Button type="button" variant="ghost" className="rounded-xl h-11 px-6 text-muted-foreground flex-1" onClick={() => onOpenChange(false)}>
                         Cancel
                     </Button>
