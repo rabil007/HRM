@@ -18,16 +18,19 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import type { Company } from '../types';
 
 export function CompanyCard({
     company,
     onEdit,
     onDelete,
+    onToggleStatus,
 }: {
     company: Company;
     onEdit: (company: Company) => void;
     onDelete: (company: Company) => void;
+    onToggleStatus: (company: Company, enabled: boolean) => void;
 }) {
     const statusLabel = company.status ?? '—';
     const statusClass =
@@ -165,7 +168,18 @@ export function CompanyCard({
             </CardContent>
 
             <div className="pointer-events-none absolute bottom-4 left-4 right-4">
-                <div className="pointer-events-auto flex items-center justify-end gap-1 rounded-xl border border-white/6 bg-white/4 backdrop-blur-xl p-1.5">
+                <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-white/6 bg-white/4 backdrop-blur-xl p-1.5">
+                    <div className="flex items-center gap-2 pl-1.5" onClick={(e) => e.stopPropagation()}>
+                        <Switch
+                            checked={company.status === 'active'}
+                            onCheckedChange={(checked) => onToggleStatus(company, checked)}
+                        />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+                            Active
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1">
                     <Button
                         asChild
                         type="button"
@@ -204,6 +218,7 @@ export function CompanyCard({
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
+                    </div>
                 </div>
             </div>
         </Card>

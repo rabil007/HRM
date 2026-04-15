@@ -6,6 +6,7 @@ use App\Exports\CompaniesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Company\StoreCompanyRequest;
 use App\Http\Requests\Organization\Company\UpdateCompanyRequest;
+use App\Http\Requests\Organization\Company\UpdateCompanyStatusRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -287,6 +288,15 @@ class CompanyController extends Controller
         }
 
         $company->update($data);
+
+        return redirect()->route('organization.companies');
+    }
+
+    public function updateStatus(UpdateCompanyStatusRequest $request, Company $company)
+    {
+        $company->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return redirect()->route('organization.companies');
     }

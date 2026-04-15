@@ -1,7 +1,10 @@
 import { router, useForm } from '@inertiajs/react';
 import {
+    Edit2,
+    Eye,
     Filter,
     Plus,
+    Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
@@ -10,6 +13,11 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
@@ -34,6 +42,7 @@ export function CompaniesContent({
     countries: Country[];
     currencies: Currency[];
 }) {
+    const [view, setView] = useViewPreference('companies:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -141,6 +150,14 @@ export function CompaniesContent({
                 setCurrentCompany(null);
             },
         });
+    };
+
+    const toggleStatus = (company: Company, enabled: boolean) => {
+        router.put(
+            `/organization/companies/${company.id}/status`,
+            { status: enabled ? 'active' : 'inactive' },
+            { preserveScroll: true },
+        );
     };
 
     const filteredCompanies = useMemo(() => {
@@ -263,6 +280,8 @@ export function CompaniesContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
+
                         <Button
                             variant="outline"
                             className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 py-6 px-6"
@@ -281,16 +300,115 @@ export function CompaniesContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredCompanies.map((company) => (
-                    <CompanyCard
-                        key={company.id}
-                        company={company}
-                        onEdit={handleEdit}
-                        onDelete={handleDeleteClick}
-                    />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredCompanies.map((company) => (
+                        <CompanyCard
+                            key={company.id}
+                            company={company}
+                            onEdit={handleEdit}
+                            onDelete={handleDeleteClick}
+                            onToggleStatus={toggleStatus}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[860px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">Company</TableHead>
+                                    <TableHead>Industry</TableHead>
+                                    <TableHead>Location</TableHead>
+                                    <TableHead>Currency</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredCompanies.map((company) => (
+                                    <TableRow
+                                        key={company.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/companies/${company.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">
+                                            {company.name}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            {company.industry ?? '—'}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            {[company.city, company.country.name].filter(Boolean).join(', ') || '—'}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            {company.currency.code ?? '—'}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            <div
+                                                className="flex items-center gap-3"
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Switch
+                                                    checked={company.status === 'active'}
+                                                    onCheckedChange={(checked) => toggleStatus(company, checked)}
+                                                />
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                    {company.status ?? '—'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/companies/${company.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(company);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteClick(company);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredCompanies.length === 0 ? (
                 <EmptyState title="No companies found." />

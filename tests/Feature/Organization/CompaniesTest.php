@@ -162,6 +162,47 @@ test('authenticated users can update a company with all fields', function () {
     ]);
 });
 
+test('authenticated users can toggle company status', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.update']);
+
+    $this->put("/organization/companies/{$company->id}/status", [
+        'status' => 'inactive',
+    ])->assertRedirect('/organization/companies');
+
+    $this->assertDatabaseHas('companies', [
+        'id' => $company->id,
+        'status' => 'inactive',
+    ]);
+});
+
 test('creating a company assigns creator as owner with all permissions', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
