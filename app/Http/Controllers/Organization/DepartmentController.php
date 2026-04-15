@@ -9,9 +9,11 @@ use App\Http\Requests\Organization\Department\UpdateDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentStatusRequest;
 use App\Models\Branch;
 use App\Models\Department;
+use App\Models\Position;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -83,6 +85,16 @@ class DepartmentController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $department->company_id === $companyId, 404);
 
+        $positionsCount = Position::query()
+            ->where('company_id', $companyId)
+            ->where('department_id', $department->id)
+            ->count();
+
+        $usersCount = DB::table('employees')
+            ->where('company_id', $companyId)
+            ->where('department_id', $department->id)
+            ->count();
+
         $branches = Branch::query()
             ->where('company_id', $companyId)
             ->orderBy('name')
@@ -112,7 +124,7 @@ class DepartmentController extends Controller
                 ->where('subject_id', $department->id)
                 ->with(['causer:id,name,email'])
                 ->latest('id')
-                ->limit(10)
+                ->limit(5)
                 ->get()
                 ->map(fn (Activity $log) => [
                     'id' => $log->id,
@@ -153,6 +165,9 @@ class DepartmentController extends Controller
                 'name' => $department->name,
                 'code' => $department->code,
                 'status' => $department->status,
+                'positions_count' => $positionsCount,
+                'users_count' => $usersCount,
+                'branches_count' => $branches->count(),
                 'created_at' => $department->created_at,
                 'updated_at' => $department->updated_at,
             ],

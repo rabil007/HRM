@@ -1,6 +1,25 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Building2, ExternalLink, Globe, Mail, MapPin, Phone, ShieldCheck, Activity } from 'lucide-react';
+import {
+    Activity,
+    BadgeCheck,
+    Building2,
+    CalendarClock,
+    CalendarDays,
+    ExternalLink,
+    Fingerprint,
+    Hash,
+    Home,
+    IdCard,
+    ReceiptText,
+    Users,
+    Globe,
+    Mail,
+    MapPin,
+    Phone,
+    ShieldCheck,
+} from 'lucide-react';
 import { useState } from 'react';
+import type { ComponentType } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
@@ -33,20 +52,6 @@ type Company = {
     status: string | null;
     created_at: string;
     updated_at: string;
-};
-
-type Branch = {
-    id: number;
-    name: string;
-    code: string | null;
-    address: string | null;
-    city: string | null;
-    country: string | null;
-    phone: string | null;
-    email: string | null;
-    is_headquarters: boolean;
-    status: 'active' | 'inactive';
-    created_at: string;
 };
 
 type ActivityItem = {
@@ -120,26 +125,37 @@ function changedKeys(oldValues: Record<string, unknown> | null, newValues: Recor
         .sort((a, b) => a.localeCompare(b));
 }
 
-function Field({ label, value }: { label: string; value: string }) {
+function InfoRow({
+    icon: Icon,
+    label,
+    value,
+}: {
+    icon: ComponentType<{ className?: string }>;
+    label: string;
+    value: string;
+}) {
     return (
-        <div className="space-y-1">
-            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                {label}
+        <div className="flex items-start gap-3">
+            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground shrink-0">
+                <Icon className="h-4 w-4" />
             </div>
-            <div className="text-sm font-medium">{value}</div>
+            <div className="min-w-0">
+                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                    {label}
+                </div>
+                <div className="mt-1 text-sm font-medium text-foreground/90 truncate">{value}</div>
+            </div>
         </div>
     );
 }
 
 export default function CompanyDetails({
     company,
-    branches,
     recent_activity,
     countries,
     currencies,
 }: {
     company: Company;
-    branches: Branch[];
     recent_activity: ActivityItem[];
     countries: Country[];
     currencies: Currency[];
@@ -271,17 +287,20 @@ export default function CompanyDetails({
                             </div>
                         </CardHeader>
                         <CardContent className="grid gap-6 sm:grid-cols-2">
-                            <Field label="Slug" value={company.slug || '—'} />
-                            <Field label="Company size" value={company.company_size ?? '—'} />
-                            <Field label="Registration number" value={company.registration_number ?? '—'} />
-                            <Field label="Tax ID" value={company.tax_id ?? '—'} />
-                            <Field
-                                label="Country"
-                                value={
-                                    `${company.country.code ?? ''} ${company.country.name ?? ''}`.trim() || '—'
-                                }
+                            <InfoRow icon={Hash} label="Slug" value={company.slug || '—'} />
+                            <InfoRow icon={Users} label="Company size" value={company.company_size ?? '—'} />
+                            <InfoRow
+                                icon={IdCard}
+                                label="Registration number"
+                                value={company.registration_number ?? '—'}
                             />
-                            <Field label="Address" value={company.address ?? '—'} />
+                            <InfoRow icon={ReceiptText} label="Tax ID" value={company.tax_id ?? '—'} />
+                            <InfoRow
+                                icon={MapPin}
+                                label="Country"
+                                value={`${company.country.code ?? ''} ${company.country.name ?? ''}`.trim() || '—'}
+                            />
+                            <InfoRow icon={Home} label="Address" value={company.address ?? '—'} />
                             <div className="space-y-2">
                                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
                                     Contact
@@ -320,71 +339,17 @@ export default function CompanyDetails({
                             <CardTitle className="text-lg font-bold tracking-tight">Payroll & Compliance</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-5">
-                            <Field label="Payroll cycle" value={company.payroll_cycle ?? '—'} />
-                            <Field
+                            <InfoRow icon={CalendarClock} label="Payroll cycle" value={company.payroll_cycle ?? '—'} />
+                            <InfoRow
+                                icon={CalendarDays}
                                 label="Working days"
                                 value={company.working_days?.length ? company.working_days.join(', ') : '—'}
                             />
                             <div className="h-px bg-white/5" />
-                            <Field label="WPS agent code" value={company.wps_agent_code ?? '—'} />
-                            <Field label="WPS MOL UID" value={company.wps_mol_uid ?? '—'} />
+                            <InfoRow icon={BadgeCheck} label="WPS agent code" value={company.wps_agent_code ?? '—'} />
+                            <InfoRow icon={Fingerprint} label="WPS MOL UID" value={company.wps_mol_uid ?? '—'} />
                         </CardContent>
                     </Card>
-                </div>
-
-                <div className="mt-8">
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-bold tracking-tight">Branches</h2>
-                        <Badge className="bg-white/5 text-muted-foreground border-white/10">
-                            {branches.length} total
-                        </Badge>
-                    </div>
-
-                    <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                        {branches.map((branch) => (
-                            <Card
-                                key={branch.id}
-                                className="border-white/5 bg-white/5 backdrop-blur-xl hover:bg-white/10 transition-all overflow-hidden"
-                            >
-                                <CardHeader className="pb-3">
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="min-w-0">
-                                            <CardTitle className="text-lg font-bold tracking-tight line-clamp-1">
-                                                {branch.name}
-                                            </CardTitle>
-                                            <div className="mt-1 text-xs text-muted-foreground/80">
-                                                {branch.code ? `Code: ${branch.code}` : branch.is_headquarters ? 'Headquarters' : '—'}
-                                            </div>
-                                        </div>
-                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
-                                            {branch.status}
-                                        </Badge>
-                                    </div>
-                                </CardHeader>
-                                <CardContent className="space-y-2">
-                                    <div className="text-sm text-muted-foreground/80 flex items-center gap-2">
-                                        <MapPin className="h-4 w-4" />
-                                        {[branch.city, branch.country].filter(Boolean).join(', ') || '—'}
-                                    </div>
-                                    <div className="flex gap-2 pt-2">
-                                        <Button
-                                            variant="outline"
-                                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 flex-1"
-                                            asChild
-                                        >
-                                            <a href={`/organization/branches/${branch.id}`}>View</a>
-                                        </Button>
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))}
-                    </div>
-
-                    {branches.length === 0 ? (
-                        <div className="rounded-xl border border-white/5 bg-white/5 backdrop-blur-xl p-10 text-sm text-muted-foreground/80 text-center">
-                            No branches yet.
-                        </div>
-                    ) : null}
                 </div>
 
                 <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">

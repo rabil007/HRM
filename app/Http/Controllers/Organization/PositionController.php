@@ -81,7 +81,7 @@ class PositionController extends Controller
                 ->where('subject_id', $position->id)
                 ->with(['causer:id,name,email'])
                 ->latest('id')
-                ->limit(10)
+                ->limit(5)
                 ->get()
                 ->map(fn (Activity $log) => [
                     'id' => $log->id,

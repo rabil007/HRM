@@ -127,7 +127,7 @@ class UserController extends Controller
                 ->where('subject_id', $user->id)
                 ->with(['causer:id,name,email'])
                 ->latest('id')
-                ->limit(10)
+                ->limit(5)
                 ->get()
                 ->map(fn (Activity $log) => [
                     'id' => $log->id,

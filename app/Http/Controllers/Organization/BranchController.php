@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\Branch\StoreBranchRequest;
 use App\Http\Requests\Organization\Branch\UpdateBranchRequest;
 use App\Http\Requests\Organization\Branch\UpdateBranchStatusRequest;
 use App\Models\Branch;
+use App\Models\Company;
 use App\Models\Country;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -60,6 +61,10 @@ class BranchController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $branch->company_id === $companyId, 404);
 
+        $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
+
+        $companiesCount = (int) (request()->user()?->companies()->count() ?? 0);
+
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -74,7 +79,7 @@ class BranchController extends Controller
                 ->where('subject_id', $branch->id)
                 ->with(['causer:id,name,email'])
                 ->latest('id')
-                ->limit(10)
+                ->limit(5)
                 ->get()
                 ->map(fn (Activity $log) => [
                     'id' => $log->id,
@@ -97,8 +102,8 @@ class BranchController extends Controller
                 'id' => $branch->id,
                 'company' => [
                     'id' => $branch->company_id,
-                    'name' => null,
-                    'slug' => null,
+                    'name' => $company?->name,
+                    'slug' => $company?->slug,
                 ],
                 'name' => $branch->name,
                 'code' => $branch->code,
@@ -114,6 +119,7 @@ class BranchController extends Controller
             ],
             'countries' => $countries,
             'recent_activity' => $recentActivity,
+            'companies_count' => $companiesCount,
         ]);
     }
 

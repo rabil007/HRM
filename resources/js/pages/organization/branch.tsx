@@ -112,11 +112,13 @@ export default function BranchDetails({
     companies,
     countries,
     recent_activity,
+    companies_count,
 }: {
     branch: Branch;
     companies: Company[];
     countries: Country[];
     recent_activity: ActivityItem[];
+    companies_count: number;
 }) {
     const location = [branch.city, branch.country].filter(Boolean).join(', ') || '—';
     const [editOpen, setEditOpen] = useState(false);
@@ -252,6 +254,15 @@ export default function BranchDetails({
                             <CardTitle className="text-lg font-bold tracking-tight">Quick actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                            <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
+                                <Building2 className="h-5 w-5 text-primary" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        Companies
+                                    </div>
+                                    <div className="text-sm font-semibold truncate">{companies_count}</div>
+                                </div>
+                            </div>
                             <Button
                                 variant="outline"
                                 className="w-full rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12"

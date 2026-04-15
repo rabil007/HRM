@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Activity, Building2, Crown, Layers, User } from 'lucide-react';
+import { Activity, Briefcase, Crown, GitBranch, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -25,6 +25,9 @@ type Department = {
     name: string;
     code: string | null;
     status: 'active' | 'inactive';
+    positions_count: number;
+    users_count: number;
+    branches_count: number;
     created_at: string;
     updated_at: string;
 };
@@ -211,32 +214,32 @@ export default function DepartmentDetails({
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
-                            <Building2 className="h-5 w-5 text-primary" />
+                            <Briefcase className="h-5 w-5 text-primary" />
                             <div className="min-w-0">
                                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    Company
+                                    Positions
                                 </div>
-                                <div className="text-sm font-semibold truncate">{department.company.name ?? '—'}</div>
+                                <div className="text-sm font-semibold truncate">{department.positions_count}</div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
-                            <Layers className="h-5 w-5 text-primary" />
+                            <Users className="h-5 w-5 text-primary" />
                             <div className="min-w-0">
                                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    Parent
+                                    Users
                                 </div>
-                                <div className="text-sm font-semibold truncate">{department.parent?.name ?? '—'}</div>
+                                <div className="text-sm font-semibold truncate">{department.users_count}</div>
                             </div>
                         </div>
 
                         <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
-                            <User className="h-5 w-5 text-primary" />
+                            <GitBranch className="h-5 w-5 text-primary" />
                             <div className="min-w-0">
                                 <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    Manager
+                                    Branch
                                 </div>
-                                <div className="text-sm font-semibold truncate">{department.manager?.name ?? '—'}</div>
+                                <div className="text-sm font-semibold truncate">{department.branches_count ?? '—'}</div>
                             </div>
                         </div>
 
