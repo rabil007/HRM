@@ -6,6 +6,7 @@ use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\User\StoreUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserRequest;
+use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -268,6 +269,18 @@ class UserController extends Controller
         abort_unless((int) $user->company_id === $companyId, 404);
 
         $user->delete();
+
+        return redirect()->route('organization.users');
+    }
+
+    public function updateStatus(UpdateUserStatusRequest $request, User $user)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $user->company_id === $companyId, 404);
+
+        $user->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return redirect()->route('organization.users');
     }

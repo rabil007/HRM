@@ -1,5 +1,5 @@
-import { useForm } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { Edit2, Eye, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -7,6 +7,10 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
 import { RoleCard } from './components/role-card';
 import { RoleDeleteDialog } from './components/role-delete-dialog';
 import { RoleFormSheet } from './components/role-form-sheet';
@@ -19,6 +23,7 @@ export function RolesContent({
     roles: Role[];
     company: Company | null;
 }) {
+    const [view, setView] = useViewPreference('roles:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [currentRole, setCurrentRole] = useState<Role | null>(null);
@@ -51,6 +56,19 @@ export function RolesContent({
     const handleDelete = (role: Role) => {
         setCurrentRole(role);
         setIsDeleteOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!currentRole) {
+            return;
+        }
+
+        router.delete(`/organization/roles/${currentRole.id}`, {
+            onFinish: () => {
+                setIsDeleteOpen(false);
+                setCurrentRole(null);
+            },
+        });
     };
 
     const submit = () => {
@@ -115,6 +133,7 @@ export function RolesContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
@@ -124,11 +143,85 @@ export function RolesContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredRoles.map((role) => (
-                    <RoleCard key={role.id} role={role} onEdit={handleEdit} onDelete={handleDelete} />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredRoles.map((role) => (
+                        <RoleCard key={role.id} role={role} onEdit={handleEdit} onDelete={handleDelete} />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[980px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">Role</TableHead>
+                                    <TableHead>Permissions</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredRoles.map((role) => (
+                                    <TableRow
+                                        key={role.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/roles/${role.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">{role.name}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            {role.permissions.length ? role.permissions.slice(0, 4).join(', ') : '—'}
+                                            {role.permissions.length > 4 ? ` (+${role.permissions.length - 4} more)` : ''}
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/roles/${role.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(role);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(role);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredRoles.length === 0 ? <EmptyState title="No roles found." /> : null}
 
@@ -140,7 +233,7 @@ export function RolesContent({
                 onSubmit={submit}
             />
 
-            <RoleDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} role={currentRole} />
+            <RoleDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} role={currentRole} onConfirm={confirmDelete} />
         </Main>
     );
 }

@@ -23,9 +23,10 @@ class Position extends Model
             ->logOnly([
                 'company_id',
                 'department_id',
-                'name',
-                'code',
-                'description',
+                'title',
+                'grade',
+                'min_salary',
+                'max_salary',
                 'status',
             ])
             ->logOnlyDirty();

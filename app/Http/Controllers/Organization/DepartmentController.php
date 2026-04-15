@@ -6,6 +6,7 @@ use App\Exports\DepartmentsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Department\StoreDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentRequest;
+use App\Http\Requests\Organization\Department\UpdateDepartmentStatusRequest;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\User;
@@ -207,6 +208,18 @@ class DepartmentController extends Controller
         abort_unless((int) $department->company_id === $companyId, 404);
 
         $department->delete();
+
+        return redirect()->route('organization.departments');
+    }
+
+    public function updateStatus(UpdateDepartmentStatusRequest $request, Department $department)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $department->company_id === $companyId, 404);
+
+        $department->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return redirect()->route('organization.departments');
     }

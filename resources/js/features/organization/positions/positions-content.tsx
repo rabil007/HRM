@@ -1,5 +1,5 @@
-import { useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -7,6 +7,12 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 import { PositionCard } from './components/position-card';
 import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
@@ -27,6 +33,7 @@ export function PositionsContent({
     positions: Position[];
     departments: DepartmentOption[];
 }) {
+    const [view, setView] = useViewPreference('positions:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -76,6 +83,35 @@ export function PositionsContent({
     const handleDelete = (position: Position) => {
         setCurrentPosition(position);
         setIsDeleteOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!currentPosition) {
+            return;
+        }
+
+        router.delete(`/organization/positions/${currentPosition.id}`, {
+            onFinish: () => {
+                setIsDeleteOpen(false);
+                setCurrentPosition(null);
+            },
+        });
+    };
+
+    const toggleStatus = (position: Position, enabled: boolean) => {
+        router.put(
+            `/organization/positions/${position.id}/status`,
+            { status: enabled ? 'active' : 'inactive' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(`Position "${position.title}" is now ${enabled ? 'Active' : 'Inactive'}.`);
+                },
+                onError: () => {
+                    toast.error('Failed to update status. Please try again.');
+                },
+            },
+        );
     };
 
     const submit = () => {
@@ -169,6 +205,7 @@ export function PositionsContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -193,11 +230,106 @@ export function PositionsContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredPositions.map((position) => (
-                    <PositionCard key={position.id} position={position} onEdit={handleEdit} onDelete={handleDelete} />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredPositions.map((position) => (
+                        <PositionCard
+                            key={position.id}
+                            position={position}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onToggleStatus={toggleStatus}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[980px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">Position</TableHead>
+                                    <TableHead>Department</TableHead>
+                                    <TableHead>Grade</TableHead>
+                                    <TableHead>Min</TableHead>
+                                    <TableHead>Max</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredPositions.map((position) => (
+                                    <TableRow
+                                        key={position.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/positions/${position.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">{position.title}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{position.department?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{position.grade ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{position.min_salary ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{position.max_salary ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                <Switch
+                                                    checked={position.status === 'active'}
+                                                    onCheckedChange={(checked) => toggleStatus(position, checked)}
+                                                />
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                    {position.status ?? '—'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/positions/${position.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(position);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(position);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredPositions.length === 0 ? <EmptyState title="No positions found." /> : null}
 
@@ -219,7 +351,12 @@ export function PositionsContent({
                 onReset={() => setFilters(emptyFilters)}
             />
 
-            <PositionDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} position={currentPosition} />
+            <PositionDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                position={currentPosition}
+                onConfirm={confirmDelete}
+            />
         </Main>
     );
 }

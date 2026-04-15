@@ -209,3 +209,52 @@ test('authenticated users can export users as csv, excel, and pdf', function () 
     $pdf->assertOk();
     expect($pdf->headers->get('content-type'))->toContain('application/pdf');
 });
+
+test('authenticated users can toggle user status', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $user = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Jane Doe',
+        'email' => 'jane-toggle@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->put("/organization/users/{$user->id}/status", [
+        'status' => 'inactive',
+    ])->assertRedirect('/organization/users');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $user->id,
+        'status' => 'inactive',
+    ]);
+});

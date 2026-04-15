@@ -217,3 +217,51 @@ test('authenticated users can export departments as csv, excel, and pdf', functi
     $pdf->assertOk();
     expect($pdf->headers->get('content-type'))->toContain('application/pdf');
 });
+
+test('authenticated users can toggle department status', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'HR',
+        'code' => 'HR',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['departments.update']);
+
+    $this->put("/organization/departments/{$department->id}/status", [
+        'status' => 'inactive',
+    ])->assertRedirect('/organization/departments');
+
+    $this->assertDatabaseHas('departments', [
+        'id' => $department->id,
+        'status' => 'inactive',
+    ]);
+});

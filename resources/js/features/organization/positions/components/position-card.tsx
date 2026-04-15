@@ -2,16 +2,19 @@ import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import type { Position } from '../types';
 
 export function PositionCard({
     position,
     onEdit,
     onDelete,
+    onToggleStatus,
 }: {
     position: Position;
     onEdit: (position: Position) => void;
     onDelete: (position: Position) => void;
+    onToggleStatus: (position: Position, enabled: boolean) => void;
 }) {
     const statusClass =
         position.status === 'active'
@@ -57,7 +60,15 @@ export function PositionCard({
             </CardContent>
 
             <div className="pointer-events-none absolute bottom-4 left-4 right-4">
-                <div className="pointer-events-auto flex items-center justify-end gap-1 rounded-xl border border-white/6 bg-white/4 backdrop-blur-xl p-1.5">
+                <div className="pointer-events-auto flex items-center justify-between gap-2 rounded-xl border border-white/6 bg-white/4 backdrop-blur-xl p-1.5">
+                    <div className="flex items-center gap-2 pl-1.5" onClick={(e) => e.stopPropagation()}>
+                        <Switch checked={position.status === 'active'} onCheckedChange={(checked) => onToggleStatus(position, checked)} />
+                        <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/70">
+                            Active
+                        </span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-1">
                     <Button
                         asChild
                         type="button"
@@ -96,6 +107,7 @@ export function PositionCard({
                     >
                         <Trash2 className="h-4 w-4" />
                     </Button>
+                    </div>
                 </div>
             </div>
         </Card>

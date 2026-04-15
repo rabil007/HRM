@@ -1,5 +1,5 @@
-import { useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -7,6 +7,12 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 import { DepartmentCard } from './components/department-card';
 import { DepartmentDeleteDialog } from './components/department-delete-dialog';
 import { DepartmentFiltersSheet } from './components/department-filters-sheet';
@@ -33,6 +39,7 @@ export function DepartmentsContent({
     parents: DepartmentParentOption[];
     managers: Manager[];
 }) {
+    const [view, setView] = useViewPreference('departments:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -82,6 +89,35 @@ export function DepartmentsContent({
     const handleDelete = (department: Department) => {
         setCurrentDepartment(department);
         setIsDeleteOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!currentDepartment) {
+            return;
+        }
+
+        router.delete(`/organization/departments/${currentDepartment.id}`, {
+            onFinish: () => {
+                setIsDeleteOpen(false);
+                setCurrentDepartment(null);
+            },
+        });
+    };
+
+    const toggleStatus = (department: Department, enabled: boolean) => {
+        router.put(
+            `/organization/departments/${department.id}/status`,
+            { status: enabled ? 'active' : 'inactive' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(`Department "${department.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
+                },
+                onError: () => {
+                    toast.error('Failed to update status. Please try again.');
+                },
+            },
+        );
     };
 
     const submit = () => {
@@ -199,6 +235,7 @@ export function DepartmentsContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -223,16 +260,106 @@ export function DepartmentsContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredDepartments.map((department) => (
-                    <DepartmentCard
-                        key={department.id}
-                        department={department}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                    />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredDepartments.map((department) => (
+                        <DepartmentCard
+                            key={department.id}
+                            department={department}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                            onToggleStatus={toggleStatus}
+                        />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[980px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">Department</TableHead>
+                                    <TableHead>Code</TableHead>
+                                    <TableHead>Branch</TableHead>
+                                    <TableHead>Parent</TableHead>
+                                    <TableHead>Manager</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredDepartments.map((department) => (
+                                    <TableRow
+                                        key={department.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/departments/${department.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">{department.name}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{department.code ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{department.branch?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{department.parent?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{department.manager?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                <Switch
+                                                    checked={department.status === 'active'}
+                                                    onCheckedChange={(checked) => toggleStatus(department, checked)}
+                                                />
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                    {department.status ?? '—'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/departments/${department.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(department);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(department);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredDepartments.length === 0 ? <EmptyState title="No departments found." /> : null}
 
@@ -258,7 +385,12 @@ export function DepartmentsContent({
                 onReset={() => setFilters(emptyFilters)}
             />
 
-            <DepartmentDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} department={currentDepartment} />
+            <DepartmentDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                department={currentDepartment}
+                onConfirm={confirmDelete}
+            />
         </Main>
     );
 }

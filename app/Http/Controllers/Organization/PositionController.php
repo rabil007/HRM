@@ -6,6 +6,7 @@ use App\Exports\PositionsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Position\StorePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionRequest;
+use App\Http\Requests\Organization\Position\UpdatePositionStatusRequest;
 use App\Models\Department;
 use App\Models\Position;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -168,6 +169,18 @@ class PositionController extends Controller
         abort_unless((int) $position->company_id === $companyId, 404);
 
         $position->delete();
+
+        return redirect()->route('organization.positions');
+    }
+
+    public function updateStatus(UpdatePositionStatusRequest $request, Position $position)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $position->company_id === $companyId, 404);
+
+        $position->update([
+            'status' => $request->validated('status'),
+        ]);
 
         return redirect()->route('organization.positions');
     }

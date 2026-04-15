@@ -1,5 +1,5 @@
-import { useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { router, useForm } from '@inertiajs/react';
+import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -7,6 +7,12 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import { toast } from '@/lib/toast';
 import { UserCard } from './components/user-card';
 import { UserDeleteDialog } from './components/user-delete-dialog';
 import { UserFiltersSheet } from './components/user-filters-sheet';
@@ -25,6 +31,7 @@ export function UsersContent({
     users: User[];
     roles: { id: number; name: string }[];
 }) {
+    const [view, setView] = useViewPreference('users:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
@@ -74,6 +81,35 @@ export function UsersContent({
     const handleDelete = (user: User) => {
         setCurrentUser(user);
         setIsDeleteOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!currentUser) {
+            return;
+        }
+
+        router.delete(`/organization/users/${currentUser.id}`, {
+            onFinish: () => {
+                setIsDeleteOpen(false);
+                setCurrentUser(null);
+            },
+        });
+    };
+
+    const toggleStatus = (user: User, enabled: boolean) => {
+        router.put(
+            `/organization/users/${user.id}/status`,
+            { status: enabled ? 'active' : 'inactive' },
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success(`User "${user.name}" is now ${enabled ? 'Active' : 'Inactive'}.`);
+                },
+                onError: () => {
+                    toast.error('Failed to update status. Please try again.');
+                },
+            },
+        );
     };
 
     const submit = () => {
@@ -154,6 +190,7 @@ export function UsersContent({
                 onChange={setSearchQuery}
                 right={
                     <>
+                        <ViewToggle value={view} onChange={setView} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -178,11 +215,93 @@ export function UsersContent({
                 }
             />
 
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                {filteredUsers.map((u) => (
-                    <UserCard key={u.id} user={u} onEdit={handleEdit} onDelete={handleDelete} />
-                ))}
-            </div>
+            {view === 'grid' ? (
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    {filteredUsers.map((u) => (
+                        <UserCard key={u.id} user={u} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={toggleStatus} />
+                    ))}
+                </div>
+            ) : (
+                <Card className="border-white/5 bg-white/5 backdrop-blur-xl overflow-hidden">
+                    <CardContent className="p-0">
+                        <Table className="min-w-[980px]">
+                            <TableHeader>
+                                <TableRow className="border-white/10">
+                                    <TableHead className="pl-4">User</TableHead>
+                                    <TableHead>Email</TableHead>
+                                    <TableHead>Role</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right pr-4">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredUsers.map((u) => (
+                                    <TableRow
+                                        key={u.id}
+                                        className="border-white/5 cursor-pointer hover:bg-white/5"
+                                        onClick={() => router.visit(`/organization/users/${u.id}`)}
+                                    >
+                                        <TableCell className="pl-4 font-semibold">{u.name}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{u.email}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{u.role?.name ?? '—'}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">
+                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                                                <Switch checked={u.status === 'active'} onCheckedChange={(checked) => toggleStatus(u, checked)} />
+                                                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                    {u.status ?? '—'}
+                                                </span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="pr-4">
+                                            <div className="flex items-center justify-end gap-2">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        router.visit(`/organization/users/${u.id}`);
+                                                    }}
+                                                    title="View"
+                                                >
+                                                    <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-white/10"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(u);
+                                                    }}
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 className="h-4 w-4" />
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(u);
+                                                    }}
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            )}
 
             {filteredUsers.length === 0 ? <EmptyState title="No users found." /> : null}
 
@@ -203,7 +322,7 @@ export function UsersContent({
                 onReset={() => setFilters(emptyFilters)}
             />
 
-            <UserDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} user={currentUser} />
+            <UserDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} user={currentUser} onConfirm={confirmDelete} />
         </Main>
     );
 }

@@ -1,4 +1,3 @@
-import { router } from '@inertiajs/react';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import type { Department } from '../types';
 
@@ -6,10 +5,12 @@ export function DepartmentDeleteDialog({
     open,
     onOpenChange,
     department,
+    onConfirm,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     department: Department | null;
+    onConfirm: () => void;
 }) {
     return (
         <ConfirmDeleteDialog
@@ -21,15 +22,7 @@ export function DepartmentDeleteDialog({
                     ? `This will permanently delete “${department.name}”.`
                     : 'This will permanently delete this department.'
             }
-            onConfirm={() => {
-                if (!department) {
-                    return;
-                }
-
-                router.delete(`/organization/departments/${department.id}`, {
-                    onFinish: () => onOpenChange(false),
-                });
-            }}
+            onConfirm={onConfirm}
         />
     );
 }
