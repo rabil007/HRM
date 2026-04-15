@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
+use Spatie\Activitylog\Models\Activity;
 
 class BranchController extends Controller
 {
@@ -63,6 +64,33 @@ class BranchController extends Controller
             ->orderBy('name')
             ->get(['code', 'name', 'dial_code']);
 
+        $recentActivity = [];
+        $request = request();
+        if ($request->user()?->can('audit.view')) {
+            $recentActivity = Activity::query()
+                ->where('company_id', $companyId)
+                ->where('subject_type', Branch::class)
+                ->where('subject_id', $branch->id)
+                ->with(['causer:id,name,email'])
+                ->latest('id')
+                ->limit(10)
+                ->get()
+                ->map(fn (Activity $log) => [
+                    'id' => $log->id,
+                    'event' => $log->event,
+                    'description' => $log->description,
+                    'causer' => $log->causer ? [
+                        'id' => $log->causer->id,
+                        'name' => $log->causer->name,
+                        'email' => $log->causer->email,
+                    ] : null,
+                    'old_values' => $log->attribute_changes?->get('old'),
+                    'new_values' => $log->attribute_changes?->get('attributes'),
+                    'created_at' => $log->created_at,
+                ])
+                ->all();
+        }
+
         return Inertia::render('organization/branch', [
             'branch' => [
                 'id' => $branch->id,
@@ -84,6 +112,7 @@ class BranchController extends Controller
                 'updated_at' => $branch->updated_at,
             ],
             'countries' => $countries,
+            'recent_activity' => $recentActivity,
         ]);
     }
 

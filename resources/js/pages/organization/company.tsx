@@ -145,6 +145,7 @@ export default function CompanyDetails({
     currencies: Currency[];
 }) {
     const [editOpen, setEditOpen] = useState(false);
+    const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
 
     const form = useForm<CompanyFormData>({
         logo: null as File | null,
@@ -414,7 +415,10 @@ export default function CompanyDetails({
                             <div className="divide-y divide-white/5 rounded-xl border border-white/5 overflow-hidden">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
-                                    const preview = keys.slice(0, 4);
+                                    const isExpanded = expandedActivity[a.id] ?? false;
+                                    const shown = isExpanded ? keys : keys.slice(0, 4);
+                                    const showDescription =
+                                        a.description.trim().toLowerCase() !== (a.event ?? '').trim().toLowerCase();
 
                                     return (
                                         <div key={a.id} className="px-4 py-4 sm:px-6">
@@ -432,13 +436,15 @@ export default function CompanyDetails({
                                                         </div>
                                                     </div>
 
-                                                    <div className="text-sm text-muted-foreground/90">
-                                                        {a.description}
-                                                    </div>
+                                                    {showDescription ? (
+                                                        <div className="text-sm text-muted-foreground/90">
+                                                            {a.description}
+                                                        </div>
+                                                    ) : null}
 
-                                                    {preview.length > 0 ? (
+                                                    {shown.length > 0 ? (
                                                         <div className="flex flex-wrap gap-2 pt-1">
-                                                            {preview.map((k) => (
+                                                            {shown.map((k) => (
                                                                 <span
                                                                     key={k}
                                                                     className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
@@ -453,10 +459,19 @@ export default function CompanyDetails({
                                                                     </span>
                                                                 </span>
                                                             ))}
-                                                            {keys.length > preview.length ? (
-                                                                <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground">
-                                                                    +{keys.length - preview.length} more
-                                                                </span>
+                                                            {keys.length > 4 ? (
+                                                                <button
+                                                                    type="button"
+                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-white/10 transition"
+                                                                    onClick={() =>
+                                                                        setExpandedActivity((prev) => ({
+                                                                            ...prev,
+                                                                            [a.id]: !(prev[a.id] ?? false),
+                                                                        }))
+                                                                    }
+                                                                >
+                                                                    {isExpanded ? 'Show less' : `+${keys.length - 4} more`}
+                                                                </button>
                                                             ) : null}
                                                         </div>
                                                     ) : null}
