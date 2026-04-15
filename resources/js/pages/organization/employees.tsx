@@ -2,11 +2,16 @@ import { Head } from '@inertiajs/react';
 import { EmployeesContent } from '@/features/organization/employees';
 import type {
     BranchOption,
+    BankOption,
+    CountryOption,
     DepartmentOption,
     Employee,
+    GenderOption,
     ManagerOption,
     PositionOption,
+    ReligionOption,
     UserOption,
+    VisaTypeOption,
 } from '@/features/organization/employees/types';
 
 type Pagination<T> = {
@@ -22,6 +27,11 @@ export default function Employees({
     positions,
     managers,
     users,
+    countries,
+    visa_types,
+    religions,
+    genders,
+    banks,
 }: {
     employees: Pagination<Employee>;
     branches: BranchOption[];
@@ -29,6 +39,11 @@ export default function Employees({
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
+    countries: CountryOption[];
+    visa_types: VisaTypeOption[];
+    religions: ReligionOption[];
+    genders: GenderOption[];
+    banks: BankOption[];
 }) {
     return (
         <>
@@ -40,6 +55,11 @@ export default function Employees({
                 positions={positions}
                 managers={managers}
                 users={users}
+                countries={countries}
+                visaTypes={visa_types}
+                religions={religions}
+                genders={genders}
+                banks={banks}
             />
         </>
     );

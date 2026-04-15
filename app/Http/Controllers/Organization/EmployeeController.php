@@ -7,11 +7,16 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
+use App\Models\Bank;
 use App\Models\Branch;
+use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Gender;
 use App\Models\Position;
+use App\Models\Religion;
 use App\Models\User;
+use App\Models\VisaType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -51,6 +56,31 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name', 'email']);
 
+        $countries = Country::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        $visaTypes = VisaType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $religions = Religion::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $genders = Gender::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $banks = Bank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $employees = Employee::query()
             ->with([
                 'branch:id,name',
@@ -58,6 +88,10 @@ class EmployeeController extends Controller
                 'position:id,title',
                 'manager:id,first_name,last_name,employee_no',
                 'user:id,name,email',
+                'visaType:id,name',
+                'religionRef:id,name',
+                'genderRef:id,name',
+                'bank:id,name',
             ])
             ->where('company_id', $companyId)
             ->latest('id')
@@ -86,7 +120,50 @@ class EmployeeController extends Controller
                     'title' => $employee->position?->title,
                 ] : null,
                 'work_email' => $employee->work_email,
+                'personal_email' => $employee->personal_email,
                 'phone' => $employee->phone,
+                'phone_home_country' => $employee->phone_home_country,
+                'nearest_airport' => $employee->nearest_airport,
+                'cv_source' => $employee->cv_source,
+                'emergency_contact' => $employee->emergency_contact,
+                'emergency_phone' => $employee->emergency_phone,
+                'emergency_contact_home_country' => $employee->emergency_contact_home_country,
+                'emergency_phone_home_country' => $employee->emergency_phone_home_country,
+                'date_of_birth' => $employee->date_of_birth,
+                'place_of_birth' => $employee->place_of_birth,
+                'gender' => $employee->gender,
+                'gender_id' => $employee->gender_id,
+                'gender_ref' => $employee->gender_id ? [
+                    'id' => $employee->gender_id,
+                    'name' => $employee->genderRef?->name,
+                ] : null,
+                'religion' => $employee->religion,
+                'religion_id' => $employee->religion_id,
+                'religion_ref' => $employee->religion_id ? [
+                    'id' => $employee->religion_id,
+                    'name' => $employee->religionRef?->name,
+                ] : null,
+                'nationality' => $employee->nationality,
+                'marital_status' => $employee->marital_status,
+                'spouse_name' => $employee->spouse_name,
+                'spouse_birthdate' => $employee->spouse_birthdate,
+                'dependent_children_count' => $employee->dependent_children_count,
+                'labor_contract_id' => $employee->labor_contract_id,
+                'passport_number' => $employee->passport_number,
+                'passport_issued_at' => $employee->passport_issued_at,
+                'passport_expiry' => $employee->passport_expiry,
+                'emirates_id' => $employee->emirates_id,
+                'visa_type' => $employee->visa_type,
+                'visa_type_id' => $employee->visa_type_id,
+                'visa_type_ref' => $employee->visa_type_id ? [
+                    'id' => $employee->visa_type_id,
+                    'name' => $employee->visaType?->name,
+                ] : null,
+                'bank_id' => $employee->bank_id,
+                'bank' => $employee->bank_id ? [
+                    'id' => $employee->bank_id,
+                    'name' => $employee->bank?->name,
+                ] : null,
                 'status' => $employee->status,
                 'hire_date' => $employee->hire_date,
                 'contract_type' => $employee->contract_type,
@@ -100,6 +177,11 @@ class EmployeeController extends Controller
             'positions' => $positions,
             'managers' => $managers,
             'users' => $users,
+            'countries' => $countries,
+            'visa_types' => $visaTypes,
+            'religions' => $religions,
+            'genders' => $genders,
+            'banks' => $banks,
         ]);
     }
 
@@ -135,12 +217,41 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name', 'email']);
 
+        $countries = Country::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'code']);
+
+        $visaTypes = VisaType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $religions = Religion::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $genders = Gender::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $banks = Bank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $employee->load([
             'branch:id,name',
             'department:id,name',
             'position:id,title',
             'manager:id,first_name,last_name,employee_no',
             'user:id,name,email',
+            'visaType:id,name',
+            'religionRef:id,name',
+            'genderRef:id,name',
+            'bank:id,name',
         ]);
 
         $recentActivity = [];
@@ -199,19 +310,40 @@ class EmployeeController extends Controller
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,
                 'date_of_birth' => $employee->date_of_birth,
+                'place_of_birth' => $employee->place_of_birth,
                 'gender' => $employee->gender,
+                'gender_id' => $employee->gender_id,
+                'gender_ref' => $employee->gender_id ? [
+                    'id' => $employee->gender_id,
+                    'name' => $employee->genderRef?->name,
+                ] : null,
+                'religion' => $employee->religion,
+                'religion_id' => $employee->religion_id,
+                'religion_ref' => $employee->religion_id ? [
+                    'id' => $employee->religion_id,
+                    'name' => $employee->religionRef?->name,
+                ] : null,
                 'nationality' => $employee->nationality,
                 'marital_status' => $employee->marital_status,
+                'spouse_name' => $employee->spouse_name,
+                'spouse_birthdate' => $employee->spouse_birthdate,
+                'dependent_children_count' => $employee->dependent_children_count,
                 'personal_email' => $employee->personal_email,
                 'work_email' => $employee->work_email,
                 'phone' => $employee->phone,
+                'nearest_airport' => $employee->nearest_airport,
+                'phone_home_country' => $employee->phone_home_country,
+                'cv_source' => $employee->cv_source,
                 'emergency_contact' => $employee->emergency_contact,
                 'emergency_phone' => $employee->emergency_phone,
+                'emergency_contact_home_country' => $employee->emergency_contact_home_country,
+                'emergency_phone_home_country' => $employee->emergency_phone_home_country,
                 'address' => $employee->address,
                 'hire_date' => $employee->hire_date,
                 'probation_end_date' => $employee->probation_end_date,
                 'contract_type' => $employee->contract_type,
                 'contract_end_date' => $employee->contract_end_date,
+                'labor_contract_id' => $employee->labor_contract_id,
                 'basic_salary' => $employee->basic_salary,
                 'housing_allowance' => $employee->housing_allowance,
                 'transport_allowance' => $employee->transport_allowance,
@@ -222,9 +354,15 @@ class EmployeeController extends Controller
                 'visa_number' => $employee->visa_number,
                 'visa_expiry' => $employee->visa_expiry,
                 'visa_type' => $employee->visa_type,
+                'visa_type_id' => $employee->visa_type_id,
+                'visa_type_ref' => $employee->visa_type_id ? [
+                    'id' => $employee->visa_type_id,
+                    'name' => $employee->visaType?->name,
+                ] : null,
                 'emirates_id' => $employee->emirates_id,
                 'emirates_id_expiry' => $employee->emirates_id_expiry,
                 'passport_number' => $employee->passport_number,
+                'passport_issued_at' => $employee->passport_issued_at,
                 'passport_expiry' => $employee->passport_expiry,
                 'work_permit_number' => $employee->work_permit_number,
                 'work_permit_expiry' => $employee->work_permit_expiry,
@@ -242,6 +380,11 @@ class EmployeeController extends Controller
             'positions' => $positions,
             'managers' => $managers,
             'users' => $users,
+            'countries' => $countries,
+            'visa_types' => $visaTypes,
+            'religions' => $religions,
+            'genders' => $genders,
+            'banks' => $banks,
             'recent_activity' => $recentActivity,
         ]);
     }
@@ -251,6 +394,47 @@ class EmployeeController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $data = $request->validated();
         $data['company_id'] = $companyId;
+
+        if (($data['visa_type_id'] ?? null) === '') {
+            $data['visa_type_id'] = null;
+        }
+
+        if (($data['religion_id'] ?? null) === '') {
+            $data['religion_id'] = null;
+        }
+
+        if (($data['gender_id'] ?? null) === '') {
+            $data['gender_id'] = null;
+        }
+
+        if (($data['bank_id'] ?? null) === '') {
+            $data['bank_id'] = null;
+        }
+
+        if (($data['visa_type_id'] ?? null) === null) {
+            $data['visa_type'] = null;
+        } else {
+            $data['visa_type'] = VisaType::query()->whereKey($data['visa_type_id'])->value('name');
+        }
+
+        if (($data['religion_id'] ?? null) === null) {
+            $data['religion'] = null;
+        } else {
+            $data['religion'] = Religion::query()->whereKey($data['religion_id'])->value('name');
+        }
+
+        if (($data['gender_id'] ?? null) === null) {
+            $data['gender'] = null;
+        } else {
+            $genderName = Gender::query()->whereKey($data['gender_id'])->value('name');
+            $data['gender'] = $genderName ? strtolower((string) $genderName) : null;
+        }
+
+        if (($data['bank_id'] ?? null) === null) {
+            $data['bank_name'] = null;
+        } else {
+            $data['bank_name'] = Bank::query()->whereKey($data['bank_id'])->value('name');
+        }
 
         foreach ([
             'user_id',
@@ -273,9 +457,11 @@ class EmployeeController extends Controller
             'bank_name',
             'bank_account_name',
             'iban',
+            'bank_id',
             'visa_number',
             'visa_expiry',
             'visa_type',
+            'visa_type_id',
             'emirates_id',
             'emirates_id_expiry',
             'passport_number',
@@ -310,6 +496,47 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
+        if (($data['visa_type_id'] ?? null) === '') {
+            $data['visa_type_id'] = null;
+        }
+
+        if (($data['religion_id'] ?? null) === '') {
+            $data['religion_id'] = null;
+        }
+
+        if (($data['gender_id'] ?? null) === '') {
+            $data['gender_id'] = null;
+        }
+
+        if (($data['bank_id'] ?? null) === '') {
+            $data['bank_id'] = null;
+        }
+
+        if (($data['visa_type_id'] ?? null) === null) {
+            $data['visa_type'] = null;
+        } else {
+            $data['visa_type'] = VisaType::query()->whereKey($data['visa_type_id'])->value('name');
+        }
+
+        if (($data['religion_id'] ?? null) === null) {
+            $data['religion'] = null;
+        } else {
+            $data['religion'] = Religion::query()->whereKey($data['religion_id'])->value('name');
+        }
+
+        if (($data['gender_id'] ?? null) === null) {
+            $data['gender'] = null;
+        } else {
+            $genderName = Gender::query()->whereKey($data['gender_id'])->value('name');
+            $data['gender'] = $genderName ? strtolower((string) $genderName) : null;
+        }
+
+        if (($data['bank_id'] ?? null) === null) {
+            $data['bank_name'] = null;
+        } else {
+            $data['bank_name'] = Bank::query()->whereKey($data['bank_id'])->value('name');
+        }
+
         foreach ([
             'user_id',
             'branch_id',
@@ -331,9 +558,11 @@ class EmployeeController extends Controller
             'bank_name',
             'bank_account_name',
             'iban',
+            'bank_id',
             'visa_number',
             'visa_expiry',
             'visa_type',
+            'visa_type_id',
             'emirates_id',
             'emirates_id_expiry',
             'passport_number',

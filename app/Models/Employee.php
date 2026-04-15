@@ -33,32 +33,41 @@ class Employee extends Model
                 'first_name',
                 'last_name',
                 'date_of_birth',
-                'gender',
-                'nationality',
-                'marital_status',
+                'spouse_name',
+                'spouse_birthdate',
+                'dependent_children_count',
                 'personal_email',
                 'work_email',
                 'phone',
+                'gender_id',
+                'nearest_airport',
+                'phone_home_country',
+                'cv_source',
                 'emergency_contact',
                 'emergency_phone',
+                'emergency_contact_home_country',
+                'emergency_phone_home_country',
                 'address',
                 'hire_date',
                 'probation_end_date',
                 'contract_type',
                 'contract_end_date',
+                'labor_contract_id',
                 'basic_salary',
                 'housing_allowance',
                 'transport_allowance',
                 'other_allowances',
-                'bank_name',
-                'bank_account_name',
+                'marital_status',
+                'bank_id',
                 'iban',
                 'visa_number',
                 'visa_expiry',
                 'visa_type',
+                'visa_type_id',
                 'emirates_id',
                 'emirates_id_expiry',
                 'passport_number',
+                'passport_issued_at',
                 'passport_expiry',
                 'work_permit_number',
                 'work_permit_expiry',
@@ -68,6 +77,7 @@ class Employee extends Model
                 'status',
                 'termination_date',
                 'termination_reason',
+                'place_of_birth',
             ])
             ->logOnlyDirty();
     }
@@ -105,5 +115,25 @@ class Employee extends Model
     public function directReports(): HasMany
     {
         return $this->hasMany(Employee::class, 'manager_id');
+    }
+
+    public function visaType(): BelongsTo
+    {
+        return $this->belongsTo(VisaType::class);
+    }
+
+    public function religionRef(): BelongsTo
+    {
+        return $this->belongsTo(Religion::class, 'religion_id');
+    }
+
+    public function genderRef(): BelongsTo
+    {
+        return $this->belongsTo(Gender::class, 'gender_id');
+    }
+
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class);
     }
 }

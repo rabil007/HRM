@@ -19,13 +19,18 @@ import { EmployeeFiltersSheet } from './components/employee-filters-sheet';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import { EmployeeFormSheet } from './components/employee-form-sheet';
 import type {
+    BankOption,
     BranchOption,
+    CountryOption,
     DepartmentOption,
     Employee,
     EmployeeFormData,
+    GenderOption,
     ManagerOption,
     PositionOption,
+    ReligionOption,
     UserOption,
+    VisaTypeOption,
 } from './types';
 
 const emptyFilters: EmployeeFilters = {
@@ -42,6 +47,11 @@ export function EmployeesContent({
     positions,
     managers,
     users,
+    countries,
+    visaTypes,
+    religions,
+    genders,
+    banks,
 }: {
     employees: Employee[];
     branches: BranchOption[];
@@ -49,6 +59,11 @@ export function EmployeesContent({
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
+    countries: CountryOption[];
+    visaTypes: VisaTypeOption[];
+    religions: ReligionOption[];
+    genders: GenderOption[];
+    banks: BankOption[];
 }) {
     const [view, setView] = useViewPreference('employees:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
@@ -68,7 +83,31 @@ export function EmployeesContent({
         first_name: '',
         last_name: '',
         work_email: '',
+        personal_email: '',
         phone: '',
+        phone_home_country: '',
+        nearest_airport: '',
+        cv_source: '',
+        emergency_contact: '',
+        emergency_phone: '',
+        emergency_contact_home_country: '',
+        emergency_phone_home_country: '',
+        date_of_birth: '',
+        place_of_birth: '',
+        gender_id: '',
+        religion_id: '',
+        nationality: '',
+        marital_status: '',
+        spouse_name: '',
+        spouse_birthdate: '',
+        dependent_children_count: '',
+        visa_type_id: '',
+        labor_contract_id: '',
+        passport_number: '',
+        passport_issued_at: '',
+        passport_expiry: '',
+        emirates_id: '',
+        bank_id: '',
         hire_date: '',
         contract_type: 'unlimited',
         status: 'active',
@@ -88,7 +127,31 @@ export function EmployeesContent({
             first_name: '',
             last_name: '',
             work_email: '',
+            personal_email: '',
             phone: '',
+            phone_home_country: '',
+            nearest_airport: '',
+            cv_source: '',
+            emergency_contact: '',
+            emergency_phone: '',
+            emergency_contact_home_country: '',
+            emergency_phone_home_country: '',
+            date_of_birth: '',
+            place_of_birth: '',
+            gender_id: '',
+            religion_id: '',
+            nationality: '',
+            marital_status: '',
+            spouse_name: '',
+            spouse_birthdate: '',
+            dependent_children_count: '',
+            visa_type_id: '',
+            labor_contract_id: '',
+            passport_number: '',
+            passport_issued_at: '',
+            passport_expiry: '',
+            emirates_id: '',
+            bank_id: '',
             hire_date: '',
             contract_type: 'unlimited',
             status: 'active',
@@ -110,7 +173,31 @@ export function EmployeesContent({
             first_name: employee.first_name ?? '',
             last_name: employee.last_name ?? '',
             work_email: employee.work_email ?? '',
+            personal_email: employee.personal_email ?? '',
             phone: employee.phone ?? '',
+            phone_home_country: employee.phone_home_country ?? '',
+            nearest_airport: employee.nearest_airport ?? '',
+            cv_source: employee.cv_source ?? '',
+            emergency_contact: employee.emergency_contact ?? '',
+            emergency_phone: employee.emergency_phone ?? '',
+            emergency_contact_home_country: employee.emergency_contact_home_country ?? '',
+            emergency_phone_home_country: employee.emergency_phone_home_country ?? '',
+            date_of_birth: employee.date_of_birth ?? '',
+            place_of_birth: employee.place_of_birth ?? '',
+            gender_id: employee.gender_id ?? '',
+            religion_id: employee.religion_id ?? '',
+            nationality: employee.nationality ?? '',
+            marital_status: employee.marital_status ?? '',
+            spouse_name: employee.spouse_name ?? '',
+            spouse_birthdate: employee.spouse_birthdate ?? '',
+            dependent_children_count: employee.dependent_children_count ?? '',
+            visa_type_id: employee.visa_type_id ?? '',
+            labor_contract_id: employee.labor_contract_id ?? '',
+            passport_number: employee.passport_number ?? '',
+            passport_issued_at: employee.passport_issued_at ?? '',
+            passport_expiry: employee.passport_expiry ?? '',
+            emirates_id: employee.emirates_id ?? '',
+            bank_id: employee.bank_id ?? '',
             hire_date: employee.hire_date ?? '',
             contract_type: employee.contract_type ?? 'unlimited',
             status: employee.status ?? 'active',
@@ -150,8 +237,49 @@ export function EmployeesContent({
     };
 
     const submit = () => {
+        const payload = {
+            user_id: form.data.user_id || null,
+            branch_id: form.data.branch_id || null,
+            department_id: form.data.department_id || null,
+            position_id: form.data.position_id || null,
+            manager_id: form.data.manager_id || null,
+            employee_no: form.data.employee_no,
+            first_name: form.data.first_name,
+            last_name: form.data.last_name,
+            work_email: form.data.work_email.trim() || null,
+            personal_email: form.data.personal_email.trim() || null,
+            phone: form.data.phone.trim() || null,
+            phone_home_country: form.data.phone_home_country.trim() || null,
+            nearest_airport: form.data.nearest_airport.trim() || null,
+            cv_source: form.data.cv_source.trim() || null,
+            emergency_contact: form.data.emergency_contact.trim() || null,
+            emergency_phone: form.data.emergency_phone.trim() || null,
+            emergency_contact_home_country: form.data.emergency_contact_home_country.trim() || null,
+            emergency_phone_home_country: form.data.emergency_phone_home_country.trim() || null,
+            date_of_birth: form.data.date_of_birth || null,
+            place_of_birth: form.data.place_of_birth.trim() || null,
+            gender_id: form.data.gender_id || null,
+            religion_id: form.data.religion_id || null,
+            nationality: form.data.nationality.trim() || null,
+            marital_status: form.data.marital_status || null,
+            spouse_name: form.data.spouse_name.trim() || null,
+            spouse_birthdate: form.data.spouse_birthdate || null,
+            dependent_children_count: form.data.dependent_children_count === '' ? null : form.data.dependent_children_count,
+            visa_type_id: form.data.visa_type_id || null,
+            labor_contract_id: form.data.labor_contract_id.trim() || null,
+            passport_number: form.data.passport_number.trim() || null,
+            passport_issued_at: form.data.passport_issued_at || null,
+            passport_expiry: form.data.passport_expiry || null,
+            emirates_id: form.data.emirates_id.trim() || null,
+            bank_id: form.data.bank_id || null,
+            hire_date: form.data.hire_date,
+            contract_type: form.data.contract_type,
+            status: form.data.status,
+        };
+
         if (currentEmployee) {
             form.put(`/organization/employees/${currentEmployee.id}`, {
+                data: payload,
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
@@ -160,6 +288,7 @@ export function EmployeesContent({
         }
 
         form.post('/organization/employees', {
+            data: payload,
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
@@ -292,14 +421,17 @@ export function EmployeesContent({
             ) : (
                 <Card className="glass-card w-full overflow-hidden">
                     <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[980px]">
+                        <Table className="min-w-[1800px]">
                             <TableHeader>
                                 <TableRow className="border-border/60">
                                     <TableHead className="pl-4">Employee</TableHead>
-                                    <TableHead>Branch</TableHead>
-                                    <TableHead>Department</TableHead>
-                                    <TableHead>Position</TableHead>
-                                    <TableHead>Contact</TableHead>
+                                    <TableHead>Assignment</TableHead>
+                                    <TableHead>Emails</TableHead>
+                                    <TableHead>Phones</TableHead>
+                                    <TableHead>Personal</TableHead>
+                                    <TableHead>Emergency</TableHead>
+                                    <TableHead>Documents</TableHead>
+                                    <TableHead>Family</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead className="text-right pr-4">Actions</TableHead>
                                 </TableRow>
@@ -318,12 +450,65 @@ export function EmployeesContent({
                                                 <div className="font-semibold">{employee.name}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.employee_no}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">{employee.branch?.name ?? '—'}</TableCell>
-                                            <TableCell className="text-muted-foreground/80">{employee.department?.name ?? '—'}</TableCell>
-                                            <TableCell className="text-muted-foreground/80">{employee.position?.title ?? '—'}</TableCell>
                                             <TableCell className="text-muted-foreground/80">
-                                                {employee.work_email ?? '—'}
-                                                {employee.phone ? ` • ${employee.phone}` : ''}
+                                                <div className="text-sm">{employee.branch?.name ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.department?.name ?? '—'}
+                                                    {employee.position?.title ? ` • ${employee.position.title}` : ''}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm truncate">{employee.work_email ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70 truncate">{employee.personal_email ?? '—'}</div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">{employee.phone ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">{employee.phone_home_country ?? '—'}</div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">
+                                                    {employee.gender_ref?.name ?? employee.gender ?? '—'}
+                                                    {employee.marital_status
+                                                        ? ` • ${employee.marital_status === 'married' ? 'Yes' : 'No'}`
+                                                        : ''}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.date_of_birth ?? '—'}
+                                                    {employee.place_of_birth ? ` • ${employee.place_of_birth}` : ''}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.religion_ref?.name ?? employee.religion ?? '—'}
+                                                    {employee.nationality ? ` • ${employee.nationality}` : ''}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">{employee.emergency_contact ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">{employee.emergency_phone ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.emergency_contact_home_country ?? '—'}
+                                                    {employee.emergency_phone_home_country ? ` • ${employee.emergency_phone_home_country}` : ''}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">{employee.visa_type ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.passport_number ?? '—'}
+                                                    {employee.passport_expiry ? ` • exp ${employee.passport_expiry}` : ''}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.passport_issued_at ? `issued ${employee.passport_issued_at}` : '—'}
+                                                    {employee.emirates_id ? ` • EID ${employee.emirates_id}` : ''}
+                                                </div>
+                                                <div className="text-xs text-muted-foreground/70">{employee.labor_contract_id ?? '—'}</div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">{employee.spouse_name ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">{employee.spouse_birthdate ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">
+                                                    {employee.dependent_children_count === null || employee.dependent_children_count === undefined
+                                                        ? '—'
+                                                        : String(employee.dependent_children_count)}
+                                                </div>
                                             </TableCell>
                                             <TableCell>
                                                 {canToggle ? (
@@ -406,6 +591,11 @@ export function EmployeesContent({
                 positions={positions}
                 managers={managers}
                 users={users}
+                countries={countries}
+                visaTypes={visaTypes}
+                religions={religions}
+                genders={genders}
+                banks={banks}
             />
 
             <EmployeeFiltersSheet
