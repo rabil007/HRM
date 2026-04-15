@@ -48,9 +48,54 @@ This file documents the **current, preferred patterns** in this repo so future c
   - `ExportMenu`: `resources/js/components/export-menu.tsx`
   - `FiltersSheet`: `resources/js/components/filters-sheet.tsx`
   - `EmptyState`: `resources/js/components/empty-state.tsx`
+  - `ViewToggle`: `resources/js/components/view-toggle.tsx`
+  - `useViewPreference`: `resources/js/hooks/use-view-preference.ts` (grid/list view stored in `localStorage`)
 
 - **Delete confirmation**
   - `ConfirmDeleteDialog`: `resources/js/components/confirm-delete-dialog.tsx`
+
+## Toasts & flash messages (global)
+
+- Prefer **server-side flash** messages on redirects for create/update/delete/status actions:
+  - `->with('success'|'error'|'info', '...')`
+- Inertia shared props include `flash` in:
+  - `app/Http/Middleware/HandleInertiaRequests.php`
+- Client-side toast rendering is centralized in:
+  - `resources/js/components/http-exception-toasts.tsx`
+  - Shows HTTP/network errors plus `flash.success|error|info` on `router.on('success')`
+- Avoid per-page success toasts for CRUD/status (handled globally).
+
+## Details pages (standard pattern)
+
+- Details pages live in `resources/js/pages/organization/*.tsx`
+- Common layout:
+  - `DetailsHeader` (Back + primary actions like Edit / link to related entity)
+  - Main “Overview” card
+  - Right sidebar card(s) (Quick info / Quick actions)
+  - “Recent activity” card below
+
+### Recent activity rules
+
+- Recent activity comes from Spatie Activitylog and is loaded in each controller `show()` action.
+- Always fetch **latest 5** only (query-level limit):
+  - `->latest('id')->limit(5)`
+- Respect permissions:
+  - only load `recent_activity` when user can `audit.view`, otherwise return `[]`.
+
+### Quick info rules
+
+- Avoid duplicating fields already prominent in the Overview card.
+- Prefer “high-signal” metrics:
+  - counts (positions under a department, users/employees under a department, companies the user belongs to, etc.)
+- Compute counts server-side (avoid N+1):
+  - `withCount()` when a relation exists
+  - otherwise a targeted `count()` query scoped by `company_id`
+
+## Icons (lucide-react) note
+
+- Not all icons exist in every installed `lucide-react` build.
+- If Vite throws “does not provide an export named …”, switch to an icon already used in the repo
+  (e.g. `Building2`, `Store`, `Users`, `MapPin`, `Activity`).
 
 ## “Golden reference” files (copy patterns from here)
 
@@ -74,8 +119,7 @@ This file documents the **current, preferred patterns** in this repo so future c
 - If PHP is changed:
   - Run `vendor/bin/pint --dirty --format agent`
 - If TS/React is changed:
-  - Run `npx eslint <touched files> --fix`
-  - Run `npm run types:check`
+  - Run `npm run lint:check`
 
 ## Do / Don’t
 

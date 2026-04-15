@@ -64,6 +64,12 @@ class PermissionsSeeder extends Seeder
             'users.delete',
             'users.export',
 
+            'employees.view',
+            'employees.create',
+            'employees.update',
+            'employees.delete',
+            'employees.export',
+
             'audit.view',
         ];
 

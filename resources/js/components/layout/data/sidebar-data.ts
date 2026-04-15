@@ -93,7 +93,7 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Employees',
             items: [
-                { title: 'Employee directory', url: placeholder('employees.index'), icon: Users },
+                { title: 'Employee directory', url: '/organization/employees', icon: Users },
                 { title: 'Documents', url: placeholder('employees.documents'), icon: FileText },
             ],
         },
@@ -195,6 +195,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'departments.view') ? item : null;
                         case '/organization/positions':
                             return has(permissions, 'positions.view') ? item : null;
+                        case '/organization/employees':
+                            return has(permissions, 'employees.view') ? item : null;
+                        case placeholder('employees.documents'):
+                            return has(permissions, 'employees.view') ? item : null;
                         case '/organization/roles':
                             return has(permissions, 'roles.view') ? item : null;
                         case '/organization/users':
