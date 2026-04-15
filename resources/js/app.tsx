@@ -3,7 +3,6 @@ import { HttpExceptionToasts } from '@/components/http-exception-toasts';
 import { NavigationProgress } from '@/components/navigation-progress';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { DirectionProvider } from '@/context/direction-provider';
 import { initializeTheme } from '@/hooks/use-appearance';
 import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
@@ -28,14 +27,12 @@ createInertiaApp({
     strictMode: true,
     withApp(app) {
         return (
-            <DirectionProvider>
-                <TooltipProvider delayDuration={0}>
-                    <NavigationProgress />
-                    <HttpExceptionToasts />
-                    <Toaster duration={5000} />
-                    {app}
-                </TooltipProvider>
-            </DirectionProvider>
+            <TooltipProvider delayDuration={0}>
+                <NavigationProgress />
+                <HttpExceptionToasts />
+                <Toaster duration={5000} />
+                {app}
+            </TooltipProvider>
         );
     },
     progress: {
