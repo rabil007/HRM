@@ -383,8 +383,9 @@ setDragOverIdx(null);
                                                 {s.label || s.key}
                                             </span>
                                         </div>
-                                        <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 flex gap-3 pl-6">
+                                        <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 grid grid-cols-4 gap-x-3 gap-y-1 pl-6">
                                             <span>{s.employee_fields.length} Profile</span>
+                                            <span>{s.bank_account_fields.length} Bank</span>
                                             <span>{s.contract_fields.length} Contract</span>
                                             <span>{s.documents.length} Docs</span>
                                         </div>
