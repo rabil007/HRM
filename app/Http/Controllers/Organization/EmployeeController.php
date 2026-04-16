@@ -11,6 +11,7 @@ use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Country;
 use App\Models\Department;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\Gender;
@@ -103,6 +104,7 @@ class EmployeeController extends Controller
                 'employee_no' => $employee->employee_no,
                 'first_name' => $employee->first_name,
                 'last_name' => $employee->last_name,
+                'image' => $employee->image,
                 'name' => trim("{$employee->first_name} {$employee->last_name}"),
                 'branch' => $employee->branch_id ? [
                     'id' => $employee->branch_id,
@@ -170,6 +172,90 @@ class EmployeeController extends Controller
             'religions' => $religions,
             'genders' => $genders,
             'banks' => $banks,
+        ]);
+    }
+
+    public function create()
+    {
+        $companyId = (int) request()->attributes->get('current_company_id');
+
+        $template = OnboardingTemplate::query()
+            ->where('company_id', $companyId)
+            ->where('is_default', true)
+            ->first();
+
+        if (! $template) {
+            // Fallback to latest if no default
+            $template = OnboardingTemplate::query()
+                ->where('company_id', $companyId)
+                ->latest()
+                ->first();
+        }
+
+        abort_unless($template, 403, 'Please create an onboarding template first.');
+
+        $branches = Branch::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $departments = Department::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $positions = Position::query()
+            ->where('company_id', $companyId)
+            ->orderBy('title')
+            ->get(['id', 'department_id', 'title']);
+
+        $managers = Employee::query()
+            ->where('company_id', $companyId)
+            ->orderBy('first_name')
+            ->get(['id', 'first_name', 'last_name', 'employee_no']);
+
+        $countries = Country::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $religions = Religion::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $genders = Gender::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $banks = Bank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $documentTypes = DocumentType::query()
+            ->where('is_active', true)
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug']);
+
+        return Inertia::render('organization/employee-create', [
+            'template' => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'tasks' => $template->tasks,
+            ],
+            'options' => [
+                'branches' => $branches,
+                'departments' => $departments,
+                'positions' => $positions,
+                'managers' => $managers,
+                'countries' => $countries,
+                'religions' => $religions,
+                'genders' => $genders,
+                'banks' => $banks,
+                'document_types' => $documentTypes,
+            ],
         ]);
     }
 
@@ -360,6 +446,9 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
+        $documents = $data['documents'] ?? [];
+        unset($data['documents']);
+
         $contract = [
             'contract_type' => $data['contract_type'],
             'start_date' => $data['start_date'],
@@ -434,6 +523,65 @@ class EmployeeController extends Controller
             'employee_id' => $employee->id,
             ...$contract,
         ]);
+
+        if (is_array($documents) && count($documents) > 0) {
+            $docTypeMap = DocumentType::query()
+                ->where('is_active', true)
+                ->get(['id', 'title', 'slug'])
+                ->mapWithKeys(fn (DocumentType $dt) => [
+                    (string) $dt->slug => $dt->title,
+                    (string) $dt->id => $dt->title,
+                ]);
+
+            foreach ($documents as $doc) {
+                if (! is_array($doc)) {
+                    continue;
+                }
+
+                $documentTypeKey = (string) ($doc['type'] ?? '');
+                $files = $doc['files'] ?? [];
+
+                if ($documentTypeKey === '' || ! is_array($files) || count($files) === 0) {
+                    continue;
+                }
+
+                foreach ($files as $file) {
+                    if (! $file) {
+                        continue;
+                    }
+
+                    $path = $file->storePublicly(
+                        "employee-documents/{$companyId}/{$employee->id}/{$documentTypeKey}",
+                        ['disk' => 'public']
+                    );
+
+                    $expiryDate = $doc['expiry_date'] ?? null;
+                    $status = 'valid';
+
+                    if ($expiryDate) {
+                        $expiry = now()->parse($expiryDate);
+                        $status = $expiry->isPast() ? 'expired' : ($expiry->lte(now()->addDays(30)) ? 'expiring_soon' : 'valid');
+                    }
+
+                    \DB::table('employee_documents')->insert([
+                        'company_id' => $companyId,
+                        'employee_id' => $employee->id,
+                        'type' => 'other',
+                        'document_type' => $documentTypeKey,
+                        'title' => $docTypeMap->get($documentTypeKey),
+                        'file_path' => $path,
+                        'issue_date' => $doc['issue_date'] ?? null,
+                        'expiry_date' => $expiryDate,
+                        'document_number' => $doc['document_number'] ?? null,
+                        'notes' => null,
+                        'status' => $status,
+                        'uploaded_by' => $request->user()?->id,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+        }
 
         $defaultTemplateId = OnboardingTemplate::query()
             ->where('company_id', $companyId)

@@ -9,6 +9,8 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\Position;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access employees page', function () {
@@ -106,6 +108,7 @@ test('authenticated users can view an employee details page', function () {
 test('authenticated users can create, update, toggle status, and delete an employee', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
+    Storage::fake('public');
 
     $country = Country::query()->create([
         'code' => 'TST',
@@ -170,6 +173,15 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'position_id' => $position->id,
         'work_email' => 'jane@example.com',
         'phone' => '+971500000000',
+        'documents' => [
+            [
+                'type' => 'passport_copy',
+                'files' => [UploadedFile::fake()->create('passport.pdf', 10, 'application/pdf')],
+                'issue_date' => '2026-01-01',
+                'expiry_date' => '2031-01-01',
+                'document_number' => 'P1234567',
+            ],
+        ],
     ])->assertRedirect('/organization/employees');
 
     $employeeId = Employee::query()
@@ -178,6 +190,15 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         ->value('id');
 
     expect($employeeId)->not->toBeNull();
+
+    $this->assertDatabaseHas('employee_documents', [
+        'company_id' => $company->id,
+        'employee_id' => $employeeId,
+        'document_type' => 'passport_copy',
+        'issue_date' => '2026-01-01',
+        'expiry_date' => '2031-01-01',
+        'document_number' => 'P1234567',
+    ]);
 
     $this->put("/organization/employees/{$employeeId}", [
         'employee_no' => 'EMP0002',

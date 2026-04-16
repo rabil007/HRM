@@ -58,6 +58,7 @@ export type Employee = {
     employee_no: string;
     first_name: string;
     last_name: string;
+    image?: string | null;
     name: string;
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;

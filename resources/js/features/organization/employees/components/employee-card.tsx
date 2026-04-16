@@ -34,6 +34,11 @@ export function EmployeeCard({
     onToggleStatus: (employee: Employee, enabled: boolean) => void;
 }) {
     const canToggle = employee.status === 'active' || employee.status === 'inactive';
+    const imageSrc = employee.image
+        ? employee.image.startsWith('http')
+            ? employee.image
+            : `/storage/${employee.image.replace(/^\/+/, '')}`
+        : null;
 
     return (
         <Card className="glass-card group overflow-hidden relative transition-all duration-300">
@@ -41,8 +46,12 @@ export function EmployeeCard({
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <div className="flex items-center gap-2">
-                            <div className="h-10 w-10 rounded-2xl bg-muted/40 border border-border/60 flex items-center justify-center text-muted-foreground">
-                                <User2 className="h-5 w-5" />
+                            <div className="h-10 w-10 rounded-2xl bg-muted/40 border border-border/60 overflow-hidden flex items-center justify-center text-muted-foreground">
+                                {imageSrc ? (
+                                    <img src={imageSrc} alt={employee.name} className="h-full w-full object-cover" />
+                                ) : (
+                                    <User2 className="h-5 w-5" />
+                                )}
                             </div>
                             <div className="min-w-0">
                                 <div className="font-bold tracking-tight truncate">{employee.name}</div>

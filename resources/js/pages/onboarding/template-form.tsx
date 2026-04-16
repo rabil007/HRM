@@ -51,6 +51,7 @@ export const profileFieldOptions = [
     { key: 'employee_no', label: 'Employee No' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
+    { key: 'image', label: 'Image' },
     { key: 'date_of_birth', label: 'Date of Birth' },
     { key: 'place_of_birth', label: 'Place of Birth' },
     { key: 'gender_id', label: 'Gender' },

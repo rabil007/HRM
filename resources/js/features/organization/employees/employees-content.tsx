@@ -115,53 +115,7 @@ export function EmployeesContent({
     });
 
     const handleAdd = () => {
-        setCurrentEmployee(null);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            user_id: '',
-            branch_id: '',
-            department_id: '',
-            position_id: '',
-            manager_id: '',
-            employee_no: '',
-            first_name: '',
-            last_name: '',
-            work_email: '',
-            personal_email: '',
-            phone: '',
-            phone_home_country: '',
-            nearest_airport: '',
-            cv_source: '',
-            emergency_contact: '',
-            emergency_phone: '',
-            emergency_contact_home_country: '',
-            emergency_phone_home_country: '',
-            date_of_birth: '',
-            place_of_birth: '',
-            gender_id: '',
-            religion_id: '',
-            nationality: '',
-            marital_status: '',
-            spouse_name: '',
-            spouse_birthdate: '',
-            dependent_children_count: '',
-            labor_contract_id: '',
-            passport_number: '',
-            emirates_id: '',
-            bank_id: '',
-            basic_salary: '',
-            housing_allowance: '',
-            transport_allowance: '',
-            other_allowances: '',
-            start_date: '',
-            probation_end_date: '',
-            end_date: '',
-            contract_type: 'unlimited',
-            labor_contract_id: '',
-            status: 'active',
-        });
-        setIsSheetOpen(true);
+        router.visit('/organization/employees/create');
     };
 
     const handleEdit = (employee: Employee) => {
