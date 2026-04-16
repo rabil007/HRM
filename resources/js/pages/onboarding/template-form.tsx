@@ -853,11 +853,10 @@ setDragOverIdx(null);
 
                                             {s.documents.length > 0 && (
                                                 <div className="space-y-3 pt-4 border-t border-border/40 mt-4">
-                                                    <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-2">
-                                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                                        Document Rules & Configuration
+                                                    <Label className="text-xs font-medium text-muted-foreground">
+                                                        Document rules
                                                     </Label>
-                                                    <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                                                         {s.documents.map((d, dIdx) => {
                                                             const typeInfo = documentTypes.find(
                                                                 (dt) => String(dt.id) === String(d.type)
@@ -866,84 +865,88 @@ setDragOverIdx(null);
                                                             return (
                                                                 <div
                                                                     key={`${d.type}-${dIdx}`}
-                                                                    className="flex flex-col gap-3 p-3 bg-primary/5 border border-primary/20 rounded-xl"
+                                                                    className="rounded-xl border border-border/50 bg-card/20 p-4"
                                                                 >
-                                                                <div className="flex gap-4 items-center justify-between">
-                                                                    <div className="flex items-center gap-2">
-                                                                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                                                        <div className="min-w-0">
+                                                                            <div className="truncate text-sm font-semibold">
+                                                                                {typeInfo?.title || 'Unknown Doc'}
+                                                                            </div>
                                                                         </div>
-                                                                        <span className="text-sm font-semibold">{typeInfo?.title || 'Unknown Doc'}</span>
+
+                                                                        <div className="flex flex-wrap items-center gap-2">
+                                                                            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/40 px-2.5 py-1.5">
+                                                                                <span className="text-[10px] font-semibold text-muted-foreground">
+                                                                                    Min files
+                                                                                </span>
+                                                                                <input
+                                                                                    type="number"
+                                                                                    min={0}
+                                                                                    value={d.min}
+                                                                                    onChange={(e) => {
+                                                                                        const v = Number(e.target.value);
+                                                                                        const newDocs = [...s.documents];
+                                                                                        newDocs[dIdx] = { ...newDocs[dIdx], min: v };
+                                                                                        updateStage({ documents: newDocs });
+                                                                                    }}
+                                                                                    className="w-12 bg-transparent text-xs font-semibold text-foreground focus:outline-none text-center"
+                                                                                />
+                                                                            </div>
+
+                                                                            <Button
+                                                                                type="button"
+                                                                                variant="ghost"
+                                                                                size="icon"
+                                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                                onClick={() => {
+                                                                                    updateStage({
+                                                                                        documents: s.documents.filter((_, i) => i !== dIdx),
+                                                                                    });
+                                                                                }}
+                                                                            >
+                                                                                <Trash2 className="w-4 h-4" />
+                                                                            </Button>
+                                                                        </div>
                                                                     </div>
-                                                                    
-                                                                    <div className="flex items-center gap-3">
-                                                                        <div className="flex items-center gap-2 px-2 py-1 bg-background/50 rounded-lg border border-border/50">
-                                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground mr-1">Minimum Files</span>
-                                                                            <input
-                                                                                type="number"
-                                                                                min={0}
-                                                                                value={d.min}
-                                                                                onChange={(e) => {
-                                                                                    const v = Number(e.target.value);
+
+                                                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
+                                                                            <span className="text-xs font-medium text-foreground">Issue date</span>
+                                                                            <Switch
+                                                                                checked={!!d.ask_issue_date}
+                                                                                onCheckedChange={(val) => {
                                                                                     const newDocs = [...s.documents];
-                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], min: v };
+                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_issue_date: val };
                                                                                     updateStage({ documents: newDocs });
                                                                                 }}
-                                                                                className="w-10 bg-transparent text-xs font-bold text-primary focus:outline-none text-center"
+                                                                                className="scale-75"
                                                                             />
-                                                                        </div>
-                                                                        <Button
-                                                                            type="button"
-                                                                            variant="ghost"
-                                                                            size="icon"
-                                                                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                            onClick={() => {
-                                                                                updateStage({ documents: s.documents.filter((_, i) => i !== dIdx) });
-                                                                            }}
-                                                                        >
-                                                                            <Trash2 className="w-3.5 h-3.5" />
-                                                                        </Button>
+                                                                        </label>
+                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
+                                                                            <span className="text-xs font-medium text-foreground">Expiry date</span>
+                                                                            <Switch
+                                                                                checked={!!d.ask_expiry_date}
+                                                                                onCheckedChange={(val) => {
+                                                                                    const newDocs = [...s.documents];
+                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_expiry_date: val };
+                                                                                    updateStage({ documents: newDocs });
+                                                                                }}
+                                                                                className="scale-75"
+                                                                            />
+                                                                        </label>
+                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
+                                                                            <span className="text-xs font-medium text-foreground">Doc number</span>
+                                                                            <Switch
+                                                                                checked={!!d.ask_document_number}
+                                                                                onCheckedChange={(val) => {
+                                                                                    const newDocs = [...s.documents];
+                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_document_number: val };
+                                                                                    updateStage({ documents: newDocs });
+                                                                                }}
+                                                                                className="scale-75"
+                                                                            />
+                                                                        </label>
                                                                     </div>
-                                                                </div>
-
-                                                                <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-1 pt-2 border-t border-primary/10 mt-1">
-                                                                    <label className="flex items-center gap-2 text-[11px] font-medium text-foreground cursor-pointer group">
-                                                                        <Switch 
-                                                                            checked={!!d.ask_issue_date}
-                                                                            onCheckedChange={(val) => {
-                                                                                const newDocs = [...s.documents];
-                                                                                newDocs[dIdx] = { ...newDocs[dIdx], ask_issue_date: val };
-                                                                                updateStage({ documents: newDocs });
-                                                                            }}
-                                                                            className="scale-75"
-                                                                        />
-                                                                        <span className="group-hover:text-primary transition-colors">Issue Date</span>
-                                                                    </label>
-                                                                    <label className="flex items-center gap-2 text-[11px] font-medium text-foreground cursor-pointer group">
-                                                                        <Switch 
-                                                                            checked={!!d.ask_expiry_date}
-                                                                            onCheckedChange={(val) => {
-                                                                                const newDocs = [...s.documents];
-                                                                                newDocs[dIdx] = { ...newDocs[dIdx], ask_expiry_date: val };
-                                                                                updateStage({ documents: newDocs });
-                                                                            }}
-                                                                            className="scale-75"
-                                                                        />
-                                                                        <span className="group-hover:text-primary transition-colors">Expiry Date</span>
-                                                                    </label>
-                                                                    <label className="flex items-center gap-2 text-[11px] font-medium text-foreground cursor-pointer group">
-                                                                        <Switch 
-                                                                            checked={!!d.ask_document_number}
-                                                                            onCheckedChange={(val) => {
-                                                                                const newDocs = [...s.documents];
-                                                                                newDocs[dIdx] = { ...newDocs[dIdx], ask_document_number: val };
-                                                                                updateStage({ documents: newDocs });
-                                                                            }}
-                                                                            className="scale-75"
-                                                                        />
-                                                                        <span className="group-hover:text-primary transition-colors">Doc Number</span>
-                                                                    </label>
-                                                                </div>
                                                             </div>
                                                             );
                                                         })}
