@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Controllers\Onboarding\OnboardingRecordController;
+use App\Http\Controllers\Onboarding\OnboardingTemplateController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
@@ -77,6 +79,34 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/activity-logs', [ActivityLogController::class, 'index'])
         ->middleware('can:audit.view')
         ->name('organization.activity-logs');
+
+    Route::prefix('onboarding')->name('onboarding.')->group(function () {
+        Route::get('templates', [OnboardingTemplateController::class, 'index'])
+            ->middleware('can:onboarding.templates.view')
+            ->name('templates.index');
+        Route::get('templates/create', [OnboardingTemplateController::class, 'create'])
+            ->middleware('can:onboarding.templates.create')
+            ->name('templates.create');
+        Route::get('templates/{template}/edit', [OnboardingTemplateController::class, 'edit'])
+            ->middleware('can:onboarding.templates.update')
+            ->name('templates.edit');
+        Route::post('templates', [OnboardingTemplateController::class, 'store'])
+            ->middleware('can:onboarding.templates.create')
+            ->name('templates.store');
+        Route::put('templates/{template}', [OnboardingTemplateController::class, 'update'])
+            ->middleware('can:onboarding.templates.update')
+            ->name('templates.update');
+        Route::delete('templates/{template}', [OnboardingTemplateController::class, 'destroy'])
+            ->middleware('can:onboarding.templates.delete')
+            ->name('templates.destroy');
+
+        Route::get('records', [OnboardingRecordController::class, 'index'])
+            ->middleware('can:onboarding.records.view')
+            ->name('records.index');
+        Route::post('records/{record}/advance', [OnboardingRecordController::class, 'advance'])
+            ->middleware('can:onboarding.records.update')
+            ->name('records.advance');
+    });
 });
 
 require __DIR__.'/settings.php';

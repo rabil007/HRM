@@ -48,6 +48,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.banks.update',
             'settings.master-data.banks.delete',
 
+            'settings.master-data.document-types.view',
+            'settings.master-data.document-types.create',
+            'settings.master-data.document-types.update',
+            'settings.master-data.document-types.delete',
+
             'companies.view',
             'companies.create',
             'companies.update',
@@ -91,6 +96,14 @@ class PermissionsSeeder extends Seeder
             'employees.export',
 
             'audit.view',
+
+            'onboarding.templates.view',
+            'onboarding.templates.create',
+            'onboarding.templates.update',
+            'onboarding.templates.delete',
+
+            'onboarding.records.view',
+            'onboarding.records.update',
         ];
 
         foreach ($permissions as $name) {

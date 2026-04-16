@@ -14,6 +14,8 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\Gender;
+use App\Models\OnboardingRecord;
+use App\Models\OnboardingTemplate;
 use App\Models\Position;
 use App\Models\Religion;
 use App\Models\User;
@@ -432,6 +434,25 @@ class EmployeeController extends Controller
             'employee_id' => $employee->id,
             ...$contract,
         ]);
+
+        $defaultTemplateId = OnboardingTemplate::query()
+            ->where('company_id', $companyId)
+            ->where('is_default', true)
+            ->value('id');
+
+        OnboardingRecord::query()->firstOrCreate(
+            [
+                'company_id' => $companyId,
+                'employee_id' => $employee->id,
+            ],
+            [
+                'template_id' => $defaultTemplateId,
+                'status' => 'pending',
+                'stage' => 'draft',
+                'task_progress' => [],
+                'start_date' => now()->toDateString(),
+            ]
+        );
 
         return redirect()
             ->route('organization.employees')

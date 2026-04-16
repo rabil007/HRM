@@ -94,6 +94,11 @@ const baseSidebarData: SidebarData = {
                             url: '/settings/master-data/banks',
                             icon: PiggyBank,
                         },
+                        {
+                            title: 'Document types',
+                            url: '/settings/master-data/document-types',
+                            icon: FileText,
+                        },
                     ],
                 },
             ],
@@ -129,8 +134,8 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Onboarding',
             items: [
-                { title: 'Templates', url: placeholder('onboarding.templates'), icon: ClipboardList },
-                { title: 'Onboarding records', url: placeholder('onboarding.records'), icon: ClipboardList },
+                { title: 'Templates', url: '/onboarding/templates', icon: ClipboardList },
+                { title: 'Onboarding records', url: '/onboarding/records', icon: ClipboardList },
                 { title: 'Offboarding records', url: placeholder('offboarding.records'), icon: LifeBuoy },
             ],
         },
@@ -171,6 +176,14 @@ export function getSidebarData(permissions: string[]): SidebarData {
         .map((group) => {
             const items = group.items
                 .map((item) => {
+                    if ('url' in item && item.url === '/onboarding/templates') {
+                        return has(permissions, 'onboarding.templates.view') ? item : null;
+                    }
+
+                    if ('url' in item && item.url === '/onboarding/records') {
+                        return has(permissions, 'onboarding.records.view') ? item : null;
+                    }
+
                     if ('items' in item && item.items) {
                         const filteredSub = item.items.filter((sub) => {
                             if (sub.url === editSecurity.url()) {
@@ -203,6 +216,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/banks') {
                                 return has(permissions, 'settings.master-data.banks.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/document-types') {
+                                return has(permissions, 'settings.master-data.document-types.view');
                             }
 
                             return true;

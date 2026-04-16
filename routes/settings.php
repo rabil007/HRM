@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
+use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
@@ -105,5 +106,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('banks/{bank}', [BankController::class, 'destroy'])
             ->middleware('can:settings.master-data.banks.delete')
             ->name('banks.destroy');
+
+        Route::get('document-types', [DocumentTypeController::class, 'index'])
+            ->middleware('can:settings.master-data.document-types.view')
+            ->name('document-types.index');
+        Route::post('document-types', [DocumentTypeController::class, 'store'])
+            ->middleware('can:settings.master-data.document-types.create')
+            ->name('document-types.store');
+        Route::put('document-types/{document_type}', [DocumentTypeController::class, 'update'])
+            ->middleware('can:settings.master-data.document-types.update')
+            ->name('document-types.update');
+        Route::delete('document-types/{document_type}', [DocumentTypeController::class, 'destroy'])
+            ->middleware('can:settings.master-data.document-types.delete')
+            ->name('document-types.destroy');
     });
 });
