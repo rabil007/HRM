@@ -35,7 +35,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Work Email',
             'Phone',
             'Status',
-            'Hire Date',
+            'Start Date',
             'Created At',
         ];
     }
@@ -45,6 +45,8 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
         $managerName = $employee->manager
             ? trim("{$employee->manager->first_name} {$employee->manager->last_name}")
             : null;
+
+        $startDate = $employee->currentContract?->start_date;
 
         return [
             $employee->id,
@@ -58,7 +60,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $employee->work_email,
             $employee->phone,
             $employee->status,
-            optional($employee->hire_date)->toDateString(),
+            optional($startDate)->toDateString(),
             optional($employee->created_at)->toDateTimeString(),
         ];
     }

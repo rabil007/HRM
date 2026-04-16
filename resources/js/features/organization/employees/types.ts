@@ -27,11 +27,6 @@ export type UserOption = {
     email: string;
 };
 
-export type VisaTypeOption = {
-    id: number;
-    name: string;
-};
-
 export type ReligionOption = {
     id: number;
     name: string;
@@ -79,10 +74,8 @@ export type Employee = {
     emergency_phone_home_country?: string | null;
     date_of_birth?: string | null;
     place_of_birth?: string | null;
-    gender?: 'male' | 'female' | 'other' | null;
     gender_id?: number | null;
     gender_ref?: { id: number; name: string | null } | null;
-    religion?: string | null;
     religion_id?: number | null;
     religion_ref?: { id: number; name: string | null } | null;
     nationality?: string | null;
@@ -91,18 +84,20 @@ export type Employee = {
     spouse_birthdate?: string | null;
     dependent_children_count?: number | null;
     labor_contract_id?: string | null;
-    visa_type?: string | null;
-    visa_type_id?: number | null;
-    visa_type_ref?: { id: number; name: string | null } | null;
     passport_number?: string | null;
-    passport_issued_at?: string | null;
-    passport_expiry?: string | null;
     emirates_id?: string | null;
     bank_id?: number | null;
     bank?: { id: number; name: string | null } | null;
+    basic_salary?: number | null;
+    housing_allowance?: number | null;
+    transport_allowance?: number | null;
+    other_allowances?: number | null;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
-    hire_date: string;
+    start_date?: string | null;
+    end_date?: string | null;
+    probation_end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
+    labor_contract_id?: string | null;
     created_at: string;
 };
 
@@ -134,15 +129,19 @@ export type EmployeeFormData = {
     spouse_name: string;
     spouse_birthdate: string;
     dependent_children_count: number | '';
-    visa_type_id: number | '';
     labor_contract_id: string;
     passport_number: string;
-    passport_issued_at: string;
-    passport_expiry: string;
     emirates_id: string;
     bank_id: number | '';
-    hire_date: string;
+    basic_salary: string;
+    housing_allowance: string;
+    transport_allowance: string;
+    other_allowances: string;
+    start_date: string;
+    probation_end_date: string;
+    end_date: string;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
+    labor_contract_id: string;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
 };
 

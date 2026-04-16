@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
 use App\Models\Position;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -63,8 +64,6 @@ class EmployeeFactory extends Factory
             'last_name' => $this->faker->lastName(),
             'date_of_birth' => $this->faker->optional()->date(),
             'place_of_birth' => $this->faker->optional()->city(),
-            'gender' => $this->faker->optional()->randomElement(['male', 'female', 'other']),
-            'religion' => $this->faker->optional()->randomElement(['Muslim', 'Christian', 'Hindu', 'Catholic', 'Other']),
             'nationality' => $this->faker->optional()->country(),
             'marital_status' => $this->faker->optional()->randomElement(['single', 'married', 'divorced', 'widowed']),
             'spouse_name' => $this->faker->optional()->name(),
@@ -81,35 +80,37 @@ class EmployeeFactory extends Factory
             'emergency_contact_home_country' => $this->faker->optional()->name(),
             'emergency_phone_home_country' => $this->faker->optional()->phoneNumber(),
             'address' => $this->faker->optional()->address(),
-            'hire_date' => $this->faker->date(),
-            'probation_end_date' => $this->faker->optional()->date(),
-            'contract_type' => $this->faker->randomElement(['limited', 'unlimited', 'part_time', 'contract']),
-            'contract_end_date' => $this->faker->optional()->date(),
-            'labor_contract_id' => $this->faker->optional()->bothify('LCID-########'),
-            'basic_salary' => $this->faker->randomFloat(2, 0, 30000),
-            'housing_allowance' => $this->faker->randomFloat(2, 0, 15000),
-            'transport_allowance' => $this->faker->randomFloat(2, 0, 5000),
-            'other_allowances' => $this->faker->randomFloat(2, 0, 5000),
-            'bank_name' => $this->faker->optional()->company(),
-            'bank_account_name' => $this->faker->optional()->name(),
             'iban' => $this->faker->optional()->iban(),
-            'visa_number' => $this->faker->optional()->bothify('VISA-########'),
-            'visa_expiry' => $this->faker->optional()->date(),
-            'visa_type' => $this->faker->optional()->word(),
             'emirates_id' => $this->faker->optional()->bothify('###-####-#######-#'),
-            'emirates_id_expiry' => $this->faker->optional()->date(),
             'passport_number' => $this->faker->optional()->bothify('P########'),
-            'passport_issued_at' => $this->faker->optional()->date(),
-            'passport_expiry' => $this->faker->optional()->date(),
-            'work_permit_number' => $this->faker->optional()->bothify('WP-########'),
-            'work_permit_expiry' => $this->faker->optional()->date(),
             'labor_card_number' => $this->faker->optional()->bothify('LC-########'),
-            'labor_card_expiry' => $this->faker->optional()->date(),
-            'mohre_uid' => $this->faker->optional()->bothify('MOHRE-########'),
             'status' => $this->faker->randomElement(['active', 'inactive', 'on_leave', 'terminated']),
             'termination_date' => null,
             'termination_reason' => null,
         ];
+    }
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Employee $employee) {
+            $start = fake()->dateTimeBetween('-2 years', 'now');
+            $contractType = fake()->randomElement(['limited', 'unlimited', 'part_time', 'contract']);
+
+            EmployeeContract::query()->create([
+                'company_id' => $employee->company_id,
+                'employee_id' => $employee->id,
+                'contract_type' => $contractType,
+                'start_date' => $start->format('Y-m-d'),
+                'end_date' => fake()->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
+                'probation_end_date' => fake()->optional()->dateTimeBetween($start, '+6 months')?->format('Y-m-d'),
+                'labor_contract_id' => fake()->optional()->bothify('LCID-########'),
+                'basic_salary' => fake()->randomFloat(2, 0, 30000),
+                'housing_allowance' => fake()->randomFloat(2, 0, 15000),
+                'transport_allowance' => fake()->randomFloat(2, 0, 5000),
+                'other_allowances' => fake()->randomFloat(2, 0, 5000),
+                'status' => 'active',
+            ]);
+        });
     }
 
     public function forCompany(Company $company): static

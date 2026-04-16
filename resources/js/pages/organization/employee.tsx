@@ -18,7 +18,6 @@ import type {
     PositionOption,
     ReligionOption,
     UserOption,
-    VisaTypeOption,
 } from '@/features/organization/employees/types';
 
 type EmployeeDetails = {
@@ -41,26 +40,22 @@ type EmployeeDetails = {
     emergency_phone_home_country?: string | null;
     date_of_birth?: string | null;
     place_of_birth?: string | null;
-    gender?: 'male' | 'female' | 'other' | null;
     gender_id?: number | null;
-    religion?: string | null;
     religion_id?: number | null;
     nationality?: string | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     spouse_birthdate?: string | null;
     dependent_children_count?: number | null;
-    visa_type?: string | null;
-    visa_type_id?: number | null;
     labor_contract_id?: string | null;
     passport_number?: string | null;
-    passport_issued_at?: string | null;
-    passport_expiry?: string | null;
     emirates_id?: string | null;
     bank_id?: number | null;
     work_email: string | null;
     phone: string | null;
-    hire_date: string;
+    start_date?: string | null;
+    probation_end_date?: string | null;
+    end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
     created_at: string;
@@ -155,7 +150,6 @@ export default function EmployeeDetails({
     managers,
     users,
     countries,
-    visa_types,
     religions,
     genders,
     banks,
@@ -168,7 +162,6 @@ export default function EmployeeDetails({
     managers: ManagerOption[];
     users: UserOption[];
     countries: CountryOption[];
-    visa_types: VisaTypeOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
     banks: BankOption[];
@@ -205,14 +198,20 @@ export default function EmployeeDetails({
         spouse_name: employee.spouse_name ?? '',
         spouse_birthdate: employee.spouse_birthdate ?? '',
         dependent_children_count: employee.dependent_children_count ?? '',
-        visa_type_id: employee.visa_type_id ?? '',
         labor_contract_id: employee.labor_contract_id ?? '',
         passport_number: employee.passport_number ?? '',
-        passport_issued_at: employee.passport_issued_at ?? '',
-        passport_expiry: employee.passport_expiry ?? '',
         emirates_id: employee.emirates_id ?? '',
         bank_id: employee.bank_id ?? '',
-        hire_date: employee.hire_date ?? '',
+        basic_salary: employee.basic_salary === null || employee.basic_salary === undefined ? '' : String(employee.basic_salary),
+        housing_allowance:
+            employee.housing_allowance === null || employee.housing_allowance === undefined ? '' : String(employee.housing_allowance),
+        transport_allowance:
+            employee.transport_allowance === null || employee.transport_allowance === undefined ? '' : String(employee.transport_allowance),
+        other_allowances:
+            employee.other_allowances === null || employee.other_allowances === undefined ? '' : String(employee.other_allowances),
+        start_date: employee.start_date ?? '',
+        probation_end_date: employee.probation_end_date ?? '',
+        end_date: employee.end_date ?? '',
         contract_type: employee.contract_type ?? 'unlimited',
         status: employee.status ?? 'active',
     });
@@ -250,14 +249,17 @@ export default function EmployeeDetails({
             spouse_name: form.data.spouse_name.trim() || null,
             spouse_birthdate: form.data.spouse_birthdate || null,
             dependent_children_count: form.data.dependent_children_count === '' ? null : form.data.dependent_children_count,
-            visa_type_id: form.data.visa_type_id || null,
             labor_contract_id: form.data.labor_contract_id.trim() || null,
             passport_number: form.data.passport_number.trim() || null,
-            passport_issued_at: form.data.passport_issued_at || null,
-            passport_expiry: form.data.passport_expiry || null,
             emirates_id: form.data.emirates_id.trim() || null,
             bank_id: form.data.bank_id || null,
-            hire_date: form.data.hire_date,
+            basic_salary: form.data.basic_salary === '' ? null : Number(form.data.basic_salary),
+            housing_allowance: form.data.housing_allowance === '' ? null : Number(form.data.housing_allowance),
+            transport_allowance: form.data.transport_allowance === '' ? null : Number(form.data.transport_allowance),
+            other_allowances: form.data.other_allowances === '' ? null : Number(form.data.other_allowances),
+            start_date: form.data.start_date,
+            probation_end_date: form.data.probation_end_date || null,
+            end_date: form.data.end_date || null,
             contract_type: form.data.contract_type,
             status: form.data.status,
         };
@@ -347,7 +349,7 @@ export default function EmployeeDetails({
                                 <div className="space-y-2 text-sm font-medium">
                                     <div className="flex items-center gap-2">
                                         <CalendarDays className="h-4 w-4 text-muted-foreground/80" />
-                                        Hire date: {employee.hire_date ?? '—'}
+                                        Hire date: {employee.start_date ?? '—'}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <Briefcase className="h-4 w-4 text-muted-foreground/80" />
@@ -497,25 +499,21 @@ export default function EmployeeDetails({
                         emergency_phone_home_country: employee.emergency_phone_home_country,
                         date_of_birth: employee.date_of_birth,
                         place_of_birth: employee.place_of_birth,
-                        gender: employee.gender,
                         gender_id: employee.gender_id,
-                        religion: employee.religion,
                         religion_id: employee.religion_id,
                         nationality: employee.nationality,
                         marital_status: employee.marital_status,
                         spouse_name: employee.spouse_name,
                         spouse_birthdate: employee.spouse_birthdate,
                         dependent_children_count: employee.dependent_children_count,
-                        visa_type: employee.visa_type,
-                        visa_type_id: employee.visa_type_id,
                         labor_contract_id: employee.labor_contract_id,
                         passport_number: employee.passport_number,
-                        passport_issued_at: employee.passport_issued_at,
-                        passport_expiry: employee.passport_expiry,
                         emirates_id: employee.emirates_id,
                         bank_id: employee.bank_id,
                         status: employee.status,
-                        hire_date: employee.hire_date,
+                        start_date: employee.start_date,
+                        probation_end_date: employee.probation_end_date,
+                        end_date: employee.end_date,
                         contract_type: employee.contract_type,
                         created_at: employee.created_at,
                     }}
@@ -527,7 +525,6 @@ export default function EmployeeDetails({
                     managers={managers}
                     users={users}
                     countries={countries}
-                    visaTypes={visa_types}
                     religions={religions}
                     genders={genders}
                     banks={banks}

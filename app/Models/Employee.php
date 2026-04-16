@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Spatie\Activitylog\Support\LogOptions;
 
 class Employee extends Model
@@ -48,32 +49,12 @@ class Employee extends Model
                 'emergency_contact_home_country',
                 'emergency_phone_home_country',
                 'address',
-                'hire_date',
-                'probation_end_date',
-                'contract_type',
-                'contract_end_date',
-                'labor_contract_id',
-                'basic_salary',
-                'housing_allowance',
-                'transport_allowance',
-                'other_allowances',
                 'marital_status',
                 'bank_id',
                 'iban',
-                'visa_number',
-                'visa_expiry',
-                'visa_type',
-                'visa_type_id',
                 'emirates_id',
-                'emirates_id_expiry',
                 'passport_number',
-                'passport_issued_at',
-                'passport_expiry',
-                'work_permit_number',
-                'work_permit_expiry',
                 'labor_card_number',
-                'labor_card_expiry',
-                'mohre_uid',
                 'status',
                 'termination_date',
                 'termination_reason',
@@ -117,9 +98,17 @@ class Employee extends Model
         return $this->hasMany(Employee::class, 'manager_id');
     }
 
-    public function visaType(): BelongsTo
+    public function contracts(): HasMany
     {
-        return $this->belongsTo(VisaType::class);
+        return $this->hasMany(EmployeeContract::class);
+    }
+
+    public function currentContract(): HasOne
+    {
+        return $this->hasOne(EmployeeContract::class)->ofMany(
+            ['id' => 'max'],
+            fn ($q) => $q->where('status', 'active')
+        );
     }
 
     public function religionRef(): BelongsTo

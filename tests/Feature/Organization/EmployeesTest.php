@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
 use App\Models\Position;
 use App\Models\User;
 use Spatie\Activitylog\Models\Activity;
@@ -83,10 +84,19 @@ test('authenticated users can view an employee details page', function () {
             'employee_no' => 'EMP0001',
             'first_name' => 'John',
             'last_name' => 'Doe',
-            'hire_date' => '2026-01-01',
-            'contract_type' => 'unlimited',
             'status' => 'active',
         ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
@@ -152,7 +162,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'employee_no' => 'EMP0002',
         'first_name' => 'Jane',
         'last_name' => 'Smith',
-        'hire_date' => '2026-02-01',
+        'start_date' => '2026-02-01',
         'contract_type' => 'unlimited',
         'status' => 'active',
         'branch_id' => $branch->id,
@@ -173,7 +183,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'employee_no' => 'EMP0002',
         'first_name' => 'Janet',
         'last_name' => 'Smith',
-        'hire_date' => '2026-02-01',
+        'start_date' => '2026-02-01',
         'contract_type' => 'limited',
         'status' => 'inactive',
         'branch_id' => $branch->id,
@@ -187,6 +197,11 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'id' => $employeeId,
         'first_name' => 'Janet',
         'status' => 'inactive',
+    ]);
+
+    $this->assertDatabaseHas('employee_contracts', [
+        'employee_id' => $employeeId,
+        'status' => 'active',
         'contract_type' => 'limited',
     ]);
 
@@ -247,8 +262,6 @@ test('authenticated users can export employees as csv, excel, and pdf', function
             'employee_no' => 'EMP0003',
             'first_name' => 'Export',
             'last_name' => 'User',
-            'hire_date' => '2026-01-01',
-            'contract_type' => 'unlimited',
             'status' => 'active',
         ]);
 

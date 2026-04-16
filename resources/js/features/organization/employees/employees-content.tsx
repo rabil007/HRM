@@ -30,7 +30,6 @@ import type {
     PositionOption,
     ReligionOption,
     UserOption,
-    VisaTypeOption,
 } from './types';
 
 const emptyFilters: EmployeeFilters = {
@@ -48,7 +47,6 @@ export function EmployeesContent({
     managers,
     users,
     countries,
-    visaTypes,
     religions,
     genders,
     banks,
@@ -60,7 +58,6 @@ export function EmployeesContent({
     managers: ManagerOption[];
     users: UserOption[];
     countries: CountryOption[];
-    visaTypes: VisaTypeOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
     banks: BankOption[];
@@ -101,15 +98,19 @@ export function EmployeesContent({
         spouse_name: '',
         spouse_birthdate: '',
         dependent_children_count: '',
-        visa_type_id: '',
         labor_contract_id: '',
         passport_number: '',
-        passport_issued_at: '',
-        passport_expiry: '',
         emirates_id: '',
         bank_id: '',
-        hire_date: '',
+        basic_salary: '',
+        housing_allowance: '',
+        transport_allowance: '',
+        other_allowances: '',
+        start_date: '',
+        probation_end_date: '',
+        end_date: '',
         contract_type: 'unlimited',
+        labor_contract_id: '',
         status: 'active',
     });
 
@@ -145,15 +146,19 @@ export function EmployeesContent({
             spouse_name: '',
             spouse_birthdate: '',
             dependent_children_count: '',
-            visa_type_id: '',
             labor_contract_id: '',
             passport_number: '',
-            passport_issued_at: '',
-            passport_expiry: '',
             emirates_id: '',
             bank_id: '',
-            hire_date: '',
+            basic_salary: '',
+            housing_allowance: '',
+            transport_allowance: '',
+            other_allowances: '',
+            start_date: '',
+            probation_end_date: '',
+            end_date: '',
             contract_type: 'unlimited',
+            labor_contract_id: '',
             status: 'active',
         });
         setIsSheetOpen(true);
@@ -191,15 +196,26 @@ export function EmployeesContent({
             spouse_name: employee.spouse_name ?? '',
             spouse_birthdate: employee.spouse_birthdate ?? '',
             dependent_children_count: employee.dependent_children_count ?? '',
-            visa_type_id: employee.visa_type_id ?? '',
             labor_contract_id: employee.labor_contract_id ?? '',
             passport_number: employee.passport_number ?? '',
-            passport_issued_at: employee.passport_issued_at ?? '',
-            passport_expiry: employee.passport_expiry ?? '',
             emirates_id: employee.emirates_id ?? '',
             bank_id: employee.bank_id ?? '',
-            hire_date: employee.hire_date ?? '',
+            basic_salary: employee.basic_salary === null || employee.basic_salary === undefined ? '' : String(employee.basic_salary),
+            housing_allowance:
+                employee.housing_allowance === null || employee.housing_allowance === undefined
+                    ? ''
+                    : String(employee.housing_allowance),
+            transport_allowance:
+                employee.transport_allowance === null || employee.transport_allowance === undefined
+                    ? ''
+                    : String(employee.transport_allowance),
+            other_allowances:
+                employee.other_allowances === null || employee.other_allowances === undefined ? '' : String(employee.other_allowances),
+            start_date: employee.start_date ?? '',
+            probation_end_date: employee.probation_end_date ?? '',
+            end_date: employee.end_date ?? '',
             contract_type: employee.contract_type ?? 'unlimited',
+            labor_contract_id: employee.labor_contract_id ?? '',
             status: employee.status ?? 'active',
         });
         setIsSheetOpen(true);
@@ -265,15 +281,19 @@ export function EmployeesContent({
             spouse_name: form.data.spouse_name.trim() || null,
             spouse_birthdate: form.data.spouse_birthdate || null,
             dependent_children_count: form.data.dependent_children_count === '' ? null : form.data.dependent_children_count,
-            visa_type_id: form.data.visa_type_id || null,
             labor_contract_id: form.data.labor_contract_id.trim() || null,
             passport_number: form.data.passport_number.trim() || null,
-            passport_issued_at: form.data.passport_issued_at || null,
-            passport_expiry: form.data.passport_expiry || null,
             emirates_id: form.data.emirates_id.trim() || null,
             bank_id: form.data.bank_id || null,
-            hire_date: form.data.hire_date,
+            basic_salary: form.data.basic_salary === '' ? null : Number(form.data.basic_salary),
+            housing_allowance: form.data.housing_allowance === '' ? null : Number(form.data.housing_allowance),
+            transport_allowance: form.data.transport_allowance === '' ? null : Number(form.data.transport_allowance),
+            other_allowances: form.data.other_allowances === '' ? null : Number(form.data.other_allowances),
+            start_date: form.data.start_date,
+            probation_end_date: form.data.probation_end_date || null,
+            end_date: form.data.end_date || null,
             contract_type: form.data.contract_type,
+            labor_contract_id: form.data.labor_contract_id.trim() || null,
             status: form.data.status,
         };
 
@@ -467,7 +487,7 @@ export function EmployeesContent({
                                             </TableCell>
                                             <TableCell className="text-muted-foreground/80">
                                                 <div className="text-sm">
-                                                    {employee.gender_ref?.name ?? employee.gender ?? '—'}
+                                                    {employee.gender_ref?.name ?? '—'}
                                                     {employee.marital_status
                                                         ? ` • ${employee.marital_status === 'married' ? 'Yes' : 'No'}`
                                                         : ''}
@@ -477,7 +497,7 @@ export function EmployeesContent({
                                                     {employee.place_of_birth ? ` • ${employee.place_of_birth}` : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">
-                                                    {employee.religion_ref?.name ?? employee.religion ?? '—'}
+                                                    {employee.religion_ref?.name ?? '—'}
                                                     {employee.nationality ? ` • ${employee.nationality}` : ''}
                                                 </div>
                                             </TableCell>
@@ -490,13 +510,10 @@ export function EmployeesContent({
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-muted-foreground/80">
-                                                <div className="text-sm">{employee.visa_type ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">
                                                     {employee.passport_number ?? '—'}
-                                                    {employee.passport_expiry ? ` • exp ${employee.passport_expiry}` : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">
-                                                    {employee.passport_issued_at ? `issued ${employee.passport_issued_at}` : '—'}
                                                     {employee.emirates_id ? ` • EID ${employee.emirates_id}` : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.labor_contract_id ?? '—'}</div>
@@ -592,7 +609,6 @@ export function EmployeesContent({
                 managers={managers}
                 users={users}
                 countries={countries}
-                visaTypes={visaTypes}
                 religions={religions}
                 genders={genders}
                 banks={banks}

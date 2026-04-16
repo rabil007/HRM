@@ -15,7 +15,6 @@ import type {
     PositionOption,
     ReligionOption,
     UserOption,
-    VisaTypeOption,
 } from '../types';
 
 export function EmployeeFormSheet({
@@ -30,7 +29,6 @@ export function EmployeeFormSheet({
     managers,
     users,
     countries,
-    visaTypes,
     religions,
     genders,
     banks,
@@ -46,7 +44,6 @@ export function EmployeeFormSheet({
     managers: ManagerOption[];
     users: UserOption[];
     countries: CountryOption[];
-    visaTypes: VisaTypeOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
     banks: BankOption[];
@@ -206,16 +203,16 @@ export function EmployeeFormSheet({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="hire_date">Hire date</Label>
+                            <Label htmlFor="start_date">Hire date</Label>
                             <Input
-                                id="hire_date"
+                                id="start_date"
                                 type="date"
-                                value={form.data.hire_date}
-                                onChange={(e) => form.setData('hire_date', e.target.value)}
+                                value={form.data.start_date}
+                                onChange={(e) => form.setData('start_date', e.target.value)}
                                 className="h-11 rounded-xl border-border bg-card"
                             />
-                            {form.errors.hire_date ? (
-                                <div className="text-xs text-destructive">{form.errors.hire_date}</div>
+                            {form.errors.start_date ? (
+                                <div className="text-xs text-destructive">{form.errors.start_date}</div>
                             ) : null}
                         </div>
 
@@ -236,6 +233,47 @@ export function EmployeeFormSheet({
                             </select>
                             {form.errors.contract_type ? (
                                 <div className="text-xs text-destructive">{form.errors.contract_type}</div>
+                            ) : null}
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="probation_end_date">Probation end date</Label>
+                            <Input
+                                id="probation_end_date"
+                                type="date"
+                                value={form.data.probation_end_date}
+                                onChange={(e) => form.setData('probation_end_date', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.probation_end_date ? (
+                                <div className="text-xs text-destructive">{form.errors.probation_end_date}</div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="end_date">Contract end date</Label>
+                            <Input
+                                id="end_date"
+                                type="date"
+                                value={form.data.end_date}
+                                onChange={(e) => form.setData('end_date', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.end_date ? <div className="text-xs text-destructive">{form.errors.end_date}</div> : null}
+                        </div>
+
+                        <div className="col-span-2 space-y-2">
+                            <Label htmlFor="labor_contract_id">Labor contract ID</Label>
+                            <Input
+                                id="labor_contract_id"
+                                value={form.data.labor_contract_id}
+                                onChange={(e) => form.setData('labor_contract_id', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.labor_contract_id ? (
+                                <div className="text-xs text-destructive">{form.errors.labor_contract_id}</div>
                             ) : null}
                         </div>
                     </div>
@@ -442,21 +480,67 @@ export function EmployeeFormSheet({
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="visa_type">Visa type</Label>
-                            <select
-                                id="visa_type"
-                                value={form.data.visa_type_id === '' ? '' : String(form.data.visa_type_id)}
-                                onChange={(e) => form.setData('visa_type_id', e.target.value ? Number(e.target.value) : '')}
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                            >
-                                <option value="">—</option>
-                                {visaTypes.map((v) => (
-                                    <option key={v.id} value={String(v.id)}>
-                                        {v.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {form.errors.visa_type_id ? <div className="text-xs text-destructive">{form.errors.visa_type_id}</div> : null}
+                            <Label htmlFor="basic_salary">Basic salary</Label>
+                            <Input
+                                id="basic_salary"
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={form.data.basic_salary}
+                                onChange={(e) => form.setData('basic_salary', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.basic_salary ? (
+                                <div className="text-xs text-destructive">{form.errors.basic_salary}</div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="housing_allowance">Housing allowance</Label>
+                            <Input
+                                id="housing_allowance"
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={form.data.housing_allowance}
+                                onChange={(e) => form.setData('housing_allowance', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.housing_allowance ? (
+                                <div className="text-xs text-destructive">{form.errors.housing_allowance}</div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="transport_allowance">Transport allowance</Label>
+                            <Input
+                                id="transport_allowance"
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={form.data.transport_allowance}
+                                onChange={(e) => form.setData('transport_allowance', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.transport_allowance ? (
+                                <div className="text-xs text-destructive">{form.errors.transport_allowance}</div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="other_allowances">Other allowances</Label>
+                            <Input
+                                id="other_allowances"
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={form.data.other_allowances}
+                                onChange={(e) => form.setData('other_allowances', e.target.value)}
+                                className="h-11 rounded-xl border-border bg-card"
+                            />
+                            {form.errors.other_allowances ? (
+                                <div className="text-xs text-destructive">{form.errors.other_allowances}</div>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">
@@ -478,19 +562,6 @@ export function EmployeeFormSheet({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="labor_contract_id">Labor contract ID</Label>
-                            <Input
-                                id="labor_contract_id"
-                                value={form.data.labor_contract_id}
-                                onChange={(e) => form.setData('labor_contract_id', e.target.value)}
-                                className="h-11 rounded-xl border-border bg-card"
-                            />
-                            {form.errors.labor_contract_id ? (
-                                <div className="text-xs text-destructive">{form.errors.labor_contract_id}</div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
                             <Label htmlFor="passport_number">Passport No</Label>
                             <Input
                                 id="passport_number"
@@ -500,34 +571,6 @@ export function EmployeeFormSheet({
                             />
                             {form.errors.passport_number ? (
                                 <div className="text-xs text-destructive">{form.errors.passport_number}</div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="passport_issued_at">Passport issued</Label>
-                            <Input
-                                id="passport_issued_at"
-                                type="date"
-                                value={form.data.passport_issued_at}
-                                onChange={(e) => form.setData('passport_issued_at', e.target.value)}
-                                className="h-11 rounded-xl border-border bg-card"
-                            />
-                            {form.errors.passport_issued_at ? (
-                                <div className="text-xs text-destructive">{form.errors.passport_issued_at}</div>
-                            ) : null}
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="passport_expiry">Passport expiry</Label>
-                            <Input
-                                id="passport_expiry"
-                                type="date"
-                                value={form.data.passport_expiry}
-                                onChange={(e) => form.setData('passport_expiry', e.target.value)}
-                                className="h-11 rounded-xl border-border bg-card"
-                            />
-                            {form.errors.passport_expiry ? (
-                                <div className="text-xs text-destructive">{form.errors.passport_expiry}</div>
                             ) : null}
                         </div>
 

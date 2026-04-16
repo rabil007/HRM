@@ -30,7 +30,7 @@
             <th>Work Email</th>
             <th>Phone</th>
             <th>Status</th>
-            <th>Hire Date</th>
+            <th>Start Date</th>
         </tr>
         </thead>
         <tbody>
@@ -46,7 +46,7 @@
                 <td>{{ $employee->work_email ?? '—' }}</td>
                 <td>{{ $employee->phone ?? '—' }}</td>
                 <td>{{ $employee->status }}</td>
-                <td>{{ optional($employee->hire_date)->toDateString() }}</td>
+                <td>{{ optional($employee->currentContract?->start_date)->toDateString() }}</td>
             </tr>
         @endforeach
         </tbody>

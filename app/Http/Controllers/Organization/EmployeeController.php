@@ -12,11 +12,11 @@ use App\Models\Branch;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\EmployeeContract;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Religion;
 use App\Models\User;
-use App\Models\VisaType;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -61,11 +61,6 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
-        $visaTypes = VisaType::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
         $religions = Religion::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -88,10 +83,10 @@ class EmployeeController extends Controller
                 'position:id,title',
                 'manager:id,first_name,last_name,employee_no',
                 'user:id,name,email',
-                'visaType:id,name',
                 'religionRef:id,name',
                 'genderRef:id,name',
                 'bank:id,name',
+                'currentContract',
             ])
             ->where('company_id', $companyId)
             ->latest('id')
@@ -131,13 +126,11 @@ class EmployeeController extends Controller
                 'emergency_phone_home_country' => $employee->emergency_phone_home_country,
                 'date_of_birth' => $employee->date_of_birth,
                 'place_of_birth' => $employee->place_of_birth,
-                'gender' => $employee->gender,
                 'gender_id' => $employee->gender_id,
                 'gender_ref' => $employee->gender_id ? [
                     'id' => $employee->gender_id,
                     'name' => $employee->genderRef?->name,
                 ] : null,
-                'religion' => $employee->religion,
                 'religion_id' => $employee->religion_id,
                 'religion_ref' => $employee->religion_id ? [
                     'id' => $employee->religion_id,
@@ -148,25 +141,19 @@ class EmployeeController extends Controller
                 'spouse_name' => $employee->spouse_name,
                 'spouse_birthdate' => $employee->spouse_birthdate,
                 'dependent_children_count' => $employee->dependent_children_count,
-                'labor_contract_id' => $employee->labor_contract_id,
                 'passport_number' => $employee->passport_number,
-                'passport_issued_at' => $employee->passport_issued_at,
-                'passport_expiry' => $employee->passport_expiry,
                 'emirates_id' => $employee->emirates_id,
-                'visa_type' => $employee->visa_type,
-                'visa_type_id' => $employee->visa_type_id,
-                'visa_type_ref' => $employee->visa_type_id ? [
-                    'id' => $employee->visa_type_id,
-                    'name' => $employee->visaType?->name,
-                ] : null,
                 'bank_id' => $employee->bank_id,
                 'bank' => $employee->bank_id ? [
                     'id' => $employee->bank_id,
                     'name' => $employee->bank?->name,
                 ] : null,
                 'status' => $employee->status,
-                'hire_date' => $employee->hire_date,
-                'contract_type' => $employee->contract_type,
+                'start_date' => $employee->currentContract?->start_date,
+                'contract_type' => $employee->currentContract?->contract_type,
+                'probation_end_date' => $employee->currentContract?->probation_end_date,
+                'end_date' => $employee->currentContract?->end_date,
+                'labor_contract_id' => $employee->currentContract?->labor_contract_id,
                 'created_at' => $employee->created_at,
             ]);
 
@@ -178,7 +165,6 @@ class EmployeeController extends Controller
             'managers' => $managers,
             'users' => $users,
             'countries' => $countries,
-            'visa_types' => $visaTypes,
             'religions' => $religions,
             'genders' => $genders,
             'banks' => $banks,
@@ -222,11 +208,6 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'code']);
 
-        $visaTypes = VisaType::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
         $religions = Religion::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -248,10 +229,10 @@ class EmployeeController extends Controller
             'position:id,title',
             'manager:id,first_name,last_name,employee_no',
             'user:id,name,email',
-            'visaType:id,name',
             'religionRef:id,name',
             'genderRef:id,name',
             'bank:id,name',
+            'currentContract',
         ]);
 
         $recentActivity = [];
@@ -339,36 +320,19 @@ class EmployeeController extends Controller
                 'emergency_contact_home_country' => $employee->emergency_contact_home_country,
                 'emergency_phone_home_country' => $employee->emergency_phone_home_country,
                 'address' => $employee->address,
-                'hire_date' => $employee->hire_date,
-                'probation_end_date' => $employee->probation_end_date,
-                'contract_type' => $employee->contract_type,
-                'contract_end_date' => $employee->contract_end_date,
-                'labor_contract_id' => $employee->labor_contract_id,
-                'basic_salary' => $employee->basic_salary,
-                'housing_allowance' => $employee->housing_allowance,
-                'transport_allowance' => $employee->transport_allowance,
-                'other_allowances' => $employee->other_allowances,
-                'bank_name' => $employee->bank_name,
-                'bank_account_name' => $employee->bank_account_name,
+                'start_date' => $employee->currentContract?->start_date,
+                'probation_end_date' => $employee->currentContract?->probation_end_date,
+                'contract_type' => $employee->currentContract?->contract_type,
+                'end_date' => $employee->currentContract?->end_date,
+                'labor_contract_id' => $employee->currentContract?->labor_contract_id,
+                'basic_salary' => $employee->currentContract?->basic_salary,
+                'housing_allowance' => $employee->currentContract?->housing_allowance,
+                'transport_allowance' => $employee->currentContract?->transport_allowance,
+                'other_allowances' => $employee->currentContract?->other_allowances,
                 'iban' => $employee->iban,
-                'visa_number' => $employee->visa_number,
-                'visa_expiry' => $employee->visa_expiry,
-                'visa_type' => $employee->visa_type,
-                'visa_type_id' => $employee->visa_type_id,
-                'visa_type_ref' => $employee->visa_type_id ? [
-                    'id' => $employee->visa_type_id,
-                    'name' => $employee->visaType?->name,
-                ] : null,
                 'emirates_id' => $employee->emirates_id,
-                'emirates_id_expiry' => $employee->emirates_id_expiry,
                 'passport_number' => $employee->passport_number,
-                'passport_issued_at' => $employee->passport_issued_at,
-                'passport_expiry' => $employee->passport_expiry,
-                'work_permit_number' => $employee->work_permit_number,
-                'work_permit_expiry' => $employee->work_permit_expiry,
                 'labor_card_number' => $employee->labor_card_number,
-                'labor_card_expiry' => $employee->labor_card_expiry,
-                'mohre_uid' => $employee->mohre_uid,
                 'status' => $employee->status,
                 'termination_date' => $employee->termination_date,
                 'termination_reason' => $employee->termination_reason,
@@ -381,7 +345,6 @@ class EmployeeController extends Controller
             'managers' => $managers,
             'users' => $users,
             'countries' => $countries,
-            'visa_types' => $visaTypes,
             'religions' => $religions,
             'genders' => $genders,
             'banks' => $banks,
@@ -395,9 +358,30 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
-        if (($data['visa_type_id'] ?? null) === '') {
-            $data['visa_type_id'] = null;
-        }
+        $contract = [
+            'contract_type' => $data['contract_type'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'] ?? null,
+            'probation_end_date' => $data['probation_end_date'] ?? null,
+            'labor_contract_id' => $data['labor_contract_id'] ?? null,
+            'basic_salary' => $data['basic_salary'] ?? null,
+            'housing_allowance' => $data['housing_allowance'] ?? null,
+            'transport_allowance' => $data['transport_allowance'] ?? null,
+            'other_allowances' => $data['other_allowances'] ?? null,
+            'status' => 'active',
+        ];
+
+        unset(
+            $data['contract_type'],
+            $data['start_date'],
+            $data['end_date'],
+            $data['probation_end_date'],
+            $data['labor_contract_id'],
+            $data['basic_salary'],
+            $data['housing_allowance'],
+            $data['transport_allowance'],
+            $data['other_allowances'],
+        );
 
         if (($data['religion_id'] ?? null) === '') {
             $data['religion_id'] = null;
@@ -411,31 +395,6 @@ class EmployeeController extends Controller
             $data['bank_id'] = null;
         }
 
-        if (($data['visa_type_id'] ?? null) === null) {
-            $data['visa_type'] = null;
-        } else {
-            $data['visa_type'] = VisaType::query()->whereKey($data['visa_type_id'])->value('name');
-        }
-
-        if (($data['religion_id'] ?? null) === null) {
-            $data['religion'] = null;
-        } else {
-            $data['religion'] = Religion::query()->whereKey($data['religion_id'])->value('name');
-        }
-
-        if (($data['gender_id'] ?? null) === null) {
-            $data['gender'] = null;
-        } else {
-            $genderName = Gender::query()->whereKey($data['gender_id'])->value('name');
-            $data['gender'] = $genderName ? strtolower((string) $genderName) : null;
-        }
-
-        if (($data['bank_id'] ?? null) === null) {
-            $data['bank_name'] = null;
-        } else {
-            $data['bank_name'] = Bank::query()->whereKey($data['bank_id'])->value('name');
-        }
-
         foreach ([
             'user_id',
             'branch_id',
@@ -443,7 +402,6 @@ class EmployeeController extends Controller
             'position_id',
             'manager_id',
             'date_of_birth',
-            'gender',
             'nationality',
             'marital_status',
             'personal_email',
@@ -452,25 +410,11 @@ class EmployeeController extends Controller
             'emergency_contact',
             'emergency_phone',
             'address',
-            'probation_end_date',
-            'contract_end_date',
-            'bank_name',
-            'bank_account_name',
             'iban',
             'bank_id',
-            'visa_number',
-            'visa_expiry',
-            'visa_type',
-            'visa_type_id',
             'emirates_id',
-            'emirates_id_expiry',
             'passport_number',
-            'passport_expiry',
-            'work_permit_number',
-            'work_permit_expiry',
             'labor_card_number',
-            'labor_card_expiry',
-            'mohre_uid',
             'termination_date',
             'termination_reason',
         ] as $key) {
@@ -481,7 +425,13 @@ class EmployeeController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        Employee::create($data);
+        $employee = Employee::create($data);
+
+        EmployeeContract::query()->create([
+            'company_id' => $companyId,
+            'employee_id' => $employee->id,
+            ...$contract,
+        ]);
 
         return redirect()
             ->route('organization.employees')
@@ -496,9 +446,30 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
-        if (($data['visa_type_id'] ?? null) === '') {
-            $data['visa_type_id'] = null;
-        }
+        $contract = [
+            'contract_type' => $data['contract_type'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'] ?? null,
+            'probation_end_date' => $data['probation_end_date'] ?? null,
+            'labor_contract_id' => $data['labor_contract_id'] ?? null,
+            'basic_salary' => $data['basic_salary'] ?? null,
+            'housing_allowance' => $data['housing_allowance'] ?? null,
+            'transport_allowance' => $data['transport_allowance'] ?? null,
+            'other_allowances' => $data['other_allowances'] ?? null,
+            'status' => 'active',
+        ];
+
+        unset(
+            $data['contract_type'],
+            $data['start_date'],
+            $data['end_date'],
+            $data['probation_end_date'],
+            $data['labor_contract_id'],
+            $data['basic_salary'],
+            $data['housing_allowance'],
+            $data['transport_allowance'],
+            $data['other_allowances'],
+        );
 
         if (($data['religion_id'] ?? null) === '') {
             $data['religion_id'] = null;
@@ -512,31 +483,6 @@ class EmployeeController extends Controller
             $data['bank_id'] = null;
         }
 
-        if (($data['visa_type_id'] ?? null) === null) {
-            $data['visa_type'] = null;
-        } else {
-            $data['visa_type'] = VisaType::query()->whereKey($data['visa_type_id'])->value('name');
-        }
-
-        if (($data['religion_id'] ?? null) === null) {
-            $data['religion'] = null;
-        } else {
-            $data['religion'] = Religion::query()->whereKey($data['religion_id'])->value('name');
-        }
-
-        if (($data['gender_id'] ?? null) === null) {
-            $data['gender'] = null;
-        } else {
-            $genderName = Gender::query()->whereKey($data['gender_id'])->value('name');
-            $data['gender'] = $genderName ? strtolower((string) $genderName) : null;
-        }
-
-        if (($data['bank_id'] ?? null) === null) {
-            $data['bank_name'] = null;
-        } else {
-            $data['bank_name'] = Bank::query()->whereKey($data['bank_id'])->value('name');
-        }
-
         foreach ([
             'user_id',
             'branch_id',
@@ -544,7 +490,6 @@ class EmployeeController extends Controller
             'position_id',
             'manager_id',
             'date_of_birth',
-            'gender',
             'nationality',
             'marital_status',
             'personal_email',
@@ -553,25 +498,11 @@ class EmployeeController extends Controller
             'emergency_contact',
             'emergency_phone',
             'address',
-            'probation_end_date',
-            'contract_end_date',
-            'bank_name',
-            'bank_account_name',
             'iban',
             'bank_id',
-            'visa_number',
-            'visa_expiry',
-            'visa_type',
-            'visa_type_id',
             'emirates_id',
-            'emirates_id_expiry',
             'passport_number',
-            'passport_expiry',
-            'work_permit_number',
-            'work_permit_expiry',
             'labor_card_number',
-            'labor_card_expiry',
-            'mohre_uid',
             'termination_date',
             'termination_reason',
         ] as $key) {
@@ -583,6 +514,17 @@ class EmployeeController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         $employee->update($data);
+
+        $existingContract = $employee->currentContract;
+        if ($existingContract) {
+            $existingContract->update($contract);
+        } else {
+            EmployeeContract::query()->create([
+                'company_id' => $companyId,
+                'employee_id' => $employee->id,
+                ...$contract,
+            ]);
+        }
 
         return redirect()
             ->route('organization.employees')
@@ -633,6 +575,7 @@ class EmployeeController extends Controller
                 'position:id,title',
                 'manager:id,first_name,last_name,employee_no',
                 'user:id,name,email',
+                'currentContract',
             ])
             ->where('company_id', $companyId)
             ->latest('id');

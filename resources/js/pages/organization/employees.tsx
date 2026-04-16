@@ -11,7 +11,6 @@ import type {
     PositionOption,
     ReligionOption,
     UserOption,
-    VisaTypeOption,
 } from '@/features/organization/employees/types';
 
 type Pagination<T> = {
@@ -28,7 +27,6 @@ export default function Employees({
     managers,
     users,
     countries,
-    visa_types,
     religions,
     genders,
     banks,
@@ -40,7 +38,6 @@ export default function Employees({
     managers: ManagerOption[];
     users: UserOption[];
     countries: CountryOption[];
-    visa_types: VisaTypeOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
     banks: BankOption[];
@@ -56,7 +53,6 @@ export default function Employees({
                 managers={managers}
                 users={users}
                 countries={countries}
-                visaTypes={visa_types}
                 religions={religions}
                 genders={genders}
                 banks={banks}
