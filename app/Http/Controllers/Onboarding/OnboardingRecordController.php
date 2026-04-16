@@ -142,15 +142,32 @@ class OnboardingRecordController extends Controller
                 foreach ($requiredDocs as $req) {
                     $type = (string) ($req['type'] ?? '');
                     $min = (int) ($req['min'] ?? 1);
+                    $askIssueDate = (bool) ($req['ask_issue_date'] ?? false);
+                    $askExpiryDate = (bool) ($req['ask_expiry_date'] ?? false);
+                    $askDocumentNumber = (bool) ($req['ask_document_number'] ?? false);
                     if (! $type) {
                         continue;
                     }
 
-                    $count = DB::table('employee_documents')
+                    $query = DB::table('employee_documents')
                         ->where('company_id', $record->company_id)
                         ->where('employee_id', $record->employee_id)
                         ->where('document_type', $type)
-                        ->count();
+                        ->whereNotNull('file_path');
+
+                    if ($askIssueDate) {
+                        $query->whereNotNull('issue_date');
+                    }
+
+                    if ($askExpiryDate) {
+                        $query->whereNotNull('expiry_date');
+                    }
+
+                    if ($askDocumentNumber) {
+                        $query->whereNotNull('document_number')->where('document_number', '!=', '');
+                    }
+
+                    $count = $query->count();
 
                     if ($count < $min) {
                         return false;

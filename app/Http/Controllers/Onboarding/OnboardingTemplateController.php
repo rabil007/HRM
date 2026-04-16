@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Onboarding;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Onboarding\StoreOnboardingTemplateRequest;
 use App\Http\Requests\Onboarding\UpdateOnboardingTemplateRequest;
+use App\Models\DocumentType;
 use App\Models\OnboardingTemplate;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -28,7 +29,11 @@ class OnboardingTemplateController extends Controller
 
     public function create()
     {
-        return Inertia::render('onboarding/templates/create');
+        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title', 'slug']);
+
+        return Inertia::render('onboarding/templates/create', [
+            'documentTypes' => $documentTypes,
+        ]);
     }
 
     public function edit(OnboardingTemplate $template)
@@ -36,8 +41,11 @@ class OnboardingTemplateController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $template->company_id === $companyId, 404);
 
+        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title', 'slug']);
+
         return Inertia::render('onboarding/templates/edit', [
             'template' => $template,
+            'documentTypes' => $documentTypes,
         ]);
     }
 
