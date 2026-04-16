@@ -22,6 +22,7 @@ use App\Models\Religion;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -449,6 +450,13 @@ class EmployeeController extends Controller
         $documents = $data['documents'] ?? [];
         unset($data['documents']);
 
+        if ($request->hasFile('image')) {
+            $data['image'] = $request->file('image')->storePublicly(
+                "employees/{$companyId}/images",
+                ['disk' => 'public']
+            );
+        }
+
         $contract = [
             'contract_type' => $data['contract_type'],
             'start_date' => $data['start_date'],
@@ -614,6 +622,17 @@ class EmployeeController extends Controller
 
         $data = $request->validated();
         $data['company_id'] = $companyId;
+
+        if ($request->hasFile('image')) {
+            if ($employee->image) {
+                Storage::disk('public')->delete($employee->image);
+            }
+
+            $data['image'] = $request->file('image')->storePublicly(
+                "employees/{$companyId}/images",
+                ['disk' => 'public']
+            );
+        }
 
         $contract = [
             'contract_type' => $data['contract_type'],

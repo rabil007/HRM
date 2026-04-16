@@ -165,6 +165,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'employee_no' => 'EMP0002',
         'first_name' => 'Jane',
         'last_name' => 'Smith',
+        'image' => UploadedFile::fake()->image('avatar.jpg', 300, 300),
         'start_date' => '2026-02-01',
         'contract_type' => 'unlimited',
         'status' => 'active',
@@ -190,6 +191,10 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         ->value('id');
 
     expect($employeeId)->not->toBeNull();
+
+    $this->assertDatabaseHas('employees', [
+        'id' => $employeeId,
+    ]);
 
     $this->assertDatabaseHas('employee_documents', [
         'company_id' => $company->id,

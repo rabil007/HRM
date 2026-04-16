@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, ChevronLeft, ChevronRight, UserPlus, Shield } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
@@ -14,19 +14,8 @@ type OnboardingTemplate = {
     name: string;
     tasks: {
         version: number;
-        stages: Array<{
-            key: string;
-            label: string;
-            employee_fields: Array<{ key: string; required: boolean }>;
-            contract_fields: Array<{ key: string; required: boolean }>;
-            documents: Array<{
-                type: string;
-                min: number;
-                ask_issue_date?: boolean;
-                ask_expiry_date?: boolean;
-                ask_document_number?: boolean;
-            }>;
-        }>;
+        stages: Array<any>;
+        modules?: Record<string, any>;
     };
 };
 
@@ -46,11 +35,60 @@ type Props = {
 };
 
 export default function EmployeeCreate({ template, options }: Props) {
-    const stages = template.tasks.stages;
+    const normalizeStages = (tasks: OnboardingTemplate['tasks']) => {
+        if (tasks?.version === 2 && Array.isArray(tasks.stages)) {
+            return tasks.stages.map((s: any) => ({
+                key: String(s?.key ?? ''),
+                label: String(s?.label ?? s?.key ?? ''),
+                employee_fields: Array.isArray(s?.employee_fields) ? s.employee_fields : [],
+                contract_fields: Array.isArray(s?.contract_fields) ? s.contract_fields : [],
+                documents: Array.isArray(s?.documents) ? s.documents : [],
+            }));
+        }
+
+        if (tasks?.version === 1 && Array.isArray(tasks.stages) && tasks.modules && typeof tasks.modules === 'object') {
+            const v1Profile = Array.isArray(tasks.modules?.profile?.required_fields)
+                ? tasks.modules.profile.required_fields
+                : [];
+            const v1Contract = Array.isArray(tasks.modules?.contract?.required_fields)
+                ? tasks.modules.contract.required_fields
+                : [];
+            const v1Docs = Array.isArray(tasks.modules?.documents?.required_docs)
+                ? tasks.modules.documents.required_docs
+                : [];
+
+            return tasks.stages.map((s: any) => {
+                const mods = Array.isArray(s?.modules) ? s.modules : [];
+
+                return {
+                    key: String(s?.key ?? ''),
+                    label: String(s?.label ?? s?.key ?? ''),
+                    employee_fields: mods.includes('profile')
+                        ? v1Profile.map((k: any) => ({ key: String(k), required: true }))
+                        : [],
+                    contract_fields: mods.includes('contract')
+                        ? v1Contract.map((k: any) => ({ key: String(k), required: true }))
+                        : [],
+                    documents: mods.includes('documents') ? v1Docs : [],
+                };
+            });
+        }
+
+        return [];
+    };
+
+    const stages = normalizeStages(template.tasks);
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
-    const activeStage = stages[currentStageIdx];
+    const activeStage = stages[currentStageIdx] ?? stages[0] ?? {
+        key: 'draft',
+        label: 'Draft',
+        employee_fields: [],
+        contract_fields: [],
+        documents: [],
+    };
 
     const [docSearch, setDocSearch] = useState('');
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [docUploads, setDocUploads] = useState<
         Record<
             string,
@@ -98,6 +136,7 @@ export default function EmployeeCreate({ template, options }: Props) {
         passport_number: '',
         emirates_id: '',
         labor_card_number: '',
+        image: null,
 
         // Contract Fields
         contract_type: 'limited',
@@ -164,6 +203,50 @@ export default function EmployeeCreate({ template, options }: Props) {
             'w-full rounded-lg border border-input bg-background h-10 px-3 text-sm outline-none focus:ring-1 focus:ring-primary transition-all';
         const inputClass =
             'h-10 rounded-lg bg-background border-input focus:ring-1 focus:ring-primary transition-all';
+
+        if (fieldKey === 'image') {
+            return (
+                <div key={id} className="space-y-2">
+                    <Label className="text-xs font-medium text-foreground">
+                        Image {isRequired && <span className="text-destructive">*</span>}
+                    </Label>
+
+                    <div className="rounded-xl border border-border bg-card/30 p-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
+                            <div className="h-28 w-28 rounded-xl border border-border bg-muted/20 overflow-hidden flex items-center justify-center">
+                                {imagePreview ? (
+                                    <img
+                                        src={imagePreview}
+                                        alt="Employee image preview"
+                                        className="h-full w-full object-cover"
+                                    />
+                                ) : (
+                                    <UserPlus className="h-8 w-8 text-muted-foreground/70" />
+                                )}
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                <input
+                                    id={id}
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => {
+                                        const file = e.target.files?.[0] ?? null;
+                                        form.setData('image', file);
+                                        setImagePreview(file ? URL.createObjectURL(file) : null);
+                                    }}
+                                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
+                                />
+                                <div className="text-[11px] text-muted-foreground">PNG/JPG up to 4MB.</div>
+                                {form.errors.image && (
+                                    <p className="text-[10px] text-destructive">{form.errors.image}</p>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
 
         // Special handling for dropdowns
         if (fieldKey === 'branch_id') {
@@ -548,8 +631,22 @@ export default function EmployeeCreate({ template, options }: Props) {
                                     <div className="space-y-10">
                                         {/* Employee Fields */}
                                         {activeStage.employee_fields.length > 0 && (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                {activeStage.employee_fields.map((f) => renderField(f.key, f.required))}
+                                            <div className="space-y-6">
+                                                {activeStage.employee_fields.some((f) => f.key === 'image') && (
+                                                    <div>
+                                                        {renderField(
+                                                            'image',
+                                                            activeStage.employee_fields.find((f) => f.key === 'image')
+                                                                ?.required ?? false,
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                                    {activeStage.employee_fields
+                                                        .filter((f) => f.key !== 'image')
+                                                        .map((f) => renderField(f.key, f.required))}
+                                                </div>
                                             </div>
                                         )}
 
@@ -600,6 +697,7 @@ export default function EmployeeCreate({ template, options }: Props) {
                                                             {activeStage.documents
                                                                 .filter(d => {
                                                                     const docTitle = options.document_types.find(dt => String(dt.slug) === String(d.type) || String(dt.id) === String(d.type))?.title || d.type;
+
                                                                     return docTitle.toLowerCase().includes(docSearch.toLowerCase());
                                                                 })
                                                                 .map((d) => {
