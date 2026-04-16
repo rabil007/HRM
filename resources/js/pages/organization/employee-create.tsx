@@ -41,6 +41,7 @@ export default function EmployeeCreate({ template, options }: Props) {
                 key: String(s?.key ?? ''),
                 label: String(s?.label ?? s?.key ?? ''),
                 employee_fields: Array.isArray(s?.employee_fields) ? s.employee_fields : [],
+                bank_account_fields: Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : [],
                 contract_fields: Array.isArray(s?.contract_fields) ? s.contract_fields : [],
                 documents: Array.isArray(s?.documents) ? s.documents : [],
             }));
@@ -59,13 +60,21 @@ export default function EmployeeCreate({ template, options }: Props) {
 
             return tasks.stages.map((s: any) => {
                 const mods = Array.isArray(s?.modules) ? s.modules : [];
+                const bankKeys = new Set(['bank_id', 'iban']);
+                const v1EmployeeFields = v1Profile
+                    .filter((k: any) => !bankKeys.has(String(k)))
+                    .map((k: any) => ({ key: String(k), required: true }));
+                const v1BankFields = v1Profile
+                    .filter((k: any) => bankKeys.has(String(k)))
+                    .map((k: any) => ({ key: String(k), required: true }));
 
                 return {
                     key: String(s?.key ?? ''),
                     label: String(s?.label ?? s?.key ?? ''),
                     employee_fields: mods.includes('profile')
-                        ? v1Profile.map((k: any) => ({ key: String(k), required: true }))
+                        ? v1EmployeeFields
                         : [],
+                    bank_account_fields: mods.includes('profile') ? v1BankFields : [],
                     contract_fields: mods.includes('contract')
                         ? v1Contract.map((k: any) => ({ key: String(k), required: true }))
                         : [],
@@ -83,6 +92,7 @@ export default function EmployeeCreate({ template, options }: Props) {
         key: 'draft',
         label: 'Draft',
         employee_fields: [],
+        bank_account_fields: [],
         contract_fields: [],
         documents: [],
     };
@@ -646,6 +656,22 @@ export default function EmployeeCreate({ template, options }: Props) {
                                                     {activeStage.employee_fields
                                                         .filter((f) => f.key !== 'image')
                                                         .map((f) => renderField(f.key, f.required))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Bank Accounts */}
+                                        {activeStage.bank_account_fields.length > 0 && (
+                                            <div className="space-y-6">
+                                                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">
+                                                    Bank accounts
+                                                </div>
+                                                <div className="rounded-xl border border-border bg-card/30 p-6">
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                                        {activeStage.bank_account_fields.map((f) =>
+                                                            renderField(f.key, f.required)
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}

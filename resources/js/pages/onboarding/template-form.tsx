@@ -39,6 +39,7 @@ export type StageBuilder = {
     key: string;
     label: string;
     employee_fields: FieldRequirement[];
+    bank_account_fields: FieldRequirement[];
     contract_fields: FieldRequirement[];
     documents: DocsRequirement[];
 };
@@ -76,6 +77,11 @@ export const profileFieldOptions = [
     { key: 'department_id', label: 'Department' },
     { key: 'position_id', label: 'Position' },
     { key: 'manager_id', label: 'Manager' },
+] as const;
+
+export const bankAccountFieldOptions = [
+    { key: 'bank_id', label: 'Bank' },
+    { key: 'iban', label: 'IBAN' },
 ] as const;
 
 export const contractFieldOptions = [
@@ -122,6 +128,7 @@ return { key: f.key, required: !!f.required };
                 key: 'profile_info', 
                 label: 'Profile Information', 
                 employee_fields: mapFields(['employee_no', 'first_name', 'last_name', 'work_email', 'phone', 'nationality']),
+                bank_account_fields: [],
                 contract_fields: [],
                 documents: []
             },
@@ -130,6 +137,7 @@ return { key: f.key, required: !!f.required };
                 key: 'contract_docs', 
                 label: 'Contract & Documents', 
                 employee_fields: [],
+                bank_account_fields: [],
                 contract_fields: ['contract_type', 'start_date'],
                 documents: []
             },
@@ -149,6 +157,7 @@ return { key: f.key, required: !!f.required };
                 key: String(s.key || '').trim(),
                 label: String(s.label || '').trim() || String(s.key || '').trim(),
                 employee_fields: mapFields(s.employee_fields),
+                bank_account_fields: mapFields(s.bank_account_fields),
                 contract_fields: mapFields(s.contract_fields),
                 documents: Array.isArray(s.documents)
                     ? s.documents.map((d: any) => ({
@@ -169,12 +178,17 @@ return { key: f.key, required: !!f.required };
         const v1Contract = t.modules?.contract?.required_fields || [];
         const v1Docs = t.modules?.documents?.required_docs || [];
 
+        const bankKeys = new Set(['bank_id', 'iban']);
+        const v1ProfileEmployee = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => !bankKeys.has(String(k))) : [];
+        const v1ProfileBank = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => bankKeys.has(String(k))) : [];
+
         return {
             stages: t.stages.map((s: any) => ({
                 id: generateId(),
                 key: String(s.key || '').trim(),
                 label: String(s.label || '').trim() || String(s.key || '').trim(),
-                employee_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1Profile) : [],
+                employee_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileEmployee) : [],
+                bank_account_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileBank) : [],
                 contract_fields: Array.isArray(s.modules) && s.modules.includes('contract') ? mapFields(v1Contract) : [],
                 documents: Array.isArray(s.modules) && s.modules.includes('documents') ? v1Docs : [],
             }))
@@ -191,6 +205,7 @@ export function buildTasksFromBuilder(builder: BuilderState) {
             key: s.key.trim(),
             label: (s.label || s.key).trim(),
             employee_fields: s.employee_fields,
+            bank_account_fields: s.bank_account_fields,
             contract_fields: s.contract_fields,
             documents: s.documents.map((d) => ({
                 type: d.type,
@@ -453,7 +468,7 @@ setDragOverIdx(null);
                                     </div>
 
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border/40">
-                                        <div className="space-y-4">
+                                        <div className="space-y-6">
                                             <div className="flex items-center justify-between">
                                                 <Label className="text-sm font-medium flex items-center gap-2">
                                                     Employee Fields
@@ -584,6 +599,108 @@ setDragOverIdx(null);
                                                         );
                                                     });
                                                 })()}
+                                            </div>
+
+                                            <div className="pt-4 border-t border-border/40 space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <Label className="text-sm font-medium flex items-center gap-2">
+                                                        Bank account fields
+                                                        <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">{s.bank_account_fields.length} sel</span>
+                                                    </Label>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary uppercase tracking-wider font-semibold"
+                                                        onClick={() => {
+                                                            const available = bankAccountFieldOptions;
+
+                                                            if (s.bank_account_fields.length === available.length && available.length > 0) {
+                                                                updateStage({ bank_account_fields: [] });
+                                                            } else {
+                                                                updateStage({
+                                                                    bank_account_fields: available.map((a) => ({ key: a.key, required: true })),
+                                                                });
+                                                            }
+                                                        }}
+                                                    >
+                                                        {s.bank_account_fields.length === bankAccountFieldOptions.length && s.bank_account_fields.length > 0
+                                                            ? 'Deselect All'
+                                                            : 'Select All'}
+                                                    </Button>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-2 p-3 rounded-xl border border-border/50 bg-card/30">
+                                                    {bankAccountFieldOptions.map((f) => {
+                                                        const isSelected = s.bank_account_fields.some((sf) => sf.key === f.key);
+                                                        const reqData = s.bank_account_fields.find((sf) => sf.key === f.key);
+
+                                                        return (
+                                                            <div
+                                                                key={f.key}
+                                                                className={`flex flex-col p-2.5 rounded-lg border transition-all ${
+                                                                    isSelected
+                                                                        ? 'border-primary/50 bg-primary/5'
+                                                                        : 'border-border/50 bg-card/30'
+                                                                }`}
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <label className="flex items-center gap-2.5 text-sm cursor-pointer group flex-1">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20"
+                                                                            checked={isSelected}
+                                                                            onChange={(e) => {
+                                                                                const next = e.target.checked;
+                                                                                updateStage({
+                                                                                    bank_account_fields: next
+                                                                                        ? [
+                                                                                              ...s.bank_account_fields,
+                                                                                              { key: f.key, required: true },
+                                                                                          ]
+                                                                                        : s.bank_account_fields.filter(
+                                                                                              (k) => k.key !== f.key
+                                                                                          ),
+                                                                                });
+                                                                            }}
+                                                                        />
+                                                                        <span className="group-hover:text-primary transition-colors font-medium">
+                                                                            {f.label}
+                                                                        </span>
+                                                                    </label>
+
+                                                                    {isSelected && (
+                                                                        <div className="flex items-center gap-2 pl-3 border-l border-border/60">
+                                                                            <span
+                                                                                className={`text-[10px] uppercase font-bold ${
+                                                                                    reqData?.required
+                                                                                        ? 'text-primary'
+                                                                                        : 'text-muted-foreground'
+                                                                                }`}
+                                                                            >
+                                                                                {reqData?.required ? 'Req' : 'Opt'}
+                                                                            </span>
+                                                                            <Switch
+                                                                                checked={reqData?.required ?? true}
+                                                                                onCheckedChange={(val) => {
+                                                                                    updateStage({
+                                                                                        bank_account_fields:
+                                                                                            s.bank_account_fields.map((sf) =>
+                                                                                                sf.key === f.key
+                                                                                                    ? { ...sf, required: val }
+                                                                                                    : sf
+                                                                                            ),
+                                                                                    });
+                                                                                }}
+                                                                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
+                                                                            />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
                                             </div>
                                         </div>
 
