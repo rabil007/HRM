@@ -13,6 +13,7 @@ use App\Models\Country;
 use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
+use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\Gender;
 use App\Models\OnboardingRecord;
@@ -89,7 +90,7 @@ class EmployeeController extends Controller
                 'user:id,name,email',
                 'religionRef:id,name',
                 'genderRef:id,name',
-                'bank:id,name',
+                'primaryBankAccount.bank:id,name',
                 'currentContract',
             ])
             ->where('company_id', $companyId)
@@ -148,12 +149,13 @@ class EmployeeController extends Controller
                 'dependent_children_count' => $employee->dependent_children_count,
                 'passport_number' => $employee->passport_number,
                 'emirates_id' => $employee->emirates_id,
-                'bank_id' => $employee->bank_id,
-                'bank' => $employee->bank_id ? [
-                    'id' => $employee->bank_id,
-                    'name' => $employee->bank?->name,
+                'bank_id' => $employee->primaryBankAccount?->bank_id,
+                'bank' => $employee->primaryBankAccount?->bank_id ? [
+                    'id' => $employee->primaryBankAccount->bank_id,
+                    'name' => $employee->primaryBankAccount->bank?->name,
                 ] : null,
                 'status' => $employee->status,
+                'iban' => $employee->primaryBankAccount?->iban,
                 'start_date' => $employee->currentContract?->start_date,
                 'contract_type' => $employee->currentContract?->contract_type,
                 'probation_end_date' => $employee->currentContract?->probation_end_date,
@@ -320,7 +322,7 @@ class EmployeeController extends Controller
             'user:id,name,email',
             'religionRef:id,name',
             'genderRef:id,name',
-            'bank:id,name',
+            'primaryBankAccount.bank:id,name',
             'currentContract',
         ]);
 
@@ -418,7 +420,7 @@ class EmployeeController extends Controller
                 'housing_allowance' => $employee->currentContract?->housing_allowance,
                 'transport_allowance' => $employee->currentContract?->transport_allowance,
                 'other_allowances' => $employee->currentContract?->other_allowances,
-                'iban' => $employee->iban,
+                'iban' => $employee->primaryBankAccount?->iban,
                 'emirates_id' => $employee->emirates_id,
                 'passport_number' => $employee->passport_number,
                 'labor_card_number' => $employee->labor_card_number,
@@ -449,6 +451,10 @@ class EmployeeController extends Controller
 
         $documents = $data['documents'] ?? [];
         unset($data['documents']);
+
+        $primaryBankId = $data['bank_id'] ?? null;
+        $primaryIban = $data['iban'] ?? null;
+        unset($data['bank_id'], $data['iban']);
 
         if ($request->hasFile('image')) {
             $data['image'] = $request->file('image')->storePublicly(
@@ -531,6 +537,23 @@ class EmployeeController extends Controller
             'employee_id' => $employee->id,
             ...$contract,
         ]);
+
+        if ($primaryBankId || $primaryIban) {
+            EmployeeBankAccount::query()
+                ->where('company_id', $companyId)
+                ->where('employee_id', $employee->id)
+                ->where('is_primary', true)
+                ->update(['is_primary' => false]);
+
+            EmployeeBankAccount::query()->create([
+                'company_id' => $companyId,
+                'employee_id' => $employee->id,
+                'bank_id' => $primaryBankId ?: null,
+                'iban' => $primaryIban ?: null,
+                'account_name' => null,
+                'is_primary' => true,
+            ]);
+        }
 
         if (is_array($documents) && count($documents) > 0) {
             $docTypeMap = DocumentType::query()
@@ -623,6 +646,10 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
+        $primaryBankId = $data['bank_id'] ?? null;
+        $primaryIban = $data['iban'] ?? null;
+        unset($data['bank_id'], $data['iban']);
+
         if ($request->hasFile('image')) {
             if ($employee->image) {
                 Storage::disk('public')->delete($employee->image);
@@ -702,6 +729,34 @@ class EmployeeController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         $employee->update($data);
+
+        $employee->loadMissing('primaryBankAccount');
+        $existingPrimary = $employee->primaryBankAccount;
+        $hasBankData = (bool) ($primaryBankId || $primaryIban);
+
+        if ($hasBankData) {
+            EmployeeBankAccount::query()
+                ->where('company_id', $companyId)
+                ->where('employee_id', $employee->id)
+                ->where('is_primary', true)
+                ->update(['is_primary' => false]);
+
+            EmployeeBankAccount::query()->updateOrCreate(
+                [
+                    'company_id' => $companyId,
+                    'employee_id' => $employee->id,
+                    'id' => $existingPrimary?->id,
+                ],
+                [
+                    'bank_id' => $primaryBankId ?: null,
+                    'iban' => $primaryIban ?: null,
+                    'account_name' => $existingPrimary?->account_name,
+                    'is_primary' => true,
+                ]
+            );
+        } elseif ($existingPrimary) {
+            $existingPrimary->delete();
+        }
 
         $existingContract = $employee->currentContract;
         if ($existingContract) {

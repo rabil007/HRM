@@ -50,8 +50,6 @@ class Employee extends Model
                 'emergency_phone_home_country',
                 'address',
                 'marital_status',
-                'bank_id',
-                'iban',
                 'emirates_id',
                 'passport_number',
                 'labor_card_number',
@@ -124,5 +122,18 @@ class Employee extends Model
     public function bank(): BelongsTo
     {
         return $this->belongsTo(Bank::class);
+    }
+
+    public function bankAccounts(): HasMany
+    {
+        return $this->hasMany(EmployeeBankAccount::class);
+    }
+
+    public function primaryBankAccount(): HasOne
+    {
+        return $this->hasOne(EmployeeBankAccount::class)->ofMany(
+            ['id' => 'max'],
+            fn ($q) => $q->where('is_primary', true)
+        );
     }
 }

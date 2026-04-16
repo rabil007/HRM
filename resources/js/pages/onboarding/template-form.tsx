@@ -76,8 +76,6 @@ export const profileFieldOptions = [
     { key: 'department_id', label: 'Department' },
     { key: 'position_id', label: 'Position' },
     { key: 'manager_id', label: 'Manager' },
-    { key: 'bank_id', label: 'Bank' },
-    { key: 'iban', label: 'IBAN' },
 ] as const;
 
 export const contractFieldOptions = [

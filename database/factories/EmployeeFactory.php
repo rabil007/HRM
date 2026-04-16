@@ -80,7 +80,6 @@ class EmployeeFactory extends Factory
             'emergency_contact_home_country' => $this->faker->optional()->name(),
             'emergency_phone_home_country' => $this->faker->optional()->phoneNumber(),
             'address' => $this->faker->optional()->address(),
-            'iban' => $this->faker->optional()->iban(),
             'emirates_id' => $this->faker->optional()->bothify('###-####-#######-#'),
             'passport_number' => $this->faker->optional()->bothify('P########'),
             'labor_card_number' => $this->faker->optional()->bothify('LC-########'),
