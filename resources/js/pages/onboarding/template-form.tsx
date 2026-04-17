@@ -358,6 +358,7 @@ export function TemplateForm({
                                         key: `stage_${builder.stages.length + 1}`,
                                         label: `Stage ${builder.stages.length + 1}`,
                                         employee_fields: [],
+                                        bank_account_fields: [],
                                         contract_fields: [],
                                         documents: []
                                     };
@@ -415,10 +416,10 @@ setDragOverIdx(null);
                                             </span>
                                         </div>
                                         <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 grid grid-cols-4 gap-x-3 gap-y-1 pl-6">
-                                            <span>{s.employee_fields.length} Profile</span>
-                                            <span>{s.bank_account_fields.length} Bank</span>
-                                            <span>{s.contract_fields.length} Contract</span>
-                                            <span>{s.documents.length} Docs</span>
+                                            <span>{s.employee_fields?.length ?? 0} Profile</span>
+                                            <span>{s.bank_account_fields?.length ?? 0} Bank</span>
+                                            <span>{s.contract_fields?.length ?? 0} Contract</span>
+                                            <span>{s.documents?.length ?? 0} Docs</span>
                                         </div>
                                     </button>
                                 );
