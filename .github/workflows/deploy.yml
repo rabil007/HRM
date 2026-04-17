@@ -1,40 +1,40 @@
 name: Deploy Laravel to Hostinger
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 20
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-  - name: Install & Build
-    run: |
-      npm install
-      npm run build
+      - name: Install & Build
+        run: |
+          npm install
+          npm run build
 
-  - name: Setup PHP
-    uses: shivammathur/setup-php@v2
-    with:
-      php-version: 8.3
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: 8.3
 
-  - name: Install Composer
-    run: composer install --no-dev --optimize-autoloader
+      - name: Install Composer
+        run: composer install --no-dev --optimize-autoloader
 
-  - name: Deploy via FTP
-    uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-    with:
-      server: ftp://82.198.227.207
-      username: ${{ secrets.FTP_USERNAME }}
-      password: ${{ secrets.FTP_PASSWORD }}
-      server-dir: public_html/hrm/
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ftp://82.198.227.207
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          server-dir: public_html/hrm/
