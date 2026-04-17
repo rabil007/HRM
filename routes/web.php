@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Onboarding\OnboardingRecordController;
 use App\Http\Controllers\Onboarding\OnboardingTemplateController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
@@ -101,12 +100,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:onboarding.templates.delete')
             ->name('templates.destroy');
 
-        Route::get('records', [OnboardingRecordController::class, 'index'])
-            ->middleware('can:onboarding.records.view')
-            ->name('records.index');
-        Route::post('records/{record}/advance', [OnboardingRecordController::class, 'advance'])
-            ->middleware('can:onboarding.records.update')
-            ->name('records.advance');
     });
 });
 

@@ -101,9 +101,6 @@ class PermissionsSeeder extends Seeder
             'onboarding.templates.create',
             'onboarding.templates.update',
             'onboarding.templates.delete',
-
-            'onboarding.records.view',
-            'onboarding.records.update',
         ];
 
         foreach ($permissions as $name) {

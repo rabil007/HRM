@@ -135,7 +135,6 @@ const baseSidebarData: SidebarData = {
             title: 'Onboarding',
             items: [
                 { title: 'Templates', url: '/onboarding/templates', icon: ClipboardList },
-                { title: 'Onboarding records', url: '/onboarding/records', icon: ClipboardList },
                 { title: 'Offboarding records', url: placeholder('offboarding.records'), icon: LifeBuoy },
             ],
         },
@@ -178,10 +177,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                 .map((item) => {
                     if ('url' in item && item.url === '/onboarding/templates') {
                         return has(permissions, 'onboarding.templates.view') ? item : null;
-                    }
-
-                    if ('url' in item && item.url === '/onboarding/records') {
-                        return has(permissions, 'onboarding.records.view') ? item : null;
                     }
 
                     if ('items' in item && item.items) {

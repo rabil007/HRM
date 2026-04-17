@@ -1,21 +1,18 @@
 import { useForm } from '@inertiajs/react';
-import { ArrowDown, ArrowUp, GripVertical, Trash2 } from 'lucide-react';
 import { useState } from 'react';
+import { DocumentSelector } from '@/components/onboarding/builder/document-selector';
+import { FieldSelector } from '@/components/onboarding/builder/field-selector';
+import { SidebarStages } from '@/components/onboarding/builder/sidebar-stages';
+import type { SortDialogState } from '@/components/onboarding/builder/sort-dialog';
+import { SortDialog } from '@/components/onboarding/builder/sort-dialog';
 import { Button } from '@/components/ui/button';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from '@/lib/toast';
 
-const generateId = () => Math.random().toString(36).substring(2, 9);
+
+export const generateId = () => Math.random().toString(36).substring(2, 9);
 
 export type Template = {
     id: number;
@@ -111,8 +108,6 @@ export type DocumentTypeModel = {
     slug: string;
 };
 
-type SortableFieldKind = 'employee' | 'contract' | 'bank';
-
 export function toBuilderState(tasks: unknown): BuilderState {
     const mapFields = (fields: any): FieldRequirement[] => {
         if (!Array.isArray(fields)) {
@@ -156,8 +151,8 @@ return { key: f.key, required: !!f.required };
     };
 
     if (!tasks || typeof tasks !== 'object') {
-        return fallback;
-    }
+return fallback;
+}
 
     const t = tasks as any;
 
@@ -183,7 +178,6 @@ return { key: f.key, required: !!f.required };
         };
     }
 
-    // Auto-migrate from v1
     if (t.version === 1 && Array.isArray(t.stages) && typeof t.modules === 'object') {
         const v1Profile = t.modules?.profile?.required_fields || [];
         const v1Contract = t.modules?.contract?.required_fields || [];
@@ -240,32 +234,24 @@ export function TemplateForm({
 }) {
     const [builder, setBuilder] = useState<BuilderState>(() => toBuilderState(template?.tasks));
     const [activeStageId, setActiveStageId] = useState<string | null>(() => builder.stages[0]?.id || null);
-    const [docSearch, setDocSearch] = useState('');
-    const [fieldSearch, setFieldSearch] = useState('');
-    const [contractSearch, setContractSearch] = useState('');
-    const [sortFieldsDialog, setSortFieldsDialog] = useState<{
-        open: boolean;
-        kind: SortableFieldKind | null;
-        list: FieldRequirement[];
-        draggingKey: string | null;
-    }>({ open: false, kind: null, list: [], draggingKey: null });
+    
+    const [sortFieldsDialog, setSortFieldsDialog] = useState<SortDialogState>({ 
+        open: false, kind: null, list: [], draggingKey: null 
+    });
 
     const sortFieldDialogLabel = (key: string) => {
         const kind = sortFieldsDialog.kind;
 
         if (kind === 'contract') {
-            return contractFieldOptions.find((o) => o.key === key)?.label ?? key;
-        }
+return contractFieldOptions.find((o) => o.key === key)?.label ?? key;
+}
 
         if (kind === 'bank') {
-            return bankAccountFieldOptions.find((o) => o.key === key)?.label ?? key;
-        }
+return bankAccountFieldOptions.find((o) => o.key === key)?.label ?? key;
+}
 
         return profileFieldOptions.find((o) => o.key === key)?.label ?? key;
     };
-
-    const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
-    const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
     const reorderStages = (startIndex: number, endIndex: number) => {
         setBuilder(prev => {
@@ -286,7 +272,6 @@ export function TemplateForm({
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        
         form.transform((data) => ({
             ...data,
             tasks_json: JSON.stringify(buildTasksFromBuilder(builder), null, 2)
@@ -299,1116 +284,122 @@ export function TemplateForm({
         }
     };
 
+    const activeStageIndex = builder.stages.findIndex(s => s.id === activeStageId);
+    const s = activeStageIndex !== -1 ? builder.stages[activeStageIndex] : null;
+
+    const updateStage = (data: Partial<StageBuilder>) => {
+        if (activeStageIndex === -1) {
+return;
+}
+
+        setBuilder(prev => {
+            const newStages = [...prev.stages];
+            newStages[activeStageIndex] = { ...newStages[activeStageIndex], ...data };
+
+            return { stages: newStages };
+        });
+    };
+
+    const otherStages = builder.stages.filter(x => x.id !== activeStageId);
+    const otherProfileFields = new Set(otherStages.flatMap(x => x.employee_fields.map(f => f.key)));
+    const otherContractFields = new Set(otherStages.flatMap(x => x.contract_fields.map(f => f.key)));
+    const otherBankFields = new Set(otherStages.flatMap(x => x.bank_account_fields.map(f => f.key)));
+    const otherDocuments = new Set(otherStages.flatMap(x => x.documents.map(d => String(d.type))));
+
     return (
         <form onSubmit={submit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="w-full px-4 sm:px-6 lg:px-10 space-y-8">
+            <div className="w-full space-y-8">
                 <div className="glass-card p-6 space-y-4">
                     <div className="text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">Basic Information</div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="name">Template Name</Label>
-                            <Input
-                                id="name"
-                                value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
-                                placeholder="e.g., Standard Onboarding"
-                                className="h-11 rounded-xl"
-                            />
+                            <Input id="name" value={form.data.name} onChange={(e) => form.setData('name', e.target.value)} placeholder="e.g., Standard Onboarding" className="h-11 rounded-xl" />
                             {form.errors.name && <div className="text-xs text-destructive">{form.errors.name}</div>}
                         </div>
-
                         <div className="space-y-2">
                             <Label htmlFor="is_default">Default Template</Label>
                             <div className="h-11 rounded-xl border border-border bg-card/50 px-3 flex items-center justify-between">
                                 <span className="text-sm text-muted-foreground">Use for new employees</span>
-                                <Switch
-                                    checked={form.data.is_default}
-                                    onCheckedChange={(v) => form.setData('is_default', v)}
-                                />
+                                <Switch checked={form.data.is_default} onCheckedChange={(v) => form.setData('is_default', v)} />
                             </div>
                         </div>
                     </div>
-
                     <div className="space-y-2">
                         <Label htmlFor="description">Description</Label>
-                        <Input
-                            id="description"
-                            value={form.data.description}
-                            onChange={(e) => form.setData('description', e.target.value)}
-                            placeholder="Describe the purpose of this template"
-                            className="h-11 rounded-xl"
-                        />
+                        <Input id="description" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} placeholder="Describe the purpose of this template" className="h-11 rounded-xl" />
                         {form.errors.description && <div className="text-xs text-destructive">{form.errors.description}</div>}
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    {/* Left Panel: Stages List */}
-                    <div className="glass-card p-0 flex flex-col lg:col-span-3 lg:sticky lg:top-8 overflow-hidden border-border/50">
-                        <div className="p-4 border-b border-border/50 flex items-center justify-between bg-card/40">
-                            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground/70">Workflow Stages</h3>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                    const newStage = {
-                                        id: generateId(),
-                                        key: `stage_${builder.stages.length + 1}`,
-                                        label: `Stage ${builder.stages.length + 1}`,
-                                        employee_fields: [],
-                                        bank_account_fields: [],
-                                        contract_fields: [],
-                                        documents: []
-                                    };
-                                    setBuilder(prev => ({ stages: [...prev.stages, newStage] }));
-                                    setActiveStageId(newStage.id);
-                                }}
-                            >Add Stage</Button>
-                        </div>
-                        <div className="flex flex-col p-2 space-y-1 lg:max-h-[600px] lg:overflow-y-auto">
-                            {builder.stages.map((s, idx) => {
-                                const isActive = s.id === activeStageId;
-                                const isDragging = draggedIdx === idx;
-                                const isDragOver = dragOverIdx === idx;
+                    <SidebarStages builder={builder} setBuilder={setBuilder} activeStageId={activeStageId} setActiveStageId={setActiveStageId} reorderStages={reorderStages} generateId={generateId} />
 
-                                return (
-                                    <button
-                                        key={s.id}
-                                        type="button"
-                                        draggable
-                                        onDragStart={(e) => {
-                                            setDraggedIdx(idx);
-                                            e.dataTransfer.effectAllowed = 'move';
-                                            e.dataTransfer.setData('text/html', e.currentTarget.outerHTML);
-                                        }}
-                                        onDragOver={(e) => {
-                                            e.preventDefault();
-                                            setDragOverIdx(idx);
-                                        }}
-                                        onDragLeave={() => {
-                                            if (dragOverIdx === idx) {
-setDragOverIdx(null);
-}
-                                        }}
-                                        onDrop={(e) => {
-                                            e.preventDefault();
+                    {s ? (
+                        <div className="glass-card p-6 space-y-6 lg:col-span-9">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/40">
+                                <div className="space-y-1">
+                                    <h3 className="text-lg font-semibold tracking-tight">{s.label || 'Untitled Stage'}</h3>
+                                    <p className="text-xs text-muted-foreground">Configure the properties requested from the user during this stage.</p>
+                                </div>
+                                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                                    const nextStages = builder.stages.filter(x => x.id !== activeStageId);
+                                    setBuilder({ stages: nextStages });
+                                    setActiveStageId(nextStages.length > 0 ? nextStages[0].id : null);
+                                }}>Delete Stage</Button>
+                            </div>
 
-                                            if (draggedIdx !== null && draggedIdx !== idx) {
-                                                reorderStages(draggedIdx, idx);
-                                            }
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className="text-xs">Stage Label (Display Name)</Label>
+                                    <Input value={s.label} onChange={e => updateStage({ label: e.target.value })} className="h-10 text-sm" />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-xs text-muted-foreground font-medium flex items-center justify-between">Unique ID (System Key)</Label>
+                                    <Input value={s.key} disabled readOnly className="h-10 text-sm bg-muted/30 opacity-70 cursor-not-allowed border-dashed focus-visible:ring-0" />
+                                </div>
+                            </div>
 
-                                            setDraggedIdx(null);
-                                            setDragOverIdx(null);
-                                        }}
-                                        onDragEnd={() => {
-                                            setDraggedIdx(null);
-                                            setDragOverIdx(null);
-                                        }}
-                                        onClick={() => setActiveStageId(s.id)}
-                                        className={`flex flex-col text-left p-3 rounded-xl border transition-all cursor-move ${isActive ? 'bg-primary/20 border-primary/50 shadow-sm' : 'border-transparent hover:bg-muted/40'} ${isDragging ? 'opacity-50' : 'opacity-100'} ${isDragOver && draggedIdx !== idx ? (draggedIdx !== null && draggedIdx < idx ? 'border-b-2 border-b-primary shadow-md' : 'border-t-2 border-t-primary shadow-md') : ''}`}
-                                    >
-                                        <div className="flex items-center justify-between w-full">
-                                            <span className={`font-semibold text-sm flex items-center gap-2 ${isActive ? 'text-primary' : 'text-foreground'}`}>
-                                                <svg className="w-4 h-4 opacity-40 cursor-grab active:cursor-grabbing" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16" /></svg>
-                                                {s.label || s.key}
-                                            </span>
-                                        </div>
-                                        <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 grid grid-cols-4 gap-x-3 gap-y-1 pl-6">
-                                            <span>{s.employee_fields?.length ?? 0} Profile</span>
-                                            <span>{s.bank_account_fields?.length ?? 0} Bank</span>
-                                            <span>{s.contract_fields?.length ?? 0} Contract</span>
-                                            <span>{s.documents?.length ?? 0} Docs</span>
-                                        </div>
-                                    </button>
-                                );
-                            })}
-                            {builder.stages.length === 0 && (
-                                <div className="p-6 text-center text-sm text-muted-foreground">No stages defined.</div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Right Panel: Stage Configuration */}
-                    {activeStageId && builder.stages.some(s => s.id === activeStageId) ? (
-                        (() => {
-                            const activeStageIndex = builder.stages.findIndex(s => s.id === activeStageId);
-                            const s = builder.stages[activeStageIndex];
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border/40">
+                                <FieldSelector title="Employee Fields" options={profileFieldOptions} selectedFields={s.employee_fields} otherStagesFields={otherProfileFields} onUpdate={(fields) => updateStage({ employee_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'employee', list: [...s.employee_fields], draggingKey: null })} />
+                                <div className="space-y-6">
+                                    <FieldSelector title="Contract Fields" options={contractFieldOptions} selectedFields={s.contract_fields} otherStagesFields={otherContractFields} onUpdate={(fields) => updateStage({ contract_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'contract', list: [...s.contract_fields], draggingKey: null })} />
+                                    <FieldSelector title="Bank Fields" options={bankAccountFieldOptions} selectedFields={s.bank_account_fields} otherStagesFields={otherBankFields} onUpdate={(fields) => updateStage({ bank_account_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'bank', list: [...s.bank_account_fields], draggingKey: null })} />
+                                </div>
+                            </div>
                             
-                            const updateStage = (data: Partial<StageBuilder>) => {
-                                setBuilder(prev => {
-                                    const newStages = [...prev.stages];
-                                    newStages[activeStageIndex] = { ...newStages[activeStageIndex], ...data };
-
-                                    return { stages: newStages };
-                                });
-                            };
-
-                            const otherStages = builder.stages.filter(x => x.id !== activeStageId);
-                            const otherProfileFields = new Set(otherStages.flatMap(x => x.employee_fields.map(f => f.key)));
-                            const otherContractFields = new Set(otherStages.flatMap(x => x.contract_fields.map(f => f.key)));
-                            const otherDocuments = new Set(otherStages.flatMap(x => x.documents.map(d => String(d.type))));
-
-                            return (
-                                <div className="glass-card p-6 space-y-6 lg:col-span-9">
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/40">
-                                        <div className="space-y-1">
-                                            <h3 className="text-lg font-semibold tracking-tight">{s.label || 'Untitled Stage'}</h3>
-                                            <p className="text-xs text-muted-foreground">Configure the properties requested from the user during this stage.</p>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-destructive hover:bg-destructive/10"
-                                            onClick={() => {
-                                                const nextStages = builder.stages.filter(x => x.id !== activeStageId);
-                                                setBuilder({ stages: nextStages });
-
-                                                if (nextStages.length > 0) {
-                                                    setActiveStageId(nextStages[0].id);
-                                                } else {
-                                                    setActiveStageId(null);
-                                                }
-                                            }}
-                                        >
-                                            Delete Stage
-                                        </Button>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="space-y-2">
-                                            <Label className="text-xs">Stage Label (Display Name)</Label>
-                                            <Input
-                                                value={s.label}
-                                                onChange={e => updateStage({ label: e.target.value })}
-                                                className="h-10 text-sm"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label className="text-xs text-muted-foreground font-medium flex items-center justify-between">
-                                                Unique ID (System Key)
-                                                <svg className="w-3.5 h-3.5 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                            </Label>
-                                            <Input
-                                                value={s.key}
-                                                disabled
-                                                readOnly
-                                                className="h-10 text-sm bg-muted/30 opacity-70 cursor-not-allowed border-dashed focus-visible:ring-0"
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border/40">
-                                        <div className="space-y-6">
-                                            <div className="flex items-center justify-between">
-                                                <Label className="text-sm font-medium flex items-center gap-2">
-                                                    Employee Fields
-                                                    <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">{s.employee_fields.length} sel</span>
-                                                </Label>
-                                                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="h-7 text-[10px] px-2 rounded-lg"
-                                                        disabled={s.employee_fields.length < 2}
-                                                        onClick={() => {
-                                                            setSortFieldsDialog({
-                                                                open: true,
-                                                                kind: 'employee',
-                                                                list: [...s.employee_fields],
-                                                                draggingKey: null,
-                                                            });
-                                                        }}
-                                                    >
-                                                        Sort
-                                                    </Button>
-                                                    <Input 
-                                                        placeholder="Search fields..." 
-                                                        className="h-7 text-[10px] w-full sm:w-32 rounded-lg bg-card/30"
-                                                        value={fieldSearch}
-                                                        onChange={(e) => setFieldSearch(e.target.value)}
-                                                    />
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary uppercase tracking-wider font-semibold"
-                                                        onClick={() => {
-                                                            const filtered = profileFieldOptions.filter(f => 
-                                                                f.label.toLowerCase().includes(fieldSearch.toLowerCase())
-                                                            );
-                                                            const available = filtered.filter(f => !otherProfileFields.has(f.key));
-                                                            const currentlySelectedInSearch = s.employee_fields.filter(sf => 
-                                                                available.some(a => a.key === sf.key)
-                                                            );
-
-                                                            if (currentlySelectedInSearch.length === available.length && available.length > 0) {
-                                                                const remaining = s.employee_fields.filter(sf => !available.some(a => a.key === sf.key));
-                                                                updateStage({ employee_fields: remaining });
-                                                            } else {
-                                                                const toAdd = available
-                                                                    .filter(a => !s.employee_fields.some(sf => sf.key === a.key))
-                                                                    .map(a => ({ key: a.key, required: true }));
-                                                                updateStage({ employee_fields: [...s.employee_fields, ...toAdd] });
-                                                            }
-                                                        }}
-                                                    >
-                                                        {s.employee_fields.length === profileFieldOptions.filter(f => !otherProfileFields.has(f.key)).length && s.employee_fields.length > 0 ? 'Deselect All' : 'Select All'}
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                            <div className="grid grid-cols-1 gap-2 p-3 rounded-xl border border-border/50 bg-card/30 max-h-[350px] overflow-y-auto">
-                                                {(() => {
-                                                    const visible = profileFieldOptions
-                                                        .filter((f) =>
-                                                            f.label.toLowerCase().includes(fieldSearch.toLowerCase())
-                                                        )
-                                                        .filter(
-                                                            (f) =>
-                                                                !otherProfileFields.has(f.key) ||
-                                                                s.employee_fields.some((sf) => sf.key === f.key)
-                                                        );
-
-                                                    if (visible.length === 0) {
-                                                        return (
-                                                            <div className="py-8 text-center text-xs text-muted-foreground">
-                                                                No employee fields found.
-                                                            </div>
-                                                        );
-                                                    }
-
-                                                    const orderByKey = new Map(
-                                                        s.employee_fields.map((sf, i) => [sf.key, i + 1] as const)
-                                                    );
-
-                                                    return visible.map((f) => {
-                                                        const isSelected = s.employee_fields.some((sf) => sf.key === f.key);
-                                                        const reqData = s.employee_fields.find((sf) => sf.key === f.key);
-
-                                                        return (
-                                                            <div
-                                                                key={f.key}
-                                                                className={`flex flex-col p-2.5 rounded-lg border transition-all ${
-                                                                    isSelected
-                                                                        ? 'border-primary/50 bg-primary/5'
-                                                                        : 'border-border/50 bg-card/30'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center justify-between">
-                                                                    <label className="flex items-center gap-2.5 text-sm cursor-pointer group flex-1">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20"
-                                                                            checked={isSelected}
-                                                                            onChange={(e) => {
-                                                                                const next = e.target.checked;
-                                                                                updateStage({
-                                                                                    employee_fields: next
-                                                                                        ? [
-                                                                                              ...s.employee_fields,
-                                                                                              { key: f.key, required: true },
-                                                                                          ]
-                                                                                        : s.employee_fields.filter(
-                                                                                              (k) => k.key !== f.key
-                                                                                          ),
-                                                                                });
-                                                                            }}
-                                                                        />
-                                                                        {isSelected && (
-                                                                            <span className="text-[10px] font-bold tabular-nums text-primary bg-primary/10 border border-primary/20 rounded-md px-1.5 py-0.5">
-                                                                                #{orderByKey.get(f.key)}
-                                                                            </span>
-                                                                        )}
-                                                                        <span className="group-hover:text-primary transition-colors font-medium">
-                                                                            {f.label}
-                                                                        </span>
-                                                                    </label>
-                                                                    {isSelected && (
-                                                                        <div className="flex items-center gap-2 pl-3 border-l border-border/60">
-                                                                            <span
-                                                                                className={`text-[10px] uppercase font-bold ${
-                                                                                    reqData?.required
-                                                                                        ? 'text-primary'
-                                                                                        : 'text-muted-foreground'
-                                                                                }`}
-                                                                            >
-                                                                                {reqData?.required ? 'Req' : 'Opt'}
-                                                                            </span>
-                                                                            <Switch
-                                                                                checked={reqData?.required ?? true}
-                                                                                onCheckedChange={(val) => {
-                                                                                    updateStage({
-                                                                                        employee_fields: s.employee_fields.map(
-                                                                                            (sf) =>
-                                                                                                sf.key === f.key
-                                                                                                    ? { ...sf, required: val }
-                                                                                                    : sf
-                                                                                        ),
-                                                                                    });
-                                                                                }}
-                                                                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                                                                            />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    });
-                                                })()}
-                                            </div>
-
-                                            <div className="pt-4 border-t border-border/40 space-y-3">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <Label className="text-sm font-medium flex items-center gap-2">
-                                                        Bank account fields
-                                                        <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">{s.bank_account_fields.length} sel</span>
-                                                    </Label>
-                                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-7 text-[10px] px-2 rounded-lg"
-                                                            disabled={s.bank_account_fields.length < 2}
-                                                            onClick={() => {
-                                                                setSortFieldsDialog({
-                                                                    open: true,
-                                                                    kind: 'bank',
-                                                                    list: [...s.bank_account_fields],
-                                                                    draggingKey: null,
-                                                                });
-                                                            }}
-                                                        >
-                                                            Sort
-                                                        </Button>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary uppercase tracking-wider font-semibold"
-                                                            onClick={() => {
-                                                                const available = bankAccountFieldOptions;
-
-                                                                if (s.bank_account_fields.length === available.length && available.length > 0) {
-                                                                    updateStage({ bank_account_fields: [] });
-                                                                } else {
-                                                                    updateStage({
-                                                                        bank_account_fields: available.map((a) => ({ key: a.key, required: true })),
-                                                                    });
-                                                                }
-                                                            }}
-                                                        >
-                                                            {s.bank_account_fields.length === bankAccountFieldOptions.length && s.bank_account_fields.length > 0
-                                                                ? 'Deselect All'
-                                                                : 'Select All'}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-2 p-3 rounded-xl border border-border/50 bg-card/30">
-                                                    {(() => {
-                                                        const orderByKey = new Map(
-                                                            s.bank_account_fields.map((sf, i) => [sf.key, i + 1] as const)
-                                                        );
-
-                                                        return bankAccountFieldOptions.map((f) => {
-                                                        const isSelected = s.bank_account_fields.some((sf) => sf.key === f.key);
-                                                        const reqData = s.bank_account_fields.find((sf) => sf.key === f.key);
-
-                                                        return (
-                                                            <div
-                                                                key={f.key}
-                                                                className={`flex flex-col p-2.5 rounded-lg border transition-all ${
-                                                                    isSelected
-                                                                        ? 'border-primary/50 bg-primary/5'
-                                                                        : 'border-border/50 bg-card/30'
-                                                                }`}
-                                                            >
-                                                                <div className="flex items-center justify-between">
-                                                                    <label className="flex items-center gap-2.5 text-sm cursor-pointer group flex-1">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20"
-                                                                            checked={isSelected}
-                                                                            onChange={(e) => {
-                                                                                const next = e.target.checked;
-                                                                                updateStage({
-                                                                                    bank_account_fields: next
-                                                                                        ? [
-                                                                                              ...s.bank_account_fields,
-                                                                                              { key: f.key, required: true },
-                                                                                          ]
-                                                                                        : s.bank_account_fields.filter(
-                                                                                              (k) => k.key !== f.key
-                                                                                          ),
-                                                                                });
-                                                                            }}
-                                                                        />
-                                                                        {isSelected && (
-                                                                            <span className="text-[10px] font-bold tabular-nums text-primary bg-primary/10 border border-primary/20 rounded-md px-1.5 py-0.5">
-                                                                                #{orderByKey.get(f.key)}
-                                                                            </span>
-                                                                        )}
-                                                                        <span className="group-hover:text-primary transition-colors font-medium">
-                                                                            {f.label}
-                                                                        </span>
-                                                                    </label>
-
-                                                                    {isSelected && (
-                                                                        <div className="flex items-center gap-2 pl-3 border-l border-border/60">
-                                                                            <span
-                                                                                className={`text-[10px] uppercase font-bold ${
-                                                                                    reqData?.required
-                                                                                        ? 'text-primary'
-                                                                                        : 'text-muted-foreground'
-                                                                                }`}
-                                                                            >
-                                                                                {reqData?.required ? 'Req' : 'Opt'}
-                                                                            </span>
-                                                                            <Switch
-                                                                                checked={reqData?.required ?? true}
-                                                                                onCheckedChange={(val) => {
-                                                                                    updateStage({
-                                                                                        bank_account_fields:
-                                                                                            s.bank_account_fields.map((sf) =>
-                                                                                                sf.key === f.key
-                                                                                                    ? { ...sf, required: val }
-                                                                                                    : sf
-                                                                                            ),
-                                                                                    });
-                                                                                }}
-                                                                                className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                                                                            />
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        );
-                                                    });
-                                                    })()}
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            <div className="space-y-4">
-                                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <Label className="text-sm font-medium flex items-center gap-2">
-                                                        Contract Fields
-                                                        <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">{s.contract_fields.length} sel</span>
-                                                    </Label>
-                                                    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                                                        <Button
-                                                            type="button"
-                                                            variant="outline"
-                                                            size="sm"
-                                                            className="h-7 text-[10px] px-2 rounded-lg"
-                                                            disabled={s.contract_fields.length < 2}
-                                                            onClick={() => {
-                                                                setSortFieldsDialog({
-                                                                    open: true,
-                                                                    kind: 'contract',
-                                                                    list: [...s.contract_fields],
-                                                                    draggingKey: null,
-                                                                });
-                                                            }}
-                                                        >
-                                                            Sort
-                                                        </Button>
-                                                    <Input 
-                                                            placeholder="Search contract..." 
-                                                            className="h-7 text-[10px] w-full sm:w-32 rounded-lg bg-card/30"
-                                                            value={contractSearch}
-                                                            onChange={(e) => setContractSearch(e.target.value)}
-                                                        />
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary uppercase tracking-wider font-semibold"
-                                                            onClick={() => {
-                                                                const filtered = contractFieldOptions.filter(f => 
-                                                                    f.label.toLowerCase().includes(contractSearch.toLowerCase())
-                                                                );
-                                                                const available = filtered.filter(f => !otherContractFields.has(f.key));
-                                                                const currentlySelectedInSearch = s.contract_fields.filter(sf => 
-                                                                    available.some(a => a.key === sf.key)
-                                                                );
-
-                                                                if (currentlySelectedInSearch.length === available.length && available.length > 0) {
-                                                                    const remaining = s.contract_fields.filter(sf => !available.some(a => a.key === sf.key));
-                                                                    updateStage({ contract_fields: remaining });
-                                                                } else {
-                                                                    const toAdd = available
-                                                                        .filter(a => !s.contract_fields.some(sf => sf.key === a.key))
-                                                                        .map(a => ({ key: a.key, required: true }));
-                                                                    updateStage({ contract_fields: [...s.contract_fields, ...toAdd] });
-                                                                }
-                                                            }}
-                                                        >
-                                                            {s.contract_fields.length === contractFieldOptions.filter(f => !otherContractFields.has(f.key)).length && s.contract_fields.length > 0 ? 'Deselect All' : 'Select All'}
-                                                        </Button>
-                                                    </div>
-                                                </div>
-                                                <div className="grid grid-cols-1 gap-2 p-3 rounded-xl border border-border/50 bg-card/30 max-h-[170px] overflow-y-auto">
-                                                    {(() => {
-                                                        const visible = contractFieldOptions
-                                                            .filter((f) =>
-                                                                f.label
-                                                                    .toLowerCase()
-                                                                    .includes(contractSearch.toLowerCase())
-                                                            )
-                                                            .filter(
-                                                                (f) =>
-                                                                    !otherContractFields.has(f.key) ||
-                                                                    s.contract_fields.some((sf) => sf.key === f.key)
-                                                            );
-
-                                                        if (visible.length === 0) {
-                                                            return (
-                                                                <div className="py-8 text-center text-xs text-muted-foreground">
-                                                                    No contract fields found.
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        const orderByKey = new Map(
-                                                            s.contract_fields.map((sf, i) => [sf.key, i + 1] as const)
-                                                        );
-
-                                                        return visible.map((f) => {
-                                                            const isSelected = s.contract_fields.some(
-                                                                (sf) => sf.key === f.key
-                                                            );
-                                                            const reqData = s.contract_fields.find(
-                                                                (sf) => sf.key === f.key
-                                                            );
-
-                                                            return (
-                                                                <div
-                                                                    key={f.key}
-                                                                    className={`flex flex-col p-2.5 rounded-lg border transition-all ${
-                                                                        isSelected
-                                                                            ? 'border-primary/50 bg-primary/5'
-                                                                            : 'border-border/50 bg-card/30'
-                                                                    }`}
-                                                                >
-                                                                    <div className="flex items-center justify-between">
-                                                                        <label className="flex items-center gap-2.5 text-sm cursor-pointer group flex-1">
-                                                                            <input
-                                                                                type="checkbox"
-                                                                                className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20"
-                                                                                checked={isSelected}
-                                                                                onChange={(e) => {
-                                                                                    const next = e.target.checked;
-                                                                                    updateStage({
-                                                                                        contract_fields: next
-                                                                                            ? [
-                                                                                                  ...s.contract_fields,
-                                                                                                  { key: f.key, required: true },
-                                                                                              ]
-                                                                                            : s.contract_fields.filter(
-                                                                                                  (k) => k.key !== f.key
-                                                                                              ),
-                                                                                    });
-                                                                                }}
-                                                                            />
-                                                                            {isSelected && (
-                                                                                <span className="text-[10px] font-bold tabular-nums text-primary bg-primary/10 border border-primary/20 rounded-md px-1.5 py-0.5">
-                                                                                    #{orderByKey.get(f.key)}
-                                                                                </span>
-                                                                            )}
-                                                                            <span className="group-hover:text-primary transition-colors font-medium">
-                                                                                {f.label}
-                                                                            </span>
-                                                                        </label>
-                                                                        {isSelected && (
-                                                                            <div className="flex items-center gap-2 pl-3 border-l border-border/60">
-                                                                                <span
-                                                                                    className={`text-[10px] uppercase font-bold ${
-                                                                                        reqData?.required
-                                                                                            ? 'text-primary'
-                                                                                            : 'text-muted-foreground'
-                                                                                    }`}
-                                                                                >
-                                                                                    {reqData?.required ? 'Req' : 'Opt'}
-                                                                                </span>
-                                                                                <Switch
-                                                                                    checked={reqData?.required ?? true}
-                                                                                    onCheckedChange={(val) => {
-                                                                                        updateStage({
-                                                                                            contract_fields:
-                                                                                                s.contract_fields.map((sf) =>
-                                                                                                    sf.key === f.key
-                                                                                                        ? { ...sf, required: val }
-                                                                                                        : sf
-                                                                                                ),
-                                                                                        });
-                                                                                    }}
-                                                                                    className="scale-75 data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted-foreground/30"
-                                                                                />
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        });
-                                                    })()}
-                                                </div>
-                                            </div>
-
-                                        <div className="space-y-4 pt-4 border-t border-border/40">
-                                            <div className="flex flex-col gap-4">
-                                                <div className="flex items-center justify-between">
-                                                    <Label className="text-sm font-medium flex items-center gap-2">
-                                                        Select Documents
-                                                        <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">{s.documents.length} sel</span>
-                                                    </Label>
-                                                    <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-                                                        <Input 
-                                                            placeholder="Search docs..." 
-                                                            className="h-7 text-[11px] w-full sm:w-40 rounded-lg bg-card/30"
-                                                            value={docSearch}
-                                                            onChange={(e) => setDocSearch(e.target.value)}
-                                                        />
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            className="h-6 text-[10px] px-2 text-muted-foreground hover:text-primary uppercase tracking-wider font-semibold"
-                                                            onClick={() => {
-                                                                const filtered = documentTypes.filter(d => 
-                                                                    d.title.toLowerCase().includes(docSearch.toLowerCase())
-                                                                );
-                                                                const available = filtered.filter(d => !otherDocuments.has(String(d.id)));
-                                                                
-                                                                const currentlySelectedInDocSearch = s.documents.filter(sd => 
-                                                                    available.some(a => String(a.id) === String(sd.type))
-                                                                );
-
-                                                                if (currentlySelectedInDocSearch.length === available.length && available.length > 0) {
-                                                                    // Deselect all in search
-                                                                    const remaining = s.documents.filter(sd => 
-                                                                        !available.some(a => String(a.id) === String(sd.type))
-                                                                    );
-                                                                    updateStage({ documents: remaining });
-                                                                } else {
-                                                                    // Select all in search
-                                                                    const toAdd = available
-                                                                        .filter(a => !s.documents.some(sd => String(sd.type) === String(a.id)))
-                                                                        .map(a => ({ type: String(a.id), min: 1, ask_issue_date: true, ask_expiry_date: true, ask_document_number: true }));
-                                                                    updateStage({ documents: [...s.documents, ...toAdd] });
-                                                                }
-                                                            }}
-                                                        >
-                                                            Select All
-                                                        </Button>
-                                                    </div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 p-3 rounded-xl border border-border/50 bg-card/30 max-h-[160px] overflow-y-auto">
-                                                    {(() => {
-                                                        const visible = documentTypes
-                                                            .filter((d) =>
-                                                                d.title
-                                                                    .toLowerCase()
-                                                                    .includes(docSearch.toLowerCase())
-                                                            )
-                                                            .filter(
-                                                                (d) =>
-                                                                    !otherDocuments.has(String(d.id)) ||
-                                                                    s.documents.some(
-                                                                        (sd) => String(sd.type) === String(d.id)
-                                                                    )
-                                                            );
-
-                                                        if (visible.length === 0) {
-                                                            return (
-                                                                <div className="py-8 text-center text-xs text-muted-foreground sm:col-span-2 lg:col-span-3">
-                                                                    No documents found.
-                                                                </div>
-                                                            );
-                                                        }
-
-                                                        return visible.map((d) => {
-                                                            const isSelected = s.documents.some(
-                                                                (sd) => String(sd.type) === String(d.id)
-                                                            );
-
-                                                            return (
-                                                                <label
-                                                                    key={d.id}
-                                                                    className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-colors border ${
-                                                                        isSelected
-                                                                            ? 'bg-primary/5 border-primary/30 text-primary'
-                                                                            : 'hover:bg-muted/40 border-transparent text-muted-foreground'
-                                                                    }`}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        className="rounded border-border/50 text-primary w-3.5 h-3.5"
-                                                                        checked={isSelected}
-                                                                        onChange={(e) => {
-                                                                            if (e.target.checked) {
-                                                                                updateStage({
-                                                                                    documents: [
-                                                                                        ...s.documents,
-                                                                                        {
-                                                                                            type: String(d.id),
-                                                                                            min: 1,
-                                                                                            ask_issue_date: true,
-                                                                                            ask_expiry_date: true,
-                                                                                            ask_document_number: true,
-                                                                                        },
-                                                                                    ],
-                                                                                });
-                                                                            } else {
-                                                                                updateStage({
-                                                                                    documents: s.documents.filter(
-                                                                                        (sd) => String(sd.type) !== String(d.id)
-                                                                                    ),
-                                                                                });
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <span className="text-xs font-medium truncate">{d.title}</span>
-                                                                </label>
-                                                            );
-                                                        });
-                                                    })()}
-                                                </div>
-                                            </div>
-
-                                            {s.documents.length > 0 && (
-                                                <div className="space-y-3 pt-4 border-t border-border/40 mt-4">
-                                                    <Label className="text-xs font-medium text-muted-foreground">
-                                                        Document rules
-                                                    </Label>
-                                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                                                        {s.documents.map((d, dIdx) => {
-                                                            const typeInfo = documentTypes.find(
-                                                                (dt) => String(dt.id) === String(d.type)
-                                                            );
-
-                                                            return (
-                                                                <div
-                                                                    key={`${d.type}-${dIdx}`}
-                                                                    className="rounded-xl border border-border/50 bg-card/20 p-4"
-                                                                >
-                                                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                                                        <div className="min-w-0">
-                                                                            <div className="truncate text-sm font-semibold">
-                                                                                {typeInfo?.title || 'Unknown Doc'}
-                                                                            </div>
-                                                                        </div>
-
-                                                                        <div className="flex flex-wrap items-center gap-2">
-                                                                            <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-background/40 px-2.5 py-1.5">
-                                                                                <span className="text-[10px] font-semibold text-muted-foreground">
-                                                                                    Min files
-                                                                                </span>
-                                                                                <input
-                                                                                    type="number"
-                                                                                    min={0}
-                                                                                    value={d.min}
-                                                                                    onChange={(e) => {
-                                                                                        const v = Number(e.target.value);
-                                                                                        const newDocs = [...s.documents];
-                                                                                        newDocs[dIdx] = { ...newDocs[dIdx], min: v };
-                                                                                        updateStage({ documents: newDocs });
-                                                                                    }}
-                                                                                    className="w-12 bg-transparent text-xs font-semibold text-foreground focus:outline-none text-center"
-                                                                                />
-                                                                            </div>
-
-                                                                            <Button
-                                                                                type="button"
-                                                                                variant="ghost"
-                                                                                size="icon"
-                                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                                                onClick={() => {
-                                                                                    updateStage({
-                                                                                        documents: s.documents.filter((_, i) => i !== dIdx),
-                                                                                    });
-                                                                                }}
-                                                                            >
-                                                                                <Trash2 className="w-4 h-4" />
-                                                                            </Button>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
-                                                                            <span className="text-xs font-medium text-foreground">Issue date</span>
-                                                                            <Switch
-                                                                                checked={!!d.ask_issue_date}
-                                                                                onCheckedChange={(val) => {
-                                                                                    const newDocs = [...s.documents];
-                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_issue_date: val };
-                                                                                    updateStage({ documents: newDocs });
-                                                                                }}
-                                                                                className="scale-75"
-                                                                            />
-                                                                        </label>
-                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
-                                                                            <span className="text-xs font-medium text-foreground">Expiry date</span>
-                                                                            <Switch
-                                                                                checked={!!d.ask_expiry_date}
-                                                                                onCheckedChange={(val) => {
-                                                                                    const newDocs = [...s.documents];
-                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_expiry_date: val };
-                                                                                    updateStage({ documents: newDocs });
-                                                                                }}
-                                                                                className="scale-75"
-                                                                            />
-                                                                        </label>
-                                                                        <label className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/30 px-3 py-2 cursor-pointer">
-                                                                            <span className="text-xs font-medium text-foreground">Doc number</span>
-                                                                            <Switch
-                                                                                checked={!!d.ask_document_number}
-                                                                                onCheckedChange={(val) => {
-                                                                                    const newDocs = [...s.documents];
-                                                                                    newDocs[dIdx] = { ...newDocs[dIdx], ask_document_number: val };
-                                                                                    updateStage({ documents: newDocs });
-                                                                                }}
-                                                                                className="scale-75"
-                                                                            />
-                                                                        </label>
-                                                                    </div>
-                                                            </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        );
-                    })()
-                ) : (
-                    <div className="glass-card p-6 lg:col-span-9 flex flex-col items-center justify-center text-muted-foreground h-[400px]">
-                        <svg className="w-16 h-16 opacity-30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                        </svg>
-                        <p>Select a stage from the left to configure it.</p>
-                    </div>
-                )}
-            </div>
-
-            <div className="flex flex-col-reverse md:flex-row items-center justify-end gap-3 pt-6 pb-12">
-                {onCancel && (
-                    <Button type="button" variant="ghost" onClick={onCancel} className="w-full md:w-40 h-12 rounded-xl text-muted-foreground hover:text-foreground">
-                        Discard Changes
-                    </Button>
-                )}
-                <Button type="submit" className="w-full md:w-64 h-12 rounded-xl text-lg font-semibold shadow-lg shadow-primary/20" disabled={form.processing}>
-                    {template ? 'Update Template' : 'Create Template'}
-                </Button>
-            </div>
-        </div>
-
-        <Dialog
-            open={sortFieldsDialog.open}
-            onOpenChange={(open) => {
-                if (!open) {
-                    setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
-                } else {
-                    setSortFieldsDialog((d) => ({ ...d, open: true }));
-                }
-            }}
-        >
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>
-                        {sortFieldsDialog.kind === 'contract'
-                            ? 'Sort contract fields'
-                            : sortFieldsDialog.kind === 'bank'
-                              ? 'Sort bank account fields'
-                              : 'Sort employee fields'}
-                    </DialogTitle>
-                    <DialogDescription>
-                        Drag items to reorder, or use the arrows. This order will be saved in the template.
-                    </DialogDescription>
-                </DialogHeader>
-
-                <div className="max-h-[60vh] overflow-y-auto rounded-lg border border-border">
-                    <div className="divide-y divide-border">
-                        {sortFieldsDialog.list.map((item, idx) => {
-                            const label = sortFieldDialogLabel(item.key);
-
-                            return (
-                                <div
-                                    key={item.key}
-                                    className="flex items-center justify-between gap-3 px-4 py-3 bg-background"
-                                    draggable
-                                    onDragStart={() =>
-                                        setSortFieldsDialog((d) => ({ ...d, draggingKey: item.key }))
-                                    }
-                                    onDragOver={(e) => {
-                                        e.preventDefault();
-                                    }}
-                                    onDrop={() => {
-                                        setSortFieldsDialog((d) => {
-                                            const dragKey = d.draggingKey;
-
-                                            if (!dragKey || dragKey === item.key) {
-                                                return d;
-                                            }
-
-                                            const from = d.list.findIndex((p) => p.key === dragKey);
-                                            const to = d.list.findIndex((p) => p.key === item.key);
-
-                                            if (from === -1 || to === -1) {
-                                                return { ...d, draggingKey: null };
-                                            }
-
-                                            const next = [...d.list];
-                                            const [moved] = next.splice(from, 1);
-                                            next.splice(to, 0, moved);
-
-                                            return { ...d, list: next, draggingKey: null };
-                                        });
-                                    }}
-                                >
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <GripVertical className="h-4 w-4 text-muted-foreground/70 shrink-0" />
-                                        <div className="text-[11px] font-bold tabular-nums text-muted-foreground bg-muted/40 border border-border rounded-md px-2 py-1">
-                                            {idx + 1}
-                                        </div>
-                                        <div className="min-w-0">
-                                            <div className="text-sm font-medium truncate">{label}</div>
-                                            <div className="text-[10px] text-muted-foreground">
-                                                {item.required ? 'Required' : 'Optional'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-1 shrink-0">
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            disabled={idx === 0}
-                                            onClick={() => {
-                                                setSortFieldsDialog((d) => {
-                                                    if (idx === 0) {
-                                                        return d;
-                                                    }
-
-                                                    const next = [...d.list];
-                                                    const tmp = next[idx - 1];
-                                                    next[idx - 1] = next[idx];
-                                                    next[idx] = tmp;
-
-                                                    return { ...d, list: next };
-                                                });
-                                            }}
-                                        >
-                                            <ArrowUp className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-8 w-8"
-                                            disabled={idx === sortFieldsDialog.list.length - 1}
-                                            onClick={() => {
-                                                setSortFieldsDialog((d) => {
-                                                    if (idx === d.list.length - 1) {
-                                                        return d;
-                                                    }
-
-                                                    const next = [...d.list];
-                                                    const tmp = next[idx + 1];
-                                                    next[idx + 1] = next[idx];
-                                                    next[idx] = tmp;
-
-                                                    return { ...d, list: next };
-                                                });
-                                            }}
-                                        >
-                                            <ArrowDown className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                </div>
-                            );
-                        })}
-
-                        {sortFieldsDialog.list.length === 0 && (
-                            <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                                No selected fields to sort.
-                            </div>
-                        )}
-                    </div>
+                            <DocumentSelector selectedDocs={s.documents} documentTypes={documentTypes} otherStagesDocs={otherDocuments} onUpdate={(docs) => updateStage({ documents: docs })} />
+                        </div>
+                    ) : (
+                        <div className="glass-card p-6 lg:col-span-9 flex flex-col items-center justify-center text-muted-foreground h-[400px]">
+                            <svg className="w-16 h-16 opacity-30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <p>Select a stage from the left to configure it.</p>
+                        </div>
+                    )}
                 </div>
 
-                <DialogFooter>
-                    <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null })}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        type="button"
-                        onClick={() => {
-                            if (!activeStageId) {
-                                setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
+                <div className="flex flex-col-reverse md:flex-row items-center justify-end gap-3 pt-6 pb-12">
+                    {onCancel && <Button type="button" variant="ghost" onClick={onCancel} className="w-full md:w-40 h-12 rounded-xl text-muted-foreground hover:text-foreground">Discard Changes</Button>}
+                    <Button type="submit" className="w-full md:w-64 h-12 rounded-xl text-lg font-semibold shadow-lg shadow-primary/20" disabled={form.processing}>{template ? 'Update Template' : 'Create Template'}</Button>
+                </div>
+            </div>
 
-                                return;
-                            }
-
-                            const activeStageIndex = builder.stages.findIndex((s) => s.id === activeStageId);
-
-                            if (activeStageIndex === -1 || !sortFieldsDialog.kind) {
-                                setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
-
-                                return;
-                            }
-
-                            const kind = sortFieldsDialog.kind;
-                            const list = sortFieldsDialog.list;
-
-                            setBuilder((prev) => {
-                                const nextStages = [...prev.stages];
-                                const patch =
-                                    kind === 'contract'
-                                        ? { contract_fields: list }
-                                        : kind === 'bank'
-                                          ? { bank_account_fields: list }
-                                          : { employee_fields: list };
-
-                                nextStages[activeStageIndex] = {
-                                    ...nextStages[activeStageIndex],
-                                    ...patch,
-                                };
-
-                                return { stages: nextStages };
-                            });
-
-                            setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
-
-                            if (kind === 'contract') {
-                                toast.success('Contract fields order updated.');
-                            } else if (kind === 'bank') {
-                                toast.success('Bank account fields order updated.');
-                            } else {
-                                toast.success('Employee fields order updated.');
-                            }
-                        }}
-                    >
-                        Save order
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
-    </form>
-);
+            <SortDialog 
+                state={sortFieldsDialog} 
+                setState={setSortFieldsDialog} 
+                getLabel={sortFieldDialogLabel} 
+                onSave={(kind, list) => {
+                    updateStage(
+                        kind === 'contract' ? { contract_fields: list } :
+                        kind === 'bank' ? { bank_account_fields: list } :
+                        { employee_fields: list }
+                    );
+                    setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
+                    toast.success(`${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : 'Employee'} fields order updated.`);
+                }} 
+            />
+        </form>
+    );
 }

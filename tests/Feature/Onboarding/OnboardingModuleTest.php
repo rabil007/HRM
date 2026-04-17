@@ -8,10 +8,9 @@ use Database\Seeders\PermissionsSeeder;
 
 test('guests cannot access onboarding templates and records', function () {
     $this->get('/onboarding/templates')->assertRedirect(route('login'));
-    $this->get('/onboarding/records')->assertRedirect(route('login'));
 });
 
-test('authorized users can view onboarding templates and records pages', function () {
+test('authorized users can view onboarding templates page', function () {
     $this->seed(PermissionsSeeder::class);
 
     $user = User::factory()->create();
@@ -44,9 +43,7 @@ test('authorized users can view onboarding templates and records pages', functio
 
     grantCompanyPermissions($user, $company, [
         'onboarding.templates.view',
-        'onboarding.records.view',
     ]);
 
     $this->get('/onboarding/templates')->assertOk();
-    $this->get('/onboarding/records')->assertOk();
 });
