@@ -144,7 +144,7 @@ return { key: f.key, required: !!f.required };
                 label: 'Contract & Documents', 
                 employee_fields: [],
                 bank_account_fields: [],
-                contract_fields: ['contract_type', 'start_date'],
+                contract_fields: mapFields(['contract_type', 'start_date']),
                 documents: []
             },
         ],

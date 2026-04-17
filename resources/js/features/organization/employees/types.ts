@@ -99,7 +99,6 @@ export type Employee = {
     end_date?: string | null;
     probation_end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
-    labor_contract_id?: string | null;
     created_at: string;
 };
 
@@ -112,6 +111,7 @@ export type EmployeeFormData = {
     employee_no: string;
     first_name: string;
     last_name: string;
+    image: File | null;
     work_email: string;
     personal_email: string;
     phone: string;
@@ -131,10 +131,11 @@ export type EmployeeFormData = {
     spouse_name: string;
     spouse_birthdate: string;
     dependent_children_count: number | '';
-    labor_contract_id: string;
     passport_number: string;
     emirates_id: string;
+    labor_card_number: string;
     bank_id: number | '';
+    iban: string;
     basic_salary: string;
     housing_allowance: string;
     transport_allowance: string;

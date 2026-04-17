@@ -1,5 +1,5 @@
-import { router, useForm } from '@inertiajs/react';
-import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { router } from '@inertiajs/react';
+import { Eye, Filter, Plus, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -17,14 +17,12 @@ import { EmployeeCard } from './components/employee-card';
 import { EmployeeDeleteDialog } from './components/employee-delete-dialog';
 import { EmployeeFiltersSheet } from './components/employee-filters-sheet';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
-import { EmployeeFormSheet } from './components/employee-form-sheet';
 import type {
     BankOption,
     BranchOption,
     CountryOption,
     DepartmentOption,
     Employee,
-    EmployeeFormData,
     GenderOption,
     ManagerOption,
     PositionOption,
@@ -44,12 +42,12 @@ export function EmployeesContent({
     branches,
     departments,
     positions,
-    managers,
-    users,
-    countries,
-    religions,
-    genders,
-    banks,
+    managers: _managers,
+    users: _users,
+    countries: _countries,
+    religions: _religions,
+    genders: _genders,
+    banks: _banks,
 }: {
     employees: Employee[];
     branches: BranchOption[];
@@ -62,117 +60,22 @@ export function EmployeesContent({
     genders: GenderOption[];
     banks: BankOption[];
 }) {
+    void _managers;
+    void _users;
+    void _countries;
+    void _religions;
+    void _genders;
+    void _banks;
+
     const [view, setView] = useViewPreference('employees:view', 'grid');
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState<EmployeeFilters>(emptyFilters);
 
-    const form = useForm<EmployeeFormData>({
-        user_id: '',
-        branch_id: '',
-        department_id: '',
-        position_id: '',
-        manager_id: '',
-        employee_no: '',
-        first_name: '',
-        last_name: '',
-        work_email: '',
-        personal_email: '',
-        phone: '',
-        phone_home_country: '',
-        nearest_airport: '',
-        cv_source: '',
-        emergency_contact: '',
-        emergency_phone: '',
-        emergency_contact_home_country: '',
-        emergency_phone_home_country: '',
-        date_of_birth: '',
-        place_of_birth: '',
-        gender_id: '',
-        religion_id: '',
-        nationality_id: '',
-        marital_status: '',
-        spouse_name: '',
-        spouse_birthdate: '',
-        dependent_children_count: '',
-        labor_contract_id: '',
-        passport_number: '',
-        emirates_id: '',
-        bank_id: '',
-        basic_salary: '',
-        housing_allowance: '',
-        transport_allowance: '',
-        other_allowances: '',
-        start_date: '',
-        probation_end_date: '',
-        end_date: '',
-        contract_type: 'unlimited',
-        labor_contract_id: '',
-        status: 'active',
-    });
-
     const handleAdd = () => {
         router.visit('/organization/employees/create');
-    };
-
-    const handleEdit = (employee: Employee) => {
-        setCurrentEmployee(employee);
-        form.reset();
-        form.clearErrors();
-        form.setData({
-            user_id: employee.user_id ?? '',
-            branch_id: employee.branch_id ?? '',
-            department_id: employee.department_id ?? '',
-            position_id: employee.position_id ?? '',
-            manager_id: employee.manager_id ?? '',
-            employee_no: employee.employee_no ?? '',
-            first_name: employee.first_name ?? '',
-            last_name: employee.last_name ?? '',
-            work_email: employee.work_email ?? '',
-            personal_email: employee.personal_email ?? '',
-            phone: employee.phone ?? '',
-            phone_home_country: employee.phone_home_country ?? '',
-            nearest_airport: employee.nearest_airport ?? '',
-            cv_source: employee.cv_source ?? '',
-            emergency_contact: employee.emergency_contact ?? '',
-            emergency_phone: employee.emergency_phone ?? '',
-            emergency_contact_home_country: employee.emergency_contact_home_country ?? '',
-            emergency_phone_home_country: employee.emergency_phone_home_country ?? '',
-            date_of_birth: employee.date_of_birth ?? '',
-            place_of_birth: employee.place_of_birth ?? '',
-            gender_id: employee.gender_id ?? '',
-            religion_id: employee.religion_id ?? '',
-            nationality_id: employee.nationality_id ?? '',
-            marital_status: employee.marital_status ?? '',
-            spouse_name: employee.spouse_name ?? '',
-            spouse_birthdate: employee.spouse_birthdate ?? '',
-            dependent_children_count: employee.dependent_children_count ?? '',
-            labor_contract_id: employee.labor_contract_id ?? '',
-            passport_number: employee.passport_number ?? '',
-            emirates_id: employee.emirates_id ?? '',
-            bank_id: employee.bank_id ?? '',
-            basic_salary: employee.basic_salary === null || employee.basic_salary === undefined ? '' : String(employee.basic_salary),
-            housing_allowance:
-                employee.housing_allowance === null || employee.housing_allowance === undefined
-                    ? ''
-                    : String(employee.housing_allowance),
-            transport_allowance:
-                employee.transport_allowance === null || employee.transport_allowance === undefined
-                    ? ''
-                    : String(employee.transport_allowance),
-            other_allowances:
-                employee.other_allowances === null || employee.other_allowances === undefined ? '' : String(employee.other_allowances),
-            start_date: employee.start_date ?? '',
-            probation_end_date: employee.probation_end_date ?? '',
-            end_date: employee.end_date ?? '',
-            contract_type: employee.contract_type ?? 'unlimited',
-            labor_contract_id: employee.labor_contract_id ?? '',
-            status: employee.status ?? 'active',
-        });
-        setIsSheetOpen(true);
     };
 
     const handleDelete = (employee: Employee) => {
@@ -204,68 +107,6 @@ export function EmployeesContent({
                 },
             },
         );
-    };
-
-    const submit = () => {
-        const payload = {
-            user_id: form.data.user_id || null,
-            branch_id: form.data.branch_id || null,
-            department_id: form.data.department_id || null,
-            position_id: form.data.position_id || null,
-            manager_id: form.data.manager_id || null,
-            employee_no: form.data.employee_no,
-            first_name: form.data.first_name,
-            last_name: form.data.last_name,
-            work_email: form.data.work_email.trim() || null,
-            personal_email: form.data.personal_email.trim() || null,
-            phone: form.data.phone.trim() || null,
-            phone_home_country: form.data.phone_home_country.trim() || null,
-            nearest_airport: form.data.nearest_airport.trim() || null,
-            cv_source: form.data.cv_source.trim() || null,
-            emergency_contact: form.data.emergency_contact.trim() || null,
-            emergency_phone: form.data.emergency_phone.trim() || null,
-            emergency_contact_home_country: form.data.emergency_contact_home_country.trim() || null,
-            emergency_phone_home_country: form.data.emergency_phone_home_country.trim() || null,
-            date_of_birth: form.data.date_of_birth || null,
-            place_of_birth: form.data.place_of_birth.trim() || null,
-            gender_id: form.data.gender_id || null,
-            religion_id: form.data.religion_id || null,
-            nationality_id: form.data.nationality_id || null,
-            marital_status: form.data.marital_status || null,
-            spouse_name: form.data.spouse_name.trim() || null,
-            spouse_birthdate: form.data.spouse_birthdate || null,
-            dependent_children_count: form.data.dependent_children_count === '' ? null : form.data.dependent_children_count,
-            labor_contract_id: form.data.labor_contract_id.trim() || null,
-            passport_number: form.data.passport_number.trim() || null,
-            emirates_id: form.data.emirates_id.trim() || null,
-            bank_id: form.data.bank_id || null,
-            basic_salary: form.data.basic_salary === '' ? null : Number(form.data.basic_salary),
-            housing_allowance: form.data.housing_allowance === '' ? null : Number(form.data.housing_allowance),
-            transport_allowance: form.data.transport_allowance === '' ? null : Number(form.data.transport_allowance),
-            other_allowances: form.data.other_allowances === '' ? null : Number(form.data.other_allowances),
-            start_date: form.data.start_date,
-            probation_end_date: form.data.probation_end_date || null,
-            end_date: form.data.end_date || null,
-            contract_type: form.data.contract_type,
-            labor_contract_id: form.data.labor_contract_id.trim() || null,
-            status: form.data.status,
-        };
-
-        if (currentEmployee) {
-            form.put(`/organization/employees/${currentEmployee.id}`, {
-                data: payload,
-                preserveScroll: true,
-                onSuccess: () => setIsSheetOpen(false),
-            });
-
-            return;
-        }
-
-        form.post('/organization/employees', {
-            data: payload,
-            preserveScroll: true,
-            onSuccess: () => setIsSheetOpen(false),
-        });
     };
 
     const filteredEmployees = useMemo(() => {
@@ -513,19 +354,6 @@ export function EmployeesContent({
                                                         type="button"
                                                         variant="ghost"
                                                         size="icon"
-                                                        className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleEdit(employee);
-                                                        }}
-                                                        title="Edit"
-                                                    >
-                                                        <Edit2 className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
                                                         className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
                                                         onClick={(e) => {
                                                             e.stopPropagation();
@@ -547,23 +375,6 @@ export function EmployeesContent({
             )}
 
             {filteredEmployees.length === 0 ? <EmptyState title="No employees found." /> : null}
-
-            <EmployeeFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                employee={currentEmployee}
-                form={form}
-                onSubmit={submit}
-                branches={branches}
-                departments={departments}
-                positions={positions}
-                managers={managers}
-                users={users}
-                countries={countries}
-                religions={religions}
-                genders={genders}
-                banks={banks}
-            />
 
             <EmployeeFiltersSheet
                 open={isFiltersOpen}

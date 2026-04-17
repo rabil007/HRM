@@ -1,18 +1,15 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Activity, Briefcase, Building2, CalendarDays, Mail, MapPin, Phone, User2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { EmployeeFormSheet } from '@/features/organization/employees/components/employee-form-sheet';
 import type {
     BankOption,
     BranchOption,
     CountryOption,
     DepartmentOption,
-    EmployeeFormData,
     GenderOption,
     ManagerOption,
     PositionOption,
@@ -51,7 +48,13 @@ type EmployeeDetails = {
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;
+    labor_card_number?: string | null;
     bank_id?: number | null;
+    iban?: string | null;
+    basic_salary?: number | null;
+    housing_allowance?: number | null;
+    transport_allowance?: number | null;
+    other_allowances?: number | null;
     work_email: string | null;
     phone: string | null;
     start_date?: string | null;
@@ -59,6 +62,7 @@ type EmployeeDetails = {
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
+    address?: string | null;
     created_at: string;
     updated_at: string;
 };
@@ -145,15 +149,15 @@ function statusBadgeClass(status: EmployeeDetails['status']): string {
 
 export default function EmployeeDetails({
     employee,
-    branches,
-    departments,
-    positions,
-    managers,
-    users,
-    countries,
-    religions,
-    genders,
-    banks,
+    branches: _branches,
+    departments: _departments,
+    positions: _positions,
+    managers: _managers,
+    users: _users,
+    countries: _countries,
+    religions: _religions,
+    genders: _genders,
+    banks: _banks,
     recent_activity,
 }: {
     employee: EmployeeDetails;
@@ -168,109 +172,21 @@ export default function EmployeeDetails({
     banks: BankOption[];
     recent_activity: ActivityItem[];
 }) {
-    const [editOpen, setEditOpen] = useState(false);
-    const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
+    void _branches;
+    void _departments;
+    void _positions;
+    void _managers;
+    void _users;
+    void _countries;
+    void _religions;
+    void _genders;
+    void _banks;
 
-    const form = useForm<EmployeeFormData>({
-        user_id: employee.user?.id ?? '',
-        branch_id: employee.branch?.id ?? '',
-        department_id: employee.department?.id ?? '',
-        position_id: employee.position?.id ?? '',
-        manager_id: employee.manager?.id ?? '',
-        employee_no: employee.employee_no ?? '',
-        first_name: employee.first_name ?? '',
-        last_name: employee.last_name ?? '',
-        work_email: employee.work_email ?? '',
-        personal_email: employee.personal_email ?? '',
-        phone: employee.phone ?? '',
-        phone_home_country: employee.phone_home_country ?? '',
-        nearest_airport: employee.nearest_airport ?? '',
-        cv_source: employee.cv_source ?? '',
-        emergency_contact: employee.emergency_contact ?? '',
-        emergency_phone: employee.emergency_phone ?? '',
-        emergency_contact_home_country: employee.emergency_contact_home_country ?? '',
-        emergency_phone_home_country: employee.emergency_phone_home_country ?? '',
-        date_of_birth: employee.date_of_birth ?? '',
-        place_of_birth: employee.place_of_birth ?? '',
-        gender_id: employee.gender_id ?? '',
-        religion_id: employee.religion_id ?? '',
-        nationality_id: employee.nationality_id ?? '',
-        marital_status: employee.marital_status ?? '',
-        spouse_name: employee.spouse_name ?? '',
-        spouse_birthdate: employee.spouse_birthdate ?? '',
-        dependent_children_count: employee.dependent_children_count ?? '',
-        labor_contract_id: employee.labor_contract_id ?? '',
-        passport_number: employee.passport_number ?? '',
-        emirates_id: employee.emirates_id ?? '',
-        bank_id: employee.bank_id ?? '',
-        basic_salary: employee.basic_salary === null || employee.basic_salary === undefined ? '' : String(employee.basic_salary),
-        housing_allowance:
-            employee.housing_allowance === null || employee.housing_allowance === undefined ? '' : String(employee.housing_allowance),
-        transport_allowance:
-            employee.transport_allowance === null || employee.transport_allowance === undefined ? '' : String(employee.transport_allowance),
-        other_allowances:
-            employee.other_allowances === null || employee.other_allowances === undefined ? '' : String(employee.other_allowances),
-        start_date: employee.start_date ?? '',
-        probation_end_date: employee.probation_end_date ?? '',
-        end_date: employee.end_date ?? '',
-        contract_type: employee.contract_type ?? 'unlimited',
-        status: employee.status ?? 'active',
-    });
+    const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
 
     const displayName = useMemo(() => {
         return `${employee.first_name ?? ''} ${employee.last_name ?? ''}`.trim() || 'Employee';
     }, [employee.first_name, employee.last_name]);
-
-    const submit = () => {
-        const payload = {
-            user_id: form.data.user_id || null,
-            branch_id: form.data.branch_id || null,
-            department_id: form.data.department_id || null,
-            position_id: form.data.position_id || null,
-            manager_id: form.data.manager_id || null,
-            employee_no: form.data.employee_no,
-            first_name: form.data.first_name,
-            last_name: form.data.last_name,
-            work_email: form.data.work_email.trim() || null,
-            personal_email: form.data.personal_email.trim() || null,
-            phone: form.data.phone.trim() || null,
-            phone_home_country: form.data.phone_home_country.trim() || null,
-            nearest_airport: form.data.nearest_airport.trim() || null,
-            cv_source: form.data.cv_source.trim() || null,
-            emergency_contact: form.data.emergency_contact.trim() || null,
-            emergency_phone: form.data.emergency_phone.trim() || null,
-            emergency_contact_home_country: form.data.emergency_contact_home_country.trim() || null,
-            emergency_phone_home_country: form.data.emergency_phone_home_country.trim() || null,
-            date_of_birth: form.data.date_of_birth || null,
-            place_of_birth: form.data.place_of_birth.trim() || null,
-            gender_id: form.data.gender_id || null,
-            religion_id: form.data.religion_id || null,
-            nationality_id: form.data.nationality_id || null,
-            marital_status: form.data.marital_status || null,
-            spouse_name: form.data.spouse_name.trim() || null,
-            spouse_birthdate: form.data.spouse_birthdate || null,
-            dependent_children_count: form.data.dependent_children_count === '' ? null : form.data.dependent_children_count,
-            labor_contract_id: form.data.labor_contract_id.trim() || null,
-            passport_number: form.data.passport_number.trim() || null,
-            emirates_id: form.data.emirates_id.trim() || null,
-            bank_id: form.data.bank_id || null,
-            basic_salary: form.data.basic_salary === '' ? null : Number(form.data.basic_salary),
-            housing_allowance: form.data.housing_allowance === '' ? null : Number(form.data.housing_allowance),
-            transport_allowance: form.data.transport_allowance === '' ? null : Number(form.data.transport_allowance),
-            other_allowances: form.data.other_allowances === '' ? null : Number(form.data.other_allowances),
-            start_date: form.data.start_date,
-            probation_end_date: form.data.probation_end_date || null,
-            end_date: form.data.end_date || null,
-            contract_type: form.data.contract_type,
-            status: form.data.status,
-        };
-
-        form.put(`/organization/employees/${employee.id}`, {
-            data: payload,
-            preserveScroll: true,
-            onSuccess: () => setEditOpen(false),
-        });
-    };
 
     return (
         <>
@@ -281,15 +197,6 @@ export default function EmployeeDetails({
                     description="Employee profile and assignment details."
                     backHref="/organization/employees"
                     backLabel="Back to employees"
-                    actions={
-                        <Button
-                            variant="outline"
-                            className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
-                            onClick={() => setEditOpen(true)}
-                        >
-                            Edit
-                        </Button>
-                    }
                 />
 
                 <div className="grid gap-6 lg:grid-cols-3">
@@ -366,13 +273,12 @@ export default function EmployeeDetails({
                             <CardTitle className="text-lg font-bold tracking-tight">Quick actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <Button
-                                variant="outline"
-                                className="w-full rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12"
-                                asChild
+                            <a
+                                href="/organization/employees"
+                                className="inline-flex w-full items-center justify-center rounded-xl border border-white/5 bg-white/5 hover:bg-white/10 h-12 text-sm font-medium transition-colors"
                             >
-                                <a href="/organization/employees">Edit from list</a>
-                            </Button>
+                                Back to employees
+                            </a>
                         </CardContent>
                     </Card>
                 </div>
@@ -471,65 +377,6 @@ export default function EmployeeDetails({
                     </CardContent>
                 </Card>
 
-                <EmployeeFormSheet
-                    open={editOpen}
-                    onOpenChange={setEditOpen}
-                    employee={{
-                        id: employee.id,
-                        user_id: employee.user?.id ?? null,
-                        branch_id: employee.branch?.id ?? null,
-                        department_id: employee.department?.id ?? null,
-                        position_id: employee.position?.id ?? null,
-                        manager_id: employee.manager?.id ?? null,
-                        employee_no: employee.employee_no,
-                        first_name: employee.first_name,
-                        last_name: employee.last_name,
-                        name: displayName,
-                        branch: employee.branch,
-                        department: employee.department,
-                        position: employee.position,
-                        work_email: employee.work_email,
-                        personal_email: employee.personal_email,
-                        phone: employee.phone,
-                        phone_home_country: employee.phone_home_country,
-                        nearest_airport: employee.nearest_airport,
-                        cv_source: employee.cv_source,
-                        emergency_contact: employee.emergency_contact,
-                        emergency_phone: employee.emergency_phone,
-                        emergency_contact_home_country: employee.emergency_contact_home_country,
-                        emergency_phone_home_country: employee.emergency_phone_home_country,
-                        date_of_birth: employee.date_of_birth,
-                        place_of_birth: employee.place_of_birth,
-                        gender_id: employee.gender_id,
-                        religion_id: employee.religion_id,
-                        nationality_id: employee.nationality_id,
-                        marital_status: employee.marital_status,
-                        spouse_name: employee.spouse_name,
-                        spouse_birthdate: employee.spouse_birthdate,
-                        dependent_children_count: employee.dependent_children_count,
-                        labor_contract_id: employee.labor_contract_id,
-                        passport_number: employee.passport_number,
-                        emirates_id: employee.emirates_id,
-                        bank_id: employee.bank_id,
-                        status: employee.status,
-                        start_date: employee.start_date,
-                        probation_end_date: employee.probation_end_date,
-                        end_date: employee.end_date,
-                        contract_type: employee.contract_type,
-                        created_at: employee.created_at,
-                    }}
-                    form={form}
-                    onSubmit={submit}
-                    branches={branches}
-                    departments={departments}
-                    positions={positions}
-                    managers={managers}
-                    users={users}
-                    countries={countries}
-                    religions={religions}
-                    genders={genders}
-                    banks={banks}
-                />
             </Main>
         </>
     );
