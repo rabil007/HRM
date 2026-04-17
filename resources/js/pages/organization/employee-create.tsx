@@ -207,7 +207,8 @@ export default function EmployeeCreate({ template, options }: Props) {
     };
 
     const renderField = (fieldKey: string, isRequired: boolean) => {
-        const label = fieldKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        const labelKey = fieldKey.endsWith('_id') ? fieldKey.slice(0, -3) : fieldKey;
+        const label = labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
         const id = fieldKey;
         const selectClass =
             'w-full rounded-lg border border-input bg-background h-10 px-3 text-sm outline-none focus:ring-1 focus:ring-primary transition-all';
