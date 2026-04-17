@@ -1,11 +1,11 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, ChevronLeft, ChevronRight, UserPlus } from 'lucide-react';
-import { useState } from 'react';
+import { Check, ChevronLeft, ChevronRight, UserPlus, Save, RotateCcw } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { Main } from '@/components/layout/main';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/lib/toast';
+import { FieldRenderer } from '@/components/onboarding/field-renderer';
+import { DocumentRegistry } from '@/components/onboarding/document-registry';
 
 type Option = { id: number | string; name: string; title?: string };
 
@@ -48,58 +48,35 @@ export default function EmployeeCreate({ template, options }: Props) {
         }
 
         if (tasks?.version === 1 && Array.isArray(tasks.stages) && tasks.modules && typeof tasks.modules === 'object') {
-            const v1Profile = Array.isArray(tasks.modules?.profile?.required_fields)
-                ? tasks.modules.profile.required_fields
-                : [];
-            const v1Contract = Array.isArray(tasks.modules?.contract?.required_fields)
-                ? tasks.modules.contract.required_fields
-                : [];
-            const v1Docs = Array.isArray(tasks.modules?.documents?.required_docs)
-                ? tasks.modules.documents.required_docs
-                : [];
+            const v1Profile = Array.isArray(tasks.modules?.profile?.required_fields) ? tasks.modules.profile.required_fields : [];
+            const v1Contract = Array.isArray(tasks.modules?.contract?.required_fields) ? tasks.modules.contract.required_fields : [];
+            const v1Docs = Array.isArray(tasks.modules?.documents?.required_docs) ? tasks.modules.documents.required_docs : [];
 
             return tasks.stages.map((s: any) => {
                 const mods = Array.isArray(s?.modules) ? s.modules : [];
                 const bankKeys = new Set(['bank_id', 'iban']);
-                const v1EmployeeFields = v1Profile
-                    .filter((k: any) => !bankKeys.has(String(k)))
-                    .map((k: any) => ({ key: String(k), required: true }));
-                const v1BankFields = v1Profile
-                    .filter((k: any) => bankKeys.has(String(k)))
-                    .map((k: any) => ({ key: String(k), required: true }));
+                const v1EmployeeFields = v1Profile.filter((k: any) => !bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
+                const v1BankFields = v1Profile.filter((k: any) => bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
 
                 return {
                     key: String(s?.key ?? ''),
                     label: String(s?.label ?? s?.key ?? ''),
-                    employee_fields: mods.includes('profile')
-                        ? v1EmployeeFields
-                        : [],
+                    employee_fields: mods.includes('profile') ? v1EmployeeFields : [],
                     bank_account_fields: mods.includes('profile') ? v1BankFields : [],
-                    contract_fields: mods.includes('contract')
-                        ? v1Contract.map((k: any) => ({ key: String(k), required: true }))
-                        : [],
+                    contract_fields: mods.includes('contract') ? v1Contract.map((k: any) => ({ key: String(k), required: true })) : [],
                     documents: mods.includes('documents') ? v1Docs : [],
                 };
             });
         }
-
         return [];
     };
 
     const stages = normalizeStages(template.tasks);
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
     const [showMissingIndicators, setShowMissingIndicators] = useState(false);
-    const activeStage = stages[currentStageIdx] ?? stages[0] ?? {
-        key: 'draft',
-        label: 'Draft',
-        employee_fields: [],
-        bank_account_fields: [],
-        contract_fields: [],
-        documents: [],
-    };
-
-    const [docSearch, setDocSearch] = useState('');
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+    const [isRestored, setIsRestored] = useState(false);
+
     const [docUploads, setDocUploads] = useState<
         Record<
             string,
@@ -113,7 +90,6 @@ export default function EmployeeCreate({ template, options }: Props) {
     >({});
 
     const form = useForm<any>({
-        // Profile Fields
         employee_no: '',
         status: 'active',
         first_name: '',
@@ -148,8 +124,6 @@ export default function EmployeeCreate({ template, options }: Props) {
         emirates_id: '',
         labor_card_number: '',
         image: null,
-
-        // Contract Fields
         contract_type: 'limited',
         start_date: '',
         end_date: '',
@@ -159,16 +133,55 @@ export default function EmployeeCreate({ template, options }: Props) {
         housing_allowance: '',
         transport_allowance: '',
         other_allowances: '',
-
         documents: [],
     });
 
-    const isFirstStage = currentStageIdx === 0;
+    const activeStage = stages[currentStageIdx] ?? stages[0];
     const isLastStage = currentStageIdx === stages.length - 1;
 
+    // --- AUTO-SAVE LOGIC ---
+    const STORAGE_KEY = `onboarding_draft_${template.id}`;
+
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            try {
+                const draft = JSON.parse(saved);
+                form.setData(draft.formData);
+                setDocUploads(Object.fromEntries(
+                    Object.entries(draft.docMetadata).map(([k, v]: any) => [k, { ...v, files: [] }])
+                ));
+                setIsRestored(true);
+                toast.info('Draft restored from local session.');
+            } catch (e) {
+                console.error('Failed to restore draft', e);
+            }
+        }
+    }, []);
+
+    useEffect(() => {
+        const docMetadata = Object.fromEntries(
+            Object.entries(docUploads).map(([k, v]) => [k, { 
+                issue_date: v.issue_date, 
+                expiry_date: v.expiry_date, 
+                document_number: v.document_number 
+            }])
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({
+            formData: form.data,
+            docMetadata,
+            timestamp: Date.now()
+        }));
+    }, [form.data, docUploads]);
+
+    const clearDraft = () => {
+        localStorage.removeItem(STORAGE_KEY);
+        window.location.reload();
+    };
+
+    // --- HELPERS ---
     const labelFromKey = (fieldKey: string) => {
         const labelKey = fieldKey.endsWith('_id') ? fieldKey.slice(0, -3) : fieldKey;
-
         return labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
     };
 
@@ -176,74 +189,44 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     const getStageMissing = (stage: any) => {
         const missingFields: string[] = [];
-
-        const allFields: Array<{ key: string; required: boolean }> = [
-            ...(Array.isArray(stage.employee_fields) ? stage.employee_fields : []),
-            ...(Array.isArray(stage.bank_account_fields) ? stage.bank_account_fields : []),
-            ...(Array.isArray(stage.contract_fields) ? stage.contract_fields : []),
-        ];
+        const allFields = [...(stage.employee_fields ?? []), ...(stage.bank_account_fields ?? []), ...(stage.contract_fields ?? [])];
 
         for (const f of allFields) {
-            if (!f?.required) {
-                continue;
-            }
-
+            if (!f?.required) continue;
             const key = String(f.key);
-
             if (key === 'image') {
-                if (!form.data.image) {
-                    missingFields.push('Image');
-                }
-
+                if (!form.data.image) missingFields.push('Image');
                 continue;
             }
-
-            if (isEmpty(form.data[key])) {
-                missingFields.push(labelFromKey(key));
-            }
+            if (isEmpty(form.data[key])) missingFields.push(labelFromKey(key));
         }
 
-        const docs: Array<any> = Array.isArray(stage.documents) ? stage.documents : [];
-
-        for (const d of docs) {
-            const min = Number(d?.min ?? 0);
-            const type = String(d?.type ?? '');
-
-            if (!type || min <= 0) {
-                continue;
-            }
-
-            const uploaded = docUploads[type]?.files?.length ?? 0;
-
-            if (uploaded < min) {
-                const dt = options.document_types.find((x) => String(x.id) === type);
-                missingFields.push(`${dt?.title ?? 'Document'} (${uploaded}/${min})`);
+        for (const d of (stage.documents ?? [])) {
+            const uploaded = docUploads[d.type]?.files?.length ?? 0;
+            if (uploaded < Number(d.min ?? 0)) {
+                const dt = options.document_types.find((x) => String(x.id) === String(d.type) || x.slug === d.type);
+                missingFields.push(`${dt?.title ?? 'Document'} (${uploaded}/${d.min})`);
             }
         }
-
         return missingFields;
     };
 
     const missingByStageIdx = stages.map((s) => getStageMissing(s));
 
     const nextStage = () => {
-        if (!isLastStage) {
+        if (currentStageIdx < stages.length - 1) {
             const missing = missingByStageIdx[currentStageIdx] ?? [];
-
             if (missing.length > 0) {
                 setShowMissingIndicators(true);
-                toast.error(`Missing required fields: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`);
+                toast.error(`Missing required fields: ${missing.slice(0, 5).join(', ')}`);
             }
-
-            setDocSearch('');
             setCurrentStageIdx(currentStageIdx + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
     const prevStage = () => {
-        if (!isFirstStage) {
-            setDocSearch('');
+        if (currentStageIdx > 0) {
             setCurrentStageIdx(currentStageIdx - 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
@@ -251,15 +234,11 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-
         const firstMissingIdx = missingByStageIdx.findIndex((m) => (m?.length ?? 0) > 0);
-
         if (firstMissingIdx !== -1) {
             setShowMissingIndicators(true);
-
-            const stageLabel = stages[firstMissingIdx]?.label ?? `Stage ${firstMissingIdx + 1}`;
-            const missing = missingByStageIdx[firstMissingIdx] ?? [];
-            toast.error(`Missing required fields in ${stageLabel}: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`);
+            toast.error(`Missing required fields in ${stages[firstMissingIdx].label}`);
+            return;
         }
 
         const documents = Object.entries(docUploads)
@@ -272,394 +251,22 @@ export default function EmployeeCreate({ template, options }: Props) {
                 document_number: v.document_number || null,
             }));
 
-        form.transform((data) => ({
-            ...data,
-            documents,
-        }));
-
-        form.post('/organization/employees', {
-            onSuccess: () => {
-                toast.success('Employee created and onboarding started.');
-            },
-            onError: () => {
-                setShowMissingIndicators(true);
-                toast.error('Please review the missing or invalid fields.');
-            },
-        });
-    };
-
-    const renderField = (fieldKey: string, isRequired: boolean) => {
-        const label = labelFromKey(fieldKey);
-        const id = fieldKey;
-        const selectClass =
-            'w-full rounded-lg border border-input bg-background h-10 px-3 text-sm outline-none focus:ring-1 focus:ring-primary transition-all';
-        const inputClass =
-            'h-10 rounded-lg bg-background border-input focus:ring-1 focus:ring-primary transition-all';
-
-        if (fieldKey === 'image') {
-            return (
-                <div key={id} className="space-y-2">
-                    <Label className="text-xs font-medium text-foreground">
-                        Image {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-
-                    <div className="rounded-xl border border-border bg-card/30 p-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6">
-                            <div className="h-28 w-28 rounded-xl border border-border bg-muted/20 overflow-hidden flex items-center justify-center">
-                                {imagePreview ? (
-                                    <img
-                                        src={imagePreview}
-                                        alt="Employee image preview"
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <UserPlus className="h-8 w-8 text-muted-foreground/70" />
-                                )}
-                            </div>
-
-                            <div className="flex-1 space-y-2">
-                                <input
-                                    id={id}
-                                    type="file"
-                                    accept="image/*"
-                                    onChange={(e) => {
-                                        const file = e.target.files?.[0] ?? null;
-                                        form.setData('image', file);
-                                        setImagePreview(file ? URL.createObjectURL(file) : null);
-                                    }}
-                                    className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-primary file:px-4 file:py-2 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
-                                />
-                                <div className="text-[11px] text-muted-foreground">PNG/JPG up to 4MB.</div>
-                                {form.errors.image && (
-                                    <p className="text-[10px] text-destructive">{form.errors.image}</p>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            );
-        }
-
-        // Special handling for dropdowns
-        if (fieldKey === 'branch_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Branch</option>
-                        {options.branches.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'department_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Department</option>
-                        {options.departments.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'position_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Position</option>
-                        {options.positions
-                            .filter(
-                                (p) =>
-                                    !form.data.department_id ||
-                                    String((p as any).department_id) === String(form.data.department_id),
-                            )
-                            .map((o) => (
-                                <option key={o.id} value={String(o.id)}>
-                                    {o.title || o.name}
-                                </option>
-                            ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'manager_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Manager</option>
-                        {options.managers.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {(o as any).first_name} {(o as any).last_name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'gender_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Gender</option>
-                        {options.genders.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'religion_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Religion</option>
-                        {options.religions.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'nationality') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey] ?? '')}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Nationality</option>
-                        {options.countries.map((o) => (
-                            <option key={o.id} value={o.name}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'bank_id') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Bank</option>
-                        {options.banks.map((o) => (
-                            <option key={o.id} value={String(o.id)}>
-                                {o.name}
-                            </option>
-                        ))}
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'contract_type') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="limited">Limited</option>
-                        <option value="unlimited">Unlimited</option>
-                        <option value="part_time">Part Time</option>
-                        <option value="contract">Contract</option>
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        if (fieldKey === 'marital_status') {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <select
-                        id={id}
-                        value={String(form.data[fieldKey])}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={selectClass}
-                        required={isRequired}
-                    >
-                        <option value="">Select Status</option>
-                        <option value="single">Single</option>
-                        <option value="married">Married</option>
-                        <option value="divorced">Divorced</option>
-                        <option value="widowed">Widowed</option>
-                    </select>
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        // Date fields
-        if (fieldKey.includes('date') || fieldKey.includes('birthdate')) {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <Input
-                        type="date"
-                        id={id}
-                        value={form.data[fieldKey]}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={inputClass}
-                        required={isRequired}
-                    />
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        // Numeric fields
-        if (fieldKey.includes('salary') || fieldKey.includes('allowance') || fieldKey.includes('count')) {
-            return (
-                <div key={id} className="space-y-1.5">
-                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                        {label} {isRequired && <span className="text-destructive">*</span>}
-                    </Label>
-                    <Input
-                        type="number"
-                        id={id}
-                        placeholder={label}
-                        value={form.data[fieldKey]}
-                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                        className={inputClass}
-                        required={isRequired}
-                    />
-                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-                </div>
-            );
-        }
-
-        // Default text input
-        return (
-            <div key={id} className="space-y-1.5">
-                <Label htmlFor={id} className="text-xs font-medium text-foreground">
-                    {label} {isRequired && <span className="text-destructive">*</span>}
-                </Label>
-                <Input
-                    id={id}
-                    placeholder={label}
-                    value={form.data[fieldKey]}
-                    onChange={(e) => form.setData(fieldKey as any, e.target.value)}
-                    className={inputClass}
-                    required={isRequired}
-                />
-                {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
-            </div>
-        );
+        form.transform((data) => ({ ...data, documents }))
+            .post('/organization/employees', {
+                onSuccess: () => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    toast.success('Employee created and onboarding started.');
+                },
+                onError: () => setShowMissingIndicators(true)
+            });
     };
 
     return (
         <Main fixed className="bg-background">
             <Head title={`Onboarding Pipeline — ${activeStage.label}`} />
 
-            <div className="flex flex-col h-full bg-background border-r border-border w-full">
-                {/* Simple Top Bar */}
+            <div className="flex flex-col h-full bg-background w-full">
+                {/* Top Bar */}
                 <div className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0">
                     <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
@@ -667,13 +274,20 @@ export default function EmployeeCreate({ template, options }: Props) {
                         </div>
                         <div className="flex flex-col">
                             <h1 className="text-sm font-bold text-foreground">Launch New Hire</h1>
-                            <p className="text-[10px] text-muted-foreground">
-                                Pipeline: <span className="font-medium">{template.name}</span>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
+                                Pipeline: <span className="text-primary">{template.name}</span>
                             </p>
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
+                        {isRestored && (
+                            <Button variant="ghost" size="sm" onClick={clearDraft} className="text-[10px] h-7 gap-1.5 text-muted-foreground hover:text-destructive transition-colors">
+                                <RotateCcw className="h-3 w-3" />
+                                Reset Draft
+                            </Button>
+                        )}
+                        <div className="h-4 w-[1px] bg-border mx-1" />
                         <Button
                             variant="ghost"
                             size="sm"
@@ -686,16 +300,16 @@ export default function EmployeeCreate({ template, options }: Props) {
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Basic Stepper */}
-                    <div className="w-64 border-r border-border bg-muted/20 flex flex-col shrink-0">
-                        <div className="p-4 border-b border-border">
-                            <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Progress</span>
-                                <span className="text-xs font-bold">{Math.round(((currentStageIdx + 1) / stages.length) * 100)}%</span>
+                    {/* Stepper Sidebar */}
+                    <div className="w-64 border-r border-border bg-muted/5 flex flex-col shrink-0">
+                        <div className="p-6 border-b border-border">
+                            <div className="flex items-center justify-between mb-3">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Flow Progress</span>
+                                <span className="text-xs font-black text-primary">{Math.round(((currentStageIdx + 1) / stages.length) * 100)}%</span>
                             </div>
-                            <div className="h-1 w-full bg-border rounded-full overflow-hidden">
+                            <div className="h-1.5 w-full bg-border/50 rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-primary transition-all duration-500"
+                                    className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)] transition-all duration-700 ease-out"
                                     style={{ width: `${((currentStageIdx + 1) / stages.length) * 100}%` }}
                                 />
                             </div>
@@ -705,32 +319,29 @@ export default function EmployeeCreate({ template, options }: Props) {
                             {stages.map((s, idx) => {
                                 const isCurrent = idx === currentStageIdx;
                                 const isPassed = idx < currentStageIdx;
-                                const canGo = isPassed;
+                                const canGo = isPassed || isCurrent;
                                 const missingCount = showMissingIndicators ? (missingByStageIdx[idx]?.length ?? 0) : 0;
-                                const hasMissing = missingCount > 0;
 
                                 return (
                                     <button
                                         key={s.key}
                                         type="button"
                                         onClick={() => canGo && setCurrentStageIdx(idx)}
-                                        disabled={!canGo}
-                                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
                                             isCurrent
-                                                ? 'bg-background text-foreground shadow-sm ring-1 ring-border'
-                                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                                        } ${!canGo && !isCurrent ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
+                                                : 'text-muted-foreground hover:bg-muted'
+                                        }`}
                                     >
-                                        <div className={`h-5 w-5 rounded-full border flex items-center justify-center text-[10px] font-bold ${
-                                            isPassed && !hasMissing ? 'bg-primary border-primary text-primary-foreground' :
-                                            hasMissing ? 'border-destructive text-destructive' :
-                                            isCurrent ? 'border-primary text-primary' : 'border-muted-foreground'
+                                        <div className={`h-6 w-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-colors ${
+                                            isCurrent ? 'bg-primary-foreground text-primary border-primary-foreground' : 
+                                            isPassed ? 'bg-primary/20 border-primary/20 text-primary' : 'border-border'
                                         }`}>
-                                            {isPassed && !hasMissing ? <Check className="h-3 w-3" /> : hasMissing ? '!' : idx + 1}
+                                            {isPassed ? <Check className="h-3 w-3" /> : idx + 1}
                                         </div>
-                                        <span className="text-xs font-medium truncate flex-1">{s.label}</span>
+                                        <span className="text-xs font-bold truncate flex-1">{s.label}</span>
                                         {missingCount > 0 && (
-                                            <span className="text-[10px] font-bold tabular-nums text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-1.5 py-0.5">
+                                            <span className="text-[9px] font-black bg-destructive/10 text-destructive px-1.5 py-0.5 rounded border border-destructive/20">
                                                 {missingCount}
                                             </span>
                                         )}
@@ -738,261 +349,151 @@ export default function EmployeeCreate({ template, options }: Props) {
                                 );
                             })}
                         </div>
+                        
+                        <div className="p-4 border-t border-border bg-muted/20">
+                            <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                                <Save className="h-3 w-3" />
+                                Auto-saved to local session
+                            </div>
+                        </div>
                     </div>
 
                     <div className="flex-1 flex flex-col overflow-hidden bg-background">
                         <div className="flex-1 overflow-y-auto p-12">
-                            <div className="w-full space-y-8 pb-20">
-                                <div className="space-y-1">
-                                    <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                                            {activeStage.label}
-                                        </h2>
-                                    <p className="text-xs text-muted-foreground">
-                                        Please provide the following details for this stage.
-                                        </p>
+                            <div className="max-w-6xl mx-auto space-y-12">
+                                <div className="space-y-2">
+                                    <div className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-primary/5 border border-primary/10 text-[10px] font-bold text-primary uppercase tracking-widest">
+                                        Stage {currentStageIdx + 1} of {stages.length}
+                                    </div>
+                                    <h2 className="text-4xl font-black tracking-tighter text-foreground italic uppercase">
+                                        {activeStage.label}
+                                    </h2>
+                                    <p className="text-sm text-muted-foreground/80 max-w-xl leading-relaxed">
+                                        Please provide the required configuration details for this phase of the onboarding pipeline.
+                                    </p>
                                 </div>
 
-                                <form onSubmit={submit} className="space-y-8">
-                                    <div className="space-y-10">
-                                        {/* Employee Fields */}
-                                        {activeStage.employee_fields.length > 0 && (
-                                            <div className="space-y-6">
-                                                {activeStage.employee_fields.some((f) => f.key === 'image') && (
-                                                    <div>
-                                                        {renderField(
-                                                            'image',
-                                                            activeStage.employee_fields.find((f) => f.key === 'image')
-                                                                ?.required ?? false,
-                                                        )}
-                                                    </div>
-                                                )}
+                                <div className="space-y-16">
+                                    {/* Employee Fields */}
+                                    {activeStage.employee_fields.length > 0 && (
+                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                            {activeStage.employee_fields.some((f: any) => f.key === 'image') && (
+                                                <FieldRenderer
+                                                    fieldKey="image"
+                                                    isRequired={activeStage.employee_fields.find((f: any) => f.key === 'image')?.required ?? false}
+                                                    value={form.data.image}
+                                                    onChange={(val) => form.setData('image', val)}
+                                                    options={options}
+                                                    imagePreview={imagePreview}
+                                                    setImagePreview={setImagePreview}
+                                                />
+                                            )}
 
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                    {activeStage.employee_fields
-                                                        .filter((f) => f.key !== 'image')
-                                                        .map((f) => renderField(f.key, f.required))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Bank Accounts */}
-                                        {activeStage.bank_account_fields.length > 0 && (
-                                            <div className="space-y-6">
-                                                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">
-                                                    Bank accounts
-                                                </div>
-                                                <div className="rounded-xl border border-border bg-card/30 p-6">
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                        {activeStage.bank_account_fields.map((f) =>
-                                                            renderField(f.key, f.required)
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Contract Fields */}
-                                        {activeStage.contract_fields.length > 0 && (
-                                            <div className="space-y-6">
-                                                <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground border-b pb-2">Contract Details</div>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                                    {activeStage.contract_fields.map((f) => renderField(f.key, f.required))}
-                                                </div>
-                                            </div>
-                                        )}
-
-                                        {/* Document Table */}
-                                        {activeStage.documents.length > 0 && (
-                                            <div className="space-y-4">
-                                                <div className="flex items-center justify-between border-b pb-2">
-                                                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Required Documents</div>
-                                                    <div className="relative w-64">
-                                                        <Input 
-                                                            placeholder="Search documents..."
-                                                            value={docSearch}
-                                                            onChange={(e) => setDocSearch(e.target.value)}
-                                                            className="h-8 text-xs pl-3 pr-8 rounded-md bg-muted/30 border-none focus-visible:ring-1 focus-visible:ring-primary"
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-6">
+                                                {activeStage.employee_fields
+                                                    .filter((f: any) => f.key !== 'image')
+                                                    .map((f: any) => (
+                                                        <FieldRenderer
+                                                            key={f.key}
+                                                            fieldKey={f.key}
+                                                            isRequired={f.required}
+                                                            value={form.data[f.key]}
+                                                            error={form.errors[f.key]}
+                                                            onChange={(val) => form.setData(f.key as any, val)}
+                                                            options={options}
+                                                            formDepartmentId={form.data.department_id}
                                                         />
-                                                        {docSearch && (
-                                                            <button 
-                                                                type="button"
-                                                                onClick={() => setDocSearch('')}
-                                                                className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground hover:text-foreground"
-                                                            >
-                                                                Clear
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="overflow-x-auto">
-                                                    <table className="w-full text-left border-collapse">
-                                                        <thead>
-                                                            <tr className="border-b border-border bg-muted/50">
-                                                                <th className="px-4 py-3 text-[10px] font-bold uppercase text-muted-foreground w-1/4">Document Type</th>
-                                                                <th className="px-4 py-3 text-[10px] font-bold uppercase text-muted-foreground">Requirements</th>
-                                                                <th className="px-4 py-3 text-[10px] font-bold uppercase text-muted-foreground">Upload</th>
-                                                                <th className="px-4 py-3 text-[10px] font-bold uppercase text-muted-foreground">Doc Details</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody className="divide-y divide-border">
-                                                            {activeStage.documents
-                                                                .filter(d => {
-                                                                    const docTitle = options.document_types.find(dt => String(dt.slug) === String(d.type) || String(dt.id) === String(d.type))?.title || d.type;
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
 
-                                                                    return docTitle.toLowerCase().includes(docSearch.toLowerCase());
-                                                                })
-                                                                .map((d) => {
-                                                                    const docTitle =
-                                                                        options.document_types.find(
-                                                                            (dt) =>
-                                                                                String(dt.slug) === String(d.type) ||
-                                                                                String(dt.id) === String(d.type),
-                                                                        )?.title ||
-                                                                        d.type.split('_').join(' ').toUpperCase();
-
-                                                                    const value = docUploads[d.type] ?? { files: [] };
-                                                                    const selectedCount = value.files?.length ?? 0;
-
-                                                                    return (
-                                                                        <tr key={d.type} className="group hover:bg-muted/30 transition-colors">
-                                                                            <td className="px-4 py-4">
-                                                                                <span className="text-sm font-bold text-foreground block">
-                                                                                    {docTitle}
-                                                                </span>
-                                                                            </td>
-                                                                            <td className="px-4 py-4">
-                                                                                <span className="text-[10px] font-medium bg-muted border px-2 py-0.5 rounded-full inline-flex items-center">
-                                                                                    Min {d.min}
-                                                                </span>
-                                                                            </td>
-                                                                            <td className="px-4 py-4">
-                                                                                <div className="flex flex-col gap-1">
-                                                                                    <label className="text-[10px] font-bold uppercase bg-background border px-3 py-1.5 rounded-md cursor-pointer hover:bg-muted transition-colors inline-block w-fit text-center">
-                                                                                        <input
-                                                                                            type="file"
-                                                                                            multiple
-                                                                                            className="hidden"
-                                                                                            onChange={(e) => {
-                                                                                                const files = Array.from(e.target.files ?? []);
-                                                                                                setDocUploads((prev) => ({
-                                                                                                    ...prev,
-                                                                                                    [d.type]: { ...(prev[d.type] ?? { files: [] }), files },
-                                                                                                }));
-                                                                                            }}
-                                                                                        />
-                                                                                        {selectedCount > 0 ? `${selectedCount} Files` : 'Select File'}
-                                                                                    </label>
-                                                                                    {selectedCount > 0 && (
-                                                                                        <button 
-                                                                                            type="button"
-                                                                                            onClick={() => setDocUploads(prev => ({ ...prev, [d.type]: { ...prev[d.type], files: [] } }))}
-                                                                                            className="text-[9px] text-destructive hover:underline text-left pl-1"
-                                                                                        >
-                                                                                            Clear
-                                                                                        </button>
-                                                                                    )}
-                                                                                </div>
-                                                                            </td>
-                                                                            <td className="px-4 py-4">
-                                                                                <div className="flex items-center gap-3">
-                                                                                    {d.ask_issue_date && (
-                                                                                        <div className="flex flex-col gap-1 w-32">
-                                                                                            <label className="text-[9px] font-bold uppercase text-muted-foreground/70">Issue Date</label>
-                                                                                            <Input
-                                                                                                type="date"
-                                                                                                value={value.issue_date ?? ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const issue_date = e.target.value;
-                                                                                                    setDocUploads((prev) => ({
-                                                                                                        ...prev,
-                                                                                                        [d.type]: { ...(prev[d.type] ?? { files: [] }), issue_date },
-                                                                                                    }));
-                                                                                                }}
-                                                                                                className="h-8 text-[10px] px-2"
-                                                                                            />
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {d.ask_expiry_date && (
-                                                                                        <div className="flex flex-col gap-1 w-32">
-                                                                                            <label className="text-[9px] font-bold uppercase text-muted-foreground/70">Expiry Date</label>
-                                                                                            <Input
-                                                                                                type="date"
-                                                                                                value={value.expiry_date ?? ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const expiry_date = e.target.value;
-                                                                                                    setDocUploads((prev) => ({
-                                                                                                        ...prev,
-                                                                                                        [d.type]: { ...(prev[d.type] ?? { files: [] }), expiry_date },
-                                                                                                    }));
-                                                                                                }}
-                                                                                                className="h-8 text-[10px] px-2"
-                                                                                            />
-                                                            </div>
-                                                                                    )}
-                                                                                    {d.ask_document_number && (
-                                                                                        <div className="flex flex-col gap-1 w-32">
-                                                                                            <label className="text-[9px] font-bold uppercase text-muted-foreground/70">Number</label>
-                                                                                            <Input
-                                                                                                value={value.document_number ?? ''}
-                                                                                                onChange={(e) => {
-                                                                                                    const document_number = e.target.value;
-                                                                                                    setDocUploads((prev) => ({
-                                                                                                        ...prev,
-                                                                                                        [d.type]: { ...(prev[d.type] ?? { files: [] }), document_number },
-                                                                                                    }));
-                                                                                                }}
-                                                                                                className="h-8 text-[10px] px-2"
-                                                                                                placeholder="Doc #"
-                                                                                            />
-                                                            </div>
-                                                                                    )}
-                                                                                    {!d.ask_issue_date && !d.ask_expiry_date && !d.ask_document_number && (
-                                                                                        <span className="text-[10px] text-muted-foreground/40 italic">No additional details</span>
-                                                                                    )}
-                                                        </div>
-                                                                            </td>
-                                                                        </tr>
-                                                                    );
-                                                                })}
-                                                        </tbody>
-                                                    </table>
+                                    {/* Bank Accounts */}
+                                    {activeStage.bank_account_fields.length > 0 && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-b border-border pb-3">Financial Metadata</div>
+                                            <div className="bg-muted/10 rounded-3xl p-8 border border-border">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                                                    {activeStage.bank_account_fields.map((f: any) => (
+                                                        <FieldRenderer
+                                                            key={f.key}
+                                                            fieldKey={f.key}
+                                                            isRequired={f.required}
+                                                            value={form.data[f.key]}
+                                                            error={form.errors[f.key]}
+                                                            onChange={(val) => form.setData(f.key as any, val)}
+                                                            options={options}
+                                                        />
+                                                    ))}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                </form>
+                                        </div>
+                                    )}
+
+                                    {/* Contract Fields */}
+                                    {activeStage.contract_fields.length > 0 && (
+                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-b border-border pb-3">Governance & Contract</div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-6">
+                                                {activeStage.contract_fields.map((f: any) => (
+                                                    <FieldRenderer
+                                                        key={f.key}
+                                                        fieldKey={f.key}
+                                                        isRequired={f.required}
+                                                        value={form.data[f.key]}
+                                                        error={form.errors[f.key]}
+                                                        onChange={(val) => form.setData(f.key as any, val)}
+                                                        options={options}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Document Registry */}
+                                    {activeStage.documents.length > 0 && (
+                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
+                                            <DocumentRegistry
+                                                documents={activeStage.documents}
+                                                docUploads={docUploads}
+                                                documentTypes={options.document_types}
+                                                onUploadChange={(type, data) => setDocUploads(prev => ({ ...prev, [type]: data }))}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
 
                         {/* Bottom Navigation */}
-                        <div className="h-16 border-t border-border bg-background px-8 flex items-center justify-between shrink-0">
+                        <div className="h-20 border-t border-border bg-background px-12 flex items-center justify-between shrink-0">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={prevStage}
-                                disabled={isFirstStage}
-                                className="h-9 text-xs px-4"
+                                disabled={currentStageIdx === 0}
+                                className="h-11 px-8 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all hover:bg-muted"
                             >
-                                <ChevronLeft className="mr-2 h-4 w-4" />
-                                Back
+                                <ChevronLeft className="mr-3 h-4 w-4" />
+                                Previous Phase
                             </Button>
 
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-4">
                                 {!isLastStage ? (
-                                    <Button type="button" onClick={nextStage} className="h-9 text-xs px-6">
-                                        Next
-                                        <ChevronRight className="ml-2 h-4 w-4" />
-                            </Button>
-                        ) : (
-                            <Button
-                                type="button"
-                                onClick={submit}
-                                disabled={form.processing}
-                                        className="h-9 text-xs px-6"
-                            >
-                                        Complete Onboarding
-                            </Button>
-                        )}
+                                    <Button type="button" onClick={nextStage} className="h-11 px-10 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-xl shadow-primary/20">
+                                        Next Stage
+                                        <ChevronRight className="ml-3 h-4 w-4" />
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        onClick={submit}
+                                        disabled={form.processing}
+                                        className="h-11 px-12 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-xl shadow-primary/30 animate-pulse-subtle"
+                                    >
+                                        Complete & Launch
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>

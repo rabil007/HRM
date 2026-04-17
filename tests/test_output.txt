@@ -1,0 +1,8 @@
+
+   PASS  Tests\Feature\Organization\OnboardingPipelineTest
+  ✓ authenticated users can access the onboarding pipeline page          0.64s  
+  ✓ onboarding pipeline correctly saves a complex payload with document… 0.05s  
+
+  Tests:    2 passed (17 assertions)
+  Duration: 0.80s
+
