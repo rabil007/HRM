@@ -13,13 +13,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup PHP (for Wayfinder)
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Prepare app for artisan
+        run: |
+          cp -n .env.example .env || true
+          php artisan key:generate || true
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "npm"
 
-      - name: Install deps
+      - name: Install Node dependencies
         run: npm ci
 
       - name: Build assets
@@ -31,7 +45,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT }}
+          port: 22
           source: "public/build/*"
           target: "${{ secrets.PROD_PATH }}/public/build"
 
@@ -41,7 +55,7 @@ jobs:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
-          port: ${{ secrets.PROD_PORT }}
+          port: 22
           script: |
             cd "${{ secrets.PROD_PATH }}"
             php artisan optimize:clear
