@@ -82,6 +82,7 @@ class StoreEmployeeRequest extends FormRequest
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
             'iban' => ['nullable', 'string', 'max:50'],
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],
+            'account_name' => ['nullable', 'string', 'max:200'],
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
             'labor_card_number' => ['nullable', 'string', 'max:100'],

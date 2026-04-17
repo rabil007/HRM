@@ -88,6 +88,7 @@ export const profileFieldOptions = [
 export const bankAccountFieldOptions = [
     { key: 'bank_id', label: 'Bank' },
     { key: 'iban', label: 'IBAN' },
+    { key: 'account_name', label: 'Account Name' },
 ] as const;
 
 export const contractFieldOptions = [
@@ -183,7 +184,7 @@ return fallback;
         const v1Contract = t.modules?.contract?.required_fields || [];
         const v1Docs = t.modules?.documents?.required_docs || [];
 
-        const bankKeys = new Set(['bank_id', 'iban']);
+        const bankKeys = new Set(['bank_id', 'iban', 'account_name']);
         const v1ProfileEmployee = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => !bankKeys.has(String(k))) : [];
         const v1ProfileBank = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => bankKeys.has(String(k))) : [];
 

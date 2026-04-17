@@ -465,7 +465,12 @@ class EmployeeController extends Controller
 
         $primaryBankId = $data['bank_id'] ?? null;
         $primaryIban = $data['iban'] ?? null;
-        unset($data['bank_id'], $data['iban']);
+        $primaryAccountName = $data['account_name'] ?? null;
+        unset($data['bank_id'], $data['iban'], $data['account_name']);
+
+        if ($primaryAccountName === '') {
+            $primaryAccountName = null;
+        }
 
         if ($request->hasFile('image')) {
             $data['image'] = $request->file('image')->storePublicly(
@@ -549,7 +554,7 @@ class EmployeeController extends Controller
             ...$contract,
         ]);
 
-        if ($primaryBankId || $primaryIban) {
+        if ($primaryBankId || $primaryIban || $primaryAccountName) {
             EmployeeBankAccount::query()
                 ->where('company_id', $companyId)
                 ->where('employee_id', $employee->id)
@@ -561,7 +566,7 @@ class EmployeeController extends Controller
                 'employee_id' => $employee->id,
                 'bank_id' => $primaryBankId ?: null,
                 'iban' => $primaryIban ?: null,
-                'account_name' => null,
+                'account_name' => $primaryAccountName ?: null,
                 'is_primary' => true,
             ]);
         }
@@ -640,7 +645,12 @@ class EmployeeController extends Controller
 
         $primaryBankId = $data['bank_id'] ?? null;
         $primaryIban = $data['iban'] ?? null;
-        unset($data['bank_id'], $data['iban']);
+        $primaryAccountName = $data['account_name'] ?? null;
+        unset($data['bank_id'], $data['iban'], $data['account_name']);
+
+        if ($primaryAccountName === '') {
+            $primaryAccountName = null;
+        }
 
         if ($request->hasFile('image')) {
             if ($employee->image) {
@@ -724,7 +734,7 @@ class EmployeeController extends Controller
 
         $employee->loadMissing('primaryBankAccount');
         $existingPrimary = $employee->primaryBankAccount;
-        $hasBankData = (bool) ($primaryBankId || $primaryIban);
+        $hasBankData = (bool) ($primaryBankId || $primaryIban || $primaryAccountName);
 
         if ($hasBankData) {
             EmployeeBankAccount::query()
@@ -742,7 +752,7 @@ class EmployeeController extends Controller
                 [
                     'bank_id' => $primaryBankId ?: null,
                     'iban' => $primaryIban ?: null,
-                    'account_name' => $existingPrimary?->account_name,
+                    'account_name' => $primaryAccountName ?: null,
                     'is_primary' => true,
                 ]
             );

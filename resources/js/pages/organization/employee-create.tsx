@@ -54,7 +54,7 @@ export default function EmployeeCreate({ template, options }: Props) {
 
             return tasks.stages.map((s: any) => {
                 const mods = Array.isArray(s?.modules) ? s.modules : [];
-                const bankKeys = new Set(['bank_id', 'iban']);
+                const bankKeys = new Set(['bank_id', 'iban', 'account_name']);
                 const v1EmployeeFields = v1Profile.filter((k: any) => !bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
                 const v1BankFields = v1Profile.filter((k: any) => bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
 
@@ -108,6 +108,7 @@ export default function EmployeeCreate({ template, options }: Props) {
         manager_id: '',
         bank_id: '',
         iban: '',
+        account_name: '',
         passport_number: '',
         emirates_id: '',
         labor_card_number: '',
