@@ -32,13 +32,13 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropUnique('uq_user_email_company');
-            $table->unique('email');
+            $table->dropConstrainedForeignId('role_id');
+            $table->dropConstrainedForeignId('company_id');
         });
 
         Schema::table('users', function (Blueprint $table) {
-            $table->dropConstrainedForeignId('role_id');
-            $table->dropConstrainedForeignId('company_id');
+            $table->dropUnique('uq_user_email_company');
+            $table->unique('email');
             $table->dropColumn([
                 'avatar',
                 'status',
