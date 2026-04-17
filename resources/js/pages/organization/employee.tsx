@@ -42,7 +42,8 @@ type EmployeeDetails = {
     place_of_birth?: string | null;
     gender_id?: number | null;
     religion_id?: number | null;
-    nationality?: string | null;
+    nationality_id?: number | null;
+    nationality_ref?: { id: number; name: string | null; code?: string | null } | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     spouse_birthdate?: string | null;
@@ -193,7 +194,7 @@ export default function EmployeeDetails({
         place_of_birth: employee.place_of_birth ?? '',
         gender_id: employee.gender_id ?? '',
         religion_id: employee.religion_id ?? '',
-        nationality: employee.nationality ?? '',
+        nationality_id: employee.nationality_id ?? '',
         marital_status: employee.marital_status ?? '',
         spouse_name: employee.spouse_name ?? '',
         spouse_birthdate: employee.spouse_birthdate ?? '',
@@ -244,7 +245,7 @@ export default function EmployeeDetails({
             place_of_birth: form.data.place_of_birth.trim() || null,
             gender_id: form.data.gender_id || null,
             religion_id: form.data.religion_id || null,
-            nationality: form.data.nationality.trim() || null,
+            nationality_id: form.data.nationality_id || null,
             marital_status: form.data.marital_status || null,
             spouse_name: form.data.spouse_name.trim() || null,
             spouse_birthdate: form.data.spouse_birthdate || null,
@@ -501,7 +502,7 @@ export default function EmployeeDetails({
                         place_of_birth: employee.place_of_birth,
                         gender_id: employee.gender_id,
                         religion_id: employee.religion_id,
-                        nationality: employee.nationality,
+                        nationality_id: employee.nationality_id,
                         marital_status: employee.marital_status,
                         spouse_name: employee.spouse_name,
                         spouse_birthdate: employee.spouse_birthdate,

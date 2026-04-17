@@ -64,7 +64,16 @@ class EmployeeFactory extends Factory
             'last_name' => $this->faker->lastName(),
             'date_of_birth' => $this->faker->optional()->date(),
             'place_of_birth' => $this->faker->optional()->city(),
-            'nationality' => $this->faker->optional()->country(),
+            'nationality_id' => function () {
+                $code = strtoupper((string) $this->faker->unique()->lexify('??'));
+
+                return Country::query()->create([
+                    'code' => $code,
+                    'name' => "Test {$code}",
+                    'dial_code' => '+999',
+                    'is_active' => true,
+                ])->id;
+            },
             'marital_status' => $this->faker->optional()->randomElement(['single', 'married', 'divorced', 'widowed']),
             'spouse_name' => $this->faker->optional()->name(),
             'spouse_birthdate' => $this->faker->optional()->date(),

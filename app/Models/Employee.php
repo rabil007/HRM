@@ -119,6 +119,11 @@ class Employee extends Model
         return $this->belongsTo(Gender::class, 'gender_id');
     }
 
+    public function nationalityRef(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'nationality_id');
+    }
+
     public function bank(): BelongsTo
     {
         return $this->belongsTo(Bank::class);

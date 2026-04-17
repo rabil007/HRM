@@ -60,7 +60,7 @@ class UpdateEmployeeRequest extends FormRequest
             'place_of_birth' => ['nullable', 'string', 'max:150'],
             'gender_id' => ['nullable', 'integer', Rule::exists('genders', 'id')],
             'religion_id' => ['nullable', 'integer', Rule::exists('religions', 'id')],
-            'nationality' => ['nullable', 'string', 'max:100'],
+            'nationality_id' => ['nullable', 'integer', Rule::exists('countries', 'id')],
             'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
             'spouse_name' => ['nullable', 'string', 'max:200'],
             'spouse_birthdate' => ['nullable', 'date'],

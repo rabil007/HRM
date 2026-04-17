@@ -1,11 +1,11 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, ChevronLeft, ChevronRight, UserPlus, Save, RotateCcw } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Main } from '@/components/layout/main';
+import { DocumentRegistry } from '@/components/onboarding/document-registry';
+import { FieldRenderer } from '@/components/onboarding/field-renderer';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/lib/toast';
-import { FieldRenderer } from '@/components/onboarding/field-renderer';
-import { DocumentRegistry } from '@/components/onboarding/document-registry';
 
 type Option = { id: number | string; name: string; title?: string };
 
@@ -68,6 +68,7 @@ export default function EmployeeCreate({ template, options }: Props) {
                 };
             });
         }
+
         return [];
     };
 
@@ -75,19 +76,6 @@ export default function EmployeeCreate({ template, options }: Props) {
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
     const [showMissingIndicators, setShowMissingIndicators] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
-    const [isRestored, setIsRestored] = useState(false);
-
-    const [docUploads, setDocUploads] = useState<
-        Record<
-            string,
-            {
-                files: File[];
-                issue_date?: string;
-                expiry_date?: string;
-                document_number?: string;
-            }
-        >
-    >({});
 
     const form = useForm<any>({
         employee_no: '',
@@ -108,7 +96,7 @@ export default function EmployeeCreate({ template, options }: Props) {
         place_of_birth: '',
         gender_id: '',
         religion_id: '',
-        nationality: '',
+        nationality_id: '',
         marital_status: '',
         spouse_name: '',
         spouse_birthdate: '',
@@ -141,25 +129,69 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     // --- AUTO-SAVE LOGIC ---
     const STORAGE_KEY = `onboarding_draft_${template.id}`;
+    const isClearingRef = useRef(false);
+
+    const restoredDraft = (() => {
+        if (typeof window === 'undefined') {
+            return null;
+        }
+
+        const saved = window.localStorage.getItem(STORAGE_KEY);
+
+        if (!saved) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(saved);
+        } catch {
+            return null;
+        }
+    })();
+
+    const [isRestored] = useState(() => !!restoredDraft);
+
+    const [docUploads, setDocUploads] = useState<
+        Record<
+            string,
+            {
+                files: File[];
+                issue_date?: string;
+                expiry_date?: string;
+                document_number?: string;
+            }
+        >
+    >(() => {
+        const meta = restoredDraft?.docMetadata;
+
+        if (!meta || typeof meta !== 'object') {
+            return {};
+        }
+
+        try {
+            return Object.fromEntries(
+                Object.entries(meta).map(([k, v]: any) => [k, { ...v, files: [] }]),
+            );
+        } catch {
+            return {};
+        }
+    });
 
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY);
-        if (saved) {
-            try {
-                const draft = JSON.parse(saved);
-                form.setData(draft.formData);
-                setDocUploads(Object.fromEntries(
-                    Object.entries(draft.docMetadata).map(([k, v]: any) => [k, { ...v, files: [] }])
-                ));
-                setIsRestored(true);
-                toast.info('Draft restored from local session.');
-            } catch (e) {
-                console.error('Failed to restore draft', e);
-            }
+        if (restoredDraft?.formData) {
+            form.setData(restoredDraft.formData);
+        }
+
+        if (restoredDraft?.formData || restoredDraft?.docMetadata) {
+            toast.info('Draft restored from local session.');
         }
     }, []);
 
     useEffect(() => {
+        if (isClearingRef.current) {
+return;
+}
+        
         const docMetadata = Object.fromEntries(
             Object.entries(docUploads).map(([k, v]) => [k, { 
                 issue_date: v.issue_date, 
@@ -175,6 +207,7 @@ export default function EmployeeCreate({ template, options }: Props) {
     }, [form.data, docUploads]);
 
     const clearDraft = () => {
+        isClearingRef.current = true;
         localStorage.removeItem(STORAGE_KEY);
         window.location.reload();
     };
@@ -182,6 +215,7 @@ export default function EmployeeCreate({ template, options }: Props) {
     // --- HELPERS ---
     const labelFromKey = (fieldKey: string) => {
         const labelKey = fieldKey.endsWith('_id') ? fieldKey.slice(0, -3) : fieldKey;
+
         return labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
     };
 
@@ -192,40 +226,58 @@ export default function EmployeeCreate({ template, options }: Props) {
         const allFields = [...(stage.employee_fields ?? []), ...(stage.bank_account_fields ?? []), ...(stage.contract_fields ?? [])];
 
         for (const f of allFields) {
-            if (!f?.required) continue;
+            if (!f?.required) {
+continue;
+}
+
             const key = String(f.key);
+
             if (key === 'image') {
-                if (!form.data.image) missingFields.push('Image');
+                if (!form.data.image) {
+missingFields.push('Image');
+}
+
                 continue;
             }
-            if (isEmpty(form.data[key])) missingFields.push(labelFromKey(key));
+
+            if (isEmpty(form.data[key])) {
+missingFields.push(labelFromKey(key));
+}
         }
 
         for (const d of (stage.documents ?? [])) {
             const uploaded = docUploads[d.type]?.files?.length ?? 0;
+
             if (uploaded < Number(d.min ?? 0)) {
                 const dt = options.document_types.find((x) => String(x.id) === String(d.type) || x.slug === d.type);
                 missingFields.push(`${dt?.title ?? 'Document'} (${uploaded}/${d.min})`);
             }
         }
+
         return missingFields;
     };
 
     const missingByStageIdx = stages.map((s) => getStageMissing(s));
 
     const nextStage = () => {
+        toast.dismiss();
+
         if (currentStageIdx < stages.length - 1) {
             const missing = missingByStageIdx[currentStageIdx] ?? [];
+
             if (missing.length > 0) {
                 setShowMissingIndicators(true);
                 toast.error(`Missing required fields: ${missing.slice(0, 5).join(', ')}`);
             }
+
             setCurrentStageIdx(currentStageIdx + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     };
 
     const prevStage = () => {
+        toast.dismiss();
+
         if (currentStageIdx > 0) {
             setCurrentStageIdx(currentStageIdx - 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -234,10 +286,13 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+        toast.dismiss();
         const firstMissingIdx = missingByStageIdx.findIndex((m) => (m?.length ?? 0) > 0);
+
         if (firstMissingIdx !== -1) {
             setShowMissingIndicators(true);
             toast.error(`Missing required fields in ${stages[firstMissingIdx].label}`);
+
             return;
         }
 

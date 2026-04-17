@@ -79,7 +79,8 @@ export type Employee = {
     gender_ref?: { id: number; name: string | null } | null;
     religion_id?: number | null;
     religion_ref?: { id: number; name: string | null } | null;
-    nationality?: string | null;
+    nationality_id?: number | null;
+    nationality_ref?: { id: number; name: string | null; code?: string | null } | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     spouse_birthdate?: string | null;
@@ -125,7 +126,7 @@ export type EmployeeFormData = {
     place_of_birth: string;
     gender_id: number | '';
     religion_id: number | '';
-    nationality: string;
+    nationality_id: number | '';
     marital_status: 'single' | 'married' | 'divorced' | 'widowed' | '';
     spouse_name: string;
     spouse_birthdate: string;

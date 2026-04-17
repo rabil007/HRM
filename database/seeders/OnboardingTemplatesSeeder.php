@@ -52,7 +52,7 @@ class OnboardingTemplatesSeeder extends Seeder
                             'last_name',
                             'work_email',
                             'phone',
-                            'nationality',
+                            'nationality_id',
                             'branch_id',
                             'department_id',
                             'position_id',

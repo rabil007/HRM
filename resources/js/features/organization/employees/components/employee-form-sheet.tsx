@@ -343,22 +343,22 @@ export function EmployeeFormSheet({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="nationality">Nationality</Label>
+                            <Label htmlFor="nationality_id">Nationality</Label>
                             <select
-                                id="nationality"
-                                value={form.data.nationality}
-                                onChange={(e) => form.setData('nationality', e.target.value)}
+                                id="nationality_id"
+                                value={form.data.nationality_id === '' ? '' : String(form.data.nationality_id)}
+                                onChange={(e) => form.setData('nationality_id', e.target.value ? Number(e.target.value) : '')}
                                 className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
                             >
                                 <option value="">—</option>
                                 {countries.map((c) => (
-                                    <option key={c.id} value={c.name}>
+                                    <option key={c.id} value={String(c.id)}>
                                         {c.name}
                                     </option>
                                 ))}
                             </select>
-                            {form.errors.nationality ? (
-                                <div className="text-xs text-destructive">{form.errors.nationality}</div>
+                            {form.errors.nationality_id ? (
+                                <div className="text-xs text-destructive">{form.errors.nationality_id}</div>
                             ) : null}
                         </div>
 

@@ -1,7 +1,7 @@
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { UserPlus } from 'lucide-react';
 import React from 'react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 type Option = { id: number | string; name: string; title?: string };
 
@@ -41,6 +41,7 @@ export function FieldRenderer({
     
     const labelFromKey = (key: string) => {
         const labelKey = key.endsWith('_id') ? key.slice(0, -3) : key;
+
         return labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
     };
 
@@ -73,6 +74,7 @@ export function FieldRenderer({
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] ?? null;
                                     onChange(file);
+
                                     if (setImagePreview) {
                                         setImagePreview(file ? URL.createObjectURL(file) : null);
                                     }
@@ -112,23 +114,41 @@ export function FieldRenderer({
         </div>
     );
 
-    if (fieldKey === 'branch_id') return renderSelect(options.branches, 'Select Branch');
-    if (fieldKey === 'department_id') return renderSelect(options.departments, 'Select Department');
+    if (fieldKey === 'branch_id') {
+        return renderSelect(options.branches, 'Select Branch');
+    }
+
+    if (fieldKey === 'department_id') {
+        return renderSelect(options.departments, 'Select Department');
+    }
+
     if (fieldKey === 'position_id') {
         const filteredPositions = options.positions.filter(
             (p) => !formDepartmentId || String((p as any).department_id) === String(formDepartmentId)
         );
+
         return renderSelect(filteredPositions, 'Select Position');
     }
+
     if (fieldKey === 'manager_id') {
         const managers = options.managers.map(m => ({ ...m, name: `${(m as any).first_name} ${(m as any).last_name}` }));
+
         return renderSelect(managers, 'Select Manager');
     }
-    if (fieldKey === 'gender_id') return renderSelect(options.genders, 'Select Gender');
-    if (fieldKey === 'religion_id') return renderSelect(options.religions, 'Select Religion');
-    if (fieldKey === 'bank_id') return renderSelect(options.banks, 'Select Bank');
+
+    if (fieldKey === 'gender_id') {
+        return renderSelect(options.genders, 'Select Gender');
+    }
+
+    if (fieldKey === 'religion_id') {
+        return renderSelect(options.religions, 'Select Religion');
+    }
+
+    if (fieldKey === 'bank_id') {
+        return renderSelect(options.banks, 'Select Bank');
+    }
     
-    if (fieldKey === 'nationality') {
+    if (fieldKey === 'nationality_id') {
         return (
             <div className="space-y-1.5">
                 <Label htmlFor={id} className="text-xs font-medium text-foreground">
@@ -143,7 +163,9 @@ export function FieldRenderer({
                 >
                     <option value="">Select Nationality</option>
                     {options.countries.map((o) => (
-                        <option key={o.id} value={o.name}>{o.name}</option>
+                        <option key={o.id} value={String(o.id)}>
+                            {o.name}
+                        </option>
                     ))}
                 </select>
                 {error && <p className="text-[10px] text-destructive">{error}</p>}

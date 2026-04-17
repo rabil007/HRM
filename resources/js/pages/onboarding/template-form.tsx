@@ -65,7 +65,7 @@ export const profileFieldOptions = [
     { key: 'date_of_birth', label: 'Date of Birth' },
     { key: 'place_of_birth', label: 'Place of Birth' },
     { key: 'gender_id', label: 'Gender' },
-    { key: 'nationality', label: 'Nationality' },
+    { key: 'nationality_id', label: 'Nationality' },
     { key: 'religion_id', label: 'Religion' },
     { key: 'marital_status', label: 'Marital Status' },
     { key: 'spouse_name', label: 'Spouse Name' },
@@ -138,7 +138,7 @@ return { key: f.key, required: !!f.required };
                 id: generateId(), 
                 key: 'profile_info', 
                 label: 'Profile Information', 
-                employee_fields: mapFields(['employee_no', 'first_name', 'last_name', 'work_email', 'phone', 'nationality']),
+                employee_fields: mapFields(['employee_no', 'first_name', 'last_name', 'work_email', 'phone', 'nationality_id']),
                 bank_account_fields: [],
                 contract_fields: [],
                 documents: []
