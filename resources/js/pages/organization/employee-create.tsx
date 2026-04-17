@@ -88,6 +88,7 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     const stages = normalizeStages(template.tasks);
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
+    const [showMissingIndicators, setShowMissingIndicators] = useState(false);
     const activeStage = stages[currentStageIdx] ?? stages[0] ?? {
         key: 'draft',
         label: 'Draft',
@@ -165,8 +166,75 @@ export default function EmployeeCreate({ template, options }: Props) {
     const isFirstStage = currentStageIdx === 0;
     const isLastStage = currentStageIdx === stages.length - 1;
 
+    const labelFromKey = (fieldKey: string) => {
+        const labelKey = fieldKey.endsWith('_id') ? fieldKey.slice(0, -3) : fieldKey;
+
+        return labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+    };
+
+    const isEmpty = (value: unknown) => value === null || value === undefined || String(value).trim() === '';
+
+    const getStageMissing = (stage: any) => {
+        const missingFields: string[] = [];
+
+        const allFields: Array<{ key: string; required: boolean }> = [
+            ...(Array.isArray(stage.employee_fields) ? stage.employee_fields : []),
+            ...(Array.isArray(stage.bank_account_fields) ? stage.bank_account_fields : []),
+            ...(Array.isArray(stage.contract_fields) ? stage.contract_fields : []),
+        ];
+
+        for (const f of allFields) {
+            if (!f?.required) {
+                continue;
+            }
+
+            const key = String(f.key);
+
+            if (key === 'image') {
+                if (!form.data.image) {
+                    missingFields.push('Image');
+                }
+
+                continue;
+            }
+
+            if (isEmpty(form.data[key])) {
+                missingFields.push(labelFromKey(key));
+            }
+        }
+
+        const docs: Array<any> = Array.isArray(stage.documents) ? stage.documents : [];
+
+        for (const d of docs) {
+            const min = Number(d?.min ?? 0);
+            const type = String(d?.type ?? '');
+
+            if (!type || min <= 0) {
+                continue;
+            }
+
+            const uploaded = docUploads[type]?.files?.length ?? 0;
+
+            if (uploaded < min) {
+                const dt = options.document_types.find((x) => String(x.id) === type);
+                missingFields.push(`${dt?.title ?? 'Document'} (${uploaded}/${min})`);
+            }
+        }
+
+        return missingFields;
+    };
+
+    const missingByStageIdx = stages.map((s) => getStageMissing(s));
+
     const nextStage = () => {
         if (!isLastStage) {
+            const missing = missingByStageIdx[currentStageIdx] ?? [];
+
+            if (missing.length > 0) {
+                setShowMissingIndicators(true);
+                toast.error(`Missing required fields: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`);
+            }
+
             setDocSearch('');
             setCurrentStageIdx(currentStageIdx + 1);
             window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -183,6 +251,16 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        const firstMissingIdx = missingByStageIdx.findIndex((m) => (m?.length ?? 0) > 0);
+
+        if (firstMissingIdx !== -1) {
+            setShowMissingIndicators(true);
+
+            const stageLabel = stages[firstMissingIdx]?.label ?? `Stage ${firstMissingIdx + 1}`;
+            const missing = missingByStageIdx[firstMissingIdx] ?? [];
+            toast.error(`Missing required fields in ${stageLabel}: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? '…' : ''}`);
+        }
 
         const documents = Object.entries(docUploads)
             .filter(([, v]) => (v.files?.length ?? 0) > 0)
@@ -203,12 +281,15 @@ export default function EmployeeCreate({ template, options }: Props) {
             onSuccess: () => {
                 toast.success('Employee created and onboarding started.');
             },
+            onError: () => {
+                setShowMissingIndicators(true);
+                toast.error('Please review the missing or invalid fields.');
+            },
         });
     };
 
     const renderField = (fieldKey: string, isRequired: boolean) => {
-        const labelKey = fieldKey.endsWith('_id') ? fieldKey.slice(0, -3) : fieldKey;
-        const label = labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+        const label = labelFromKey(fieldKey);
         const id = fieldKey;
         const selectClass =
             'w-full rounded-lg border border-input bg-background h-10 px-3 text-sm outline-none focus:ring-1 focus:ring-primary transition-all';
@@ -625,6 +706,8 @@ export default function EmployeeCreate({ template, options }: Props) {
                                 const isCurrent = idx === currentStageIdx;
                                 const isPassed = idx < currentStageIdx;
                                 const canGo = isPassed;
+                                const missingCount = showMissingIndicators ? (missingByStageIdx[idx]?.length ?? 0) : 0;
+                                const hasMissing = missingCount > 0;
 
                                 return (
                                     <button
@@ -639,12 +722,18 @@ export default function EmployeeCreate({ template, options }: Props) {
                                         } ${!canGo && !isCurrent ? 'opacity-50 cursor-not-allowed' : ''}`}
                                     >
                                         <div className={`h-5 w-5 rounded-full border flex items-center justify-center text-[10px] font-bold ${
-                                            isPassed ? 'bg-primary border-primary text-primary-foreground' : 
+                                            isPassed && !hasMissing ? 'bg-primary border-primary text-primary-foreground' :
+                                            hasMissing ? 'border-destructive text-destructive' :
                                             isCurrent ? 'border-primary text-primary' : 'border-muted-foreground'
                                         }`}>
-                                            {isPassed ? <Check className="h-3 w-3" /> : idx + 1}
+                                            {isPassed && !hasMissing ? <Check className="h-3 w-3" /> : hasMissing ? '!' : idx + 1}
                                         </div>
-                                        <span className="text-xs font-medium truncate">{s.label}</span>
+                                        <span className="text-xs font-medium truncate flex-1">{s.label}</span>
+                                        {missingCount > 0 && (
+                                            <span className="text-[10px] font-bold tabular-nums text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-1.5 py-0.5">
+                                                {missingCount}
+                                            </span>
+                                        )}
                                     </button>
                                 );
                             })}
