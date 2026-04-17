@@ -415,6 +415,31 @@ export default function EmployeeCreate({ template, options }: Props) {
             );
         }
 
+        if (fieldKey === 'nationality') {
+            return (
+                <div key={id} className="space-y-1.5">
+                    <Label htmlFor={id} className="text-xs font-medium text-foreground">
+                        {label} {isRequired && <span className="text-destructive">*</span>}
+                    </Label>
+                    <select
+                        id={id}
+                        value={String(form.data[fieldKey] ?? '')}
+                        onChange={(e) => form.setData(fieldKey as any, e.target.value)}
+                        className={selectClass}
+                        required={isRequired}
+                    >
+                        <option value="">Select Nationality</option>
+                        {options.countries.map((o) => (
+                            <option key={o.id} value={o.name}>
+                                {o.name}
+                            </option>
+                        ))}
+                    </select>
+                    {form.errors[fieldKey] && <p className="text-[10px] text-destructive">{form.errors[fieldKey]}</p>}
+                </div>
+            );
+        }
+
         if (fieldKey === 'bank_id') {
             return (
                 <div key={id} className="space-y-1.5">
@@ -630,11 +655,11 @@ export default function EmployeeCreate({ template, options }: Props) {
                             <div className="w-full space-y-8 pb-20">
                                 <div className="space-y-1">
                                     <h2 className="text-2xl font-bold tracking-tight text-foreground">
-                                        {activeStage.label}
-                                    </h2>
+                                            {activeStage.label}
+                                        </h2>
                                     <p className="text-xs text-muted-foreground">
                                         Please provide the following details for this stage.
-                                    </p>
+                                        </p>
                                 </div>
 
                                 <form onSubmit={submit} className="space-y-8">
@@ -743,12 +768,12 @@ export default function EmployeeCreate({ template, options }: Props) {
                                                                             <td className="px-4 py-4">
                                                                                 <span className="text-sm font-bold text-foreground block">
                                                                                     {docTitle}
-                                                                                </span>
+                                                                </span>
                                                                             </td>
                                                                             <td className="px-4 py-4">
                                                                                 <span className="text-[10px] font-medium bg-muted border px-2 py-0.5 rounded-full inline-flex items-center">
                                                                                     Min {d.min}
-                                                                                </span>
+                                                                </span>
                                                                             </td>
                                                                             <td className="px-4 py-4">
                                                                                 <div className="flex flex-col gap-1">
@@ -812,7 +837,7 @@ export default function EmployeeCreate({ template, options }: Props) {
                                                                                                 }}
                                                                                                 className="h-8 text-[10px] px-2"
                                                                                             />
-                                                                                        </div>
+                                                            </div>
                                                                                     )}
                                                                                     {d.ask_document_number && (
                                                                                         <div className="flex flex-col gap-1 w-32">
@@ -829,12 +854,12 @@ export default function EmployeeCreate({ template, options }: Props) {
                                                                                                 className="h-8 text-[10px] px-2"
                                                                                                 placeholder="Doc #"
                                                                                             />
-                                                                                        </div>
+                                                            </div>
                                                                                     )}
                                                                                     {!d.ask_issue_date && !d.ask_expiry_date && !d.ask_document_number && (
                                                                                         <span className="text-[10px] text-muted-foreground/40 italic">No additional details</span>
                                                                                     )}
-                                                                                </div>
+                                                        </div>
                                                                             </td>
                                                                         </tr>
                                                                     );
@@ -867,17 +892,17 @@ export default function EmployeeCreate({ template, options }: Props) {
                                     <Button type="button" onClick={nextStage} className="h-9 text-xs px-6">
                                         Next
                                         <ChevronRight className="ml-2 h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        onClick={submit}
-                                        disabled={form.processing}
+                            </Button>
+                        ) : (
+                            <Button
+                                type="button"
+                                onClick={submit}
+                                disabled={form.processing}
                                         className="h-9 text-xs px-6"
-                                    >
+                            >
                                         Complete Onboarding
-                                    </Button>
-                                )}
+                            </Button>
+                        )}
                             </div>
                         </div>
                     </div>

@@ -13,8 +13,8 @@ import {
     Settings as SettingsIcon,
     Database
 } from 'lucide-react';
-import AppLayout from '@/layouts/app-layout';
 import { Button } from '@/components/ui/button';
+import AppLayout from '@/layouts/app-layout';
 
 const SETTINGS_GROUPS = [
     {
@@ -160,6 +160,6 @@ export default function SettingsIndex() {
                     </div>
                 </div>
             </div>
-        </Main>
+        </AppLayout>
     );
 }
