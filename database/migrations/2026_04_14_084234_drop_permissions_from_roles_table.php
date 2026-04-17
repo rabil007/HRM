@@ -13,8 +13,12 @@ return new class extends Migration
     public function up(): void
     {
         try {
-            DB::statement('DROP INDEX uq_role_company');
+            DB::statement('ALTER TABLE roles DROP INDEX uq_role_company');
         } catch (Throwable) {
+        }
+
+        if (! Schema::hasTable('roles')) {
+            return;
         }
 
         Schema::table('roles', function (Blueprint $table) {
