@@ -34,6 +34,39 @@ This file documents the **current, preferred patterns** in this repo so future c
   - Companies: index/show/store/update/destroy + export
   - Branches: index/show/store/update/destroy + export
 
+## Employees + onboarding templates (correct flow)
+
+### Onboarding templates
+
+- **Template builder page**: `/onboarding/templates/*` (controller: `OnboardingTemplateController`)
+- Template `tasks` define stages with:
+  - `employee_fields`
+  - `bank_account_fields`
+  - `contract_fields`
+  - `documents`
+- **Bank fields (employee bank accounts)**:
+  - Use keys: `bank_id`, `iban`, `account_name`
+  - Do **not** include system-managed flags like `is_primary` (backend controls primary account)
+- **Contract fields (employee contracts)**:
+  - Use keys: `contract_type`, `start_date`, `end_date`, `probation_end_date`, `labor_contract_id`
+  - Salary keys are supported via `employee_contracts`: `basic_salary`, `housing_allowance`, `transport_allowance`, `other_allowances`
+  - `status` is backend-managed (defaults to `active`)
+- **Documents** are defined by type + min uploads + optional metadata flags:
+  - `ask_issue_date`, `ask_expiry_date`, `ask_document_number`
+
+### Creating an employee (onboarding pipeline)
+
+- **Create page**: `/organization/employees/create` (Inertia page: `resources/js/pages/organization/employee-create.tsx`)
+- The page:
+  - loads the default onboarding template from the backend
+  - renders inputs dynamically via `FieldRenderer` for `employee_fields`, `bank_account_fields`, `contract_fields`
+  - uploads required docs via `DocumentRegistry`
+- **Backend persistence**: `app/Http/Controllers/Organization/EmployeeController@store`
+  - `Employee` row is created from validated profile/assignment fields
+  - `EmployeeContract` row is created from contract + salary fields
+  - `EmployeeBankAccount` primary row is created from `bank_id` + `iban` + `account_name` when any of them is present
+  - `employee_documents` are inserted from uploaded files + optional metadata
+
 ## Inertia shared props
 
 - Sidebar company switcher uses shared prop:
