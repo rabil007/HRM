@@ -20,7 +20,7 @@ jobs:
       - name: Deploy to server
         run: |
           ssh -i ~/.ssh/id_ed25519 -p 65002 u769441461@82.198.227.207 << 'EOF'
-            cd ~/public_html/hrm
+            cd ~/domains/overseas-ms.com/public_html/hrm
 
             git pull origin main
 
