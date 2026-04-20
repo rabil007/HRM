@@ -307,14 +307,14 @@ missingFields.push(labelFromKey(key));
                 document_number: v.document_number || null,
             }));
 
-        form.transform((data) => ({ ...data, documents }))
-            .post('/organization/employees', {
-                onSuccess: () => {
-                    localStorage.removeItem(STORAGE_KEY);
-                    toast.success('Employee created and onboarding started.');
-                },
-                onError: () => setShowMissingIndicators(true)
-            });
+        form.transform((data) => ({ ...data, documents }));
+        form.post('/organization/employees', {
+            onSuccess: () => {
+                localStorage.removeItem(STORAGE_KEY);
+                toast.success('Employee created and onboarding started.');
+            },
+            onError: () => setShowMissingIndicators(true),
+        });
     };
 
     return (
