@@ -19,7 +19,7 @@ import {
 type TeamSwitcherProps = {
     teams: {
         id?: number;
-        name: string;
+        name?: string | null;
     }[];
 };
 
@@ -81,7 +81,7 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
                         </DropdownMenuLabel>
                         {teams.map((team, index) => (
                             <DropdownMenuItem
-                                key={team.name}
+                                key={team.id ?? team.name ?? index}
                                 onClick={() => {
                                     setActiveTeam(team);
 
@@ -96,9 +96,9 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
                                 className="gap-2 p-2"
                             >
                                 <div className="flex size-6 items-center justify-center rounded-sm border">
-                                    <span className="text-xs font-semibold">{team.name.slice(0, 1)}</span>
+                                    <span className="text-xs font-semibold">{(team.name ?? 'C').slice(0, 1)}</span>
                                 </div>
-                                {team.name}
+                                {team.name ?? 'Company'}
                                 <DropdownMenuShortcut>
                                     ⌘{index + 1}
                                 </DropdownMenuShortcut>

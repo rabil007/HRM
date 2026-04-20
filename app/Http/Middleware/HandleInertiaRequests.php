@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Models\Company;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -37,7 +38,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $currentCompanyId = $request->attributes->get('current_company_id');
+        $currentCompanyId = $request->attributes->get('current_company_id') ?? $request->session()->get('current_company_id');
         $user = $request->user();
 
         $companies = [];
@@ -45,19 +46,40 @@ class HandleInertiaRequests extends Middleware
         $roleNames = [];
 
         if ($user) {
-            $companies = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name'])->all();
+            $companiesCacheKey = "inertia:shared:{$user->id}:companies";
+            $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($user) {
+                $companies = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name'])->all();
 
-            if (empty($companies) && $user->company_id) {
-                $fallback = Company::query()->whereKey($user->company_id)->get(['id', 'name'])->all();
-                $companies = $fallback;
+                if (empty($companies) && $user->company_id) {
+                    return Company::query()->whereKey($user->company_id)->get(['id', 'name'])->all();
+                }
+
+                return $companies;
+            });
+
+            if (! $currentCompanyId) {
+                $currentCompanyId = $user->company_id ?: ($companies[0]->id ?? null);
             }
 
-            if ($currentCompanyId) {
-                app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
-            }
+            $companyKeyPart = $currentCompanyId ? (int) $currentCompanyId : 'none';
+            $permissionsCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:permissions";
+            $rolesCacheKey = "inertia:shared:{$user->id}:company:{$companyKeyPart}:roles";
 
-            $permissions = $user->getAllPermissions()->pluck('name')->all();
-            $roleNames = $user->getRoleNames()->all();
+            $permissions = Cache::remember($permissionsCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
+                if ($currentCompanyId) {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+                }
+
+                return $user->getAllPermissions()->pluck('name')->all();
+            });
+
+            $roleNames = Cache::remember($rolesCacheKey, now()->addSeconds(60), function () use ($currentCompanyId, $user) {
+                if ($currentCompanyId) {
+                    app(PermissionRegistrar::class)->setPermissionsTeamId((int) $currentCompanyId);
+                }
+
+                return $user->getRoleNames()->all();
+            });
         }
 
         return [
