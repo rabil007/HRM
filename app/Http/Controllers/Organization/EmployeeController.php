@@ -340,6 +340,56 @@ class EmployeeController extends Controller
             'currentContract',
         ]);
 
+        $contract = $employee->currentContract ? [
+            'id' => $employee->currentContract->id,
+            'contract_type' => $employee->currentContract->contract_type,
+            'start_date' => $employee->currentContract->start_date,
+            'end_date' => $employee->currentContract->end_date,
+            'probation_end_date' => $employee->currentContract->probation_end_date,
+            'labor_contract_id' => $employee->currentContract->labor_contract_id,
+            'status' => $employee->currentContract->status,
+            'basic_salary' => $employee->currentContract->basic_salary,
+            'housing_allowance' => $employee->currentContract->housing_allowance,
+            'transport_allowance' => $employee->currentContract->transport_allowance,
+            'other_allowances' => $employee->currentContract->other_allowances,
+            'created_at' => $employee->currentContract->created_at,
+            'updated_at' => $employee->currentContract->updated_at,
+        ] : null;
+
+        $documents = \DB::table('employee_documents')
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->orderByDesc('id')
+            ->get([
+                'id',
+                'title',
+                'type',
+                'document_type',
+                'file_path',
+                'issue_date',
+                'expiry_date',
+                'document_number',
+                'notes',
+                'status',
+                'uploaded_by',
+                'created_at',
+            ])
+            ->map(fn ($doc) => [
+                'id' => (int) $doc->id,
+                'title' => $doc->title,
+                'type' => $doc->type,
+                'document_type' => $doc->document_type,
+                'file_path' => $doc->file_path,
+                'issue_date' => $doc->issue_date,
+                'expiry_date' => $doc->expiry_date,
+                'document_number' => $doc->document_number,
+                'notes' => $doc->notes,
+                'status' => $doc->status,
+                'uploaded_by' => $doc->uploaded_by,
+                'created_at' => $doc->created_at,
+            ])
+            ->all();
+
         $recentActivity = [];
         $request = request();
         if ($request->user()?->can('audit.view')) {
@@ -449,6 +499,8 @@ class EmployeeController extends Controller
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
             ],
+            'contract' => $contract,
+            'documents' => $documents,
             'branches' => $branches,
             'departments' => $departments,
             'positions' => $positions,
@@ -780,7 +832,7 @@ class EmployeeController extends Controller
         }
 
         return redirect()
-            ->route('organization.employees')
+            ->route('organization.employees.show', $employee)
             ->with('success', 'Employee updated successfully.');
     }
 

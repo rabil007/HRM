@@ -1,23 +1,15 @@
-import { Head } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import {
     Briefcase,
-    ChevronLeft,
-    ChevronRight,
-    Clock,
-    FileText,
     Link as LinkIcon,
     Mail,
     Phone,
-    Plus,
-    Receipt,
-    Settings,
-    Target,
 } from 'lucide-react';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type {
     BankOption,
@@ -30,7 +22,7 @@ import type {
     ReligionOption,
     UserOption,
 } from '@/features/organization/employees/types';
-import { cn } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 
 type EmployeeDetails = {
     id: number;
@@ -101,8 +93,41 @@ type ActivityItem = {
     created_at: string;
 };
 
+type EmployeeContractDetails = {
+    id: number;
+    contract_type: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    probation_end_date: string | null;
+    labor_contract_id: string | null;
+    status: string | null;
+    basic_salary: number | null;
+    housing_allowance: number | null;
+    transport_allowance: number | null;
+    other_allowances: number | null;
+    created_at: string;
+    updated_at: string;
+};
+
+type EmployeeDocumentItem = {
+    id: number;
+    title: string | null;
+    type: string | null;
+    document_type: string | null;
+    file_path: string;
+    issue_date: string | null;
+    expiry_date: string | null;
+    document_number: string | null;
+    notes: string | null;
+    status: string | null;
+    uploaded_by: number | null;
+    created_at: string;
+};
+
 export default function EmployeeDetails({
     employee,
+    contract,
+    documents,
     branches,
     departments,
     positions,
@@ -115,6 +140,8 @@ export default function EmployeeDetails({
     recent_activity,
 }: {
     employee: EmployeeDetails;
+    contract: EmployeeContractDetails | null;
+    documents: EmployeeDocumentItem[];
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
@@ -132,25 +159,108 @@ export default function EmployeeDetails({
     void positions;
     void managers;
     void users;
-    void countries;
-    void religions;
-    void genders;
     void banks;
     void recent_activity;
 
+    const [activeField, setActiveField] = useState<string | null>(null);
+
+    const initialPersonal = useMemo(
+        () => ({
+            employee_no: employee.employee_no ?? '',
+            first_name: employee.first_name ?? '',
+            last_name: employee.last_name ?? '',
+            personal_email: employee.personal_email ?? employee.work_email ?? '',
+            work_email: employee.work_email ?? '',
+            phone: employee.phone ?? '',
+            phone_home_country: employee.phone_home_country ?? '',
+            cv_source: employee.cv_source ?? '',
+            date_of_birth: employee.date_of_birth ?? '',
+            place_of_birth: employee.place_of_birth ?? '',
+            gender_id: employee.gender_id ? String(employee.gender_id) : '',
+            religion_id: employee.religion_id ? String(employee.religion_id) : '',
+            nationality_id: employee.nationality_id ? String(employee.nationality_id) : '',
+            marital_status: employee.marital_status ?? '',
+        }),
+        [
+            employee.employee_no,
+            employee.first_name,
+            employee.last_name,
+            employee.personal_email,
+            employee.work_email,
+            employee.phone,
+            employee.phone_home_country,
+            employee.cv_source,
+            employee.date_of_birth,
+            employee.place_of_birth,
+            employee.gender_id,
+            employee.religion_id,
+            employee.nationality_id,
+            employee.marital_status,
+        ],
+    );
+
+    const initialContract = useMemo(
+        () => ({
+            contract_type: contract?.contract_type ?? employee.contract_type ?? 'unlimited',
+            start_date: contract?.start_date ?? employee.start_date ?? '',
+            end_date: contract?.end_date ?? employee.end_date ?? '',
+            probation_end_date: contract?.probation_end_date ?? employee.probation_end_date ?? '',
+            labor_contract_id: contract?.labor_contract_id ?? employee.labor_contract_id ?? '',
+            basic_salary: contract?.basic_salary === null || contract?.basic_salary === undefined ? '' : String(contract.basic_salary),
+            housing_allowance:
+                contract?.housing_allowance === null || contract?.housing_allowance === undefined
+                    ? ''
+                    : String(contract.housing_allowance),
+            transport_allowance:
+                contract?.transport_allowance === null || contract?.transport_allowance === undefined
+                    ? ''
+                    : String(contract.transport_allowance),
+            other_allowances:
+                contract?.other_allowances === null || contract?.other_allowances === undefined
+                    ? ''
+                    : String(contract.other_allowances),
+        }),
+        [
+            contract?.contract_type,
+            contract?.start_date,
+            contract?.end_date,
+            contract?.probation_end_date,
+            contract?.labor_contract_id,
+            contract?.basic_salary,
+            contract?.housing_allowance,
+            contract?.transport_allowance,
+            contract?.other_allowances,
+            employee.contract_type,
+            employee.start_date,
+            employee.end_date,
+            employee.probation_end_date,
+            employee.labor_contract_id,
+        ],
+    );
+
+    const initialAll = useMemo(() => ({ ...initialPersonal, ...initialContract }), [initialContract, initialPersonal]);
+
+    const form = useForm(initialAll);
+
+    const isDirty = useMemo(() => {
+        return (Object.keys(initialAll) as Array<keyof typeof initialAll>).some((key) => {
+            return String(form.data[key] ?? '') !== String(initialAll[key] ?? '');
+        });
+    }, [form.data, initialAll]);
+
     const displayName = useMemo(() => {
         return (
-            `${employee.first_name ?? ''} ${employee.last_name ?? ''}`.trim() ||
+            `${form.data.first_name ?? ''} ${form.data.last_name ?? ''}`.trim() ||
             'Employee'
         );
-    }, [employee.first_name, employee.last_name]);
+    }, [form.data.first_name, form.data.last_name]);
 
     const initials = useMemo(() => {
         return (
-            `${employee.first_name?.[0] ?? ''}${employee.last_name?.[0] ?? ''}`.toUpperCase() ||
+            `${form.data.first_name?.[0] ?? ''}${form.data.last_name?.[0] ?? ''}`.toUpperCase() ||
             'E'
         );
-    }, [employee.first_name, employee.last_name]);
+    }, [form.data.first_name, form.data.last_name]);
 
     const imageSrc = employee.image
         ? employee.image.startsWith('http')
@@ -158,240 +268,284 @@ export default function EmployeeDetails({
             : `/storage/${employee.image.replace(/^\/+/, '')}`
         : null;
 
-    const stats = [
-        {
-            label: 'Documents',
-            count: 0,
-            icon: FileText,
-            color: 'text-blue-400',
-        },
-        {
-            label: 'Payslips',
-            count: 0,
-            icon: Receipt,
-            color: 'text-emerald-400',
-            badge: 'New',
-        },
-        { label: 'Goals', count: 0, icon: Target, color: 'text-purple-400' },
-        {
-            label: 'Offers',
-            count: 0,
-            icon: Briefcase,
-            color: 'text-amber-400',
-            badge: 'New',
-        },
-        {
-            label: 'Time Off',
-            count: 0,
-            icon: Clock,
-            color: 'text-rose-400',
-            badge: 'New',
-        },
-        {
-            label: 'Work Entries',
-            count: 0,
-            icon: Briefcase,
-            color: 'text-cyan-400',
-        },
-        {
-            label: 'Monthly Hours',
-            count: '00:00',
-            icon: Clock,
-            color: 'text-indigo-400',
-        },
-    ];
+    const statusBadge = useMemo(() => {
+        const status = employee.status;
+
+        if (status === 'inactive') {
+            return {
+                container:
+                    'border-zinc-500/20 bg-zinc-500/10 text-zinc-300',
+                dot: 'bg-zinc-400',
+            };
+        }
+
+        if (status === 'on_leave') {
+            return {
+                container:
+                    'border-amber-500/20 bg-amber-500/10 text-amber-300',
+                dot: 'bg-amber-400',
+            };
+        }
+
+        if (status === 'terminated') {
+            return {
+                container:
+                    'border-rose-500/20 bg-rose-500/10 text-rose-400',
+                dot: 'bg-rose-500',
+            };
+        }
+
+        return {
+            container:
+                'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
+            dot: 'bg-emerald-400',
+        };
+    }, [employee.status]);
 
     const tabs = [
-        { id: 'work', label: 'Work' },
-        { id: 'resume', label: 'Resume' },
         { id: 'personal', label: 'Personal' },
-        { id: 'payroll', label: 'Payroll' },
-        { id: 'adjustments', label: 'Salary Adjustments' },
-        { id: 'settings', label: 'Settings' },
-        { id: 'education', label: 'Educational Qualifications' },
-        { id: 'trainings', label: 'Trainings' },
-        { id: 'languages', label: 'Languages' },
-        { id: 'references', label: 'References' },
-        { id: 'document', label: 'Document' },
-        { id: 'notes', label: 'Notes' },
+        { id: 'contract', label: 'Contract' },
+        { id: 'documents', label: 'Documents' },
     ];
+
+    const saveChanges = () => {
+        form.transform((data) => ({
+            ...data,
+            employee_no: data.employee_no?.trim() || null,
+            first_name: data.first_name?.trim() || null,
+            last_name: data.last_name?.trim() || null,
+            personal_email: data.personal_email?.trim() || null,
+            work_email: data.work_email?.trim() || null,
+            phone: data.phone?.trim() || null,
+            phone_home_country: data.phone_home_country?.trim() || null,
+            cv_source: data.cv_source?.trim() || null,
+            date_of_birth: data.date_of_birth || null,
+            place_of_birth: data.place_of_birth?.trim() || null,
+            gender_id: data.gender_id ? Number(data.gender_id) : null,
+            religion_id: data.religion_id ? Number(data.religion_id) : null,
+            nationality_id: data.nationality_id ? Number(data.nationality_id) : null,
+            marital_status: data.marital_status || null,
+            contract_type: data.contract_type,
+            start_date: data.start_date,
+            end_date: data.end_date || null,
+            probation_end_date: data.probation_end_date || null,
+            labor_contract_id: data.labor_contract_id?.trim() || null,
+            basic_salary: data.basic_salary === '' ? null : Number(data.basic_salary),
+            housing_allowance: data.housing_allowance === '' ? null : Number(data.housing_allowance),
+            transport_allowance: data.transport_allowance === '' ? null : Number(data.transport_allowance),
+            other_allowances: data.other_allowances === '' ? null : Number(data.other_allowances),
+        }));
+
+        form.put(`/organization/employees/${employee.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setActiveField(null);
+                toast.success('Changes saved.');
+            },
+            onError: (errors) => {
+                const first = Object.values(errors ?? {})[0];
+                toast.error(typeof first === 'string' && first.length ? first : 'Failed to save changes.');
+            },
+        });
+    };
+
+    const discardChanges = () => {
+        form.setData(initialAll);
+        form.clearErrors();
+        setActiveField(null);
+    };
 
     return (
         <>
             <Head title={`Employee • ${displayName}`} />
             <Main className="bg-background p-0">
-                {/* Top Toolbar */}
-                <div className="hide-scrollbar sticky top-0 z-50 flex items-center justify-between overflow-x-auto border-b border-border/50 bg-card/80 px-4 py-2 backdrop-blur-md md:px-6">
-                    <div className="flex shrink-0 items-center gap-2 md:gap-4">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 border-none bg-primary px-3 text-xs font-bold text-primary-foreground hover:bg-primary/90 md:px-4 md:text-sm"
-                        >
-                            New
-                        </Button>
-                        <div className="flex items-center text-xs font-medium whitespace-nowrap text-zinc-400 md:text-sm">
-                            <span className="hidden cursor-pointer transition-colors hover:text-white sm:inline">
-                                Crew
-                            </span>
-                            <span className="mx-2 hidden text-zinc-600 sm:inline">
-                                /
-                            </span>
-                            <span className="font-semibold text-zinc-200">
-                                {displayName}
-                            </span>
-                            <Settings className="ml-2 h-4 w-4 shrink-0 cursor-pointer text-zinc-500 hover:text-white" />
-                        </div>
-                    </div>
-
-                    <div className="ml-4 flex shrink-0 items-center gap-1">
-                        <div className="flex hidden items-center rounded-md border border-border/50 bg-muted/20 p-0.5 md:flex">
-                            {stats.map((stat, i) => (
-                                <button
-                                    key={i}
-                                    className="group relative flex flex-col items-center justify-center rounded px-2 py-1.5 transition-colors hover:bg-muted/30 lg:px-4"
-                                >
+                {/* Main Content Area - Full Width */}
+                <div className="w-full p-6 md:p-8">
+                    <div className="w-full space-y-8">
+                        {isDirty ? (
+                            <div className="sticky top-4 z-20 rounded-xl border border-white/10 bg-background/80 p-3 backdrop-blur">
+                                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div className="text-sm font-medium text-zinc-200">
+                                        You have unsaved changes
+                                    </div>
                                     <div className="flex items-center gap-2">
-                                        <stat.icon
-                                            className={cn(
-                                                'h-4 w-4',
-                                                stat.color,
-                                            )}
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="h-9 rounded-lg"
+                                            onClick={discardChanges}
+                                            disabled={form.processing}
+                                        >
+                                            Discard
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            className="h-9 rounded-lg"
+                                            onClick={saveChanges}
+                                            disabled={form.processing}
+                                        >
+                                            Save
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+                        <div className="rounded-2xl border border-white/5 bg-white/5 p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.7)] md:p-7">
+                            <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[120px_1fr] md:gap-10">
+                            <div className="mx-auto shrink-0 md:mx-0">
+                                <div className="h-28 w-28 overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/70 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)]">
+                                    {imageSrc ? (
+                                        <img
+                                            src={imageSrc}
+                                            alt={displayName}
+                                            className="h-full w-full object-cover"
                                         />
-                                        <span className="text-[11px] font-bold text-zinc-300">
-                                            {stat.count}
-                                        </span>
-                                    </div>
-                                    <span className="mt-0.5 text-[9px] font-bold tracking-tighter whitespace-nowrap text-zinc-500 uppercase">
-                                        {stat.label}
-                                    </span>
-                                    {stat.badge && (
-                                        <span className="absolute top-1 right-1 rounded-sm bg-rose-500 px-1 py-0.5 text-[8px] leading-none font-bold tracking-tighter text-white uppercase">
-                                            {stat.badge}
-                                        </span>
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center bg-white/5 text-2xl font-semibold text-muted-foreground">
+                                            {initials}
+                                        </div>
                                     )}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="ml-2 flex items-center gap-1 md:ml-4">
-                            <span className="hidden font-mono text-xs text-zinc-500 sm:inline">
-                                1 / 80
-                            </span>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-zinc-400"
-                            >
-                                <ChevronLeft className="h-4 w-4" />
-                            </Button>
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-zinc-400"
-                            >
-                                <ChevronRight className="h-4 w-4" />
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Content Area */}
-                <div className="mx-auto max-w-6xl p-4 md:p-8">
-                    <div className="flex flex-col items-start gap-6 md:flex-row md:gap-8">
-                        {/* Profile Image */}
-                        <div className="group relative mx-auto shrink-0 md:mx-0">
-                            <div className="h-40 w-32 overflow-hidden rounded-lg border border-border/50 bg-secondary/50 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]">
-                                {imageSrc ? (
-                                    <img
-                                        src={imageSrc}
-                                        alt={displayName}
-                                        className="h-full w-full object-cover"
-                                    />
-                                ) : (
-                                    <div className="flex h-full w-full items-center justify-center bg-muted/30 text-4xl font-bold text-muted-foreground">
-                                        {initials}
-                                    </div>
-                                )}
-                            </div>
-                            <button className="absolute -right-2 -bottom-2 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
-                                <Plus className="h-4 w-4" />
-                            </button>
-                        </div>
-
-                        {/* Header Info */}
-                        <div className="w-full flex-1 space-y-4 text-center md:text-left">
-                            <div className="flex flex-col items-center justify-between gap-4 md:flex-row md:items-start">
-                                <div>
-                                    <h1 className="text-3xl font-bold tracking-tight text-foreground uppercase md:text-4xl">
-                                        {displayName}
-                                    </h1>
-                                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 md:justify-start md:gap-3">
-                                        <div className="flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[10px] font-bold tracking-widest text-emerald-400 uppercase">
-                                            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
-                                            {employee.status}
-                                        </div>
-                                        <div className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/30 px-3 py-1 text-[10px] font-bold tracking-widest text-muted-foreground uppercase">
-                                            {employee.employee_no}
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-2 rounded-full border border-amber-500/20 bg-amber-500/10 px-4 py-1.5 text-[11px] font-bold tracking-widest text-amber-500 uppercase shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                                        <div className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                                        Absent
-                                    </div>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-x-12 gap-y-4 pt-4 text-left sm:grid-cols-2">
-                                <div className="space-y-3">
-                                    <div className="group flex cursor-pointer items-center gap-3">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 bg-muted/30 text-muted-foreground transition-colors group-hover:text-primary">
-                                            <Mail className="h-4 w-4" />
+                            <div className="w-full space-y-5 text-center md:text-left">
+                                <div className="grid grid-cols-1 gap-5 md:grid-cols-[1fr_360px] md:items-start md:gap-6">
+                                    <div className="space-y-3">
+                                        <h1 className="text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+                                        {activeField === 'name' ? (
+                                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
+                                                    value={form.data.first_name}
+                                                    onChange={(e) => form.setData('first_name', e.target.value)}
+                                                    onBlur={() => setActiveField(null)}
+                                                    autoFocus
+                                                    placeholder="First name"
+                                                />
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
+                                                    value={form.data.last_name}
+                                                    onChange={(e) => form.setData('last_name', e.target.value)}
+                                                    onBlur={() => setActiveField(null)}
+                                                    placeholder="Last name"
+                                                />
+                                            </div>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="text-left hover:text-white"
+                                                onClick={() => setActiveField('name')}
+                                            >
+                                                {displayName}
+                                            </button>
+                                        )}
+                                        </h1>
+                                        <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                                            <div
+                                                className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold tracking-wide ${statusBadge.container}`}
+                                            >
+                                                <div className={`h-2 w-2 animate-pulse rounded-full ${statusBadge.dot}`} />
+                                                {employee.status}
+                                            </div>
+                                        {activeField === 'employee_no' ? (
+                                            <Input
+                                                className="h-8 w-[120px] rounded-full border-white/10 bg-white/5 px-3 text-[10px] font-semibold tracking-wide text-zinc-200"
+                                                value={form.data.employee_no}
+                                                onChange={(e) => form.setData('employee_no', e.target.value)}
+                                                onBlur={() => setActiveField(null)}
+                                                autoFocus
+                                            />
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[10px] font-semibold tracking-wide text-zinc-400 hover:text-zinc-200"
+                                                onClick={() => setActiveField('employee_no')}
+                                            >
+                                                {form.data.employee_no || employee.employee_no}
+                                            </button>
+                                        )}
                                         </div>
-                                        <span className="text-sm font-medium text-zinc-300 transition-colors group-hover:text-white">
-                                            {employee.work_email ||
-                                                'no-email@company.com'}
-                                        </span>
-                                    </div>
-                                    <div className="group flex cursor-pointer items-center gap-3">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 bg-muted/30 text-muted-foreground transition-colors group-hover:text-primary">
-                                            <Phone className="h-4 w-4" />
-                                        </div>
-                                        <span className="text-sm font-medium text-zinc-300 transition-colors group-hover:text-white">
-                                            {employee.phone ||
-                                                '+971 -- --- ----'}
-                                        </span>
-                                    </div>
-                                    <div className="group flex cursor-pointer items-center gap-3">
-                                        <div className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/50 bg-muted/30 text-muted-foreground transition-colors group-hover:text-primary">
-                                            <LinkIcon className="h-4 w-4" />
-                                        </div>
-                                        <span className="text-sm font-medium text-zinc-300 transition-colors group-hover:text-white">
-                                            {employee.id}
-                                        </span>
-                                    </div>
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                        <Badge className="flex items-center gap-2 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-bold tracking-widest text-primary uppercase hover:bg-primary/20">
-                                            <Briefcase className="h-3 w-3" />
-                                            {employee.position?.title ||
-                                                'Technical Staff'}
+                                        <Badge className="mx-auto flex w-fit items-center gap-2 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary md:mx-0">
+                                            <Briefcase className="h-3.5 w-3.5" />
+                                            {employee.position?.title || 'Technical Staff'}
                                         </Badge>
                                     </div>
                                 </div>
+
+                                <div className="rounded-2xl border border-white/5 bg-white/5 p-4 md:p-5">
+                                <div className="grid grid-cols-1 gap-3 text-left">
+                                    {[
+                                        {
+                                            icon: Mail,
+                                            value:
+                                                activeField === 'work_email' ? (
+                                                    <Input
+                                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                        value={form.data.work_email}
+                                                        onChange={(e) => form.setData('work_email', e.target.value)}
+                                                        onBlur={() => setActiveField(null)}
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="text-left hover:text-white"
+                                                        onClick={() => setActiveField('work_email')}
+                                                    >
+                                                        {form.data.work_email || employee.work_email || 'no-email@company.com'}
+                                                    </button>
+                                                ),
+                                        },
+                                        {
+                                            icon: Phone,
+                                            value:
+                                                activeField === 'phone' ? (
+                                                    <Input
+                                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                        value={form.data.phone}
+                                                        onChange={(e) => form.setData('phone', e.target.value)}
+                                                        onBlur={() => setActiveField(null)}
+                                                        autoFocus
+                                                    />
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="text-left hover:text-white"
+                                                        onClick={() => setActiveField('phone')}
+                                                    >
+                                                        {form.data.phone || employee.phone || '+971 -- --- ----'}
+                                                    </button>
+                                                ),
+                                        },
+                                        { icon: LinkIcon, value: employee.id },
+                                    ].map((item, idx) => (
+                                        <div
+                                            key={idx}
+                                            className="flex items-center gap-3"
+                                        >
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-500 shadow-inner">
+                                                <item.icon className="h-4 w-4" />
+                                            </div>
+                                            <span className="w-full truncate text-sm font-semibold tracking-tight text-zinc-300">
+                                                {item.value}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                                </div>
                             </div>
                         </div>
-                    </div>
+                        </div>
 
                     {/* Tabs Navigation */}
-                    <div className="mt-8 md:mt-12">
-                        <Tabs defaultValue="personal" className="w-full">
-                            <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-4 overflow-x-auto rounded-none border-b border-border/50 bg-transparent p-0 md:gap-8">
+                        <div>
+                            <Tabs defaultValue="personal" className="w-full">
+                            <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1">
                                 {tabs.map((tab) => (
                                     <TabsTrigger
                                         key={tab.id}
                                         value={tab.id}
-                                        className="shrink-0 rounded-none border-b-2 border-transparent bg-transparent px-0 py-3 text-xs font-bold tracking-widest whitespace-nowrap text-muted-foreground uppercase transition-all hover:text-foreground data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-foreground md:py-4"
+                                        className="shrink-0 rounded-lg border border-transparent bg-transparent px-3 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-zinc-400 hover:text-zinc-200 data-[state=active]:border-white/10 data-[state=active]:bg-background data-[state=active]:text-white"
                                     >
                                         {tab.label}
                                     </TabsTrigger>
@@ -400,78 +554,133 @@ export default function EmployeeDetails({
 
                             <TabsContent
                                 value="personal"
-                                className="mt-8 space-y-12"
+                                className="mt-6"
                             >
-                                <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-24">
+                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
                                     {/* Left Column: Private Contact */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <h3 className="text-[11px] font-bold tracking-[0.3em] text-muted-foreground uppercase">
-                                                Private Contact
-                                            </h3>
-                                            <Separator className="flex-1 bg-border/50" />
-                                        </div>
+                                    <div className="space-y-6 xl:col-span-7">
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                            <div className="mb-4 flex items-center justify-between gap-3">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Private contact
+                                                </h3>
+                                            </div>
 
-                                        <div className="space-y-6">
-                                            {[
-                                                {
-                                                    label: 'Email',
-                                                    value:
-                                                        employee.personal_email ||
-                                                        employee.work_email,
-                                                },
-                                                {
-                                                    label: 'Phone (UAE)',
-                                                    value: employee.phone,
-                                                },
-                                                {
-                                                    label: 'Phone (Home Country)',
-                                                    value:
-                                                        employee.phone_home_country ||
-                                                        '—',
-                                                },
-                                                {
-                                                    label: 'Bank Accounts',
-                                                    value: employee.iban || '—',
-                                                    isBadge: true,
-                                                },
-                                                {
-                                                    label: 'Source Of CV',
-                                                    value:
-                                                        employee.cv_source ||
-                                                        'Direct From Applicant',
-                                                },
-                                            ].map((item, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="group flex items-start justify-between"
-                                                >
-                                                    <label className="w-40 text-xs font-bold text-zinc-400">
-                                                        {item.label}
-                                                    </label>
-                                                    <div className="flex-1 text-xs font-medium text-zinc-200">
-                                                        {item.isBadge &&
-                                                        item.value !== '—' ? (
-                                                            <div className="inline-flex items-center gap-2 rounded border border-primary/20 bg-primary/10 px-2 py-1 font-mono text-[10px] text-primary">
-                                                                {item.value}
-                                                                <Plus className="h-3 w-3 cursor-pointer transition-transform hover:rotate-90" />
-                                                            </div>
-                                                        ) : (
-                                                            item.value
-                                                        )}
-                                                    </div>
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Email</label>
+                                                    {activeField === 'personal_email' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.personal_email}
+                                                                onChange={(e) => form.setData('personal_email', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.personal_email ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.personal_email}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('personal_email')}
+                                                        >
+                                                            {form.data.personal_email || employee.personal_email || employee.work_email || '—'}
+                                                        </button>
+                                                    )}
                                                 </div>
-                                            ))}
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Phone (UAE)</label>
+                                                    {activeField === 'phone' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.phone}
+                                                                onChange={(e) => form.setData('phone', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.phone ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.phone}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('phone')}
+                                                        >
+                                                            {form.data.phone || employee.phone || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Phone (Home Country)</label>
+                                                    {activeField === 'phone_home_country' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.phone_home_country}
+                                                                onChange={(e) => form.setData('phone_home_country', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.phone_home_country ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.phone_home_country}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('phone_home_country')}
+                                                        >
+                                                            {form.data.phone_home_country || employee.phone_home_country || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Source Of CV</label>
+                                                    {activeField === 'cv_source' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.cv_source}
+                                                                onChange={(e) => form.setData('cv_source', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.cv_source ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.cv_source}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('cv_source')}
+                                                        >
+                                                            {form.data.cv_source || employee.cv_source || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4 pt-4">
-                                            <h3 className="text-[11px] font-bold tracking-[0.3em] text-muted-foreground uppercase">
-                                                Emergency Contact
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h3 className="text-sm font-semibold text-zinc-200">
+                                                Emergency contact
                                             </h3>
-                                            <Separator className="flex-1 bg-border/50" />
                                         </div>
 
-                                        <div className="space-y-6">
+                                        <div className="space-y-3">
                                             {[
                                                 {
                                                     label: 'Contact',
@@ -496,124 +705,553 @@ export default function EmployeeDetails({
                                             ].map((item, i) => (
                                                 <div
                                                     key={i}
-                                                    className="group flex items-start justify-between"
+                                                    className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
                                                 >
-                                                    <label className="w-40 text-xs font-bold text-zinc-400">
+                                                    <label className="text-xs font-medium text-zinc-400">
                                                         {item.label}
                                                     </label>
-                                                    <div className="flex-1 text-xs font-medium text-zinc-200">
+                                                    <div className="text-sm font-medium text-zinc-200">
                                                         {item.value}
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
                                         </div>
                                     </div>
 
                                     {/* Right Column: Personal Information & Citizenship */}
-                                    <div className="space-y-8">
-                                        <div className="flex items-center gap-4">
-                                            <h3 className="text-[11px] font-bold tracking-[0.3em] text-muted-foreground uppercase">
-                                                Personal Information
+                                    <div className="space-y-6 xl:col-span-5">
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h3 className="text-sm font-semibold text-zinc-200">
+                                                Personal information
                                             </h3>
-                                            <Separator className="flex-1 bg-border/50" />
                                         </div>
 
-                                        <div className="space-y-6">
-                                            {[
-                                                {
-                                                    label: 'Legal Name',
-                                                    value: displayName.toUpperCase(),
-                                                },
-                                                {
-                                                    label: 'Birthday',
-                                                    value:
-                                                        employee.date_of_birth ||
-                                                        '—',
-                                                },
-                                                {
-                                                    label: 'Place of Birth',
-                                                    value:
-                                                        employee.place_of_birth ||
-                                                        '—',
-                                                },
-                                                {
-                                                    label: 'Gender',
-                                                    value: 'Male',
-                                                },
-                                                {
-                                                    label: 'Religion',
-                                                    value: '—',
-                                                },
-                                                {
-                                                    label: 'Visa Types',
-                                                    value: '—',
-                                                },
-                                            ].map((item, i) => (
-                                                <div
-                                                    key={i}
-                                                    className="group flex items-start justify-between"
-                                                >
-                                                    <label className="w-40 text-xs font-bold text-zinc-400">
-                                                        {item.label}
-                                                    </label>
-                                                    <div className="flex-1 text-xs font-medium text-zinc-200">
-                                                        {item.value}
-                                                    </div>
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Legal Name</label>
+                                                    <div className="text-sm font-medium text-zinc-200">{displayName}</div>
                                                 </div>
-                                            ))}
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Birthday</label>
+                                                    {activeField === 'date_of_birth' ? (
+                                                        <div>
+                                                            <Input
+                                                                type="date"
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.date_of_birth}
+                                                                onChange={(e) => form.setData('date_of_birth', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.date_of_birth ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.date_of_birth}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('date_of_birth')}
+                                                        >
+                                                            {form.data.date_of_birth || employee.date_of_birth || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Place of Birth</label>
+                                                    {activeField === 'place_of_birth' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.place_of_birth}
+                                                                onChange={(e) => form.setData('place_of_birth', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.place_of_birth ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.place_of_birth}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('place_of_birth')}
+                                                        >
+                                                            {form.data.place_of_birth || employee.place_of_birth || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Gender</label>
+                                                    {activeField === 'gender_id' ? (
+                                                        <div>
+                                                            <select
+                                                                className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                                value={form.data.gender_id}
+                                                                onChange={(e) => form.setData('gender_id', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            >
+                                                                <option value="">—</option>
+                                                                {genders.map((g) => (
+                                                                    <option key={g.id} value={String(g.id)}>
+                                                                        {g.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            {form.errors.gender_id ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.gender_id}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('gender_id')}
+                                                        >
+                                                            {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Religion</label>
+                                                    {activeField === 'religion_id' ? (
+                                                        <div>
+                                                            <select
+                                                                className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                                value={form.data.religion_id}
+                                                                onChange={(e) => form.setData('religion_id', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            >
+                                                                <option value="">—</option>
+                                                                {religions.map((r) => (
+                                                                    <option key={r.id} value={String(r.id)}>
+                                                                        {r.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            {form.errors.religion_id ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.religion_id}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('religion_id')}
+                                                        >
+                                                            {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <div className="flex items-center gap-4 pt-4">
-                                            <h3 className="text-[11px] font-bold tracking-[0.3em] text-muted-foreground uppercase">
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <h3 className="text-sm font-semibold text-zinc-200">
                                                 Citizenship
                                             </h3>
-                                            <Separator className="flex-1 bg-border/50" />
                                         </div>
 
-                                        <div className="space-y-6">
+                                        <div className="space-y-4">
+                                            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                <label className="text-xs font-medium text-zinc-400">
+                                                    Nationality (Country)
+                                                </label>
+                                                {activeField === 'nationality_id' ? (
+                                                    <div>
+                                                        <select
+                                                            className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.nationality_id}
+                                                            onChange={(e) => form.setData('nationality_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {countries.map((c) => (
+                                                                <option key={c.id} value={String(c.id)}>
+                                                                    {c.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                        {form.errors.nationality_id ? (
+                                                            <div className="text-xs text-destructive mt-1">
+                                                                {form.errors.nationality_id}
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                        onClick={() => setActiveField('nationality_id')}
+                                                    >
+                                                        {countries.find((c) => String(c.id) === String(form.data.nationality_id || employee.nationality_id || ''))?.name ??
+                                                            employee.nationality_ref?.name ??
+                                                            '—'}
+                                                    </button>
+                                                )}
+                                            </div>
+
                                             {[
                                                 {
-                                                    label: 'Nationality (Country)',
-                                                    value:
-                                                        employee.nationality_ref
-                                                            ?.name || '—',
-                                                },
-                                                {
                                                     label: 'Labor Contract ID',
-                                                    value:
-                                                        employee.labor_contract_id ||
-                                                        '—',
+                                                    value: employee.labor_contract_id || '—',
                                                 },
                                                 {
                                                     label: 'Passport No',
-                                                    value:
-                                                        employee.passport_number ||
-                                                        '—',
+                                                    value: employee.passport_number || '—',
                                                 },
                                                 {
                                                     label: 'Emirates ID',
-                                                    value:
-                                                        employee.emirates_id ||
-                                                        '—',
+                                                    value: employee.emirates_id || '—',
                                                 },
-                                            ].map((item, i) => (
+                                            ].map((item) => (
                                                 <div
-                                                    key={i}
-                                                    className="group flex items-start justify-between"
+                                                    key={item.label}
+                                                    className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
                                                 >
-                                                    <label className="w-40 text-xs font-bold text-zinc-400">
+                                                    <label className="text-xs font-medium text-zinc-400">
                                                         {item.label}
                                                     </label>
-                                                    <div className="flex-1 text-xs font-medium text-zinc-200">
+                                                    <div className="text-sm font-medium text-zinc-200">
                                                         {item.value}
                                                     </div>
                                                 </div>
                                             ))}
+                                        </div>
                                         </div>
                                     </div>
                                 </div>
                             </TabsContent>
+
+                            <TabsContent value="contract" className="mt-6">
+                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                                    <div className="space-y-6 xl:col-span-7">
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Contract
+                                                </h3>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Contract type</label>
+                                                    {activeField === 'contract_type' ? (
+                                                        <div>
+                                                            <select
+                                                                className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                                value={form.data.contract_type}
+                                                                onChange={(e) => form.setData('contract_type', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            >
+                                                                <option value="limited">Limited</option>
+                                                                <option value="unlimited">Unlimited</option>
+                                                                <option value="part_time">Part Time</option>
+                                                                <option value="contract">Contract</option>
+                                                            </select>
+                                                            {form.errors.contract_type ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.contract_type}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('contract_type')}
+                                                        >
+                                                            {form.data.contract_type || contract?.contract_type || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Start date</label>
+                                                    {activeField === 'start_date' ? (
+                                                        <div>
+                                                            <Input
+                                                                type="date"
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.start_date}
+                                                                onChange={(e) => form.setData('start_date', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.start_date ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.start_date}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('start_date')}
+                                                        >
+                                                            {form.data.start_date || contract?.start_date || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">End date</label>
+                                                    {activeField === 'end_date' ? (
+                                                        <div>
+                                                            <Input
+                                                                type="date"
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.end_date}
+                                                                onChange={(e) => form.setData('end_date', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.end_date ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.end_date}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('end_date')}
+                                                        >
+                                                            {form.data.end_date || contract?.end_date || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Probation end date</label>
+                                                    {activeField === 'probation_end_date' ? (
+                                                        <div>
+                                                            <Input
+                                                                type="date"
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.probation_end_date}
+                                                                onChange={(e) => form.setData('probation_end_date', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.probation_end_date ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.probation_end_date}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('probation_end_date')}
+                                                        >
+                                                            {form.data.probation_end_date || contract?.probation_end_date || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Labor contract ID</label>
+                                                    {activeField === 'labor_contract_id' ? (
+                                                        <div>
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.labor_contract_id}
+                                                                onChange={(e) => form.setData('labor_contract_id', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                            {form.errors.labor_contract_id ? (
+                                                                <div className="text-xs text-destructive mt-1">{form.errors.labor_contract_id}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('labor_contract_id')}
+                                                        >
+                                                            {form.data.labor_contract_id || contract?.labor_contract_id || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6 xl:col-span-5">
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Salary
+                                                </h3>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {(
+                                                    [
+                                                        { key: 'basic_salary', label: 'Basic salary' },
+                                                        { key: 'housing_allowance', label: 'Housing allowance' },
+                                                        { key: 'transport_allowance', label: 'Transport allowance' },
+                                                        { key: 'other_allowances', label: 'Other allowances' },
+                                                    ] as const
+                                                ).map((row) => (
+                                                    <div
+                                                        key={row.key}
+                                                        className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
+                                                    >
+                                                        <label className="text-xs font-medium text-zinc-400">
+                                                            {row.label}
+                                                        </label>
+                                                        {activeField === row.key ? (
+                                                            <div>
+                                                                <Input
+                                                                    inputMode="decimal"
+                                                                    className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                    value={String((form.data as any)[row.key] ?? '')}
+                                                                    onChange={(e) => form.setData(row.key as any, e.target.value)}
+                                                                    onBlur={() => setActiveField(null)}
+                                                                    autoFocus
+                                                                />
+                                                                {(form.errors as any)[row.key] ? (
+                                                                    <div className="text-xs text-destructive mt-1">
+                                                                        {(form.errors as any)[row.key]}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField(row.key)}
+                                                            >
+                                                                {String((form.data as any)[row.key] ?? '') ||
+                                                                ((contract as any)?.[row.key] === null || (contract as any)?.[row.key] === undefined
+                                                                    ? '—'
+                                                                    : String((contract as any)?.[row.key]))}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="documents" className="mt-6">
+                                <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <h3 className="text-sm font-semibold text-zinc-200">
+                                            Documents
+                                        </h3>
+                                        <div className="text-xs font-medium text-zinc-500">
+                                            {documents.length} total
+                                        </div>
+                                    </div>
+
+                                    {documents.length === 0 ? (
+                                        <div className="py-10 text-center text-sm text-zinc-500">
+                                            No documents uploaded.
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[900px] text-left">
+                                                <thead>
+                                                    <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
+                                                        <th className="py-2 pr-4">
+                                                            Title
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            Type
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            Number
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            Issue
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            Expiry
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            Status
+                                                        </th>
+                                                        <th className="py-2 pr-4">
+                                                            File
+                                                        </th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {documents.map((doc) => {
+                                                        const fileUrl = doc.file_path.startsWith(
+                                                            'http',
+                                                        )
+                                                            ? doc.file_path
+                                                            : `/storage/${doc.file_path.replace(/^\/+/, '')}`;
+
+                                                        return (
+                                                            <tr
+                                                                key={doc.id}
+                                                                className="text-sm text-zinc-200"
+                                                            >
+                                                                <td className="py-3 pr-4 font-medium">
+                                                                    {doc.title ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-4 text-zinc-400">
+                                                                    {doc.document_type ||
+                                                                        doc.type ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-4 text-zinc-400">
+                                                                    {doc.document_number ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-4 text-zinc-400">
+                                                                    {doc.issue_date ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-4 text-zinc-400">
+                                                                    {doc.expiry_date ||
+                                                                        '—'}
+                                                                </td>
+                                                                <td className="py-3 pr-4">
+                                                                    <span className="inline-flex rounded-md border border-white/10 bg-white/5 px-2 py-0.5 text-xs font-medium text-zinc-300">
+                                                                        {doc.status ||
+                                                                            '—'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="py-3 pr-4">
+                                                                    <a
+                                                                        href={
+                                                                            fileUrl
+                                                                        }
+                                                                        target="_blank"
+                                                                        rel="noreferrer"
+                                                                        className="text-xs font-semibold text-primary hover:underline"
+                                                                    >
+                                                                        View
+                                                                    </a>
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    })}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+                            </TabsContent>
                         </Tabs>
+                    </div>
                     </div>
                 </div>
             </Main>

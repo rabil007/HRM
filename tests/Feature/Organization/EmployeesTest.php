@@ -11,6 +11,7 @@ use App\Models\Position;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
 
 test('guests cannot access employees page', function () {
@@ -102,7 +103,14 @@ test('authenticated users can view an employee details page', function () {
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
-    $this->get("/organization/employees/{$employee->id}")->assertOk();
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->has('employee')
+            ->has('contract')
+            ->has('documents')
+        );
 });
 
 test('authenticated users can create, update, toggle status, and delete an employee', function () {
@@ -217,7 +225,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'position_id' => $position->id,
         'work_email' => 'janet@example.com',
         'phone' => '+971511111111',
-    ])->assertRedirect('/organization/employees');
+    ])->assertRedirect("/organization/employees/{$employeeId}");
 
     $this->assertDatabaseHas('employees', [
         'id' => $employeeId,
