@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { Separator } from '@/components/ui/separator';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { cn } from '@/lib/utils';
@@ -9,28 +9,64 @@ type HeaderProps = React.HTMLAttributes<HTMLElement> & {
 };
 
 export function Header({ className, fixed, children, ...props }: HeaderProps) {
-    const [offset, setOffset] = useState(0);
+    const headerRef = useRef<HTMLElement | null>(null);
 
     useEffect(() => {
-        const onScroll = () => {
-            setOffset(
-                document.body.scrollTop || document.documentElement.scrollTop,
-            );
+        const el = headerRef.current;
+
+        if (!el || !fixed) {
+            return;
+        }
+
+        let rafId: number | null = null;
+        let lastScrolled = false;
+
+        const update = () => {
+            rafId = null;
+
+            const offset = document.documentElement.scrollTop || document.body.scrollTop || 0;
+            const scrolled = offset > 10;
+
+            if (scrolled === lastScrolled) {
+                return;
+            }
+
+            lastScrolled = scrolled;
+
+            if (scrolled) {
+                el.dataset.scrolled = 'true';
+            } else {
+                delete el.dataset.scrolled;
+            }
         };
 
-        // Add scroll listener to the body
-        document.addEventListener('scroll', onScroll, { passive: true });
+        const onScroll = () => {
+            if (rafId !== null) {
+                return;
+            }
 
-        // Clean up the event listener on unmount
-        return () => document.removeEventListener('scroll', onScroll);
-    }, []);
+            rafId = window.requestAnimationFrame(update);
+        };
+
+        update();
+        window.addEventListener('scroll', onScroll, { passive: true });
+
+        return () => {
+            if (rafId !== null) {
+                window.cancelAnimationFrame(rafId);
+            }
+
+            window.removeEventListener('scroll', onScroll);
+        };
+    }, [fixed]);
 
     return (
         <header
+            ref={headerRef}
             className={cn(
                 'z-50 h-16',
                 fixed && 'header-fixed peer/header sticky top-0 w-[inherit]',
-                offset > 10 && fixed ? 'shadow' : 'shadow-none',
+                fixed ? 'data-[scrolled=true]:shadow shadow-none' : '',
                 className,
             )}
             {...props}
@@ -38,9 +74,8 @@ export function Header({ className, fixed, children, ...props }: HeaderProps) {
             <div
                 className={cn(
                     'relative flex h-full items-center gap-3 p-4 sm:gap-4',
-                    offset > 10 &&
-                        fixed &&
-                        'after:absolute after:inset-0 after:-z-10 after:bg-background/20 after:backdrop-blur-lg',
+                    fixed &&
+                        'data-[scrolled=true]:after:absolute data-[scrolled=true]:after:inset-0 data-[scrolled=true]:after:-z-10 data-[scrolled=true]:after:bg-background/20 data-[scrolled=true]:after:backdrop-blur-lg',
                 )}
             >
                 <SidebarTrigger

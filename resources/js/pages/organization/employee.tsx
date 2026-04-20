@@ -1,11 +1,28 @@
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Briefcase,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+    CommandDialog,
+    CommandEmpty,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type {
@@ -150,6 +167,12 @@ export default function EmployeeDetails({
     banks: BankOption[];
     recent_activity: ActivityItem[];
 }) {
+    const { auth } = usePage().props as unknown as {
+        auth?: { permissions?: string[] };
+    };
+
+    const canUpdate = (auth?.permissions ?? []).includes('employees.update');
+
     // Avoid unused variable warnings
     void branches;
     void departments;
@@ -160,6 +183,9 @@ export default function EmployeeDetails({
     void recent_activity;
 
     const [activeField, setActiveField] = useState<string | null>(null);
+    const [tabValue, setTabValue] = useState<'personal' | 'contract' | 'documents'>('personal');
+    const [pendingTab, setPendingTab] = useState<'personal' | 'contract' | 'documents' | null>(null);
+    const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
 
     const initialPersonal = useMemo(
         () => ({
@@ -281,6 +307,42 @@ export default function EmployeeDetails({
         });
     }, [form.data, initialAll]);
 
+    const requiredFields = useMemo(() => {
+        return new Set(['employee_no', 'first_name', 'last_name', 'start_date', 'contract_type']);
+    }, []);
+
+    const requiredDot = (field: string) => {
+        if (!requiredFields.has(field)) {
+            return null;
+        }
+
+        return (
+            <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-500/90 align-middle" />
+        );
+    };
+
+    const beginEdit = (field: string) => {
+        if (!canUpdate) {
+            return;
+        }
+
+        setActiveField(field);
+    };
+
+    useEffect(() => {
+        if (!canUpdate || !isDirty) {
+            return;
+        }
+
+        const handler = (e: BeforeUnloadEvent) => {
+            e.preventDefault();
+        };
+
+        window.addEventListener('beforeunload', handler);
+
+        return () => window.removeEventListener('beforeunload', handler);
+    }, [canUpdate, isDirty]);
+
     const displayName = useMemo(() => {
         return (
             `${form.data.first_name ?? ''} ${form.data.last_name ?? ''}`.trim() ||
@@ -341,7 +403,38 @@ export default function EmployeeDetails({
         { id: 'documents', label: 'Documents' },
     ];
 
-    const saveChanges = () => {
+    const saveChanges = (afterSuccess?: () => void) => {
+        if (canUpdate) {
+            const missing: string[] = [];
+
+            if (!String(form.data.employee_no ?? '').trim()) {
+                missing.push('employee_no');
+            }
+
+            if (!String(form.data.first_name ?? '').trim()) {
+                missing.push('first_name');
+            }
+
+            if (!String(form.data.last_name ?? '').trim()) {
+                missing.push('last_name');
+            }
+
+            if (!String(form.data.start_date ?? '').trim()) {
+                missing.push('start_date');
+            }
+
+            if (!String(form.data.contract_type ?? '').trim()) {
+                missing.push('contract_type');
+            }
+
+            if (missing.length) {
+                toast.error('Please fill the required fields before saving.');
+                beginEdit(missing[0]);
+
+                return;
+            }
+        }
+
         form.transform((data) => ({
             ...data,
             employee_no: data.employee_no?.trim() || null,
@@ -393,6 +486,7 @@ export default function EmployeeDetails({
             onSuccess: () => {
                 setActiveField(null);
                 toast.success('Changes saved.');
+                afterSuccess?.();
             },
             onError: (errors) => {
                 const first = Object.values(errors ?? {})[0];
@@ -407,6 +501,17 @@ export default function EmployeeDetails({
         setActiveField(null);
     };
 
+    const handleTabChange = (next: 'personal' | 'contract' | 'documents') => {
+        if (!canUpdate || !isDirty) {
+            setTabValue(next);
+
+            return;
+        }
+
+        setPendingTab(next);
+        setUnsavedDialogOpen(true);
+    };
+
     return (
         <>
             <Head title={`Employee • ${displayName}`} />
@@ -414,7 +519,7 @@ export default function EmployeeDetails({
                 {/* Main Content Area - Full Width */}
                 <div className="w-full p-6 md:p-8">
                     <div className="w-full space-y-8">
-                        {isDirty ? (
+                        {canUpdate && isDirty ? (
                             <div className="sticky top-4 z-20 rounded-xl border border-white/10 bg-background/80 p-3 backdrop-blur">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div className="text-sm font-medium text-zinc-200">
@@ -433,7 +538,7 @@ export default function EmployeeDetails({
                                         <Button
                                             type="button"
                                             className="h-9 rounded-lg"
-                                            onClick={saveChanges}
+                                            onClick={() => saveChanges()}
                                             disabled={form.processing}
                                         >
                                             Save
@@ -442,6 +547,55 @@ export default function EmployeeDetails({
                                 </div>
                             </div>
                         ) : null}
+                        <AlertDialog open={unsavedDialogOpen} onOpenChange={setUnsavedDialogOpen}>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Unsaved changes</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        You have unsaved changes. What would you like to do?
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel
+                                        onClick={() => {
+                                            setPendingTab(null);
+                                            setUnsavedDialogOpen(false);
+                                        }}
+                                    >
+                                        Stay
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                        onClick={() => {
+                                            discardChanges();
+
+                                            if (pendingTab) {
+                                                setTabValue(pendingTab);
+                                            }
+
+                                            setPendingTab(null);
+                                            setUnsavedDialogOpen(false);
+                                        }}
+                                    >
+                                        Discard
+                                    </AlertDialogAction>
+                                    <AlertDialogAction
+                                        onClick={() => {
+                                            saveChanges(() => {
+                                                if (pendingTab) {
+                                                    setTabValue(pendingTab);
+                                                }
+
+                                                setPendingTab(null);
+                                                setUnsavedDialogOpen(false);
+                                            });
+                                        }}
+                                    >
+                                        Save
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+
                         <div className="rounded-2xl border border-white/5 bg-white/5 p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.7)] md:p-7">
                             <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-[120px_1fr] md:gap-10">
                             <div className="mx-auto shrink-0 md:mx-0">
@@ -486,7 +640,7 @@ export default function EmployeeDetails({
                                             <button
                                                 type="button"
                                                 className="text-left hover:text-white"
-                                                onClick={() => setActiveField('name')}
+                                                onClick={() => beginEdit('name')}
                                             >
                                                 {displayName}
                                             </button>
@@ -511,7 +665,7 @@ export default function EmployeeDetails({
                                             <button
                                                 type="button"
                                                 className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[10px] font-semibold tracking-wide text-zinc-400 hover:text-zinc-200"
-                                                onClick={() => setActiveField('employee_no')}
+                                                onClick={() => beginEdit('employee_no')}
                                             >
                                                 {form.data.employee_no || employee.employee_no}
                                             </button>
@@ -538,125 +692,215 @@ export default function EmployeeDetails({
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         Branch
                                                     </label>
-                                                    {activeField === 'branch_id' ? (
-                                                        <select
-                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                            value={form.data.branch_id}
-                                                            onChange={(e) => form.setData('branch_id', e.target.value)}
-                                                            onBlur={() => setActiveField(null)}
-                                                            autoFocus
-                                                        >
-                                                            <option value="">—</option>
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                                        onClick={() => beginEdit('branch_id')}
+                                                        disabled={!canUpdate}
+                                                    >
+                                                        {branches.find((b) => String(b.id) === String(form.data.branch_id || employee.branch?.id || ''))?.name ??
+                                                            employee.branch?.name ??
+                                                            '—'}
+                                                    </button>
+                                                    <CommandDialog
+                                                        open={activeField === 'branch_id' && canUpdate}
+                                                        onOpenChange={(open) => {
+                                                            if (!open) {
+                                                                setActiveField(null);
+                                                            }
+                                                        }}
+                                                        title="Select branch"
+                                                        description="Search branches..."
+                                                    >
+                                                        <CommandInput placeholder="Search branches..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No results found.</CommandEmpty>
+                                                            <CommandItem
+                                                                value="__none__"
+                                                                onSelect={() => {
+                                                                    form.setData('branch_id', '');
+                                                                    setActiveField(null);
+                                                                }}
+                                                            >
+                                                                —
+                                                            </CommandItem>
                                                             {branches.map((b) => (
-                                                                <option key={b.id} value={String(b.id)}>
+                                                                <CommandItem
+                                                                    key={b.id}
+                                                                    value={b.name ?? String(b.id)}
+                                                                    onSelect={() => {
+                                                                        form.setData('branch_id', String(b.id));
+                                                                        setActiveField(null);
+                                                                    }}
+                                                                >
                                                                     {b.name ?? `#${b.id}`}
-                                                                </option>
+                                                                </CommandItem>
                                                             ))}
-                                                        </select>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('branch_id')}
-                                                        >
-                                                            {employee.branch?.name ?? '—'}
-                                                        </button>
-                                                    )}
+                                                        </CommandList>
+                                                    </CommandDialog>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         Department
                                                     </label>
-                                                    {activeField === 'department_id' ? (
-                                                        <select
-                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                            value={form.data.department_id}
-                                                            onChange={(e) => form.setData('department_id', e.target.value)}
-                                                            onBlur={() => setActiveField(null)}
-                                                            autoFocus
-                                                        >
-                                                            <option value="">—</option>
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                                        onClick={() => beginEdit('department_id')}
+                                                        disabled={!canUpdate}
+                                                    >
+                                                        {departments.find((d) => String(d.id) === String(form.data.department_id || employee.department?.id || ''))?.name ??
+                                                            employee.department?.name ??
+                                                            '—'}
+                                                    </button>
+                                                    <CommandDialog
+                                                        open={activeField === 'department_id' && canUpdate}
+                                                        onOpenChange={(open) => {
+                                                            if (!open) {
+                                                                setActiveField(null);
+                                                            }
+                                                        }}
+                                                        title="Select department"
+                                                        description="Search departments..."
+                                                    >
+                                                        <CommandInput placeholder="Search departments..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No results found.</CommandEmpty>
+                                                            <CommandItem
+                                                                value="__none__"
+                                                                onSelect={() => {
+                                                                    form.setData('department_id', '');
+                                                                    setActiveField(null);
+                                                                }}
+                                                            >
+                                                                —
+                                                            </CommandItem>
                                                             {departments.map((d) => (
-                                                                <option key={d.id} value={String(d.id)}>
+                                                                <CommandItem
+                                                                    key={d.id}
+                                                                    value={d.name ?? String(d.id)}
+                                                                    onSelect={() => {
+                                                                        form.setData('department_id', String(d.id));
+                                                                        setActiveField(null);
+                                                                    }}
+                                                                >
                                                                     {d.name ?? `#${d.id}`}
-                                                                </option>
+                                                                </CommandItem>
                                                             ))}
-                                                        </select>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('department_id')}
-                                                        >
-                                                            {employee.department?.name ?? '—'}
-                                                        </button>
-                                                    )}
+                                                        </CommandList>
+                                                    </CommandDialog>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         Position
                                                     </label>
-                                                    {activeField === 'position_id' ? (
-                                                        <select
-                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                            value={form.data.position_id}
-                                                            onChange={(e) => form.setData('position_id', e.target.value)}
-                                                            onBlur={() => setActiveField(null)}
-                                                            autoFocus
-                                                        >
-                                                            <option value="">—</option>
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                                        onClick={() => beginEdit('position_id')}
+                                                        disabled={!canUpdate}
+                                                    >
+                                                        {positions.find((p) => String(p.id) === String(form.data.position_id || employee.position?.id || ''))?.title ??
+                                                            employee.position?.title ??
+                                                            '—'}
+                                                    </button>
+                                                    <CommandDialog
+                                                        open={activeField === 'position_id' && canUpdate}
+                                                        onOpenChange={(open) => {
+                                                            if (!open) {
+                                                                setActiveField(null);
+                                                            }
+                                                        }}
+                                                        title="Select position"
+                                                        description="Search positions..."
+                                                    >
+                                                        <CommandInput placeholder="Search positions..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No results found.</CommandEmpty>
+                                                            <CommandItem
+                                                                value="__none__"
+                                                                onSelect={() => {
+                                                                    form.setData('position_id', '');
+                                                                    setActiveField(null);
+                                                                }}
+                                                            >
+                                                                —
+                                                            </CommandItem>
                                                             {positions.map((p) => (
-                                                                <option key={p.id} value={String(p.id)}>
+                                                                <CommandItem
+                                                                    key={p.id}
+                                                                    value={p.title ?? String(p.id)}
+                                                                    onSelect={() => {
+                                                                        form.setData('position_id', String(p.id));
+                                                                        setActiveField(null);
+                                                                    }}
+                                                                >
                                                                     {p.title ?? `#${p.id}`}
-                                                                </option>
+                                                                </CommandItem>
                                                             ))}
-                                                        </select>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('position_id')}
-                                                        >
-                                                            {employee.position?.title ?? '—'}
-                                                        </button>
-                                                    )}
+                                                        </CommandList>
+                                                    </CommandDialog>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         Manager
                                                     </label>
-                                                    {activeField === 'manager_id' ? (
-                                                        <select
-                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                            value={form.data.manager_id}
-                                                            onChange={(e) => form.setData('manager_id', e.target.value)}
-                                                            onBlur={() => setActiveField(null)}
-                                                            autoFocus
-                                                        >
-                                                            <option value="">—</option>
+                                                    <button
+                                                        type="button"
+                                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                                        onClick={() => beginEdit('manager_id')}
+                                                        disabled={!canUpdate}
+                                                    >
+                                                        {employee.manager?.name ?? '—'}
+                                                    </button>
+                                                    <CommandDialog
+                                                        open={activeField === 'manager_id' && canUpdate}
+                                                        onOpenChange={(open) => {
+                                                            if (!open) {
+                                                                setActiveField(null);
+                                                            }
+                                                        }}
+                                                        title="Select manager"
+                                                        description="Search employees..."
+                                                    >
+                                                        <CommandInput placeholder="Search employees..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No results found.</CommandEmpty>
+                                                            <CommandItem
+                                                                value="__none__"
+                                                                onSelect={() => {
+                                                                    form.setData('manager_id', '');
+                                                                    setActiveField(null);
+                                                                }}
+                                                            >
+                                                                —
+                                                            </CommandItem>
                                                             {managers.map((m) => (
-                                                                <option key={m.id} value={String(m.id)}>
+                                                                <CommandItem
+                                                                    key={m.id}
+                                                                    value={`${m.first_name} ${m.last_name} ${m.employee_no}`}
+                                                                    onSelect={() => {
+                                                                        form.setData('manager_id', String(m.id));
+                                                                        setActiveField(null);
+                                                                    }}
+                                                                >
                                                                     {`${m.first_name} ${m.last_name}`.trim() || `#${m.id}`}
-                                                                </option>
+                                                                    <span className="ml-auto text-xs text-muted-foreground">
+                                                                        {m.employee_no}
+                                                                    </span>
+                                                                </CommandItem>
                                                             ))}
-                                                        </select>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('manager_id')}
-                                                        >
-                                                            {employee.manager?.name ?? '—'}
-                                                        </button>
-                                                    )}
+                                                        </CommandList>
+                                                    </CommandDialog>
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         Work email
+                                                        {requiredDot('work_email')}
                                                     </label>
                                                     {activeField === 'work_email' ? (
                                                         <Input
@@ -670,7 +914,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('work_email')}
+                                                            onClick={() => beginEdit('work_email')}
                                                         >
                                                             {form.data.work_email || employee.work_email || '—'}
                                                         </button>
@@ -693,7 +937,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('phone')}
+                                                            onClick={() => beginEdit('phone')}
                                                         >
                                                             {form.data.phone || employee.phone || '—'}
                                                         </button>
@@ -729,7 +973,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('marital_status')}
+                                                            onClick={() => beginEdit('marital_status')}
                                                         >
                                                             {form.data.marital_status || employee.marital_status || '—'}
                                                         </button>
@@ -753,7 +997,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('date_of_birth')}
+                                                            onClick={() => beginEdit('date_of_birth')}
                                                         >
                                                             {form.data.date_of_birth || employee.date_of_birth || '—'}
                                                         </button>
@@ -776,7 +1020,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('place_of_birth')}
+                                                            onClick={() => beginEdit('place_of_birth')}
                                                         >
                                                             {form.data.place_of_birth || employee.place_of_birth || '—'}
                                                         </button>
@@ -806,7 +1050,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('gender_id')}
+                                                            onClick={() => beginEdit('gender_id')}
                                                         >
                                                             {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ?? '—'}
                                                         </button>
@@ -836,7 +1080,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('religion_id')}
+                                                            onClick={() => beginEdit('religion_id')}
                                                         >
                                                             {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ?? '—'}
                                                         </button>
@@ -852,7 +1096,7 @@ export default function EmployeeDetails({
 
                     {/* Tabs Navigation */}
                         <div>
-                            <Tabs defaultValue="personal" className="w-full">
+                            <Tabs value={tabValue} onValueChange={(v) => handleTabChange(v as any)} className="w-full">
                             <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1">
                                 {tabs.map((tab) => (
                                     <TabsTrigger
@@ -898,7 +1142,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('personal_email')}
+                                                            onClick={() => beginEdit('personal_email')}
                                                         >
                                                             {form.data.personal_email || employee.personal_email || '—'}
                                                         </button>
@@ -924,7 +1168,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('phone_home_country')}
+                                                            onClick={() => beginEdit('phone_home_country')}
                                                         >
                                                             {form.data.phone_home_country || employee.phone_home_country || '—'}
                                                         </button>
@@ -950,7 +1194,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('cv_source')}
+                                                            onClick={() => beginEdit('cv_source')}
                                                         >
                                                             {form.data.cv_source || employee.cv_source || '—'}
                                                         </button>
@@ -983,7 +1227,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField('emergency_contact')}
+                                                                onClick={() => beginEdit('emergency_contact')}
                                                             >
                                                                 {form.data.emergency_contact || employee.emergency_contact || '—'}
                                                             </button>
@@ -1004,7 +1248,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField('emergency_phone')}
+                                                                onClick={() => beginEdit('emergency_phone')}
                                                             >
                                                                 {form.data.emergency_phone || employee.emergency_phone || '—'}
                                                             </button>
@@ -1025,7 +1269,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField('emergency_contact_home_country')}
+                                                                onClick={() => beginEdit('emergency_contact_home_country')}
                                                             >
                                                                 {form.data.emergency_contact_home_country ||
                                                                     employee.emergency_contact_home_country ||
@@ -1048,7 +1292,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField('emergency_phone_home_country')}
+                                                                onClick={() => beginEdit('emergency_phone_home_country')}
                                                             >
                                                                 {form.data.emergency_phone_home_country ||
                                                                     employee.emergency_phone_home_country ||
@@ -1143,7 +1387,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField(row.key)}
+                                                                onClick={() => beginEdit(row.key)}
                                                             >
                                                                 {row.value}
                                                             </button>
@@ -1204,7 +1448,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField(row.key)}
+                                                                onClick={() => beginEdit(row.key)}
                                                             >
                                                                 {row.value}
                                                             </button>
@@ -1254,7 +1498,7 @@ export default function EmployeeDetails({
                                                     <button
                                                         type="button"
                                                         className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                        onClick={() => setActiveField('nationality_id')}
+                                                        onClick={() => beginEdit('nationality_id')}
                                                     >
                                                         {countries.find((c) => String(c.id) === String(form.data.nationality_id || employee.nationality_id || ''))?.name ??
                                                             employee.nationality_ref?.name ??
@@ -1299,7 +1543,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField(item.key)}
+                                                            onClick={() => beginEdit(item.key)}
                                                         >
                                                             {item.value}
                                                         </button>
@@ -1324,7 +1568,10 @@ export default function EmployeeDetails({
 
                                             <div className="space-y-4">
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Contract type</label>
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Contract type
+                                                        {requiredDot('contract_type')}
+                                                    </label>
                                                     {activeField === 'contract_type' ? (
                                                         <div>
                                                             <select
@@ -1347,7 +1594,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('contract_type')}
+                                                            onClick={() => beginEdit('contract_type')}
                                                         >
                                                             {form.data.contract_type || contract?.contract_type || '—'}
                                                         </button>
@@ -1355,7 +1602,10 @@ export default function EmployeeDetails({
                                                 </div>
 
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Start date</label>
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Start date
+                                                        {requiredDot('start_date')}
+                                                    </label>
                                                     {activeField === 'start_date' ? (
                                                         <div>
                                                             <Input
@@ -1374,7 +1624,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('start_date')}
+                                                            onClick={() => beginEdit('start_date')}
                                                         >
                                                             {form.data.start_date || contract?.start_date || '—'}
                                                         </button>
@@ -1401,7 +1651,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('end_date')}
+                                                            onClick={() => beginEdit('end_date')}
                                                         >
                                                             {form.data.end_date || contract?.end_date || '—'}
                                                         </button>
@@ -1428,7 +1678,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('probation_end_date')}
+                                                            onClick={() => beginEdit('probation_end_date')}
                                                         >
                                                             {form.data.probation_end_date || contract?.probation_end_date || '—'}
                                                         </button>
@@ -1454,7 +1704,7 @@ export default function EmployeeDetails({
                                                         <button
                                                             type="button"
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('labor_contract_id')}
+                                                            onClick={() => beginEdit('labor_contract_id')}
                                                         >
                                                             {form.data.labor_contract_id || contract?.labor_contract_id || '—'}
                                                         </button>
@@ -1508,7 +1758,7 @@ export default function EmployeeDetails({
                                                             <button
                                                                 type="button"
                                                                 className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                                onClick={() => setActiveField(row.key)}
+                                                                onClick={() => beginEdit(row.key)}
                                                             >
                                                                 {String((form.data as any)[row.key] ?? '') ||
                                                                 ((contract as any)?.[row.key] === null || (contract as any)?.[row.key] === undefined

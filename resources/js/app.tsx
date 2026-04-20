@@ -1,6 +1,5 @@
 import { createInertiaApp } from '@inertiajs/react';
 import { HttpExceptionToasts } from '@/components/http-exception-toasts';
-import { NavigationProgress } from '@/components/navigation-progress';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { initializeTheme } from '@/hooks/use-appearance';
@@ -28,7 +27,6 @@ createInertiaApp({
     withApp(app) {
         return (
             <TooltipProvider delayDuration={0}>
-                <NavigationProgress />
                 <HttpExceptionToasts />
                 <Toaster duration={5000} />
                 {app}

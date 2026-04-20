@@ -92,7 +92,11 @@ function SidebarMenuLink({ item, href }: { item: NavLink; href: string }) {
                 isActive={checkIsActive(href, item)}
                 tooltip={item.title}
             >
-                <Link href={item.url} onClick={() => setOpenMobile(false)}>
+                <Link
+                    href={item.url}
+                    prefetch="hover"
+                    onClick={() => setOpenMobile(false)}
+                >
                     {item.icon && <item.icon />}
                     <span>{item.title}</span>
                     {item.badge && <NavBadge>{item.badge}</NavBadge>}
@@ -136,6 +140,7 @@ function SidebarMenuCollapsible({
                                 >
                                     <Link
                                         href={subItem.url}
+                                        prefetch="hover"
                                         onClick={() => setOpenMobile(false)}
                                     >
                                         {subItem.icon && <subItem.icon />}
@@ -187,6 +192,7 @@ function SidebarMenuCollapsedDropdown({
                         >
                             <Link
                                 href={sub.url}
+                                prefetch="hover"
                                 className={`${checkIsActive(href, sub) ? 'bg-secondary' : ''}`}
                             >
                                 {sub.icon && <sub.icon />}
