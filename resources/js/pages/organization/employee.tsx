@@ -1,8 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
     Briefcase,
-    Mail,
-    Phone,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
@@ -168,6 +166,10 @@ export default function EmployeeDetails({
             employee_no: employee.employee_no ?? '',
             first_name: employee.first_name ?? '',
             last_name: employee.last_name ?? '',
+            branch_id: employee.branch?.id ? String(employee.branch.id) : '',
+            department_id: employee.department?.id ? String(employee.department.id) : '',
+            position_id: employee.position?.id ? String(employee.position.id) : '',
+            manager_id: employee.manager?.id ? String(employee.manager.id) : '',
             personal_email: employee.personal_email ?? employee.work_email ?? '',
             work_email: employee.work_email ?? '',
             phone: employee.phone ?? '',
@@ -200,6 +202,10 @@ export default function EmployeeDetails({
             employee.employee_no,
             employee.first_name,
             employee.last_name,
+            employee.branch?.id,
+            employee.department?.id,
+            employee.position?.id,
+            employee.manager?.id,
             employee.personal_email,
             employee.work_email,
             employee.phone,
@@ -341,6 +347,10 @@ export default function EmployeeDetails({
             employee_no: data.employee_no?.trim() || null,
             first_name: data.first_name?.trim() || null,
             last_name: data.last_name?.trim() || null,
+            branch_id: data.branch_id ? Number(data.branch_id) : null,
+            department_id: data.department_id ? Number(data.department_id) : null,
+            position_id: data.position_id ? Number(data.position_id) : null,
+            manager_id: data.manager_id ? Number(data.manager_id) : null,
             personal_email: data.personal_email?.trim() || null,
             work_email: data.work_email?.trim() || null,
             phone: data.phone?.trim() || null,
@@ -526,60 +536,172 @@ export default function EmployeeDetails({
                                             <div className="text-[11px] font-semibold tracking-wide text-zinc-500">
                                                 Contact
                                             </div>
-                                            <div className="grid grid-cols-1 gap-3">
-                                                {[
-                                                    {
-                                                        icon: Mail,
-                                                        value:
-                                                            activeField === 'work_email' ? (
-                                                                <Input
-                                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
-                                                                    value={form.data.work_email}
-                                                                    onChange={(e) => form.setData('work_email', e.target.value)}
-                                                                    onBlur={() => setActiveField(null)}
-                                                                    autoFocus
-                                                                />
-                                                            ) : (
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-left hover:text-white"
-                                                                    onClick={() => setActiveField('work_email')}
-                                                                >
-                                                                    {form.data.work_email || employee.work_email || '—'}
-                                                                </button>
-                                                            ),
-                                                    },
-                                                    {
-                                                        icon: Phone,
-                                                        value:
-                                                            activeField === 'phone' ? (
-                                                                <Input
-                                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
-                                                                    value={form.data.phone}
-                                                                    onChange={(e) => form.setData('phone', e.target.value)}
-                                                                    onBlur={() => setActiveField(null)}
-                                                                    autoFocus
-                                                                />
-                                                            ) : (
-                                                                <button
-                                                                    type="button"
-                                                                    className="text-left hover:text-white"
-                                                                    onClick={() => setActiveField('phone')}
-                                                                >
-                                                                    {form.data.phone || employee.phone || '—'}
-                                                                </button>
-                                                            ),
-                                                    },
-                                                ].map((item, idx) => (
-                                                    <div key={idx} className="flex items-center gap-3">
-                                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-500 shadow-inner">
-                                                            <item.icon className="h-4 w-4" />
-                                                        </div>
-                                                        <span className="w-full truncate text-sm font-semibold tracking-tight text-zinc-300">
-                                                            {item.value}
-                                                        </span>
-                                                    </div>
-                                                ))}
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Branch
+                                                    </label>
+                                                    {activeField === 'branch_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.branch_id}
+                                                            onChange={(e) => form.setData('branch_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {branches.map((b) => (
+                                                                <option key={b.id} value={String(b.id)}>
+                                                                    {b.name ?? `#${b.id}`}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('branch_id')}
+                                                        >
+                                                            {employee.branch?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Department
+                                                    </label>
+                                                    {activeField === 'department_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.department_id}
+                                                            onChange={(e) => form.setData('department_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {departments.map((d) => (
+                                                                <option key={d.id} value={String(d.id)}>
+                                                                    {d.name ?? `#${d.id}`}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('department_id')}
+                                                        >
+                                                            {employee.department?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Position
+                                                    </label>
+                                                    {activeField === 'position_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.position_id}
+                                                            onChange={(e) => form.setData('position_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {positions.map((p) => (
+                                                                <option key={p.id} value={String(p.id)}>
+                                                                    {p.title ?? `#${p.id}`}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('position_id')}
+                                                        >
+                                                            {employee.position?.title ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Manager
+                                                    </label>
+                                                    {activeField === 'manager_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.manager_id}
+                                                            onChange={(e) => form.setData('manager_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {managers.map((m) => (
+                                                                <option key={m.id} value={String(m.id)}>
+                                                                    {`${m.first_name} ${m.last_name}`.trim() || `#${m.id}`}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('manager_id')}
+                                                        >
+                                                            {employee.manager?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Work email
+                                                    </label>
+                                                    {activeField === 'work_email' ? (
+                                                        <Input
+                                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                            value={form.data.work_email}
+                                                            onChange={(e) => form.setData('work_email', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('work_email')}
+                                                        >
+                                                            {form.data.work_email || employee.work_email || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Phone (UAE)
+                                                    </label>
+                                                    {activeField === 'phone' ? (
+                                                        <Input
+                                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                            value={form.data.phone}
+                                                            onChange={(e) => form.setData('phone', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('phone')}
+                                                        >
+                                                            {form.data.phone || employee.phone || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -750,9 +872,8 @@ export default function EmployeeDetails({
                                 value="personal"
                                 className="mt-6"
                             >
-                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-                                    {/* Left Column: Private Contact */}
-                                    <div className="space-y-6 xl:col-span-7">
+                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+                                    <div className="space-y-6">
                                         <div className="rounded-xl border border-white/5 bg-white/5 p-5">
                                             <div className="mb-4 flex items-center justify-between gap-3">
                                                 <h3 className="text-sm font-semibold text-zinc-200">
@@ -1097,8 +1218,7 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
 
-                                    {/* Right Column: Citizenship */}
-                                    <div className="space-y-6 xl:col-span-5">
+                                    <div className="space-y-6">
                                         <div className="rounded-xl border border-white/5 bg-white/5 p-5">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
