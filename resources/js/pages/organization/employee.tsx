@@ -253,31 +253,31 @@ export default function EmployeeDetails({
             <Head title={`Employee • ${displayName}`} />
             <Main className="p-0 bg-background">
                 {/* Top Toolbar */}
-                <div className="flex items-center justify-between px-6 py-2 border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50">
-                    <div className="flex items-center gap-4">
-                        <Button variant="outline" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground border-none h-8 px-4 font-bold">
+                <div className="flex items-center justify-between px-4 md:px-6 py-2 border-b border-border/50 bg-card/80 backdrop-blur-md sticky top-0 z-50 overflow-x-auto hide-scrollbar">
+                    <div className="flex items-center gap-2 md:gap-4 shrink-0">
+                        <Button variant="outline" size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground border-none h-8 px-3 md:px-4 font-bold text-xs md:text-sm">
                             New
                         </Button>
-                        <div className="flex items-center text-sm text-zinc-400 font-medium">
-                            <span className="hover:text-white cursor-pointer transition-colors">Crew</span>
-                            <span className="mx-2 text-zinc-600">/</span>
+                        <div className="flex items-center text-xs md:text-sm text-zinc-400 font-medium whitespace-nowrap">
+                            <span className="hover:text-white cursor-pointer transition-colors hidden sm:inline">Crew</span>
+                            <span className="mx-2 text-zinc-600 hidden sm:inline">/</span>
                             <span className="text-zinc-200 font-semibold">{displayName}</span>
-                            <Settings className="w-4 h-4 ml-2 text-zinc-500 hover:text-white cursor-pointer" />
+                            <Settings className="w-4 h-4 ml-2 text-zinc-500 hover:text-white cursor-pointer shrink-0" />
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1">
-                        <div className="flex items-center bg-muted/20 rounded-md p-0.5 border border-border/50">
+                    <div className="flex items-center gap-1 shrink-0 ml-4">
+                        <div className="flex items-center bg-muted/20 rounded-md p-0.5 border border-border/50 hidden md:flex">
                             {stats.map((stat, i) => (
                                 <button
                                     key={i}
-                                    className="flex flex-col items-center justify-center px-4 py-1.5 hover:bg-muted/30 rounded transition-colors group relative"
+                                    className="flex flex-col items-center justify-center px-2 lg:px-4 py-1.5 hover:bg-muted/30 rounded transition-colors group relative"
                                 >
                                     <div className="flex items-center gap-2">
                                         <stat.icon className={cn('w-4 h-4', stat.color)} />
                                         <span className="text-[11px] font-bold text-zinc-300">{stat.count}</span>
                                     </div>
-                                    <span className="text-[9px] uppercase tracking-tighter text-zinc-500 font-bold mt-0.5">{stat.label}</span>
+                                    <span className="text-[9px] uppercase tracking-tighter text-zinc-500 font-bold mt-0.5 whitespace-nowrap">{stat.label}</span>
                                     {stat.badge && (
                                         <span className="absolute top-1 right-1 text-[8px] bg-rose-500 text-white px-1 rounded-sm leading-none py-0.5 font-bold uppercase tracking-tighter">
                                             {stat.badge}
@@ -286,8 +286,8 @@ export default function EmployeeDetails({
                                 </button>
                             ))}
                         </div>
-                        <div className="flex items-center ml-4 gap-1">
-                            <span className="text-xs text-zinc-500 font-mono">1 / 80</span>
+                        <div className="flex items-center ml-2 md:ml-4 gap-1">
+                            <span className="text-xs text-zinc-500 font-mono hidden sm:inline">1 / 80</span>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-zinc-400">
                                 <ChevronLeft className="w-4 h-4" />
                             </Button>
@@ -300,14 +300,12 @@ export default function EmployeeDetails({
 
 
 
-                <div className="flex flex-1 min-h-0 overflow-hidden">
-                    {/* Main Content Area */}
-                    <div className="flex-1 overflow-y-auto bg-background custom-scrollbar">
-                        <div className="max-w-6xl mx-auto p-8">
-                            <div className="flex gap-8 items-start">
-                                {/* Profile Image */}
-                                <div className="relative group">
-                                    <div className="w-32 h-40 rounded-lg overflow-hidden border border-border/50 bg-secondary/50 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]">
+                {/* Main Content Area */}
+                <div className="max-w-6xl mx-auto p-4 md:p-8">
+                    <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start">
+                        {/* Profile Image */}
+                        <div className="relative group shrink-0 mx-auto md:mx-0">
+                            <div className="w-32 h-40 rounded-lg overflow-hidden border border-border/50 bg-secondary/50 shadow-2xl transition-transform duration-500 group-hover:scale-[1.02]">
                                         {imageSrc ? (
                                             <img src={imageSrc} alt={displayName} className="w-full h-full object-cover" />
                                         ) : (
@@ -321,32 +319,32 @@ export default function EmployeeDetails({
                                     </button>
                                 </div>
 
-                                {/* Header Info */}
-                                <div className="flex-1 space-y-4">
-                                    <div className="flex items-start justify-between">
-                                        <div>
-                                            <h1 className="text-4xl font-bold tracking-tight text-foreground uppercase">
-                                                {displayName}
-                                            </h1>
-                                            <div className="flex items-center gap-3 mt-3">
-                                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                                    {employee.status}
-                                                </div>
-                                                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/30 border border-border/50 text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
-                                                    {employee.employee_no}
-                                                </div>
-                                            </div>
+                        {/* Header Info */}
+                        <div className="flex-1 space-y-4 w-full text-center md:text-left">
+                            <div className="flex flex-col md:flex-row items-center md:items-start justify-between gap-4">
+                                <div>
+                                    <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-foreground uppercase">
+                                        {displayName}
+                                    </h1>
+                                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-2 md:gap-3 mt-3">
+                                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-widest">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                            {employee.status}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                Absent
-                                            </div>
+                                        <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-muted/30 border border-border/50 text-muted-foreground text-[10px] font-bold uppercase tracking-widest">
+                                            {employee.employee_no}
                                         </div>
                                     </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="px-4 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-bold uppercase tracking-widest flex items-center gap-2 shadow-[0_0_20px_rgba(245,158,11,0.1)]">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                        Absent
+                                    </div>
+                                </div>
+                            </div>
 
-                                    <div className="grid grid-cols-2 gap-x-12 gap-y-4 pt-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-12 gap-y-4 pt-4 text-left">
                                         <div className="space-y-3">
                                             <div className="flex items-center gap-3 group cursor-pointer">
                                                 <div className="w-8 h-8 rounded-lg bg-muted/30 border border-border/50 flex items-center justify-center text-muted-foreground group-hover:text-primary transition-colors">
@@ -372,30 +370,31 @@ export default function EmployeeDetails({
                                                     {employee.position?.title || 'Technical Staff'}
                                                 </Badge>
                                             </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
 
-                            {/* Tabs Navigation */}
-                            <div className="mt-12">
-                                <Tabs defaultValue="personal" className="w-full">
-                                    <TabsList className="bg-transparent border-b border-border/50 w-full justify-start h-auto p-0 gap-8 rounded-none">
-                                        {tabs.map((tab) => (
-                                            <TabsTrigger
-                                                key={tab.id}
-                                                value={tab.id}
-                                                className="bg-transparent border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent text-muted-foreground text-xs font-bold uppercase tracking-widest px-0 py-4 transition-all rounded-none hover:text-foreground"
-                                            >
+                    {/* Tabs Navigation */}
+                    <div className="mt-8 md:mt-12">
+                        <Tabs defaultValue="personal" className="w-full">
+                            <TabsList className="bg-transparent border-b border-border/50 w-full justify-start h-auto p-0 gap-4 md:gap-8 rounded-none overflow-x-auto flex-nowrap hide-scrollbar">
+                                {tabs.map((tab) => (
+                                    <TabsTrigger
+                                        key={tab.id}
+                                        value={tab.id}
+                                        className="bg-transparent border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:text-foreground data-[state=active]:bg-transparent text-muted-foreground text-xs font-bold uppercase tracking-widest px-0 py-3 md:py-4 transition-all rounded-none hover:text-foreground whitespace-nowrap shrink-0"
+                                    >
                                                 {tab.label}
                                             </TabsTrigger>
                                         ))}
-                                    </TabsList>
+                            </TabsList>
 
-                                    <TabsContent value="personal" className="mt-8 space-y-12">
-                                        <div className="grid grid-cols-2 gap-24">
-                                            {/* Left Column: Private Contact */}
-                                            <div className="space-y-8">
+                            <TabsContent value="personal" className="mt-8 space-y-12">
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-24">
+                                    {/* Left Column: Private Contact */}
+                                    <div className="space-y-8">
                                                 <div className="flex items-center gap-4">
                                                     <h3 className="text-[11px] font-bold uppercase tracking-[0.3em] text-muted-foreground">Private Contact</h3>
                                                     <Separator className="flex-1 bg-border/50" />
@@ -486,31 +485,22 @@ export default function EmployeeDetails({
                                                         </div>
                                                     ))}
                                                 </div>
-                                            </div>
                                         </div>
-                                    </TabsContent>
-                                </Tabs>
-                            </div>
-                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
                     </div>
-
-
                 </div>
             </Main>
 
             <style>{`
-                .custom-scrollbar::-webkit-scrollbar {
-                    width: 5px;
+                .hide-scrollbar::-webkit-scrollbar {
+                    display: none;
                 }
-                .custom-scrollbar::-webkit-scrollbar-track {
-                    background: transparent;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 10px;
-                }
-                .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-                    background: rgba(255, 255, 255, 0.1);
+                .hide-scrollbar {
+                    -ms-overflow-style: none;
+                    scrollbar-width: none;
                 }
             `}</style>
         </>
