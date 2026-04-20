@@ -76,6 +76,41 @@ test('authenticated users can access the onboarding pipeline page', function () 
         );
 });
 
+test('employee create redirects to template create when none exists', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create', 'onboarding.templates.create']);
+
+    $this->get('/organization/employees/create')
+        ->assertRedirect(route('onboarding.templates.create'));
+});
+
 test('onboarding pipeline correctly saves a complex payload with documents', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -12,17 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Legacy migration kept for ordering compatibility.
-        // We no longer use the legacy `roles` table (we use `spatie_roles`), and it is dropped later.
-        return;
-
         try {
-            DB::statement('ALTER TABLE roles DROP INDEX uq_role_company');
+            DB::statement('DROP INDEX uq_role_company');
         } catch (Throwable) {
-        }
-
-        if (! Schema::hasTable('roles')) {
-            return;
         }
 
         Schema::table('roles', function (Blueprint $table) {

@@ -200,7 +200,15 @@ class EmployeeController extends Controller
                 ->first();
         }
 
-        abort_unless($template, 403, 'Please create an onboarding template first.');
+        if (! $template) {
+            if (request()->user()?->can('onboarding.templates.create')) {
+                return redirect()
+                    ->route('onboarding.templates.create')
+                    ->with('error', 'Please create an onboarding template first.');
+            }
+
+            abort(403, 'Please create an onboarding template first.');
+        }
 
         $branches = Branch::query()
             ->where('company_id', $companyId)
