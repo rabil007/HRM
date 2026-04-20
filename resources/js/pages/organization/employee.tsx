@@ -533,9 +533,6 @@ export default function EmployeeDetails({
 
                                     <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
                                         <div className="space-y-3">
-                                            <div className="text-[11px] font-semibold tracking-wide text-zinc-500">
-                                                Contact
-                                            </div>
                                             <div className="space-y-3">
                                                 <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                                     <label className="text-xs font-medium text-zinc-400">
