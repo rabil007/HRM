@@ -1,6 +1,6 @@
-import { Input } from '@/components/ui/input';
-import { Upload, X, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Upload, X, FileText, AlertCircle } from 'lucide-react';
 import React, { useState } from 'react';
+import { Input } from '@/components/ui/input';
 
 interface DocumentRegistryProps {
     documents: Array<{ type: string; min: number; ask_issue_date?: boolean; ask_expiry_date?: boolean; ask_document_number?: boolean }>;
@@ -26,6 +26,7 @@ export function DocumentRegistry({
     const handleDrag = (e: React.DragEvent, type: string) => {
         e.preventDefault();
         e.stopPropagation();
+
         if (e.type === "dragenter" || e.type === "dragover") {
             setDragActive(type);
         } else if (e.type === "dragleave") {
@@ -37,6 +38,7 @@ export function DocumentRegistry({
         e.preventDefault();
         e.stopPropagation();
         setDragActive(null);
+
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             const files = Array.from(e.dataTransfer.files);
             onUploadChange(type, { ...(docUploads[type] ?? { files: [] }), files });
@@ -83,7 +85,6 @@ export function DocumentRegistry({
                             const value = docUploads[d.type] ?? { files: [] };
                             const selectedCount = value.files?.length ?? 0;
                             const isComplete = selectedCount >= d.min;
-                            const hasMetadata = value.issue_date || value.expiry_date || value.document_number;
                             const isPending = selectedCount > 0 && selectedCount < d.min;
 
                             return (

@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Search, Shield, CheckCircle2, Circle, LayoutGrid, ChevronRight } from 'lucide-react';
-import { useMemo, useState, useEffect } from 'react';
+import { Search, Shield, CheckCircle2, Circle, LayoutGrid } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
@@ -101,9 +101,11 @@ return name;
                 
                 return [mainGroup, subGroups] as const;
             });
-    }, [availablePermissions, permissionQuery, permissionView, selectedSet]);
+    }, [availablePermissions, permissionQuery]);
 
-    const [activeGroup, setActiveGroup] = useState<string | null>(null);
+    const initialGroup = grouped[0]?.[0] ?? null;
+    const [activeGroup, setActiveGroup] = useState<string | null>(initialGroup);
+    const effectiveActiveGroup = activeGroup ?? initialGroup;
 
     const togglePermission = (permission: string, next: boolean) => {
         if (next) {
@@ -114,13 +116,6 @@ return name;
 
         setSelectedPermissions((prev) => prev.filter((p) => p !== permission));
     };
-
-    // Set initial active group
-    useEffect(() => {
-        if (grouped.length > 0 && !activeGroup) {
-            setActiveGroup(grouped[0][0]);
-        }
-    }, [grouped, activeGroup]);
 
     return (
         <>
@@ -223,9 +218,9 @@ return name;
                                 <ScrollArea className="flex-1">
                                     <div className="p-2 space-y-1">
                                         {grouped.map(([group, subGroups]) => {
-                                            const allItems = subGroups.flatMap(([_, items]) => items);
+                                            const allItems = subGroups.flatMap(([, items]) => items);
                                             const selectedCount = allItems.filter((p) => selectedSet.has(p)).length;
-                                            const isActive = activeGroup === group;
+                                            const isActive = effectiveActiveGroup === group;
                                             const isComplete = selectedCount === allItems.length && allItems.length > 0;
 
                                             return (
@@ -268,10 +263,10 @@ return name;
                         {/* Content Area */}
                         <main className="lg:col-span-9">
                             <Card className="border-white/5 bg-white/5 h-full flex flex-col overflow-hidden shadow-2xl">
-                                {activeGroup ? (
+                                {effectiveActiveGroup ? (
                                     <>
                                         {(() => {
-                                            const groupData = grouped.find(([g]) => g === activeGroup);
+                                            const groupData = grouped.find(([g]) => g === effectiveActiveGroup);
 
                                             if (!groupData) {
 return null;
@@ -279,7 +274,7 @@ return null;
 
                                             const [group, subGroups] = groupData;
                                             
-                                            const allItems = subGroups.flatMap(([_, items]) => items);
+                                            const allItems = subGroups.flatMap(([, items]) => items);
                                             const selectedCount = allItems.filter((p) => selectedSet.has(p)).length;
                                             const allSelected = selectedCount === allItems.length && allItems.length > 0;
 

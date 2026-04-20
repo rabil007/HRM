@@ -1,34 +1,24 @@
 import { Head } from '@inertiajs/react';
 import {
-    Award,
     Briefcase,
-    Building2,
-    CalendarDays,
     ChevronLeft,
     ChevronRight,
     Clock,
     FileText,
-    GraduationCap,
-    Languages,
     Link as LinkIcon,
     Mail,
-    MapPin,
-    MoreHorizontal,
     Phone,
     Plus,
     Receipt,
     Settings,
     Target,
-    User2,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { cn } from '@/lib/utils';
 import type {
     BankOption,
     BranchOption,
@@ -40,6 +30,7 @@ import type {
     ReligionOption,
     UserOption,
 } from '@/features/organization/employees/types';
+import { cn } from '@/lib/utils';
 
 type EmployeeDetails = {
     id: number;
@@ -109,84 +100,6 @@ type ActivityItem = {
     new_values: Record<string, unknown> | null;
     created_at: string;
 };
-
-const HIDDEN_ACTIVITY_KEYS = new Set([
-    'id',
-    'company_id',
-    'created_at',
-    'updated_at',
-    'deleted_at',
-    'remember_token',
-    'password',
-]);
-
-function formatActivityDate(value: string): string {
-    const dt = new Date(value);
-
-    if (Number.isNaN(dt.getTime())) {
-        return value;
-    }
-
-    return dt.toLocaleString();
-}
-
-function titleCaseKey(key: string): string {
-    return key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function formatValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') {
-        return '—';
-    }
-
-    if (typeof value === 'boolean') {
-        return value ? 'Yes' : 'No';
-    }
-
-    if (typeof value === 'number') {
-        return String(value);
-    }
-
-    if (typeof value === 'string') {
-        return value;
-    }
-
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return String(value);
-    }
-}
-
-function changedKeys(
-    oldValues: Record<string, unknown> | null,
-    newValues: Record<string, unknown> | null,
-): string[] {
-    const keys = new Set<string>([
-        ...Object.keys(oldValues ?? {}),
-        ...Object.keys(newValues ?? {}),
-    ]);
-
-    return [...keys]
-        .filter((k) => !HIDDEN_ACTIVITY_KEYS.has(k))
-        .sort((a, b) => a.localeCompare(b));
-}
-
-function statusBadgeClass(status: EmployeeDetails['status']): string {
-    if (status === 'active') {
-        return 'bg-emerald-500/10 text-emerald-200 border border-emerald-500/20';
-    }
-
-    if (status === 'inactive') {
-        return 'bg-zinc-500/10 text-zinc-200 border border-zinc-500/20';
-    }
-
-    if (status === 'on_leave') {
-        return 'bg-amber-500/10 text-amber-200 border border-amber-500/20';
-    }
-
-    return 'bg-rose-500/10 text-rose-200 border border-rose-500/20';
-}
 
 export default function EmployeeDetails({
     employee,
