@@ -1,7 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
     Briefcase,
-    Link as LinkIcon,
     Mail,
     Phone,
 } from 'lucide-react';
@@ -174,12 +173,28 @@ export default function EmployeeDetails({
             phone: employee.phone ?? '',
             phone_home_country: employee.phone_home_country ?? '',
             cv_source: employee.cv_source ?? '',
+            emergency_contact: employee.emergency_contact ?? '',
+            emergency_phone: employee.emergency_phone ?? '',
+            emergency_contact_home_country: employee.emergency_contact_home_country ?? '',
+            emergency_phone_home_country: employee.emergency_phone_home_country ?? '',
+            nearest_airport: employee.nearest_airport ?? '',
+            address: employee.address ?? '',
             date_of_birth: employee.date_of_birth ?? '',
             place_of_birth: employee.place_of_birth ?? '',
             gender_id: employee.gender_id ? String(employee.gender_id) : '',
             religion_id: employee.religion_id ? String(employee.religion_id) : '',
             nationality_id: employee.nationality_id ? String(employee.nationality_id) : '',
             marital_status: employee.marital_status ?? '',
+            spouse_name: employee.spouse_name ?? '',
+            spouse_birthdate: employee.spouse_birthdate ?? '',
+            dependent_children_count:
+                employee.dependent_children_count === null ||
+                employee.dependent_children_count === undefined
+                    ? ''
+                    : String(employee.dependent_children_count),
+            passport_number: employee.passport_number ?? '',
+            emirates_id: employee.emirates_id ?? '',
+            labor_card_number: employee.labor_card_number ?? '',
         }),
         [
             employee.employee_no,
@@ -190,12 +205,24 @@ export default function EmployeeDetails({
             employee.phone,
             employee.phone_home_country,
             employee.cv_source,
+            employee.emergency_contact,
+            employee.emergency_phone,
+            employee.emergency_contact_home_country,
+            employee.emergency_phone_home_country,
+            employee.nearest_airport,
+            employee.address,
             employee.date_of_birth,
             employee.place_of_birth,
             employee.gender_id,
             employee.religion_id,
             employee.nationality_id,
             employee.marital_status,
+            employee.spouse_name,
+            employee.spouse_birthdate,
+            employee.dependent_children_count,
+            employee.passport_number,
+            employee.emirates_id,
+            employee.labor_card_number,
         ],
     );
 
@@ -319,17 +346,32 @@ export default function EmployeeDetails({
             phone: data.phone?.trim() || null,
             phone_home_country: data.phone_home_country?.trim() || null,
             cv_source: data.cv_source?.trim() || null,
+            emergency_contact: data.emergency_contact?.trim() || null,
+            emergency_phone: data.emergency_phone?.trim() || null,
+            emergency_contact_home_country: data.emergency_contact_home_country?.trim() || null,
+            emergency_phone_home_country: data.emergency_phone_home_country?.trim() || null,
+            nearest_airport: data.nearest_airport?.trim() || null,
+            address: data.address?.trim() || null,
             date_of_birth: data.date_of_birth || null,
             place_of_birth: data.place_of_birth?.trim() || null,
             gender_id: data.gender_id ? Number(data.gender_id) : null,
             religion_id: data.religion_id ? Number(data.religion_id) : null,
             nationality_id: data.nationality_id ? Number(data.nationality_id) : null,
             marital_status: data.marital_status || null,
+            spouse_name: data.spouse_name?.trim() || null,
+            spouse_birthdate: data.spouse_birthdate || null,
+            dependent_children_count:
+                data.dependent_children_count === ''
+                    ? null
+                    : Number(data.dependent_children_count),
             contract_type: data.contract_type,
             start_date: data.start_date,
             end_date: data.end_date || null,
             probation_end_date: data.probation_end_date || null,
             labor_contract_id: data.labor_contract_id?.trim() || null,
+            passport_number: data.passport_number?.trim() || null,
+            emirates_id: data.emirates_id?.trim() || null,
+            labor_card_number: data.labor_card_number?.trim() || null,
             basic_salary: data.basic_salary === '' ? null : Number(data.basic_salary),
             housing_allowance: data.housing_allowance === '' ? null : Number(data.housing_allowance),
             transport_allowance: data.transport_allowance === '' ? null : Number(data.transport_allowance),
@@ -467,71 +509,223 @@ export default function EmployeeDetails({
                                         </div>
                                         <Badge className="mx-auto flex w-fit items-center gap-2 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary md:mx-0">
                                             <Briefcase className="h-3.5 w-3.5" />
-                                            {employee.position?.title || 'Technical Staff'}
+                                            {employee.position?.title || '—'}
                                         </Badge>
                                     </div>
                                 </div>
 
                                 <div className="rounded-2xl border border-white/5 bg-white/5 p-4 md:p-5">
-                                <div className="grid grid-cols-1 gap-3 text-left">
-                                    {[
-                                        {
-                                            icon: Mail,
-                                            value:
-                                                activeField === 'work_email' ? (
-                                                    <Input
-                                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
-                                                        value={form.data.work_email}
-                                                        onChange={(e) => form.setData('work_email', e.target.value)}
-                                                        onBlur={() => setActiveField(null)}
-                                                        autoFocus
-                                                    />
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="text-left hover:text-white"
-                                                        onClick={() => setActiveField('work_email')}
-                                                    >
-                                                        {form.data.work_email || employee.work_email || 'no-email@company.com'}
-                                                    </button>
-                                                ),
-                                        },
-                                        {
-                                            icon: Phone,
-                                            value:
-                                                activeField === 'phone' ? (
-                                                    <Input
-                                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
-                                                        value={form.data.phone}
-                                                        onChange={(e) => form.setData('phone', e.target.value)}
-                                                        onBlur={() => setActiveField(null)}
-                                                        autoFocus
-                                                    />
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="text-left hover:text-white"
-                                                        onClick={() => setActiveField('phone')}
-                                                    >
-                                                        {form.data.phone || employee.phone || '+971 -- --- ----'}
-                                                    </button>
-                                                ),
-                                        },
-                                        { icon: LinkIcon, value: employee.id },
-                                    ].map((item, idx) => (
-                                        <div
-                                            key={idx}
-                                            className="flex items-center gap-3"
-                                        >
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-500 shadow-inner">
-                                                <item.icon className="h-4 w-4" />
-                                            </div>
-                                            <span className="w-full truncate text-sm font-semibold tracking-tight text-zinc-300">
-                                                {item.value}
-                                            </span>
+                                    <div className="mb-4 flex items-center justify-between">
+                                        <div className="text-xs font-semibold tracking-wide text-zinc-400">
+                                            Details
                                         </div>
-                                    ))}
-                                </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-5 md:grid-cols-2 md:gap-6">
+                                        <div className="space-y-3">
+                                            <div className="text-[11px] font-semibold tracking-wide text-zinc-500">
+                                                Contact
+                                            </div>
+                                            <div className="grid grid-cols-1 gap-3">
+                                                {[
+                                                    {
+                                                        icon: Mail,
+                                                        value:
+                                                            activeField === 'work_email' ? (
+                                                                <Input
+                                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                                    value={form.data.work_email}
+                                                                    onChange={(e) => form.setData('work_email', e.target.value)}
+                                                                    onBlur={() => setActiveField(null)}
+                                                                    autoFocus
+                                                                />
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-left hover:text-white"
+                                                                    onClick={() => setActiveField('work_email')}
+                                                                >
+                                                                    {form.data.work_email || employee.work_email || '—'}
+                                                                </button>
+                                                            ),
+                                                    },
+                                                    {
+                                                        icon: Phone,
+                                                        value:
+                                                            activeField === 'phone' ? (
+                                                                <Input
+                                                                    className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                                    value={form.data.phone}
+                                                                    onChange={(e) => form.setData('phone', e.target.value)}
+                                                                    onBlur={() => setActiveField(null)}
+                                                                    autoFocus
+                                                                />
+                                                            ) : (
+                                                                <button
+                                                                    type="button"
+                                                                    className="text-left hover:text-white"
+                                                                    onClick={() => setActiveField('phone')}
+                                                                >
+                                                                    {form.data.phone || employee.phone || '—'}
+                                                                </button>
+                                                            ),
+                                                    },
+                                                ].map((item, idx) => (
+                                                    <div key={idx} className="flex items-center gap-3">
+                                                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/5 bg-white/5 text-zinc-500 shadow-inner">
+                                                            <item.icon className="h-4 w-4" />
+                                                        </div>
+                                                        <span className="w-full truncate text-sm font-semibold tracking-tight text-zinc-300">
+                                                            {item.value}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <div className="text-[11px] font-semibold tracking-wide text-zinc-500">
+                                                Personal
+                                            </div>
+                                            <div className="space-y-3">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Marital status
+                                                    </label>
+                                                    {activeField === 'marital_status' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.marital_status}
+                                                            onChange={(e) => form.setData('marital_status', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            <option value="single">Single</option>
+                                                            <option value="married">Married</option>
+                                                            <option value="divorced">Divorced</option>
+                                                            <option value="widowed">Widowed</option>
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('marital_status')}
+                                                        >
+                                                            {form.data.marital_status || employee.marital_status || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Birthday
+                                                    </label>
+                                                    {activeField === 'date_of_birth' ? (
+                                                        <Input
+                                                            type="date"
+                                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                            value={form.data.date_of_birth}
+                                                            onChange={(e) => form.setData('date_of_birth', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('date_of_birth')}
+                                                        >
+                                                            {form.data.date_of_birth || employee.date_of_birth || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Place of Birth
+                                                    </label>
+                                                    {activeField === 'place_of_birth' ? (
+                                                        <Input
+                                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
+                                                            value={form.data.place_of_birth}
+                                                            onChange={(e) => form.setData('place_of_birth', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('place_of_birth')}
+                                                        >
+                                                            {form.data.place_of_birth || employee.place_of_birth || '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Gender
+                                                    </label>
+                                                    {activeField === 'gender_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.gender_id}
+                                                            onChange={(e) => form.setData('gender_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {genders.map((g) => (
+                                                                <option key={g.id} value={String(g.id)}>
+                                                                    {g.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('gender_id')}
+                                                        >
+                                                            {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">
+                                                        Religion
+                                                    </label>
+                                                    {activeField === 'religion_id' ? (
+                                                        <select
+                                                            className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                            value={form.data.religion_id}
+                                                            onChange={(e) => form.setData('religion_id', e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        >
+                                                            <option value="">—</option>
+                                                            {religions.map((r) => (
+                                                                <option key={r.id} value={String(r.id)}>
+                                                                    {r.name}
+                                                                </option>
+                                                            ))}
+                                                        </select>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField('religion_id')}
+                                                        >
+                                                            {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ?? '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -588,33 +782,7 @@ export default function EmployeeDetails({
                                                             className="text-left text-sm font-medium text-zinc-200 hover:text-white"
                                                             onClick={() => setActiveField('personal_email')}
                                                         >
-                                                            {form.data.personal_email || employee.personal_email || employee.work_email || '—'}
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Phone (UAE)</label>
-                                                    {activeField === 'phone' ? (
-                                                        <div>
-                                                            <Input
-                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                                                value={form.data.phone}
-                                                                onChange={(e) => form.setData('phone', e.target.value)}
-                                                                onBlur={() => setActiveField(null)}
-                                                                autoFocus
-                                                            />
-                                                            {form.errors.phone ? (
-                                                                <div className="text-xs text-destructive mt-1">{form.errors.phone}</div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('phone')}
-                                                        >
-                                                            {form.data.phone || employee.phone || '—'}
+                                                            {form.data.personal_email || employee.personal_email || '—'}
                                                         </button>
                                                     )}
                                                 </div>
@@ -685,22 +853,90 @@ export default function EmployeeDetails({
                                                 {
                                                     label: 'Contact',
                                                     value:
-                                                        employee.emergency_contact ||
-                                                        '—',
+                                                        activeField === 'emergency_contact' ? (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.emergency_contact}
+                                                                onChange={(e) => form.setData('emergency_contact', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField('emergency_contact')}
+                                                            >
+                                                                {form.data.emergency_contact || employee.emergency_contact || '—'}
+                                                            </button>
+                                                        ),
                                                 },
                                                 {
                                                     label: 'Phone',
                                                     value:
-                                                        employee.emergency_phone ||
-                                                        '—',
+                                                        activeField === 'emergency_phone' ? (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.emergency_phone}
+                                                                onChange={(e) => form.setData('emergency_phone', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField('emergency_phone')}
+                                                            >
+                                                                {form.data.emergency_phone || employee.emergency_phone || '—'}
+                                                            </button>
+                                                        ),
                                                 },
                                                 {
-                                                    label: 'UAE Contact',
-                                                    value: '—',
+                                                    label: 'Home country contact',
+                                                    value:
+                                                        activeField === 'emergency_contact_home_country' ? (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.emergency_contact_home_country}
+                                                                onChange={(e) => form.setData('emergency_contact_home_country', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField('emergency_contact_home_country')}
+                                                            >
+                                                                {form.data.emergency_contact_home_country ||
+                                                                    employee.emergency_contact_home_country ||
+                                                                    '—'}
+                                                            </button>
+                                                        ),
                                                 },
                                                 {
-                                                    label: 'UAE Phone',
-                                                    value: '—',
+                                                    label: 'Home country phone',
+                                                    value:
+                                                        activeField === 'emergency_phone_home_country' ? (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.emergency_phone_home_country}
+                                                                onChange={(e) => form.setData('emergency_phone_home_country', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField('emergency_phone_home_country')}
+                                                            >
+                                                                {form.data.emergency_phone_home_country ||
+                                                                    employee.emergency_phone_home_country ||
+                                                                    '—'}
+                                                            </button>
+                                                        ),
                                                 },
                                             ].map((item, i) => (
                                                 <div
@@ -717,144 +953,152 @@ export default function EmployeeDetails({
                                             ))}
                                         </div>
                                         </div>
-                                    </div>
 
-                                    {/* Right Column: Personal Information & Citizenship */}
-                                    <div className="space-y-6 xl:col-span-5">
                                         <div className="rounded-xl border border-white/5 bg-white/5 p-5">
-                                        <div className="mb-4 flex items-center justify-between">
-                                            <h3 className="text-sm font-semibold text-zinc-200">
-                                                Personal information
-                                            </h3>
-                                        </div>
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Family
+                                                </h3>
+                                            </div>
 
-                                            <div className="space-y-4">
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Legal Name</label>
-                                                    <div className="text-sm font-medium text-zinc-200">{displayName}</div>
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Birthday</label>
-                                                    {activeField === 'date_of_birth' ? (
-                                                        <div>
+                                            <div className="space-y-3">
+                                                {[
+                                                    {
+                                                        key: 'spouse_name',
+                                                        label: 'Spouse name',
+                                                        input: (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.spouse_name}
+                                                                onChange={(e) => form.setData('spouse_name', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ),
+                                                        value: form.data.spouse_name || employee.spouse_name || '—',
+                                                    },
+                                                    {
+                                                        key: 'spouse_birthdate',
+                                                        label: 'Spouse birthdate',
+                                                        input: (
                                                             <Input
                                                                 type="date"
                                                                 className="h-10 rounded-xl border-white/5 bg-white/5"
-                                                                value={form.data.date_of_birth}
-                                                                onChange={(e) => form.setData('date_of_birth', e.target.value)}
+                                                                value={form.data.spouse_birthdate}
+                                                                onChange={(e) => form.setData('spouse_birthdate', e.target.value)}
                                                                 onBlur={() => setActiveField(null)}
                                                                 autoFocus
                                                             />
-                                                            {form.errors.date_of_birth ? (
-                                                                <div className="text-xs text-destructive mt-1">{form.errors.date_of_birth}</div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('date_of_birth')}
-                                                        >
-                                                            {form.data.date_of_birth || employee.date_of_birth || '—'}
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Place of Birth</label>
-                                                    {activeField === 'place_of_birth' ? (
-                                                        <div>
+                                                        ),
+                                                        value: form.data.spouse_birthdate || employee.spouse_birthdate || '—',
+                                                    },
+                                                    {
+                                                        key: 'dependent_children_count',
+                                                        label: 'Dependent children',
+                                                        input: (
                                                             <Input
+                                                                inputMode="numeric"
                                                                 className="h-10 rounded-xl border-white/5 bg-white/5"
-                                                                value={form.data.place_of_birth}
-                                                                onChange={(e) => form.setData('place_of_birth', e.target.value)}
+                                                                value={String(form.data.dependent_children_count ?? '')}
+                                                                onChange={(e) => form.setData('dependent_children_count', e.target.value)}
                                                                 onBlur={() => setActiveField(null)}
                                                                 autoFocus
                                                             />
-                                                            {form.errors.place_of_birth ? (
-                                                                <div className="text-xs text-destructive mt-1">{form.errors.place_of_birth}</div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('place_of_birth')}
-                                                        >
-                                                            {form.data.place_of_birth || employee.place_of_birth || '—'}
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Gender</label>
-                                                    {activeField === 'gender_id' ? (
-                                                        <div>
-                                                            <select
-                                                                className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                                value={form.data.gender_id}
-                                                                onChange={(e) => form.setData('gender_id', e.target.value)}
-                                                                onBlur={() => setActiveField(null)}
-                                                                autoFocus
+                                                        ),
+                                                        value:
+                                                            String(form.data.dependent_children_count ?? '') ||
+                                                            (employee.dependent_children_count === null || employee.dependent_children_count === undefined
+                                                                ? '—'
+                                                                : String(employee.dependent_children_count)),
+                                                    },
+                                                ].map((row) => (
+                                                    <div
+                                                        key={row.key}
+                                                        className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
+                                                    >
+                                                        <label className="text-xs font-medium text-zinc-400">
+                                                            {row.label}
+                                                        </label>
+                                                        {activeField === row.key ? (
+                                                            <div>{row.input}</div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField(row.key)}
                                                             >
-                                                                <option value="">—</option>
-                                                                {genders.map((g) => (
-                                                                    <option key={g.id} value={String(g.id)}>
-                                                                        {g.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            {form.errors.gender_id ? (
-                                                                <div className="text-xs text-destructive mt-1">{form.errors.gender_id}</div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('gender_id')}
-                                                        >
-                                                            {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ?? '—'}
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                                                    <label className="text-xs font-medium text-zinc-400">Religion</label>
-                                                    {activeField === 'religion_id' ? (
-                                                        <div>
-                                                            <select
-                                                                className="w-full h-10 rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                                                value={form.data.religion_id}
-                                                                onChange={(e) => form.setData('religion_id', e.target.value)}
-                                                                onBlur={() => setActiveField(null)}
-                                                                autoFocus
-                                                            >
-                                                                <option value="">—</option>
-                                                                {religions.map((r) => (
-                                                                    <option key={r.id} value={String(r.id)}>
-                                                                        {r.name}
-                                                                    </option>
-                                                                ))}
-                                                            </select>
-                                                            {form.errors.religion_id ? (
-                                                                <div className="text-xs text-destructive mt-1">{form.errors.religion_id}</div>
-                                                            ) : null}
-                                                        </div>
-                                                    ) : (
-                                                        <button
-                                                            type="button"
-                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                                            onClick={() => setActiveField('religion_id')}
-                                                        >
-                                                            {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ?? '—'}
-                                                        </button>
-                                                    )}
-                                                </div>
+                                                                {row.value}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
 
+                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Location
+                                                </h3>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                {[
+                                                    {
+                                                        key: 'nearest_airport',
+                                                        label: 'Nearest airport',
+                                                        input: (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.nearest_airport}
+                                                                onChange={(e) => form.setData('nearest_airport', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ),
+                                                        value: form.data.nearest_airport || employee.nearest_airport || '—',
+                                                    },
+                                                    {
+                                                        key: 'address',
+                                                        label: 'Address',
+                                                        input: (
+                                                            <Input
+                                                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                value={form.data.address}
+                                                                onChange={(e) => form.setData('address', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            />
+                                                        ),
+                                                        value: form.data.address || employee.address || '—',
+                                                    },
+                                                ].map((row) => (
+                                                    <div
+                                                        key={row.key}
+                                                        className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
+                                                    >
+                                                        <label className="text-xs font-medium text-zinc-400">
+                                                            {row.label}
+                                                        </label>
+                                                        {activeField === row.key ? (
+                                                            <div>{row.input}</div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => setActiveField(row.key)}
+                                                            >
+                                                                {row.value}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right Column: Citizenship */}
+                                    <div className="space-y-6 xl:col-span-5">
                                         <div className="rounded-xl border border-white/5 bg-white/5 p-5">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
@@ -904,28 +1148,45 @@ export default function EmployeeDetails({
 
                                             {[
                                                 {
-                                                    label: 'Labor Contract ID',
-                                                    value: employee.labor_contract_id || '—',
-                                                },
-                                                {
+                                                    key: 'passport_number',
                                                     label: 'Passport No',
-                                                    value: employee.passport_number || '—',
+                                                    value: form.data.passport_number || employee.passport_number || '—',
                                                 },
                                                 {
+                                                    key: 'emirates_id',
                                                     label: 'Emirates ID',
-                                                    value: employee.emirates_id || '—',
+                                                    value: form.data.emirates_id || employee.emirates_id || '—',
+                                                },
+                                                {
+                                                    key: 'labor_card_number',
+                                                    label: 'Labor card number',
+                                                    value: form.data.labor_card_number || employee.labor_card_number || '—',
                                                 },
                                             ].map((item) => (
                                                 <div
-                                                    key={item.label}
+                                                    key={item.key}
                                                     className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
                                                 >
                                                     <label className="text-xs font-medium text-zinc-400">
                                                         {item.label}
                                                     </label>
-                                                    <div className="text-sm font-medium text-zinc-200">
-                                                        {item.value}
-                                                    </div>
+                                                    {activeField === item.key ? (
+                                                        <Input
+                                                            className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                            value={(form.data as any)[item.key]}
+                                                            onChange={(e) => form.setData(item.key as any, e.target.value)}
+                                                            onBlur={() => setActiveField(null)}
+                                                            autoFocus
+                                                        />
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => setActiveField(item.key)}
+                                                        >
+                                                            {item.value}
+                                                        </button>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
