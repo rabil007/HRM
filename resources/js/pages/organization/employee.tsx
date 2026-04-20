@@ -1,6 +1,5 @@
 import { Head } from '@inertiajs/react';
 import {
-    Activity,
     Award,
     Briefcase,
     Building2,
@@ -14,13 +13,11 @@ import {
     Link as LinkIcon,
     Mail,
     MapPin,
-    MessageSquare,
     MoreHorizontal,
     Phone,
     Plus,
     Receipt,
     Settings,
-    StickyNote,
     Target,
     User2,
 } from 'lucide-react';
@@ -210,6 +207,7 @@ export default function EmployeeDetails({
     void religions;
     void genders;
     void banks;
+    void recent_activity;
 
     const displayName = useMemo(() => {
         return `${employee.first_name ?? ''} ${employee.last_name ?? ''}`.trim() || 'Employee';
@@ -300,45 +298,7 @@ export default function EmployeeDetails({
                     </div>
                 </div>
 
-                {/* Secondary Action Bar */}
-                <div className="flex items-center justify-between px-6 py-3 border-b border-border/50 bg-secondary/50">
-                    <div className="flex items-center gap-2">
-                        <Button className="bg-primary hover:bg-primary/90 text-primary-foreground border-none h-9 px-4 font-bold text-xs uppercase tracking-wider">
-                            Create User
-                        </Button>
-                        <Button variant="secondary" className="bg-muted hover:bg-muted/80 text-foreground border-none h-9 px-4 font-bold text-xs uppercase tracking-wider">
-                            Request Appraisal
-                        </Button>
-                        <Button variant="secondary" className="bg-muted hover:bg-muted/80 text-foreground border-none h-9 px-4 font-bold text-xs uppercase tracking-wider">
-                            Launch Plan
-                        </Button>
-                        <Button variant="secondary" className="bg-muted hover:bg-muted/80 text-foreground border-none h-9 px-4 font-bold text-xs uppercase tracking-wider">
-                            Signature Request
-                        </Button>
-                    </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="flex items-center bg-muted/50 rounded-md border border-border/50 h-9 px-3">
-                            <span className="text-xs font-bold text-zinc-300">Feb 2, 2026</span>
-                            <Plus className="w-4 h-4 ml-4 text-zinc-500 hover:text-white cursor-pointer" />
-                        </div>
-                        <Separator orientation="vertical" className="h-6 bg-white/[0.1]" />
-                        <div className="flex items-center gap-1">
-                            <Button variant="secondary" className="bg-primary hover:bg-primary/90 text-primary-foreground border-none h-9 px-4 font-bold text-xs">
-                                Send message
-                            </Button>
-                            <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-white/[0.05] h-9 px-3 text-xs font-bold">
-                                Log note
-                            </Button>
-                            <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-white/[0.05] h-9 px-3 text-xs font-bold">
-                                WhatsApp
-                            </Button>
-                            <Button variant="ghost" className="text-zinc-400 hover:text-white hover:bg-white/[0.05] h-9 px-3 text-xs font-bold">
-                                Activity
-                            </Button>
-                        </div>
-                    </div>
-                </div>
 
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                     {/* Main Content Area */}
@@ -534,61 +494,7 @@ export default function EmployeeDetails({
                         </div>
                     </div>
 
-                    {/* Right Sidebar: Activity Logs */}
-                    <div className="w-[380px] border-l border-border/50 bg-card flex flex-col hidden xl:flex">
-                        <div className="p-4 border-b border-border/50 flex items-center justify-between">
-                            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Activity Timeline</h3>
-                            <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500">
-                                    <MessageSquare className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500">
-                                    <StickyNote className="w-3.5 h-3.5" />
-                                </Button>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-zinc-500">
-                                    <Activity className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
-                        </div>
 
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6">
-                            <div className="space-y-8 relative before:absolute before:inset-0 before:left-3 before:w-px before:bg-border/50">
-                                {recent_activity.length === 0 ? (
-                                    <div className="text-center py-12">
-                                        <Activity className="w-8 h-8 text-zinc-800 mx-auto mb-3" />
-                                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">No Recent Activity</p>
-                                    </div>
-                                ) : (
-                                    recent_activity.map((a, i) => (
-                                        <div key={a.id} className="relative pl-8 group">
-                                            <div className="absolute left-1 top-1 w-4 h-4 rounded-full bg-secondary border-2 border-border flex items-center justify-center z-10 group-hover:border-primary transition-colors">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-muted-foreground group-hover:bg-primary transition-colors" />
-                                            </div>
-
-                                            <div className="space-y-1">
-                                                <div className="flex items-center justify-between">
-                                                    <span className="text-[10px] font-bold text-foreground uppercase tracking-tight">{a.causer?.name || 'System'}</span>
-                                                    <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-tighter">
-                                                        {new Date(a.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                                                    </span>
-                                                </div>
-                                                <p className="text-[11px] leading-relaxed text-zinc-400">
-                                                    {a.description}
-                                                </p>
-                                                <div className="pt-2 flex flex-wrap gap-2">
-                                                    {Object.keys(a.new_values || {}).slice(0, 2).map((key) => (
-                                                        <div key={key} className="px-2 py-0.5 rounded bg-muted/20 border border-border/50 text-[9px] font-bold text-muted-foreground">
-                                                            {key}: <span className="text-foreground">{String(a.new_values?.[key])}</span>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </Main>
 
