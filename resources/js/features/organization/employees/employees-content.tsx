@@ -1,6 +1,6 @@
 import { router } from '@inertiajs/react';
 import { Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
@@ -14,8 +14,6 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
 import { EmployeeCard } from './components/employee-card';
-import { EmployeeDeleteDialog } from './components/employee-delete-dialog';
-import { EmployeeFiltersSheet } from './components/employee-filters-sheet';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
     BankOption,
@@ -29,6 +27,18 @@ import type {
     ReligionOption,
     UserOption,
 } from './types';
+
+const EmployeeFiltersSheet = lazy(() =>
+    import('./components/employee-filters-sheet').then((m) => ({
+        default: m.EmployeeFiltersSheet,
+    })),
+);
+
+const EmployeeDeleteDialog = lazy(() =>
+    import('./components/employee-delete-dialog').then((m) => ({
+        default: m.EmployeeDeleteDialog,
+    })),
+);
 
 const emptyFilters: EmployeeFilters = {
     branch_id: '',
@@ -376,23 +386,25 @@ export function EmployeesContent({
 
             {filteredEmployees.length === 0 ? <EmptyState title="No employees found." /> : null}
 
-            <EmployeeFiltersSheet
-                open={isFiltersOpen}
-                onOpenChange={setIsFiltersOpen}
-                value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
-                branches={branches}
-                departments={departments}
-                positions={positions}
-            />
+            <Suspense fallback={null}>
+                <EmployeeFiltersSheet
+                    open={isFiltersOpen}
+                    onOpenChange={setIsFiltersOpen}
+                    value={filters}
+                    onChange={setFilters}
+                    onReset={() => setFilters(emptyFilters)}
+                    branches={branches}
+                    departments={departments}
+                    positions={positions}
+                />
 
-            <EmployeeDeleteDialog
-                open={isDeleteOpen}
-                onOpenChange={setIsDeleteOpen}
-                employee={currentEmployee}
-                onConfirm={confirmDelete}
-            />
+                <EmployeeDeleteDialog
+                    open={isDeleteOpen}
+                    onOpenChange={setIsDeleteOpen}
+                    employee={currentEmployee}
+                    onConfirm={confirmDelete}
+                />
+            </Suspense>
         </Main>
     );
 }

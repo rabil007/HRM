@@ -20,7 +20,10 @@ export function CommandMenu() {
     const { updateAppearance } = useAppearance();
     const { open, setOpen } = useSearch();
     const { auth } = usePage().props as unknown as { auth?: { permissions?: string[] } };
-    const sidebarData = getSidebarData(auth?.permissions ?? []);
+    const sidebarData = React.useMemo(
+        () => getSidebarData(auth?.permissions ?? []),
+        [auth?.permissions],
+    );
 
     const runCommand = React.useCallback(
         (command: () => unknown) => {

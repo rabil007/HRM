@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 import {
     Sidebar,
     SidebarContent,
@@ -18,12 +19,19 @@ export function AppSidebar() {
         company_switcher_companies?: { id: number; name: string }[];
         auth?: { permissions?: string[] };
     };
-    const sidebarData = getSidebarData(auth?.permissions ?? []);
+    const sidebarData = useMemo(
+        () => getSidebarData(auth?.permissions ?? []),
+        [auth?.permissions],
+    );
+    const teams = useMemo(
+        () => companies.map((c) => ({ id: c.id, name: c.name })),
+        [companies],
+    );
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>
             <SidebarHeader>
-                <TeamSwitcher teams={companies.map((c) => ({ id: c.id, name: c.name }))} />
+                <TeamSwitcher teams={teams} />
             </SidebarHeader>
             <SidebarContent>
                 {sidebarData.navGroups.map((props) => (
