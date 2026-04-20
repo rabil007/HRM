@@ -1,58 +1,50 @@
 name: Full Deploy (Laravel + React)
 
 on:
-push:
-branches:
-- main
+  push:
+    branches:
+      - main
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
+  deploy:
+    runs-on: ubuntu-latest
 
-```
-steps:
-  # 1. Checkout repo
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  # 2. Setup SSH (for server access)
-  - name: Setup SSH
-    run: |
-      mkdir -p ~/.ssh
-      echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
-      chmod 600 ~/.ssh/id_ed25519
-      ssh-keyscan -p 65002 82.198.227.207 >> ~/.ssh/known_hosts
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -p 65002 82.198.227.207 >> ~/.ssh/known_hosts
 
-  # 3. Setup Node (for Vite build)
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 20
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
 
-  # 4. Install & Build Frontend
-  - name: Build Frontend
-    run: |
-      npm install
-      npm run build
+      - name: Build Frontend
+        run: |
+          npm install
+          npm run build
 
-  # 5. Upload build files to server (only public/build)
-  - name: Upload build to server
-    run: |
-      rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002" public/build/ \
-        u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
+      - name: Upload build to server
+        run: |
+          rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002" public/build/ \
+            u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
 
-  # 6. Deploy backend via SSH
-  - name: Deploy Backend
-    run: |
-      ssh -i ~/.ssh/id_ed25519 -p 65002 u769441461@82.198.227.207 << 'EOF'
-        cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
+      - name: Deploy Backend
+        run: |
+          ssh -i ~/.ssh/id_ed25519 -p 65002 u769441461@82.198.227.207 << 'EOF'
+            cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
 
-        git pull origin main
+            git pull origin main
 
-        composer install --no-dev --optimize-autoloader
+            composer install --no-dev --optimize-autoloader
 
-        php artisan config:cache
-        php artisan route:cache
-        php artisan view:cache
-      EOF
-```
+            php artisan config:cache
+            php artisan route:cache
+            php artisan view:cache
+          EOF
