@@ -237,6 +237,7 @@ export function EmployeesContent({
                         <EmployeeCard
                             key={employee.id}
                             employee={employee}
+                            onDelete={handleDelete}
                         />
                     ))}
                 </div>
