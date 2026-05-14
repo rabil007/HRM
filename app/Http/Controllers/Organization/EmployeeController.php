@@ -22,6 +22,7 @@ use App\Models\OnboardingTemplate;
 use App\Models\Position;
 use App\Models\Religion;
 use App\Models\User;
+use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -373,16 +374,23 @@ class EmployeeController extends Controller
         $documents = EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with('uploader:id,name')
+            ->with(['documentType:id,title,slug', 'uploader:id,name', 'versions.replacer:id,name'])
             ->latest('id')
             ->get()
             ->map(fn (EmployeeDocument $doc) => [
                 'id' => $doc->id,
                 'title' => $doc->title,
                 'type' => $doc->type,
+                'document_type_id' => $doc->document_type_id,
                 'document_type' => $doc->document_type,
+                'document_type_label' => $doc->document_type_label,
                 'file_path' => $doc->file_path,
                 'file_url' => $doc->file_url,
+                'original_filename' => $doc->original_filename,
+                'mime_type' => $doc->mime_type,
+                'size_bytes' => $doc->size_bytes,
+                'current_version' => $doc->current_version,
+                'can_preview' => $doc->can_preview,
                 'issue_date' => $doc->issue_date?->toDateString(),
                 'expiry_date' => $doc->expiry_date?->toDateString(),
                 'document_number' => $doc->document_number,
@@ -390,6 +398,16 @@ class EmployeeController extends Controller
                 'status' => $doc->status,
                 'uploaded_by' => $doc->uploader?->name,
                 'created_at' => $doc->created_at?->toDateTimeString(),
+                'versions' => $doc->versions->map(fn ($version) => [
+                    'id' => $version->id,
+                    'version' => $version->version,
+                    'file_url' => $version->file_url,
+                    'original_filename' => $version->original_filename,
+                    'mime_type' => $version->mime_type,
+                    'size_bytes' => $version->size_bytes,
+                    'replaced_by' => $version->replacer?->name,
+                    'created_at' => $version->created_at?->toDateTimeString(),
+                ])->all(),
             ])
             ->all();
 
@@ -645,12 +663,13 @@ class EmployeeController extends Controller
         }
 
         if (is_array($documents) && count($documents) > 0) {
-            $docTypeMap = DocumentType::query()
+            $documentStore = app(StoresEmployeeDocument::class);
+            $docTypes = DocumentType::query()
                 ->where('is_active', true)
                 ->get(['id', 'title', 'slug'])
-                ->mapWithKeys(fn (DocumentType $dt) => [
-                    (string) $dt->slug => $dt->title,
-                    (string) $dt->id => $dt->title,
+                ->flatMap(fn (DocumentType $dt) => [
+                    (string) $dt->slug => $dt,
+                    (string) $dt->id => $dt,
                 ]);
 
             foreach ($documents as $doc) {
@@ -665,40 +684,26 @@ class EmployeeController extends Controller
                     continue;
                 }
 
+                $documentType = $docTypes->get($documentTypeKey);
+
+                if (! $documentType) {
+                    continue;
+                }
+
                 foreach ($files as $file) {
                     if (! $file) {
                         continue;
                     }
 
-                    $path = $file->storePublicly(
-                        "employee-documents/{$companyId}/{$employee->id}/{$documentTypeKey}",
-                        ['disk' => 'public']
-                    );
-
                     $expiryDate = $doc['expiry_date'] ?? null;
-                    $status = 'valid';
 
-                    if ($expiryDate) {
-                        $expiry = now()->parse($expiryDate);
-                        $status = $expiry->isPast() ? 'expired' : ($expiry->lte(now()->addDays(30)) ? 'expiring_soon' : 'valid');
-                    }
-
-                    \DB::table('employee_documents')->insert([
-                        'company_id' => $companyId,
-                        'employee_id' => $employee->id,
-                        'type' => 'other',
-                        'document_type' => $documentTypeKey,
-                        'title' => $docTypeMap->get($documentTypeKey),
-                        'file_path' => $path,
+                    $documentStore->create($employee, $documentType, $file, [
+                        'title' => $documentType->title,
                         'issue_date' => $doc['issue_date'] ?? null,
                         'expiry_date' => $expiryDate,
                         'document_number' => $doc['document_number'] ?? null,
                         'notes' => null,
-                        'status' => $status,
-                        'uploaded_by' => $request->user()?->id,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ]);
+                    ], $companyId, $request->user()?->id);
                 }
             }
         }

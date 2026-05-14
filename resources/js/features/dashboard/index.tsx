@@ -22,7 +22,14 @@ import {
 import { dashboard } from '@/routes';
 import { AnalyticsChart } from './components/analytics-chart';
 
-export function DashboardContent() {
+type DocumentCompliance = {
+    valid: number;
+    expiring_soon: number;
+    expired: number;
+    uploaded_this_month: number;
+};
+
+export function DashboardContent({ documentCompliance }: { documentCompliance: DocumentCompliance }) {
     const placeholder = (key: string) =>
         `${dashboard.url()}?module=${encodeURIComponent(key)}`;
 
@@ -37,7 +44,7 @@ export function DashboardContent() {
                                 Real-time Intelligence
                             </span>
                         </div>
-                        <h1 className="text-4xl font-extrabold tracking-tight bg-gradient-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                        <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
                             HR Dashboard
                         </h1>
                         <p className="text-sm text-muted-foreground/80 font-medium">
@@ -185,22 +192,22 @@ export function DashboardContent() {
                         </CardHeader>
                         <CardContent className="space-y-3">
                             <AtGlanceItem
-                                title="Visa expiry"
+                                title="Expired documents"
+                                subtitle="Immediate action"
+                                href="/organization/documents?status=expired"
+                                value={String(documentCompliance.expired)}
+                            />
+                            <AtGlanceItem
+                                title="Expiring soon"
                                 subtitle="Next 30 days"
-                                href={placeholder('compliance.visas')}
-                                value="15"
+                                href="/organization/documents?status=expiring_soon"
+                                value={String(documentCompliance.expiring_soon)}
                             />
                             <AtGlanceItem
-                                title="Emirates ID"
-                                subtitle="In progress"
-                                href={placeholder('compliance.eids')}
-                                value="22"
-                            />
-                            <AtGlanceItem
-                                title="Labor Cards"
-                                subtitle="Expiring soon"
-                                href={placeholder('compliance.labor')}
-                                value="8"
+                                title="Uploaded this month"
+                                subtitle={`${documentCompliance.valid} valid documents`}
+                                href="/organization/documents"
+                                value={String(documentCompliance.uploaded_this_month)}
                             />
                         </CardContent>
                     </Card>
