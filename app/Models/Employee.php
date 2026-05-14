@@ -146,4 +146,9 @@ class Employee extends Model
     {
         return $this->belongsTo(OnboardingTemplate::class);
     }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class)->latest('id');
+    }
 }

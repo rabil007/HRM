@@ -95,6 +95,8 @@ class PermissionsSeeder extends Seeder
             'employees.delete',
             'employees.export',
             'employees.import',
+            'employees.documents.upload',
+            'employees.documents.delete',
 
             'audit.view',
 

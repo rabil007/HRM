@@ -16,6 +16,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeDocument;
 use App\Models\Gender;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
@@ -369,39 +370,33 @@ class EmployeeController extends Controller
             'updated_at' => $employee->currentContract->updated_at,
         ] : null;
 
-        $documents = \DB::table('employee_documents')
+        $documents = EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->orderByDesc('id')
-            ->get([
-                'id',
-                'title',
-                'type',
-                'document_type',
-                'file_path',
-                'issue_date',
-                'expiry_date',
-                'document_number',
-                'notes',
-                'status',
-                'uploaded_by',
-                'created_at',
-            ])
-            ->map(fn ($doc) => [
-                'id' => (int) $doc->id,
+            ->with('uploader:id,name')
+            ->latest('id')
+            ->get()
+            ->map(fn (EmployeeDocument $doc) => [
+                'id' => $doc->id,
                 'title' => $doc->title,
                 'type' => $doc->type,
                 'document_type' => $doc->document_type,
                 'file_path' => $doc->file_path,
-                'issue_date' => $doc->issue_date,
-                'expiry_date' => $doc->expiry_date,
+                'file_url' => $doc->file_url,
+                'issue_date' => $doc->issue_date?->toDateString(),
+                'expiry_date' => $doc->expiry_date?->toDateString(),
                 'document_number' => $doc->document_number,
                 'notes' => $doc->notes,
                 'status' => $doc->status,
-                'uploaded_by' => $doc->uploaded_by,
-                'created_at' => $doc->created_at,
+                'uploaded_by' => $doc->uploader?->name,
+                'created_at' => $doc->created_at?->toDateTimeString(),
             ])
             ->all();
+
+        $documentTypes = DocumentType::query()
+            ->where('is_active', true)
+            ->orderBy('title')
+            ->get(['id', 'title', 'slug']);
 
         $recentActivity = [];
         $request = request();
@@ -514,6 +509,11 @@ class EmployeeController extends Controller
             ],
             'contract' => $contract,
             'documents' => $documents,
+            'document_types' => $documentTypes,
+            'can' => [
+                'documents_upload' => request()->user()?->can('employees.documents.upload'),
+                'documents_delete' => request()->user()?->can('employees.documents.delete'),
+            ],
             'branches' => $branches,
             'departments' => $departments,
             'positions' => $positions,
