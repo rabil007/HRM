@@ -86,6 +86,11 @@ class StoreEmployeeRequest extends FormRequest
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
             'labor_card_number' => ['nullable', 'string', 'max:100'],
+            'onboarding_template_id' => [
+                'nullable',
+                'integer',
+                Rule::exists('onboarding_templates', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
+            ],
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
             'termination_date' => ['nullable', 'date'],
             'termination_reason' => ['nullable', 'string'],

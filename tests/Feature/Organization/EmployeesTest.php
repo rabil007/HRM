@@ -7,6 +7,7 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\OnboardingTemplate;
 use App\Models\Position;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
@@ -167,9 +168,17 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard Onboarding',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.delete', 'employees.view']);
 
     $this->post('/organization/employees', [
+        'onboarding_template_id' => $template->id,
         'employee_no' => 'EMP0002',
         'first_name' => 'Jane',
         'last_name' => 'Smith',
@@ -202,6 +211,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
 
     $this->assertDatabaseHas('employees', [
         'id' => $employeeId,
+        'onboarding_template_id' => $template->id,
     ]);
 
     $this->assertDatabaseHas('employee_documents', [

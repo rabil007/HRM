@@ -123,6 +123,7 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
     const [imagePreview, setImagePreview] = useState<string | null>(null);
 
     const form = useForm<any>({
+        onboarding_template_id: template.id,
         employee_no: '',
         status: 'active',
         first_name: '',
@@ -365,82 +366,64 @@ missingFields.push(labelFromKey(key));
 
     return (
         <Main fixed className="bg-background">
-            <Head title={`Onboarding Pipeline — ${activeStage.label}`} />
+            <Head title={`New Employee — ${activeStage.label}`} />
 
-            <div className="flex flex-col h-full bg-background w-full">
+            <div className="flex flex-col h-full w-full">
                 {/* Top Bar */}
-                <div className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0">
+                <div className="h-14 border-b border-border bg-background flex items-center justify-between px-5 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
-                            <UserPlus className="h-4 w-4" />
+                        <div className="h-7 w-7 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                            <UserPlus className="h-3.5 w-3.5 text-primary" />
                         </div>
-                        <div className="flex flex-col">
-                            <h1 className="text-sm font-bold text-foreground">Launch New Hire</h1>
+                        <div>
+                            <span className="text-sm font-semibold text-foreground">New Employee</span>
                             {allTemplates.length > 1 ? (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <button
                                             type="button"
-                                            className="flex items-center gap-1 text-[10px] text-primary font-semibold uppercase tracking-tight hover:opacity-80 transition-opacity"
+                                            className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                                         >
                                             {template.name}
                                             <ChevronDown className="h-3 w-3" />
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start" className="w-64">
-                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
-                                            Switch template
-                                        </DropdownMenuLabel>
+                                    <DropdownMenuContent align="start" className="w-60">
+                                        <DropdownMenuLabel className="text-xs text-muted-foreground">Switch template</DropdownMenuLabel>
                                         <DropdownMenuSeparator />
                                         {allTemplates.map((t) => (
                                             <DropdownMenuItem
                                                 key={t.id}
-                                                onClick={() =>
-                                                    router.visit(`/organization/employees/create?template_id=${t.id}`)
-                                                }
-                                                className="flex flex-col items-start gap-0.5 py-2"
+                                                onClick={() => router.visit(`/organization/employees/create?template_id=${t.id}`, { replace: true })}
+                                                className="flex items-center gap-2 py-2"
                                             >
-                                                <div className="flex items-center gap-2 w-full">
-                                                    <span className="font-medium text-sm">{t.name}</span>
-                                                    {t.id === template.id && (
-                                                        <Check className="h-3 w-3 text-primary ml-auto" />
-                                                    )}
-                                                    {t.is_default && t.id !== template.id && (
-                                                        <span className="ml-auto text-[10px] text-muted-foreground/60">
-                                                            default
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                {t.description ? (
-                                                    <span className="text-[11px] text-muted-foreground/70 leading-tight line-clamp-1">
-                                                        {t.description}
-                                                    </span>
-                                                ) : null}
+                                                <span className="flex-1 text-sm">{t.name}</span>
+                                                {t.id === template.id && <Check className="h-3.5 w-3.5 text-primary" />}
+                                                {t.is_default && t.id !== template.id && (
+                                                    <span className="text-xs text-muted-foreground">default</span>
+                                                )}
                                             </DropdownMenuItem>
                                         ))}
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             ) : (
-                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
-                                    Pipeline: <span className="text-primary">{template.name}</span>
-                                </p>
+                                <span className="ml-2 text-xs text-muted-foreground">{template.name}</span>
                             )}
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                         {isRestored && (
-                            <Button variant="ghost" size="sm" onClick={clearDraft} className="text-[10px] h-7 gap-1.5 text-muted-foreground hover:text-destructive transition-colors">
-                                <RotateCcw className="h-3 w-3" />
-                                Reset Draft
+                            <Button variant="ghost" size="sm" onClick={clearDraft} className="h-8 gap-1.5 text-xs text-muted-foreground hover:text-destructive">
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                Reset draft
                             </Button>
                         )}
-                        <div className="bg-border mx-1 h-4 w-px" />
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => router.visit('/organization/employees')}
-                            className="text-xs hover:text-destructive"
+                            className="h-8 text-xs text-muted-foreground hover:text-foreground"
                         >
                             Cancel
                         </Button>
@@ -448,22 +431,22 @@ missingFields.push(labelFromKey(key));
                 </div>
 
                 <div className="flex-1 flex overflow-hidden">
-                    {/* Stepper Sidebar */}
-                    <div className="w-64 border-r border-border bg-muted/5 flex flex-col shrink-0">
-                        <div className="p-6 border-b border-border">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Flow Progress</span>
-                                <span className="text-xs font-black text-primary">{Math.round(((currentStageIdx + 1) / stages.length) * 100)}%</span>
+                    {/* Steps Sidebar */}
+                    <div className="w-56 border-r border-border bg-muted/20 flex flex-col shrink-0">
+                        <div className="px-4 py-5 border-b border-border">
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-xs font-medium text-muted-foreground">Progress</span>
+                                <span className="text-xs font-semibold text-foreground">{currentStageIdx + 1} / {stages.length}</span>
                             </div>
-                            <div className="h-1.5 w-full bg-border/50 rounded-full overflow-hidden">
+                            <div className="h-1 w-full bg-border rounded-full overflow-hidden">
                                 <div
-                                    className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)] transition-all duration-700 ease-out"
+                                    className="h-full bg-primary rounded-full transition-all duration-500"
                                     style={{ width: `${((currentStageIdx + 1) / stages.length) * 100}%` }}
                                 />
                             </div>
                         </div>
 
-                        <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                        <nav className="flex-1 overflow-y-auto p-3 space-y-0.5">
                             {stages.map((s, idx) => {
                                 const isCurrent = idx === currentStageIdx;
                                 const isPassed = idx < currentStageIdx;
@@ -475,115 +458,72 @@ missingFields.push(labelFromKey(key));
                                         key={s.key}
                                         type="button"
                                         onClick={() => canGo && setCurrentStageIdx(idx)}
-                                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all duration-200 group ${
+                                        className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-left transition-colors ${
                                             isCurrent
-                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20 scale-[1.02]'
-                                                : 'text-muted-foreground hover:bg-muted'
+                                                ? 'bg-background border border-border text-foreground shadow-xs'
+                                                : canGo
+                                                ? 'text-muted-foreground hover:bg-background/60 hover:text-foreground cursor-pointer'
+                                                : 'text-muted-foreground/50 cursor-default'
                                         }`}
                                     >
-                                        <div className={`h-6 w-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-colors ${
-                                            isCurrent ? 'bg-primary-foreground text-primary border-primary-foreground' : 
-                                            isPassed ? 'bg-primary/20 border-primary/20 text-primary' : 'border-border'
+                                        <div className={`h-5 w-5 rounded-full flex items-center justify-center text-[10px] font-semibold shrink-0 ${
+                                            isPassed
+                                                ? 'bg-primary text-primary-foreground'
+                                                : isCurrent
+                                                ? 'bg-primary/10 text-primary border border-primary/30'
+                                                : 'bg-muted text-muted-foreground border border-border'
                                         }`}>
-                                            {isPassed ? <Check className="h-3 w-3" /> : idx + 1}
+                                            {isPassed ? <Check className="h-2.5 w-2.5" /> : idx + 1}
                                         </div>
-                                        <span className="text-xs font-bold truncate flex-1">{s.label}</span>
+                                        <span className="text-xs font-medium truncate flex-1">{s.label}</span>
                                         {missingCount > 0 && (
-                                            <span className="text-[9px] font-black bg-destructive/10 text-destructive px-1.5 py-0.5 rounded border border-destructive/20">
+                                            <span className="text-[10px] font-semibold bg-destructive/10 text-destructive px-1.5 py-0.5 rounded-md tabular-nums">
                                                 {missingCount}
                                             </span>
                                         )}
                                     </button>
                                 );
                             })}
-                        </div>
-                        
-                        <div className="p-4 border-t border-border bg-muted/20">
-                            <div className="flex items-center gap-2 text-[9px] font-bold text-muted-foreground/60 uppercase tracking-tighter">
+                        </nav>
+
+                        <div className="px-4 py-3 border-t border-border">
+                            <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground/60">
                                 <Save className="h-3 w-3" />
-                                Auto-saved to local session
+                                Saved to session
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex-1 flex flex-col overflow-hidden bg-background">
-                        <div className="flex-1 overflow-y-auto p-12">
-                            <div className="max-w-6xl mx-auto space-y-12">
-                                <div className="space-y-2">
-                                    <div className="inline-flex items-center gap-2 px-2 py-1 rounded-md bg-primary/5 border border-primary/10 text-[10px] font-bold text-primary uppercase tracking-widest">
-                                        Stage {currentStageIdx + 1} of {stages.length}
-                                    </div>
-                                    <h2 className="text-4xl font-black tracking-tighter text-foreground italic uppercase">
-                                        {activeStage.label}
-                                    </h2>
-                                    <p className="text-sm text-muted-foreground/80 max-w-xl leading-relaxed">
-                                        Please provide the required configuration details for this phase of the onboarding pipeline.
+                    {/* Main Form Area */}
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                        <div className="flex-1 overflow-y-auto">
+                            <div className="px-6 py-6 space-y-8">
+                                {/* Stage Header */}
+                                <div>
+                                    <p className="text-xs font-medium text-muted-foreground mb-1">
+                                        Step {currentStageIdx + 1} of {stages.length}
                                     </p>
+                                    <h2 className="text-xl font-semibold text-foreground">{activeStage.label}</h2>
                                 </div>
 
-                                <div className="space-y-16">
-                                    {/* Employee Fields */}
-                                    {activeStage.employee_fields.length > 0 && (
-                                        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                            {activeStage.employee_fields.some((f: any) => f.key === 'image') && (
-                                                <FieldRenderer
-                                                    fieldKey="image"
-                                                    isRequired={activeStage.employee_fields.find((f: any) => f.key === 'image')?.required ?? false}
-                                                    value={form.data.image}
-                                                    onChange={(val) => form.setData('image', val)}
-                                                    options={options}
-                                                    imagePreview={imagePreview}
-                                                    setImagePreview={setImagePreview}
-                                                />
-                                            )}
-
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-6">
-                                                {activeStage.employee_fields
-                                                    .filter((f: any) => f.key !== 'image')
-                                                    .map((f: any) => (
-                                                        <FieldRenderer
-                                                            key={f.key}
-                                                            fieldKey={f.key}
-                                                            isRequired={f.required}
-                                                            value={form.data[f.key]}
-                                                            error={form.errors[f.key]}
-                                                            onChange={(val) => form.setData(f.key as any, val)}
-                                                            options={options}
-                                                            formDepartmentId={form.data.department_id}
-                                                        />
-                                                    ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Bank Accounts */}
-                                    {activeStage.bank_account_fields.length > 0 && (
-                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-75">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-b border-border pb-3">Financial Metadata</div>
-                                            <div className="bg-muted/10 rounded-3xl p-8 border border-border">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-                                                    {activeStage.bank_account_fields.map((f: any) => (
-                                                        <FieldRenderer
-                                                            key={f.key}
-                                                            fieldKey={f.key}
-                                                            isRequired={f.required}
-                                                            value={form.data[f.key]}
-                                                            error={form.errors[f.key]}
-                                                            onChange={(val) => form.setData(f.key as any, val)}
-                                                            options={options}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Contract Fields */}
-                                    {activeStage.contract_fields.length > 0 && (
-                                        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
-                                            <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 border-b border-border pb-3">Governance & Contract</div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-x-8 gap-y-6">
-                                                {activeStage.contract_fields.map((f: any) => (
+                                {/* Employee Fields */}
+                                {activeStage.employee_fields.length > 0 && (
+                                    <div className="space-y-6">
+                                        {activeStage.employee_fields.some((f: any) => f.key === 'image') && (
+                                            <FieldRenderer
+                                                fieldKey="image"
+                                                isRequired={activeStage.employee_fields.find((f: any) => f.key === 'image')?.required ?? false}
+                                                value={form.data.image}
+                                                onChange={(val) => form.setData('image', val)}
+                                                options={options}
+                                                imagePreview={imagePreview}
+                                                setImagePreview={setImagePreview}
+                                            />
+                                        )}
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                            {activeStage.employee_fields
+                                                .filter((f: any) => f.key !== 'image')
+                                                .map((f: any) => (
                                                     <FieldRenderer
                                                         key={f.key}
                                                         fieldKey={f.key}
@@ -592,57 +532,105 @@ missingFields.push(labelFromKey(key));
                                                         error={form.errors[f.key]}
                                                         onChange={(val) => form.setData(f.key as any, val)}
                                                         options={options}
+                                                        formDepartmentId={form.data.department_id}
                                                     />
                                                 ))}
-                                            </div>
                                         </div>
-                                    )}
+                                    </div>
+                                )}
 
-                                    {/* Document Registry */}
-                                    {activeStage.documents.length > 0 && (
-                                        <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 delay-200">
-                                            <DocumentRegistry
-                                                documents={activeStage.documents}
-                                                docUploads={docUploads}
-                                                documentTypes={options.document_types}
-                                                onUploadChange={(type, data) => setDocUploads(prev => ({ ...prev, [type]: data }))}
-                                            />
+                                {/* Bank Account Fields */}
+                                {activeStage.bank_account_fields.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Bank Account</span>
+                                            <div className="flex-1 h-px bg-border" />
                                         </div>
-                                    )}
-                                </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                            {activeStage.bank_account_fields.map((f: any) => (
+                                                <FieldRenderer
+                                                    key={f.key}
+                                                    fieldKey={f.key}
+                                                    isRequired={f.required}
+                                                    value={form.data[f.key]}
+                                                    error={form.errors[f.key]}
+                                                    onChange={(val) => form.setData(f.key as any, val)}
+                                                    options={options}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Contract Fields */}
+                                {activeStage.contract_fields.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Contract</span>
+                                            <div className="flex-1 h-px bg-border" />
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                                            {activeStage.contract_fields.map((f: any) => (
+                                                <FieldRenderer
+                                                    key={f.key}
+                                                    fieldKey={f.key}
+                                                    isRequired={f.required}
+                                                    value={form.data[f.key]}
+                                                    error={form.errors[f.key]}
+                                                    onChange={(val) => form.setData(f.key as any, val)}
+                                                    options={options}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Documents */}
+                                {activeStage.documents.length > 0 && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Documents</span>
+                                            <div className="flex-1 h-px bg-border" />
+                                        </div>
+                                        <DocumentRegistry
+                                            documents={activeStage.documents}
+                                            docUploads={docUploads}
+                                            documentTypes={options.document_types}
+                                            onUploadChange={(type, data) => setDocUploads(prev => ({ ...prev, [type]: data }))}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 
                         {/* Bottom Navigation */}
-                        <div className="h-20 border-t border-border bg-background px-12 flex items-center justify-between shrink-0">
+                        <div className="border-t border-border bg-background px-6 py-4 flex items-center justify-between shrink-0">
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={prevStage}
                                 disabled={currentStageIdx === 0}
-                                className="h-11 px-8 rounded-xl font-bold uppercase tracking-widest text-[10px] transition-all hover:bg-muted"
+                                className="h-9 gap-1.5"
                             >
-                                <ChevronLeft className="mr-3 h-4 w-4" />
-                                Previous Phase
+                                <ChevronLeft className="h-4 w-4" />
+                                Back
                             </Button>
 
-                            <div className="flex items-center gap-4">
-                                {!isLastStage ? (
-                                    <Button type="button" onClick={nextStage} className="h-11 px-10 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-xl shadow-primary/20">
-                                        Next Stage
-                                        <ChevronRight className="ml-3 h-4 w-4" />
-                                    </Button>
-                                ) : (
-                                    <Button
-                                        type="button"
-                                        onClick={submit}
-                                        disabled={form.processing}
-                                        className="h-11 px-12 rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-xl shadow-primary/30 animate-pulse-subtle"
-                                    >
-                                        Complete & Launch
-                                    </Button>
-                                )}
-                            </div>
+                            {!isLastStage ? (
+                                <Button type="button" onClick={nextStage} className="h-9 gap-1.5">
+                                    Continue
+                                    <ChevronRight className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    onClick={submit}
+                                    disabled={form.processing}
+                                    className="h-9 px-6"
+                                >
+                                    {form.processing ? 'Saving…' : 'Create Employee'}
+                                </Button>
+                            )}
                         </div>
                     </div>
                 </div>

@@ -318,7 +318,7 @@ export function EmployeesContent({
                                                 <div className="text-sm">
                                                     {employee.gender_ref?.name ?? '—'}
                                                     {employee.marital_status
-                                                        ? ` • ${employee.marital_status === 'married' ? 'Yes' : 'No'}`
+                                                        ? ` • ${employee.marital_status.charAt(0).toUpperCase() + employee.marital_status.slice(1)}`
                                                         : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">

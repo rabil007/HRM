@@ -141,4 +141,9 @@ class Employee extends Model
             fn ($q) => $q->where('is_primary', true)
         );
     }
+
+    public function onboardingTemplate(): BelongsTo
+    {
+        return $this->belongsTo(OnboardingTemplate::class);
+    }
 }

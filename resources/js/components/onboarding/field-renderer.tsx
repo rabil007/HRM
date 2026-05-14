@@ -261,7 +261,10 @@ export function FieldRenderer({
         );
     }
 
-    // Default text input
+    const inputType = (fieldKey === 'work_email' || fieldKey === 'personal_email') ? 'email'
+        : (fieldKey === 'phone' || fieldKey === 'emergency_phone' || fieldKey === 'phone_home_country' || fieldKey === 'emergency_phone_home_country') ? 'tel'
+        : 'text';
+
     return (
         <div className="space-y-1.5">
             <Label htmlFor={id} className="text-xs font-medium text-foreground">
@@ -269,6 +272,7 @@ export function FieldRenderer({
             </Label>
             <Input
                 id={id}
+                type={inputType}
                 placeholder={label}
                 value={value ?? ''}
                 onChange={(e) => onChange(e.target.value)}
