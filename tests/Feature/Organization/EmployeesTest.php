@@ -626,6 +626,74 @@ test('employee import accepts manual column mapping', function () {
     ]);
 });
 
+test('employee import applies contract and start date defaults when omitted', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'DEF',
+        'name' => 'Default Land',
+        'dial_code' => '+992',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DEF',
+        'name' => 'Default Currency',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Default Co',
+        'slug' => 'default-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $csv = "employee_no,name\n"
+        ."EMP-DEF-1,No Contract Columns\n";
+
+    $expectedStart = today()->format('Y-m-d');
+
+    $previewFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->withHeader('Accept', 'application/json')
+        ->post('/organization/employees/import/preview', [
+            'file' => $previewFile,
+        ]);
+
+    $preview->assertOk();
+    expect($preview->json('errors'))->toHaveCount(0)
+        ->and($preview->json('summary.valid'))->toBe(1);
+
+    $importFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->withHeader('Accept', 'application/json')
+        ->post('/organization/employees/import', [
+            'file' => $importFile,
+        ])
+        ->assertOk();
+
+    $employee = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-DEF-1')
+        ->firstOrFail();
+
+    $this->assertDatabaseHas('employee_contracts', [
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => $expectedStart,
+    ]);
+});
+
 test('employee import ignores sensitive fields without extra import permissions', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

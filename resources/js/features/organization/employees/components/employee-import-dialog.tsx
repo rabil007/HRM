@@ -12,6 +12,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/lib/toast';
 
 type Mapping = Record<string, string | null>;
@@ -409,7 +410,9 @@ function UploadStep({
                 <p className="text-foreground text-sm font-medium">Tips for a clean import</p>
                 <ul className="list-inside list-disc space-y-0.5">
                     <li>
-                        <strong>employee_no, name, contract_type, start_date</strong> are required.
+                        <strong>employee_no</strong> and <strong>name</strong> are required. If you skip{' '}
+                        <strong>contract_type</strong> or <strong>start_date</strong>, the import uses unlimited contract
+                        and today&apos;s date.
                     </li>
                     <li>Branch / Department / Position / Manager are matched by name.</li>
                     <li>Manager can also be matched by their employee number.</li>
@@ -433,7 +436,7 @@ function PreviewStep({
     file: File | null;
     onReUpload: () => void;
 }) {
-    const requiredFields = ['employee_no', 'name', 'contract_type', 'start_date'];
+    const requiredFields = ['employee_no', 'name'];
     const unmappedRequired = requiredFields.filter(
         (field) => !preview.mapping[field],
     );
@@ -466,6 +469,27 @@ function PreviewStep({
                         </button>
                     </span>
                 ) : null}
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2">
+                <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3">
+                    <div className="text-2xl font-bold tabular-nums text-emerald-500">{preview.summary.valid}</div>
+                    <div className="text-muted-foreground text-xs">
+                        {preview.summary.valid === 1 ? 'Employee' : 'Employees'} will be created
+                    </div>
+                </div>
+                {preview.summary.invalid > 0 ? (
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3">
+                        <div className="text-lg font-semibold tabular-nums text-destructive">{preview.summary.invalid}</div>
+                        <div className="text-xs text-destructive/90">
+                            Row{preview.summary.invalid === 1 ? '' : 's'} skipped (errors)
+                        </div>
+                    </div>
+                ) : (
+                    <div className="flex items-center rounded-xl border border-border/60 bg-background/40 px-4 py-3 text-xs text-muted-foreground">
+                        No rows skipped
+                    </div>
+                )}
             </div>
 
             {unmappedRequired.length > 0 ? (
@@ -515,10 +539,10 @@ function PreviewStep({
             </section>
 
             <section>
-                <header className="text-foreground mb-2 text-sm font-semibold">Sample rows (first 10)</header>
-                <div className="border-border/60 overflow-hidden rounded-xl border">
+                <header className="text-foreground mb-2 text-sm font-semibold">Rows</header>
+                <div className="border-border/60 max-h-[min(50vh,24rem)] overflow-auto rounded-xl border">
                     <table className="min-w-full text-left text-xs">
-                        <thead className="bg-background/40 text-muted-foreground/80">
+                        <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm text-muted-foreground/80">
                             <tr>
                                 <th className="px-3 py-2 font-medium">Row</th>
                                 <th className="px-3 py-2 font-medium">Employee no</th>
@@ -560,12 +584,33 @@ function PreviewStep({
                                             </td>
                                             <td className="px-3 py-2">
                                                 {rowErrors ? (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="border-destructive/30 bg-destructive/10 text-destructive"
-                                                    >
-                                                        {rowErrors.length} error{rowErrors.length === 1 ? '' : 's'}
-                                                    </Badge>
+                                                    <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                            <span className="inline-flex cursor-help">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="border-destructive/30 bg-destructive/10 text-destructive"
+                                                                >
+                                                                    {rowErrors.length} error
+                                                                    {rowErrors.length === 1 ? '' : 's'}
+                                                                </Badge>
+                                                            </span>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent
+                                                            side="left"
+                                                            align="start"
+                                                            className="max-w-sm text-left font-normal"
+                                                        >
+                                                            <ul className="list-inside list-disc space-y-1">
+                                                                {rowErrors.map((e, i) => (
+                                                                    <li key={`${e.field}-${i}`}>
+                                                                        <span className="font-medium">{e.field}:</span>{' '}
+                                                                        {e.message}
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </TooltipContent>
+                                                    </Tooltip>
                                                 ) : (
                                                     <Badge
                                                         variant="outline"
@@ -591,7 +636,7 @@ function PreviewStep({
                     </header>
                     <div className="border-border/60 max-h-60 overflow-auto rounded-xl border">
                         <table className="min-w-full text-left text-xs">
-                            <thead className="bg-background/40 text-muted-foreground/80">
+                            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm text-muted-foreground/80">
                                 <tr>
                                     <th className="px-3 py-2 font-medium">Row</th>
                                     <th className="px-3 py-2 font-medium">Field</th>

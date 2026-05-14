@@ -75,7 +75,7 @@ class EmployeesImport
         'account_name' => ['account_name', 'account name', 'account holder'],
     ];
 
-    public const REQUIRED_FIELDS = ['employee_no', 'name', 'start_date', 'contract_type'];
+    public const REQUIRED_FIELDS = ['employee_no', 'name'];
 
     public const SENSITIVE_FIELD_PERMISSIONS = [
         'passport_number' => 'employees.import.identity',
@@ -367,8 +367,8 @@ class EmployeesImport
             $rules = [
                 'employee_no' => ['required', 'string', 'max:50'],
                 'name' => ['required', 'string', 'max:200'],
-                'start_date' => ['required', 'date'],
-                'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
+                'start_date' => ['nullable', 'date'],
+                'contract_type' => ['nullable', 'in:limited,unlimited,part_time,contract'],
                 'work_email' => ['nullable', 'email', 'max:200'],
                 'personal_email' => ['nullable', 'email', 'max:200'],
                 'date_of_birth' => ['nullable', 'date'],
@@ -513,11 +513,21 @@ class EmployeesImport
                         'status' => $row['status'] ?: 'active',
                     ]);
 
+                    $contractType = $row['contract_type'] ?? null;
+                    if (! is_string($contractType) || ! in_array($contractType, ['limited', 'unlimited', 'part_time', 'contract'], true)) {
+                        $contractType = 'unlimited';
+                    }
+
+                    $startDate = $row['start_date'] ?? null;
+                    if (! is_string($startDate) || $startDate === '') {
+                        $startDate = Carbon::today()->format('Y-m-d');
+                    }
+
                     EmployeeContract::query()->create([
                         'company_id' => $this->companyId,
                         'employee_id' => $employee->id,
-                        'contract_type' => $row['contract_type'],
-                        'start_date' => $row['start_date'],
+                        'contract_type' => $contractType,
+                        'start_date' => $startDate,
                         'end_date' => $row['end_date'] ?? null,
                         'probation_end_date' => $row['probation_end_date'] ?? null,
                         'labor_contract_id' => $row['labor_contract_id'] ?? null,

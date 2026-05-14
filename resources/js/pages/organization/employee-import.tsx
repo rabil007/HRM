@@ -14,6 +14,7 @@ import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { toast } from '@/lib/toast';
 
 type Mapping = Record<string, string | null>;
@@ -57,7 +58,7 @@ type Props = {
     max_rows: number;
 };
 
-const REQUIRED_FIELDS = ['employee_no', 'name', 'contract_type', 'start_date'];
+const REQUIRED_FIELDS = ['employee_no', 'name'];
 const PRIORITY_FIELDS = [
     'employee_no',
     'name',
@@ -268,6 +269,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                             <Button className="rounded-xl shadow-lg shadow-primary/20 h-11 px-5" disabled={!preview || preview.summary.valid === 0 || isImporting} onClick={importFile}>
                                 {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                                 Import
+                                {preview && preview.summary.valid > 0
+                                    ? ` ${preview.summary.valid} ${preview.summary.valid === 1 ? 'row' : 'rows'}`
+                                    : ''}
                             </Button>
                         </div>
                     }
@@ -348,11 +352,31 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0 space-y-1">
                                                 <div className="truncate font-medium text-foreground">{file?.name ?? 'Selected file'}</div>
-                                                <div className="text-muted-foreground">{preview.summary.total} row(s)</div>
+                                                <div className="text-muted-foreground">{preview.summary.total} data row(s) in file</div>
                                             </div>
                                             <button type="button" onClick={reset} className="rounded-lg p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
                                                 <X className="h-4 w-4" />
                                             </button>
+                                        </div>
+                                        <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                                            <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
+                                                <div className="text-2xl font-bold tabular-nums text-emerald-500">
+                                                    {preview.summary.valid}
+                                                </div>
+                                                <div className="text-muted-foreground">
+                                                    {preview.summary.valid === 1 ? 'Employee' : 'Employees'} will be created
+                                                </div>
+                                            </div>
+                                            {preview.summary.invalid > 0 ? (
+                                                <div className="rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2">
+                                                    <div className="text-lg font-semibold tabular-nums text-destructive">
+                                                        {preview.summary.invalid}
+                                                    </div>
+                                                    <div className="text-xs text-destructive/90">
+                                                        Row{preview.summary.invalid === 1 ? '' : 's'} skipped (validation errors)
+                                                    </div>
+                                                </div>
+                                            ) : null}
                                         </div>
                                         <label className="mt-3 flex items-center gap-2 text-emerald-500">
                                             <input type="checkbox" checked readOnly className="rounded" />
@@ -364,6 +388,11 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                 <section className="space-y-2 text-xs">
                                     <h2 className="text-sm font-semibold text-foreground">Help</h2>
                                     <a href={template_url} className="block text-primary hover:underline">Import Template for Employees</a>
+                                    <span className="block text-muted-foreground">
+                                        Required fields to map are <strong className="text-foreground">Employee No</strong> and{' '}
+                                        <strong className="text-foreground">Name</strong>. If you leave Contract type or Start date
+                                        as &quot;Do not import&quot;, new employees get unlimited contract and start date today.
+                                    </span>
                                     <span className="block text-muted-foreground">Use exact column names for the cleanest mapping.</span>
                                 </section>
                             </CardContent>
@@ -448,6 +477,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                             <Card className="glass-card">
                                 <CardContent className="p-4">
                                     <div className="mb-3 flex flex-wrap items-center gap-2">
+                                        <Badge className="border-primary/30 bg-primary/15 font-semibold text-primary">
+                                            Will create {preview.summary.valid}
+                                        </Badge>
                                         <Badge className="border-white/10 bg-white/5 text-foreground">{preview.summary.total} total</Badge>
                                         <Badge className="border-emerald-500/20 bg-emerald-500/10 text-emerald-500">{preview.summary.valid} valid</Badge>
                                         {preview.summary.invalid > 0 ? (
@@ -460,9 +492,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                         ) : null}
                                     </div>
 
-                                    <div className="overflow-hidden rounded-xl border border-white/10">
+                                    <div className="max-h-[min(70vh,32rem)] overflow-auto rounded-xl border border-white/10">
                                         <table className="w-full text-left text-xs">
-                                            <thead className="bg-muted/30 text-muted-foreground">
+                                            <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur-sm">
                                                 <tr>
                                                     <th className="px-3 py-2">Row</th>
                                                     <th className="px-3 py-2">Employee No</th>
@@ -486,10 +518,31 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                                             <td className="px-3 py-2 text-muted-foreground">{stringy(row.start_date) || '—'}</td>
                                                             <td className="px-3 py-2">
                                                                 {rowErrors ? (
-                                                                    <span className="inline-flex items-center gap-1 text-destructive">
-                                                                        <AlertCircle className="h-3.5 w-3.5" />
-                                                                        {rowErrors.length} error{rowErrors.length === 1 ? '' : 's'}
-                                                                    </span>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <button
+                                                                                type="button"
+                                                                                className="inline-flex cursor-help items-center gap-1 rounded-md border-0 bg-transparent p-0 text-left text-xs text-destructive outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+                                                                            >
+                                                                                <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                                                                                {rowErrors.length} error{rowErrors.length === 1 ? '' : 's'}
+                                                                            </button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent
+                                                                            side="left"
+                                                                            align="start"
+                                                                            className="max-w-sm text-left font-normal"
+                                                                        >
+                                                                            <ul className="list-inside list-disc space-y-1">
+                                                                                {rowErrors.map((e, i) => (
+                                                                                    <li key={`${e.field}-${i}`}>
+                                                                                        <span className="font-medium">{e.field}:</span>{' '}
+                                                                                        {e.message}
+                                                                                    </li>
+                                                                                ))}
+                                                                            </ul>
+                                                                        </TooltipContent>
+                                                                    </Tooltip>
                                                                 ) : (
                                                                     <span className="inline-flex items-center gap-1 text-emerald-500">
                                                                         <CheckCircle2 className="h-3.5 w-3.5" />

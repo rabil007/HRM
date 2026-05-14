@@ -1022,7 +1022,7 @@ class EmployeeController extends Controller
         return response()->json([
             'headers' => $headers,
             'mapping' => $mapping,
-            'rows' => array_slice($result['rows'], 0, 10),
+            'rows' => $result['rows'],
             'errors' => $result['errors'],
             'summary' => $result['summary'],
             'field_options' => $this->importFieldOptions($request),
