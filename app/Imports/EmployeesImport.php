@@ -19,10 +19,11 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToArray;
 use Maatwebsite\Excel\Facades\Excel;
-use Maatwebsite\Excel\HeadingRowImport;
 
 class EmployeesImport
 {
+    public const MAX_ROWS = 1000;
+
     /**
      * Map of canonical field => list of accepted aliases (lowercase, snake/space tolerant).
      *
@@ -30,8 +31,7 @@ class EmployeesImport
      */
     public const FIELD_ALIASES = [
         'employee_no' => ['employee_no', 'employee number', 'emp no', 'emp_no', 'employee id', 'employee_id'],
-        'first_name' => ['first_name', 'first name', 'firstname', 'given name'],
-        'last_name' => ['last_name', 'last name', 'lastname', 'surname', 'family name'],
+        'name' => ['name', 'employee name', 'full name'],
         'work_email' => ['work_email', 'work email', 'company email', 'office email'],
         'personal_email' => ['personal_email', 'personal email', 'private email', 'email'],
         'phone' => ['phone', 'mobile', 'phone number', 'work phone', 'phone_uae', 'phone (uae)'],
@@ -75,12 +75,33 @@ class EmployeesImport
         'account_name' => ['account_name', 'account name', 'account holder'],
     ];
 
-    public const REQUIRED_FIELDS = ['employee_no', 'first_name', 'last_name', 'start_date', 'contract_type'];
+    public const REQUIRED_FIELDS = ['employee_no', 'name', 'start_date', 'contract_type'];
+
+    public const SENSITIVE_FIELD_PERMISSIONS = [
+        'passport_number' => 'employees.import.identity',
+        'emirates_id' => 'employees.import.identity',
+        'labor_card_number' => 'employees.import.identity',
+        'labor_contract_id' => 'employees.import.identity',
+        'basic_salary' => 'employees.import.payroll',
+        'housing_allowance' => 'employees.import.payroll',
+        'transport_allowance' => 'employees.import.payroll',
+        'other_allowances' => 'employees.import.payroll',
+        'bank' => 'employees.import.bank',
+        'iban' => 'employees.import.bank',
+        'account_name' => 'employees.import.bank',
+    ];
+
+    public const IMPORT_MIME_TYPES = [
+        'text/csv',
+        'text/plain',
+        'application/csv',
+        'application/vnd.ms-excel',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
 
     public const TEMPLATE_HEADERS = [
         'employee_no',
-        'first_name',
-        'last_name',
+        'name',
         'work_email',
         'personal_email',
         'phone',
@@ -177,7 +198,15 @@ class EmployeesImport
      */
     public function readHeaders(UploadedFile $file): array
     {
-        $rows = (new HeadingRowImport)->toArray($file)[0][0] ?? [];
+        $reader = new class implements ToArray
+        {
+            public function array(array $array): array
+            {
+                return $array;
+            }
+        };
+
+        $rows = Excel::toArray($reader, $file)[0][0] ?? [];
 
         return collect($rows)
             ->map(fn ($value) => is_string($value) ? trim($value) : (string) $value)
@@ -211,10 +240,6 @@ class EmployeesImport
         $headers = array_map(fn ($value) => is_string($value) ? trim($value) : (string) $value, $rows[0]);
         $body = array_slice($rows, 1);
 
-        if ($limit !== null) {
-            $body = array_slice($body, 0, $limit);
-        }
-
         $associative = [];
 
         foreach ($body as $row) {
@@ -235,9 +260,21 @@ class EmployeesImport
             }
 
             $associative[] = $assoc;
+
+            if ($limit !== null && count($associative) >= $limit) {
+                break;
+            }
         }
 
         return $associative;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function fields(): array
+    {
+        return array_keys(self::FIELD_ALIASES);
     }
 
     /**
@@ -272,6 +309,41 @@ class EmployeesImport
     }
 
     /**
+     * @param  array<int, string>  $headers
+     * @param  array<string, mixed>|null  $mapping
+     * @param  array<int, string>|null  $allowedFields
+     * @return array<string, string|null>
+     */
+    public function sanitizeMapping(array $headers, ?array $mapping, ?array $allowedFields = null): array
+    {
+        $source = $mapping ? $mapping : $this->autoMap($headers);
+        $allowed = $allowedFields ? array_fill_keys($allowedFields, true) : null;
+        $headerLookup = array_fill_keys($headers, true);
+        $sanitized = [];
+
+        foreach (self::fields() as $field) {
+            $header = $source[$field] ?? null;
+
+            if ($allowed !== null && ! isset($allowed[$field])) {
+                $sanitized[$field] = null;
+
+                continue;
+            }
+
+            if (! is_string($header)) {
+                $sanitized[$field] = null;
+
+                continue;
+            }
+
+            $header = trim($header);
+            $sanitized[$field] = $header !== '' && isset($headerLookup[$header]) ? $header : null;
+        }
+
+        return $sanitized;
+    }
+
+    /**
      * Validate parsed rows and return [validRows, errors, summary].
      *
      * @param  array<int, array<string, mixed>>  $rows
@@ -294,8 +366,7 @@ class EmployeesImport
 
             $rules = [
                 'employee_no' => ['required', 'string', 'max:50'],
-                'first_name' => ['required', 'string', 'max:100'],
-                'last_name' => ['required', 'string', 'max:100'],
+                'name' => ['required', 'string', 'max:200'],
                 'start_date' => ['required', 'date'],
                 'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
                 'work_email' => ['nullable', 'email', 'max:200'],
@@ -409,8 +480,7 @@ class EmployeesImport
                     $employee = Employee::create([
                         'company_id' => $this->companyId,
                         'employee_no' => $no,
-                        'first_name' => $row['first_name'] ?? null,
-                        'last_name' => $row['last_name'] ?? null,
+                        'name' => $row['name'] ?? null,
                         'work_email' => $row['work_email'] ?? null,
                         'personal_email' => $row['personal_email'] ?? null,
                         'phone' => $row['phone'] ?? null,
@@ -669,8 +739,8 @@ class EmployeesImport
 
         $this->managerByNameMap = Employee::query()
             ->where('company_id', $this->companyId)
-            ->get(['id', 'first_name', 'last_name'])
-            ->mapWithKeys(fn ($e) => [self::normalize(trim("{$e->first_name} {$e->last_name}")) => (int) $e->id])
+            ->get(['id', 'name'])
+            ->mapWithKeys(fn ($e) => [self::normalize((string) $e->name) => (int) $e->id])
             ->all();
 
         $this->genderMap = Gender::query()

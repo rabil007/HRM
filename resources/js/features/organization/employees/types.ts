@@ -17,8 +17,7 @@ export type PositionOption = {
 export type ManagerOption = {
     id: number;
     employee_no: string;
-    first_name: string;
-    last_name: string;
+    name: string;
 };
 
 export type UserOption = {
@@ -56,8 +55,6 @@ export type Employee = {
     position_id: number | null;
     manager_id: number | null;
     employee_no: string;
-    first_name: string;
-    last_name: string;
     image?: string | null;
     name: string;
     branch: { id: number; name: string | null } | null;
@@ -109,8 +106,7 @@ export type EmployeeFormData = {
     position_id: number | '';
     manager_id: number | '';
     employee_no: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     image: File | null;
     work_email: string;
     personal_email: string;

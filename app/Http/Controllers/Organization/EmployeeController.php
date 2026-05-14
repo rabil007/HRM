@@ -27,6 +27,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -55,9 +56,8 @@ class EmployeeController extends Controller
 
         $managers = Employee::query()
             ->where('company_id', $companyId)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get(['id', 'company_id', 'first_name', 'last_name', 'employee_no']);
+            ->orderBy('name')
+            ->get(['id', 'company_id', 'name', 'employee_no']);
 
         $users = User::query()
             ->where('company_id', $companyId)
@@ -89,7 +89,7 @@ class EmployeeController extends Controller
                 'branch:id,name',
                 'department:id,name',
                 'position:id,title',
-                'manager:id,first_name,last_name,employee_no',
+                'manager:id,name,employee_no',
                 'user:id,name,email',
                 'religionRef:id,name',
                 'genderRef:id,name',
@@ -108,10 +108,8 @@ class EmployeeController extends Controller
                 'position_id' => $employee->position_id,
                 'manager_id' => $employee->manager_id,
                 'employee_no' => $employee->employee_no,
-                'first_name' => $employee->first_name,
-                'last_name' => $employee->last_name,
                 'image' => $employee->image,
-                'name' => trim("{$employee->first_name} {$employee->last_name}"),
+                'name' => $employee->name,
                 'branch' => $employee->branch_id ? [
                     'id' => $employee->branch_id,
                     'name' => $employee->branch?->name,
@@ -236,8 +234,8 @@ class EmployeeController extends Controller
 
         $managers = Employee::query()
             ->where('company_id', $companyId)
-            ->orderBy('first_name')
-            ->get(['id', 'first_name', 'last_name', 'employee_no']);
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no']);
 
         $countries = Country::query()
             ->where('is_active', true)
@@ -314,9 +312,8 @@ class EmployeeController extends Controller
         $managers = Employee::query()
             ->where('company_id', $companyId)
             ->where('id', '!=', $employee->id)
-            ->orderBy('first_name')
-            ->orderBy('last_name')
-            ->get(['id', 'company_id', 'first_name', 'last_name', 'employee_no']);
+            ->orderBy('name')
+            ->get(['id', 'company_id', 'name', 'employee_no']);
 
         $users = User::query()
             ->where('company_id', $companyId)
@@ -347,7 +344,7 @@ class EmployeeController extends Controller
             'branch:id,name',
             'department:id,name',
             'position:id,title',
-            'manager:id,first_name,last_name,employee_no',
+            'manager:id,name,employee_no',
             'user:id,name,email',
             'religionRef:id,name',
             'genderRef:id,name',
@@ -467,11 +464,10 @@ class EmployeeController extends Controller
                 'manager' => $employee->manager_id ? [
                     'id' => $employee->manager_id,
                     'employee_no' => $employee->manager?->employee_no,
-                    'name' => $employee->manager ? trim("{$employee->manager->first_name} {$employee->manager->last_name}") : null,
+                    'name' => $employee->manager?->name,
                 ] : null,
                 'employee_no' => $employee->employee_no,
-                'first_name' => $employee->first_name,
-                'last_name' => $employee->last_name,
+                'name' => $employee->name,
                 'date_of_birth' => $employee->date_of_birth,
                 'place_of_birth' => $employee->place_of_birth,
                 'gender' => $employee->gender,
@@ -907,7 +903,7 @@ class EmployeeController extends Controller
                 'branch:id,name',
                 'department:id,name',
                 'position:id,title',
-                'manager:id,first_name,last_name,employee_no',
+                'manager:id,name,employee_no',
                 'user:id,name,email',
                 'currentContract',
             ])
@@ -933,8 +929,7 @@ class EmployeeController extends Controller
         if ($search !== '') {
             $query->where(function ($q) use ($search) {
                 $q->where('employee_no', 'like', "%{$search}%")
-                    ->orWhere('first_name', 'like', "%{$search}%")
-                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('name', 'like', "%{$search}%")
                     ->orWhere('work_email', 'like', "%{$search}%")
                     ->orWhere('personal_email', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%");
@@ -972,8 +967,7 @@ class EmployeeController extends Controller
         $sampleRow = array_fill(0, count($headers), '');
         $sampleMap = [
             'employee_no' => 'EMP-001',
-            'first_name' => 'John',
-            'last_name' => 'Doe',
+            'name' => 'John Doe',
             'work_email' => 'john.doe@example.com',
             'phone' => '+971500000000',
             'date_of_birth' => '1990-01-15',
@@ -1001,19 +995,28 @@ class EmployeeController extends Controller
         ]);
     }
 
+    public function importPage()
+    {
+        return Inertia::render('organization/employee-import', [
+            'template_url' => route('organization.employees.import.template'),
+            'preview_url' => route('organization.employees.import.preview'),
+            'import_url' => route('organization.employees.import'),
+            'field_options' => $this->importFieldOptions(request()),
+            'max_rows' => EmployeesImport::MAX_ROWS,
+        ]);
+    }
+
     public function importPreview(Request $request)
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
-        ]);
+        $validated = $this->validateImportRequest($request);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $importer = new EmployeesImport($companyId, (int) $request->user()->id);
 
         $file = $request->file('file');
         $headers = $importer->readHeaders($file);
-        $mapping = $importer->autoMap($headers);
-        $rows = $importer->readRows($file);
+        $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->allowedImportFields($request));
+        $rows = $this->readImportRows($importer, $file);
         $result = $importer->validateRows($rows, $mapping);
 
         return response()->json([
@@ -1022,23 +1025,23 @@ class EmployeeController extends Controller
             'rows' => array_slice($result['rows'], 0, 10),
             'errors' => $result['errors'],
             'summary' => $result['summary'],
+            'field_options' => $this->importFieldOptions($request),
+            'max_rows' => EmployeesImport::MAX_ROWS,
             'token' => null,
         ]);
     }
 
     public function import(Request $request)
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
-        ]);
+        $validated = $this->validateImportRequest($request);
 
         $companyId = (int) $request->attributes->get('current_company_id');
         $importer = new EmployeesImport($companyId, (int) $request->user()->id);
 
         $file = $request->file('file');
         $headers = $importer->readHeaders($file);
-        $mapping = $importer->autoMap($headers);
-        $rows = $importer->readRows($file);
+        $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->allowedImportFields($request));
+        $rows = $this->readImportRows($importer, $file);
         $validation = $importer->validateRows($rows, $mapping);
 
         $invalidRowNumbers = collect($validation['errors'])->pluck('row')->unique()->all();
@@ -1070,5 +1073,64 @@ class EmployeeController extends Controller
         return redirect()
             ->route('organization.employees')
             ->with('success', $message);
+    }
+
+    private function validateImportRequest(Request $request): array
+    {
+        return $request->validate([
+            'file' => [
+                'required',
+                'file',
+                'mimes:csv,txt,xlsx,xls',
+                'mimetypes:'.implode(',', EmployeesImport::IMPORT_MIME_TYPES),
+                'max:10240',
+            ],
+            'mapping' => ['nullable', 'array'],
+            'mapping.*' => ['nullable', 'string', 'max:255'],
+        ]);
+    }
+
+    private function readImportRows(EmployeesImport $importer, $file): array
+    {
+        $rows = $importer->readRows($file, EmployeesImport::MAX_ROWS + 1);
+
+        if (count($rows) > EmployeesImport::MAX_ROWS) {
+            throw ValidationException::withMessages([
+                'file' => 'The import file may not contain more than '.EmployeesImport::MAX_ROWS.' employee rows.',
+            ]);
+        }
+
+        return $rows;
+    }
+
+    private function allowedImportFields(Request $request): array
+    {
+        return collect(EmployeesImport::fields())
+            ->filter(function (string $field) use ($request) {
+                $permission = EmployeesImport::SENSITIVE_FIELD_PERMISSIONS[$field] ?? null;
+
+                return $permission === null || $request->user()?->can($permission);
+            })
+            ->values()
+            ->all();
+    }
+
+    private function importFieldOptions(Request $request): array
+    {
+        return collect(EmployeesImport::fields())
+            ->map(function (string $field) use ($request) {
+                $permission = EmployeesImport::SENSITIVE_FIELD_PERMISSIONS[$field] ?? null;
+
+                return [
+                    'field' => $field,
+                    'label' => Str::headline($field),
+                    'required' => in_array($field, EmployeesImport::REQUIRED_FIELDS, true),
+                    'sensitive' => $permission !== null,
+                    'permission' => $permission,
+                    'allowed' => $permission === null || $request->user()?->can($permission),
+                ];
+            })
+            ->values()
+            ->all();
     }
 }

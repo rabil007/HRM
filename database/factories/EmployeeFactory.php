@@ -60,8 +60,7 @@ class EmployeeFactory extends Factory
             'position_id' => null,
             'manager_id' => null,
             'employee_no' => (string) $this->faker->unique()->numerify('EMP####'),
-            'first_name' => $this->faker->firstName(),
-            'last_name' => $this->faker->lastName(),
+            'name' => $this->faker->name(),
             'date_of_birth' => $this->faker->optional()->date(),
             'place_of_birth' => $this->faker->optional()->city(),
             'nationality_id' => function () {

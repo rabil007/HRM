@@ -48,8 +48,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         ],
                         'required_fields' => [
                             'employee_no',
-                            'first_name',
-                            'last_name',
+                            'name',
                             'work_email',
                             'phone',
                             'nationality_id',

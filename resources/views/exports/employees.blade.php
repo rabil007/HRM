@@ -38,11 +38,11 @@
             <tr>
                 <td>{{ $employee->id }}</td>
                 <td>{{ $employee->employee_no }}</td>
-                <td>{{ trim($employee->first_name.' '.$employee->last_name) }}</td>
+                <td>{{ $employee->name }}</td>
                 <td>{{ $employee->branch?->name ?? '—' }}</td>
                 <td>{{ $employee->department?->name ?? '—' }}</td>
                 <td>{{ $employee->position?->title ?? '—' }}</td>
-                <td>{{ $employee->manager ? trim($employee->manager->first_name.' '.$employee->manager->last_name) : '—' }}</td>
+                <td>{{ $employee->manager?->name ?? '—' }}</td>
                 <td>{{ $employee->work_email ?? '—' }}</td>
                 <td>{{ $employee->phone ?? '—' }}</td>
                 <td>{{ $employee->status }}</td>

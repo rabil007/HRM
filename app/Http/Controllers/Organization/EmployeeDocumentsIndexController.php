@@ -48,8 +48,7 @@ class EmployeeDocumentsIndexController extends Controller
                 'employee_documents.created_at',
                 'document_types.title as document_type_title',
                 'document_types.slug as document_type_slug',
-                'employees.first_name',
-                'employees.last_name',
+                'employees.name',
                 'employees.employee_no',
                 'employees.branch_id',
                 'employees.department_id',
@@ -69,8 +68,7 @@ class EmployeeDocumentsIndexController extends Controller
             ->when($uploadedTo, fn ($q) => $q->whereDate('employee_documents.created_at', '<=', $uploadedTo))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
-                    $inner->where('employees.first_name', 'like', "%{$search}%")
-                        ->orWhere('employees.last_name', 'like', "%{$search}%")
+                    $inner->where('employees.name', 'like', "%{$search}%")
                         ->orWhere('employees.employee_no', 'like', "%{$search}%")
                         ->orWhere('employee_documents.document_type', 'like', "%{$search}%")
                         ->orWhere('document_types.title', 'like', "%{$search}%")
@@ -88,7 +86,7 @@ class EmployeeDocumentsIndexController extends Controller
             'id' => $doc->id,
             'employee_id' => $doc->employee_id,
             'employee_no' => $doc->employee_no,
-            'employee_name' => trim("{$doc->first_name} {$doc->last_name}"),
+            'employee_name' => $doc->name,
             'document_type' => $doc->document_type_slug ?? $doc->document_type,
             'document_type_label' => $doc->document_type_title ?? $doc->document_type,
             'title' => $doc->title,

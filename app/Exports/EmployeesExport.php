@@ -26,8 +26,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
         return [
             'ID',
             'Employee No',
-            'First Name',
-            'Last Name',
+            'Name',
             'Branch',
             'Department',
             'Position',
@@ -42,21 +41,16 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
 
     public function map($employee): array
     {
-        $managerName = $employee->manager
-            ? trim("{$employee->manager->first_name} {$employee->manager->last_name}")
-            : null;
-
         $startDate = $employee->currentContract?->start_date;
 
         return [
             $employee->id,
             $employee->employee_no,
-            $employee->first_name,
-            $employee->last_name,
+            $employee->name,
             $employee->branch?->name,
             $employee->department?->name,
             $employee->position?->title,
-            $managerName,
+            $employee->manager?->name,
             $employee->work_email,
             $employee->phone,
             $employee->status,

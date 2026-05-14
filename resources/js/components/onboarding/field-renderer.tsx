@@ -106,7 +106,7 @@ export function FieldRenderer({
                 <option value="">{placeholder}</option>
                 {opts.map((o) => (
                     <option key={o.id} value={String(o.id)}>
-                        {o.title || o.name || (o as any).first_name + ' ' + (o as any).last_name}
+                        {o.title || o.name}
                     </option>
                 ))}
             </select>
@@ -131,7 +131,7 @@ export function FieldRenderer({
     }
 
     if (fieldKey === 'manager_id') {
-        const managers = options.managers.map(m => ({ ...m, name: `${(m as any).first_name} ${(m as any).last_name}` }));
+        const managers = options.managers.map((m) => ({ ...m, name: m.name }));
 
         return renderSelect(managers, 'Select Manager');
     }

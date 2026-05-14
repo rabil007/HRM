@@ -56,8 +56,7 @@ export type BuilderState = {
 
 export const profileFieldOptions = [
     { key: 'employee_no', label: 'Employee No' },
-    { key: 'first_name', label: 'First Name' },
-    { key: 'last_name', label: 'Last Name' },
+    { key: 'name', label: 'Name' },
     { key: 'image', label: 'Image' },
     { key: 'date_of_birth', label: 'Date of Birth' },
     { key: 'place_of_birth', label: 'Place of Birth' },
@@ -113,22 +112,36 @@ export type DocumentTypeModel = {
 };
 
 export function toBuilderState(tasks: unknown): BuilderState {
+    const normalizeFieldKey = (key: string) => {
+        return key === 'first_name' || key === 'last_name' ? 'name' : key;
+    };
+
     const mapFields = (fields: any): FieldRequirement[] => {
         if (!Array.isArray(fields)) {
 return [];
 }
 
+        const seen = new Set<string>();
+
         return fields.map(f => {
             if (typeof f === 'string') {
-return { key: f, required: true };
+return { key: normalizeFieldKey(f), required: true };
 }
 
             if (typeof f === 'object' && f !== null) {
-return { key: f.key, required: !!f.required };
+return { key: normalizeFieldKey(String(f.key ?? '')), required: !!f.required };
 }
 
             return { key: '', required: true };
-        }).filter(f => f.key !== '');
+        }).filter((f) => {
+            if (f.key === '' || seen.has(f.key)) {
+return false;
+}
+
+            seen.add(f.key);
+
+            return true;
+        });
     };
 
     const fallback: BuilderState = {
@@ -137,7 +150,7 @@ return { key: f.key, required: !!f.required };
                 id: generateId(), 
                 key: 'profile_info', 
                 label: 'Profile Information', 
-                employee_fields: mapFields(['employee_no', 'first_name', 'last_name', 'work_email', 'phone', 'nationality_id']),
+                employee_fields: mapFields(['employee_no', 'name', 'work_email', 'phone', 'nationality_id']),
                 bank_account_fields: [],
                 contract_fields: [],
                 documents: []

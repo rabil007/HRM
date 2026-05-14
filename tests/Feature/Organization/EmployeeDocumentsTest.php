@@ -47,8 +47,7 @@ function makeDocumentFixtures(): array
         'company_id' => $company->id,
         'branch_id' => $branch->id,
         'employee_no' => 'DOC001',
-        'first_name' => 'Test',
-        'last_name' => 'Employee',
+        'name' => 'Test Employee',
         'status' => 'active',
     ]);
 

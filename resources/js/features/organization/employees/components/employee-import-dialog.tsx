@@ -50,8 +50,7 @@ const IMPORT_URL = '/organization/employees/import';
 
 const PRIORITY_FIELDS = [
     'employee_no',
-    'first_name',
-    'last_name',
+    'name',
     'work_email',
     'phone',
     'branch',
@@ -410,7 +409,7 @@ function UploadStep({
                 <p className="text-foreground text-sm font-medium">Tips for a clean import</p>
                 <ul className="list-inside list-disc space-y-0.5">
                     <li>
-                        <strong>employee_no, first_name, last_name, contract_type, start_date</strong> are required.
+                        <strong>employee_no, name, contract_type, start_date</strong> are required.
                     </li>
                     <li>Branch / Department / Position / Manager are matched by name.</li>
                     <li>Manager can also be matched by their employee number.</li>
@@ -434,7 +433,7 @@ function PreviewStep({
     file: File | null;
     onReUpload: () => void;
 }) {
-    const requiredFields = ['employee_no', 'first_name', 'last_name', 'contract_type', 'start_date'];
+    const requiredFields = ['employee_no', 'name', 'contract_type', 'start_date'];
     const unmappedRequired = requiredFields.filter(
         (field) => !preview.mapping[field],
     );
@@ -551,9 +550,7 @@ function PreviewStep({
                                             <td className="text-muted-foreground/70 px-3 py-2">{rowNumber}</td>
                                             <td className="px-3 py-2 font-medium">{stringy(row.employee_no)}</td>
                                             <td className="px-3 py-2">
-                                                {[stringy(row.first_name), stringy(row.last_name)]
-                                                    .filter(Boolean)
-                                                    .join(' ') || '—'}
+                                                {stringy(row.name) || '—'}
                                             </td>
                                             <td className="text-muted-foreground/80 px-3 py-2">
                                                 {stringy(row.contract_type) || '—'}

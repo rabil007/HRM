@@ -55,13 +55,13 @@ test('authenticated users can access the onboarding pipeline page', function () 
                 [
                     'key' => 'draft',
                     'label' => 'Draft Stage',
-                    'employee_fields' => [['key' => 'first_name', 'required' => true]],
+                    'employee_fields' => [['key' => 'name', 'required' => true]],
                     'bank_account_fields' => [],
                     'contract_fields' => [],
-                    'documents' => []
-                ]
-            ]
-        ]
+                    'documents' => [],
+                ],
+            ],
+        ],
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.create']);
@@ -169,8 +169,7 @@ test('onboarding pipeline correctly saves a complex payload with documents', fun
 
     $payload = [
         'employee_no' => 'PIPE-001',
-        'first_name' => 'Pipeline',
-        'last_name' => 'Test',
+        'name' => 'Pipeline Test',
         'work_email' => 'pipeline@example.com',
         'phone' => '+971501111111',
         'branch_id' => $branch->id,
@@ -186,8 +185,8 @@ test('onboarding pipeline correctly saves a complex payload with documents', fun
                 'issue_date' => '2026-01-01',
                 'expiry_date' => '2030-01-01',
                 'document_number' => 'ID-999',
-            ]
-        ]
+            ],
+        ],
     ];
 
     $this->post('/organization/employees', $payload)
@@ -195,7 +194,7 @@ test('onboarding pipeline correctly saves a complex payload with documents', fun
 
     $employee = Employee::where('employee_no', 'PIPE-001')->first();
     expect($employee)->not->toBeNull();
-    expect($employee->first_name)->toBe('Pipeline');
+    expect($employee->name)->toBe('Pipeline Test');
 
     $this->assertDatabaseHas('employee_documents', [
         'employee_id' => $employee->id,

@@ -37,6 +37,7 @@ function getAvatarGradient(name: string): string {
         'from-fuchsia-600 to-purple-600',
     ];
     const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
+
     return gradients[hash % gradients.length];
 }
 
@@ -53,7 +54,13 @@ export function EmployeeCard({
             : `/storage/${employee.image.replace(/^\/+/, '')}`
         : null;
 
-    const initials = `${employee.first_name?.[0] ?? ''}${employee.last_name?.[0] ?? ''}`.toUpperCase() || 'E';
+    const initials = employee.name
+        .split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map((part) => part[0])
+        .join('')
+        .toUpperCase() || 'E';
     const avatarGradient = getAvatarGradient(employee.name);
     const statusCfg = STATUS_CONFIG[employee.status] ?? STATUS_CONFIG.inactive;
 
@@ -134,7 +141,9 @@ export function EmployeeCard({
                         variant="ghost"
                         size="icon"
                         className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary text-muted-foreground/50 transition-colors"
-                        onClick={(e) => { e.stopPropagation(); router.visit(`/organization/employees/${employee.id}`); }}
+                        onClick={(e) => {
+ e.stopPropagation(); router.visit(`/organization/employees/${employee.id}`); 
+}}
                         title="View"
                     >
                         <Eye className="h-3.5 w-3.5" />
@@ -145,7 +154,9 @@ export function EmployeeCard({
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 rounded-lg hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50 transition-colors"
-                            onClick={(e) => { e.stopPropagation(); onDelete(employee); }}
+                            onClick={(e) => {
+ e.stopPropagation(); onDelete(employee); 
+}}
                             title="Delete"
                         >
                             <Trash2 className="h-3.5 w-3.5" />

@@ -1,4 +1,5 @@
 import { Briefcase, Building2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -39,21 +40,24 @@ export function EmployeeHeaderCard({
     activeField: string | null;
     setActiveField: (v: string | null) => void;
     beginEdit: (field: string) => void;
-    requiredDot: (field: string) => JSX.Element | null;
+    requiredDot: (field: string) => ReactNode;
 }) {
     const displayName = useMemo(() => {
-        return (
-            `${form.data.first_name ?? ''} ${form.data.last_name ?? ''}`.trim() ||
-            'Employee'
-        );
-    }, [form.data.first_name, form.data.last_name]);
+        return String(form.data.name ?? '').trim() || 'Employee';
+    }, [form.data.name]);
 
     const initials = useMemo(() => {
         return (
-            `${form.data.first_name?.[0] ?? ''}${form.data.last_name?.[0] ?? ''}`.toUpperCase() ||
+            String(form.data.name ?? '')
+                .split(' ')
+                .filter(Boolean)
+                .slice(0, 2)
+                .map((part) => part[0])
+                .join('')
+                .toUpperCase() ||
             'E'
         );
-    }, [form.data.first_name, form.data.last_name]);
+    }, [form.data.name]);
 
     const imageSrc = employee.image
         ? employee.image.startsWith('http')
@@ -123,23 +127,14 @@ export function EmployeeHeaderCard({
 
                             <h1 className="truncate text-3xl font-black tracking-tight text-white md:text-4xl">
                                 {activeField === 'name' && canUpdate ? (
-                                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                        <Input
-                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
-                                            value={form.data.first_name}
-                                            onChange={(e) => form.setData('first_name', e.target.value)}
-                                            onBlur={() => setActiveField(null)}
-                                            autoFocus
-                                            placeholder="First name"
-                                        />
-                                        <Input
-                                            className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
-                                            value={form.data.last_name}
-                                            onChange={(e) => form.setData('last_name', e.target.value)}
-                                            onBlur={() => setActiveField(null)}
-                                            placeholder="Last name"
-                                        />
-                                    </div>
+                                    <Input
+                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
+                                        value={form.data.name}
+                                        onChange={(e) => form.setData('name', e.target.value)}
+                                        onBlur={() => setActiveField(null)}
+                                        autoFocus
+                                        placeholder="Name"
+                                    />
                                 ) : (
                                     <button
                                         type="button"
@@ -223,10 +218,10 @@ export function EmployeeHeaderCard({
                                         current: employee.manager?.name ?? '—',
                                         items: managers.map((m) => ({
                                             id: m.id,
-                                            label: `${m.first_name} ${m.last_name}`.trim() || `#${m.id}`,
+                                            label: m.name || `#${m.id}`,
                                             value: String(m.id),
                                             extra: m.employee_no,
-                                            search: `${m.first_name} ${m.last_name} ${m.employee_no}`,
+                                            search: `${m.name} ${m.employee_no}`,
                                         })),
                                         title: 'Select manager',
                                         description: 'Search employees...',

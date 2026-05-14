@@ -52,8 +52,7 @@ type EmployeeDetails = {
     } | null;
     bank?: { id: number; name: string | null } | null;
     employee_no: string;
-    first_name: string;
-    last_name: string;
+    name: string;
     personal_email?: string | null;
     phone_home_country?: string | null;
     nearest_airport?: string | null;
@@ -315,8 +314,7 @@ export default function EmployeeDetails({
     const initialPersonal = useMemo(
         () => ({
             employee_no: employee.employee_no ?? '',
-            first_name: employee.first_name ?? '',
-            last_name: employee.last_name ?? '',
+            name: employee.name ?? '',
             branch_id: employee.branch?.id ? String(employee.branch.id) : '',
             department_id: employee.department?.id ? String(employee.department.id) : '',
             position_id: employee.position?.id ? String(employee.position.id) : '',
@@ -351,12 +349,11 @@ export default function EmployeeDetails({
         }),
         [
             employee.employee_no,
-            employee.first_name,
-            employee.last_name,
-            employee.branch?.id,
-            employee.department?.id,
-            employee.position?.id,
-            employee.manager?.id,
+            employee.name,
+            employee.branch,
+            employee.department,
+            employee.position,
+            employee.manager,
             employee.personal_email,
             employee.work_email,
             employee.phone,
@@ -405,15 +402,7 @@ export default function EmployeeDetails({
                     : String(contract.other_allowances),
         }),
         [
-            contract?.contract_type,
-            contract?.start_date,
-            contract?.end_date,
-            contract?.probation_end_date,
-            contract?.labor_contract_id,
-            contract?.basic_salary,
-            contract?.housing_allowance,
-            contract?.transport_allowance,
-            contract?.other_allowances,
+            contract,
             employee.contract_type,
             employee.start_date,
             employee.end_date,
@@ -446,7 +435,7 @@ export default function EmployeeDetails({
     }, [form.data, initialAll]);
 
     const requiredFields = useMemo(() => {
-        return new Set(['employee_no', 'first_name', 'last_name', 'start_date', 'contract_type']);
+        return new Set(['employee_no', 'name', 'start_date', 'contract_type']);
     }, []);
 
     const requiredDot = (field: string) => {
@@ -482,11 +471,8 @@ export default function EmployeeDetails({
     }, [canUpdate, isDirty]);
 
     const displayName = useMemo(() => {
-        return (
-            `${form.data.first_name ?? ''} ${form.data.last_name ?? ''}`.trim() ||
-            'Employee'
-        );
-    }, [form.data.first_name, form.data.last_name]);
+        return String(form.data.name ?? '').trim() || 'Employee';
+    }, [form.data.name]);
 
     const tabs = [
         { id: 'personal', label: 'Personal', count: null },
@@ -509,12 +495,8 @@ export default function EmployeeDetails({
                 missing.push('employee_no');
             }
 
-            if (!String(form.data.first_name ?? '').trim()) {
-                missing.push('first_name');
-            }
-
-            if (!String(form.data.last_name ?? '').trim()) {
-                missing.push('last_name');
+            if (!String(form.data.name ?? '').trim()) {
+                missing.push('name');
             }
 
             if (!String(form.data.start_date ?? '').trim()) {
@@ -536,8 +518,7 @@ export default function EmployeeDetails({
         form.transform((data) => ({
             ...data,
             employee_no: data.employee_no?.trim() || null,
-            first_name: data.first_name?.trim() || null,
-            last_name: data.last_name?.trim() || null,
+            name: data.name?.trim() || null,
             branch_id: data.branch_id ? Number(data.branch_id) : null,
             department_id: data.department_id ? Number(data.department_id) : null,
             position_id: data.position_id ? Number(data.position_id) : null,
@@ -1713,7 +1694,7 @@ export default function EmployeeDetails({
                                         <DialogHeader>
                                             <DialogTitle>Upload Employee Documents</DialogTitle>
                                             <p className="text-sm text-muted-foreground">
-                                                Add one or many files for {employee.first_name} {employee.last_name}. Shared details below will be applied to every selected file.
+                                                Add one or many files for {employee.name}. Shared details below will be applied to every selected file.
                                             </p>
                                         </DialogHeader>
 

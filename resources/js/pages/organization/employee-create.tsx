@@ -62,6 +62,8 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
             department: 'department_id',
             position: 'position_id',
             manager: 'manager_id',
+            first_name: 'name',
+            last_name: 'name',
         };
 
         return legacyMap[key] ?? key;
@@ -70,12 +72,18 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
     const normalizeFieldList = (fields: any[]): Array<{ key: string; required: boolean }> => {
         const seen = new Set<string>();
         const result: Array<{ key: string; required: boolean }> = [];
+
         for (const f of fields) {
             const key = normalizeFieldKey(typeof f === 'string' ? f : String(f?.key ?? ''));
-            if (!key || seen.has(key)) continue;
+
+            if (!key || seen.has(key)) {
+continue;
+}
+
             seen.add(key);
             result.push({ key, required: typeof f === 'string' ? true : !!f?.required });
         }
+
         return result;
     };
 
@@ -126,8 +134,7 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
         onboarding_template_id: template.id,
         employee_no: '',
         status: 'active',
-        first_name: '',
-        last_name: '',
+        name: '',
         work_email: '',
         personal_email: '',
         phone: '',
@@ -196,13 +203,17 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
     useEffect(() => {
         for (let i = localStorage.length - 1; i >= 0; i--) {
             const k = localStorage.key(i);
+
             if (k && k.startsWith('onboarding_draft_') && k !== STORAGE_KEY) {
                 localStorage.removeItem(k);
             }
         }
 
         const saved = localStorage.getItem(STORAGE_KEY);
-        if (!saved) return;
+
+        if (!saved) {
+return;
+}
 
         try {
             const parsed = JSON.parse(saved);
@@ -210,6 +221,7 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
 
             if (age > DRAFT_TTL_MS) {
                 localStorage.removeItem(STORAGE_KEY);
+
                 return;
             }
 

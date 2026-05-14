@@ -53,8 +53,7 @@ class UpdateEmployeeRequest extends FormRequest
                     ->ignore($employeeId)
                     ->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
-            'first_name' => ['required', 'string', 'max:100'],
-            'last_name' => ['required', 'string', 'max:100'],
+            'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],
             'date_of_birth' => ['nullable', 'date'],
             'place_of_birth' => ['nullable', 'string', 'max:150'],

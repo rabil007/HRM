@@ -40,12 +40,6 @@ const EmployeeDeleteDialog = lazy(() =>
     })),
 );
 
-const EmployeeImportDialog = lazy(() =>
-    import('./components/employee-import-dialog').then((m) => ({
-        default: m.EmployeeImportDialog,
-    })),
-);
-
 const emptyFilters: EmployeeFilters = {
     branch_id: '',
     department_id: '',
@@ -86,7 +80,6 @@ export function EmployeesContent({
     const [view, setView] = useViewPreference('employees:view', 'grid');
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const [isImportOpen, setIsImportOpen] = useState(false);
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState<EmployeeFilters>(emptyFilters);
@@ -241,7 +234,7 @@ export function EmployeesContent({
                                 type="button"
                                 variant="secondary"
                                 className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                                onClick={() => setIsImportOpen(true)}
+                                onClick={() => router.visit('/organization/employees/import')}
                             >
                                 <Upload className="mr-2 h-4 w-4" />
                                 Import
@@ -431,10 +424,6 @@ export function EmployeesContent({
                     employee={currentEmployee}
                     onConfirm={confirmDelete}
                 />
-
-                {canImport ? (
-                    <EmployeeImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
-                ) : null}
             </Suspense>
         </Main>
     );
