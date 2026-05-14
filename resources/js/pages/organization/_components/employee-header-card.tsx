@@ -1,4 +1,4 @@
-import { Briefcase } from 'lucide-react';
+import { Briefcase, Building2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -92,10 +92,13 @@ export function EmployeeHeaderCard({
     }, [employee.status]);
 
     return (
-        <div className="rounded-2xl border border-white/5 bg-white/5 p-6 shadow-[0_18px_40px_-28px_rgba(0,0,0,0.7)] backdrop-blur md:p-7">
-            <div className="flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
+        <div className="relative overflow-hidden rounded-4xl border border-white/10 bg-card/80 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl md:p-7">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.12),transparent_28%)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent" />
+
+            <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
                 <div className="mx-auto shrink-0 md:mx-0">
-                    <div className="h-28 w-28 overflow-hidden rounded-2xl border border-white/5 bg-zinc-900/70 shadow-[0_16px_32px_-12px_rgba(0,0,0,0.5)] md:h-32 md:w-32 lg:h-36 lg:w-36">
+                    <div className="h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/20 shadow-2xl shadow-black/30 ring-1 ring-white/5 md:h-32 md:w-32 lg:h-36 lg:w-36">
                         {imageSrc ? (
                             <img
                                 src={imageSrc}
@@ -103,7 +106,7 @@ export function EmployeeHeaderCard({
                                 className="h-full w-full object-cover"
                             />
                         ) : (
-                            <div className="flex h-full w-full select-none items-center justify-center bg-white/5 text-3xl font-semibold leading-none text-muted-foreground md:text-4xl">
+                            <div className="flex h-full w-full select-none items-center justify-center bg-linear-to-br from-primary/25 via-white/10 to-emerald-500/15 text-3xl font-bold leading-none text-white md:text-4xl">
                                 {initials}
                             </div>
                         )}
@@ -112,8 +115,13 @@ export function EmployeeHeaderCard({
 
                 <div className="min-w-0 flex-1 text-center md:text-left">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
-                        <div className="min-w-0 space-y-2">
-                            <h1 className="truncate text-2xl font-extrabold tracking-tight text-white md:text-3xl">
+                        <div className="min-w-0 space-y-3">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
+                                <UserRound className="h-3 w-3" />
+                                Employee profile
+                            </div>
+
+                            <h1 className="truncate text-3xl font-black tracking-tight text-white md:text-4xl">
                                 {activeField === 'name' && canUpdate ? (
                                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                         <Input
@@ -146,11 +154,32 @@ export function EmployeeHeaderCard({
 
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
                                 {employee.position?.title ? (
-                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-md border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary md:mx-0">
+                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary md:mx-0">
                                         <Briefcase className="h-3.5 w-3.5" />
                                         {employee.position.title}
                                     </Badge>
                                 ) : null}
+                                {employee.department?.name ? (
+                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300 md:mx-0">
+                                        <Building2 className="h-3.5 w-3.5" />
+                                        {employee.department.name}
+                                    </Badge>
+                                ) : null}
+                            </div>
+
+                            <div className="flex flex-wrap justify-center gap-2 text-xs text-zinc-400 md:justify-start">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
+                                    <Mail className="h-3.5 w-3.5" />
+                                    {form.data.work_email || employee.work_email || 'No work email'}
+                                </div>
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
+                                    <Phone className="h-3.5 w-3.5" />
+                                    {form.data.phone || employee.phone || 'No phone'}
+                                </div>
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    {employee.branch?.name || 'No branch'}
+                                </div>
                             </div>
 
                             <div className="mx-auto grid max-w-xl grid-cols-1 gap-2 text-xs md:mx-0 md:max-w-none md:grid-cols-2">
@@ -205,7 +234,7 @@ export function EmployeeHeaderCard({
                                 ].map((item) => (
                                     <div
                                         key={item.field}
-                                        className="flex min-w-0 items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/5 px-3 py-2"
+                                        className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/10 px-3 py-2.5 shadow-inner shadow-black/10"
                                     >
                                         <div className="text-zinc-500">{item.label}</div>
                                         <button
@@ -276,7 +305,7 @@ export function EmployeeHeaderCard({
                                 ) : (
                                     <button
                                         type="button"
-                                        className="flex items-center gap-2 rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[10px] font-semibold tracking-wide text-zinc-400 hover:text-zinc-200 disabled:cursor-default disabled:hover:text-zinc-400"
+                                        className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-bold tracking-wide text-zinc-400 hover:text-zinc-200 disabled:cursor-default disabled:hover:text-zinc-400"
                                         onClick={() => beginEdit('employee_no')}
                                         disabled={!canUpdate}
                                     >
@@ -285,7 +314,7 @@ export function EmployeeHeaderCard({
                                 )}
 
                                 <div
-                                    className={`flex items-center gap-2 rounded-full border px-3 py-1 text-[10px] font-semibold tracking-wide ${statusBadge.container}`}
+                                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${statusBadge.container}`}
                                 >
                                     <div className={`h-2 w-2 animate-pulse rounded-full ${statusBadge.dot}`} />
                                     {employee.status}
@@ -296,14 +325,14 @@ export function EmployeeHeaderCard({
                 </div>
             </div>
 
-            <div className="mt-6 rounded-2xl border border-white/5 bg-white/5 p-4 md:p-5">
+            <div className="relative mt-6 rounded-3xl border border-white/10 bg-black/10 p-4 shadow-inner shadow-black/10 md:p-5">
                 <div className="mb-4 flex items-center justify-between">
                     <div className="text-xs font-semibold tracking-wide text-zinc-400">
                         Details
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 md:gap-6">
                     <div className="space-y-2">
                         <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">
                             <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">

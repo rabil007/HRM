@@ -26,6 +26,7 @@ use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
@@ -515,7 +516,13 @@ class EmployeeController extends Controller
                 'housing_allowance' => $employee->currentContract?->housing_allowance,
                 'transport_allowance' => $employee->currentContract?->transport_allowance,
                 'other_allowances' => $employee->currentContract?->other_allowances,
+                'bank_id' => $employee->primaryBankAccount?->bank_id,
+                'bank' => $employee->primaryBankAccount?->bank_id ? [
+                    'id' => $employee->primaryBankAccount->bank_id,
+                    'name' => $employee->primaryBankAccount->bank?->name,
+                ] : null,
                 'iban' => $employee->primaryBankAccount?->iban,
+                'account_name' => $employee->primaryBankAccount?->account_name,
                 'emirates_id' => $employee->emirates_id,
                 'passport_number' => $employee->passport_number,
                 'labor_card_number' => $employee->labor_card_number,
@@ -687,7 +694,11 @@ class EmployeeController extends Controller
                 $documentType = $docTypes->get($documentTypeKey);
 
                 if (! $documentType) {
-                    continue;
+                    $documentType = DocumentType::query()->firstOrCreate(
+                        ['slug' => $documentTypeKey],
+                        ['title' => Str::headline($documentTypeKey), 'is_active' => true],
+                    );
+                    $docTypes->put($documentTypeKey, $documentType);
                 }
 
                 foreach ($files as $file) {

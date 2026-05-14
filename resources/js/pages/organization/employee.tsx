@@ -50,6 +50,7 @@ type EmployeeDetails = {
         employee_no: string | null;
         name: string | null;
     } | null;
+    bank?: { id: number; name: string | null } | null;
     employee_no: string;
     first_name: string;
     last_name: string;
@@ -81,6 +82,7 @@ type EmployeeDetails = {
     labor_card_number?: string | null;
     bank_id?: number | null;
     iban?: string | null;
+    account_name?: string | null;
     basic_salary?: number | null;
     housing_allowance?: number | null;
     transport_allowance?: number | null;
@@ -163,6 +165,8 @@ type DocumentTypeOption = {
     slug: string;
 };
 
+type EmployeeTab = 'personal' | 'contract' | 'bank' | 'documents';
+
 export default function EmployeeDetails({
     employee,
     contract,
@@ -208,14 +212,13 @@ export default function EmployeeDetails({
     void positions;
     void managers;
     void users;
-    void banks;
     void recent_activity;
 
     const [activeField, setActiveField] = useState<string | null>(null);
-    const [tabValue, setTabValue] = useState<'personal' | 'contract' | 'documents'>(() => (
+    const [tabValue, setTabValue] = useState<EmployeeTab>(() => (
         typeof window !== 'undefined' && window.location.hash === '#documents' ? 'documents' : 'personal'
     ));
-    const [pendingTab, setPendingTab] = useState<'personal' | 'contract' | 'documents' | null>(null);
+    const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
 
     const [uploadOpen, setUploadOpen] = useState(false);
@@ -419,7 +422,20 @@ export default function EmployeeDetails({
         ],
     );
 
-    const initialAll = useMemo(() => ({ ...initialPersonal, ...initialContract }), [initialContract, initialPersonal]);
+    const initialBank = useMemo(
+        () => ({
+            bank_id: employee.bank_id ? String(employee.bank_id) : '',
+            account_name: employee.account_name ?? '',
+            iban: employee.iban ?? '',
+        }),
+        [
+            employee.account_name,
+            employee.bank_id,
+            employee.iban,
+        ],
+    );
+
+    const initialAll = useMemo(() => ({ ...initialPersonal, ...initialContract, ...initialBank }), [initialBank, initialContract, initialPersonal]);
 
     const form = useForm(initialAll);
 
@@ -475,8 +491,9 @@ export default function EmployeeDetails({
     const tabs = [
         { id: 'personal', label: 'Personal', count: null },
         { id: 'contract', label: 'Contract', count: null },
+        { id: 'bank', label: 'Bank', count: form.data.bank_id || form.data.iban ? 1 : null },
         { id: 'documents', label: 'Documents', count: documents.length || null },
-    ];
+    ] satisfies Array<{ id: EmployeeTab; label: string; count: number | null }>;
 
     useEffect(() => {
         if (window.location.hash === '#documents') {
@@ -560,6 +577,9 @@ export default function EmployeeDetails({
             housing_allowance: data.housing_allowance === '' ? null : Number(data.housing_allowance),
             transport_allowance: data.transport_allowance === '' ? null : Number(data.transport_allowance),
             other_allowances: data.other_allowances === '' ? null : Number(data.other_allowances),
+            bank_id: data.bank_id ? Number(data.bank_id) : null,
+            iban: data.iban?.trim() || null,
+            account_name: data.account_name?.trim() || null,
         }));
 
         form.put(`/organization/employees/${employee.id}`, {
@@ -582,7 +602,7 @@ export default function EmployeeDetails({
         setActiveField(null);
     };
 
-    const handleTabChange = (next: 'personal' | 'contract' | 'documents') => {
+    const handleTabChange = (next: EmployeeTab) => {
         if (!canUpdate || !isDirty) {
             setTabValue(next);
 
@@ -596,14 +616,14 @@ export default function EmployeeDetails({
     return (
         <>
             <Head title={`Employee • ${displayName}`} />
-            <Main className="bg-background p-0">
+            <Main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.08),transparent_26%)] p-0">
                 {/* Main Content Area - Full Width */}
-                <div className="w-full p-6 md:p-8">
-                    <div className="w-full space-y-8">
+                <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-8">
+                    <div className="w-full space-y-6">
                         {canUpdate && isDirty ? (
-                            <div className="sticky top-4 z-20 rounded-xl border border-white/10 bg-background/80 p-3 backdrop-blur">
+                            <div className="sticky top-4 z-20 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-3 shadow-lg shadow-black/20 backdrop-blur-xl">
                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                    <div className="text-sm font-medium text-zinc-200">
+                                    <div className="text-sm font-semibold text-amber-100">
                                         You have unsaved changes
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -693,39 +713,53 @@ export default function EmployeeDetails({
                             requiredDot={requiredDot}
                         />
 
-                        {documents.length > 0 && (
+                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Employee no</div>
+                                <div className="mt-2 text-lg font-bold text-zinc-100">{form.data.employee_no || employee.employee_no || '—'}</div>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Department</div>
+                                <div className="mt-2 truncate text-lg font-bold text-zinc-100">{employee.department?.name || '—'}</div>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Contract</div>
+                                <div className="mt-2 capitalize text-lg font-bold text-zinc-100">{form.data.contract_type || contract?.contract_type || '—'}</div>
+                            </div>
                             <button
                                 type="button"
                                 onClick={() => {
                                     setTabValue('documents');
                                     setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
                                 }}
-                                className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-xs text-zinc-400 hover:bg-white/10 hover:text-zinc-200 transition-colors"
+                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-primary/30 hover:bg-primary/10"
                             >
-                                <span className="font-medium text-zinc-200">{documents.length}</span>
-                                {documents.filter(d => d.status === 'expired').length > 0 && (
-                                    <span className="rounded-md bg-red-500/10 border border-red-500/20 text-red-400 px-1.5 py-0.5 text-[10px] font-semibold">
-                                        {documents.filter(d => d.status === 'expired').length} expired
-                                    </span>
-                                )}
-                                {documents.filter(d => d.status === 'expiring_soon').length > 0 && (
-                                    <span className="rounded-md bg-amber-500/10 border border-amber-500/20 text-amber-400 px-1.5 py-0.5 text-[10px] font-semibold">
-                                        {documents.filter(d => d.status === 'expiring_soon').length} expiring
-                                    </span>
-                                )}
-                                <span className="text-zinc-500">documents →</span>
+                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Documents</div>
+                                <div className="mt-2 flex items-center gap-2">
+                                    <span className="text-lg font-bold text-zinc-100">{documents.length}</span>
+                                    {documents.filter((d) => d.status === 'expired').length > 0 && (
+                                        <span className="rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400">
+                                            {documents.filter((d) => d.status === 'expired').length} expired
+                                        </span>
+                                    )}
+                                    {documents.filter((d) => d.status === 'expiring_soon').length > 0 && (
+                                        <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                                            {documents.filter((d) => d.status === 'expiring_soon').length} expiring
+                                        </span>
+                                    )}
+                                </div>
                             </button>
-                        )}
+                        </div>
 
                     {/* Tabs Navigation */}
-                        <div id="employee-tabs">
-                            <Tabs value={tabValue} onValueChange={(v) => handleTabChange(v as any)} className="w-full">
-                            <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-white/5 bg-white/5 p-1">
+                        <div id="employee-tabs" className="rounded-[1.75rem] border border-white/10 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl">
+                            <Tabs value={tabValue} onValueChange={(v) => handleTabChange(v as EmployeeTab)} className="w-full">
+                            <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/10 p-1.5">
                                 {tabs.map((tab) => (
                                     <TabsTrigger
                                         key={tab.id}
                                         value={tab.id}
-                                        className="shrink-0 rounded-lg border border-transparent bg-transparent px-3 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-zinc-400 hover:text-zinc-200 data-[state=active]:border-white/10 data-[state=active]:bg-background data-[state=active]:text-white"
+                                        className="shrink-0 rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-xs font-bold tracking-wide whitespace-nowrap text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200 data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-black/20"
                                     >
                                         {tab.label}
                                         {tab.count !== null && (
@@ -741,8 +775,8 @@ export default function EmployeeDetails({
                                 value="personal"
                                 className="mt-6"
                             >
-                                <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                                    <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
+                                    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                         <div className="mb-4 flex items-center justify-between gap-3">
                                             <h3 className="text-sm font-semibold text-zinc-200">
                                                 Private contact
@@ -830,7 +864,7 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
                                                 Emergency contact
@@ -943,7 +977,7 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
                                                 Family
@@ -1024,7 +1058,7 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
                                                 Location
@@ -1085,7 +1119,7 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
 
-                                    <div className="rounded-xl border border-white/5 bg-white/5 p-5 lg:col-span-2">
+                                    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl xl:col-span-2 2xl:col-span-3">
                                         <div className="mb-4 flex items-center justify-between">
                                             <h3 className="text-sm font-semibold text-zinc-200">
                                                 Citizenship
@@ -1183,7 +1217,7 @@ export default function EmployeeDetails({
                             <TabsContent value="contract" className="mt-6">
                                 <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
                                     <div className="space-y-6 xl:col-span-7">
-                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                        <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                             <div className="mb-4 flex items-center justify-between">
                                                 <h3 className="text-sm font-semibold text-zinc-200">
                                                     Contract
@@ -1339,7 +1373,7 @@ export default function EmployeeDetails({
                                     </div>
 
                                     <div className="space-y-6 xl:col-span-5">
-                                        <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                        <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                             <div className="mb-4 flex items-center justify-between">
                                                 <h3 className="text-sm font-semibold text-zinc-200">
                                                     Salary
@@ -1398,8 +1432,136 @@ export default function EmployeeDetails({
                                 </div>
                             </TabsContent>
 
+                            <TabsContent value="bank" className="mt-6">
+                                <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
+                                    <div className="space-y-6 xl:col-span-7">
+                                        <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Bank account
+                                                </h3>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
+                                                    <label className="text-xs font-medium text-zinc-400">Bank</label>
+                                                    {activeField === 'bank_id' ? (
+                                                        <div>
+                                                            <select
+                                                                className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                                                value={form.data.bank_id}
+                                                                onChange={(e) => form.setData('bank_id', e.target.value)}
+                                                                onBlur={() => setActiveField(null)}
+                                                                autoFocus
+                                                            >
+                                                                <option value="">—</option>
+                                                                {banks.map((bank) => (
+                                                                    <option key={bank.id} value={String(bank.id)}>
+                                                                        {bank.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                            {form.errors.bank_id ? (
+                                                                <div className="mt-1 text-xs text-destructive">{form.errors.bank_id}</div>
+                                                            ) : null}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                            onClick={() => beginEdit('bank_id')}
+                                                        >
+                                                            {banks.find((bank) => String(bank.id) === String(form.data.bank_id || employee.bank_id || ''))?.name ??
+                                                                employee.bank?.name ??
+                                                                '—'}
+                                                        </button>
+                                                    )}
+                                                </div>
+
+                                                {[
+                                                    {
+                                                        key: 'account_name',
+                                                        label: 'Account holder',
+                                                        value: form.data.account_name || employee.account_name || '—',
+                                                    },
+                                                    {
+                                                        key: 'iban',
+                                                        label: 'IBAN',
+                                                        value: form.data.iban || employee.iban || '—',
+                                                    },
+                                                ].map((item) => (
+                                                    <div
+                                                        key={item.key}
+                                                        className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
+                                                    >
+                                                        <label className="text-xs font-medium text-zinc-400">{item.label}</label>
+                                                        {activeField === item.key ? (
+                                                            <div>
+                                                                <Input
+                                                                    className="h-10 rounded-xl border-white/5 bg-white/5"
+                                                                    value={(form.data as any)[item.key]}
+                                                                    onChange={(e) => form.setData(item.key as any, e.target.value)}
+                                                                    onBlur={() => setActiveField(null)}
+                                                                    autoFocus
+                                                                />
+                                                                {(form.errors as any)[item.key] ? (
+                                                                    <div className="mt-1 text-xs text-destructive">
+                                                                        {(form.errors as any)[item.key]}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        ) : (
+                                                            <button
+                                                                type="button"
+                                                                className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                                                                onClick={() => beginEdit(item.key)}
+                                                            >
+                                                                {item.value}
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-6 xl:col-span-5">
+                                        <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                            <div className="mb-4 flex items-center justify-between">
+                                                <h3 className="text-sm font-semibold text-zinc-200">
+                                                    Payroll payment
+                                                </h3>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <div className="rounded-xl border border-white/5 bg-black/10 p-4">
+                                                    <div className="text-xs font-medium text-zinc-500">Primary bank</div>
+                                                    <div className="mt-1 text-sm font-semibold text-zinc-200">
+                                                        {banks.find((bank) => String(bank.id) === String(form.data.bank_id || employee.bank_id || ''))?.name ??
+                                                            employee.bank?.name ??
+                                                            'Not selected'}
+                                                    </div>
+                                                </div>
+                                                <div className="rounded-xl border border-white/5 bg-black/10 p-4">
+                                                    <div className="text-xs font-medium text-zinc-500">Account holder</div>
+                                                    <div className="mt-1 text-sm font-semibold text-zinc-200">
+                                                        {form.data.account_name || employee.account_name || '—'}
+                                                    </div>
+                                                </div>
+                                                <div className="rounded-xl border border-white/5 bg-black/10 p-4">
+                                                    <div className="text-xs font-medium text-zinc-500">IBAN</div>
+                                                    <div className="mt-1 break-all font-mono text-sm font-semibold text-zinc-200">
+                                                        {form.data.iban || employee.iban || '—'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
                             <TabsContent value="documents" className="mt-6">
-                                <div className="rounded-xl border border-white/5 bg-white/5 p-5">
+                                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
                                     <div className="mb-4 flex items-center justify-between">
                                         <h3 className="text-sm font-semibold text-zinc-200">
                                             Documents
