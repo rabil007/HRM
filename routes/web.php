@@ -70,6 +70,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');
     Route::get('organization/employees/export', [EmployeeController::class, 'export'])->middleware('can:employees.export')->name('organization.employees.export');
+    Route::get('organization/employees/import/template', [EmployeeController::class, 'importTemplate'])->middleware('can:employees.import')->name('organization.employees.import.template');
+    Route::post('organization/employees/import/preview', [EmployeeController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');
+    Route::post('organization/employees/import', [EmployeeController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
     Route::get('organization/employees/{employee}', [EmployeeController::class, 'show'])->middleware('can:employees.view')->name('organization.employees.show');
     Route::post('organization/employees', [EmployeeController::class, 'store'])->middleware('can:employees.create')->name('organization.employees.store');
     Route::put('organization/employees/{employee}', [EmployeeController::class, 'update'])->middleware('can:employees.update')->name('organization.employees.update');

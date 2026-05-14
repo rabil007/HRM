@@ -152,8 +152,8 @@ return { key: f.key, required: !!f.required };
     };
 
     if (!tasks || typeof tasks !== 'object') {
-return fallback;
-}
+        return fallback;
+    }
 
     const t = tasks as any;
 
@@ -339,49 +339,49 @@ return;
                     {s ? (
                         <div className="glass-card p-6 space-y-6 lg:col-span-9">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/40">
-                                <div className="space-y-1">
-                                    <h3 className="text-lg font-semibold tracking-tight">{s.label || 'Untitled Stage'}</h3>
-                                    <p className="text-xs text-muted-foreground">Configure the properties requested from the user during this stage.</p>
-                                </div>
+                                        <div className="space-y-1">
+                                            <h3 className="text-lg font-semibold tracking-tight">{s.label || 'Untitled Stage'}</h3>
+                                            <p className="text-xs text-muted-foreground">Configure the properties requested from the user during this stage.</p>
+                                        </div>
                                 <Button type="button" variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10" onClick={() => {
-                                    const nextStages = builder.stages.filter(x => x.id !== activeStageId);
-                                    setBuilder({ stages: nextStages });
+                                                const nextStages = builder.stages.filter(x => x.id !== activeStageId);
+                                                setBuilder({ stages: nextStages });
                                     setActiveStageId(nextStages.length > 0 ? nextStages[0].id : null);
                                 }}>Delete Stage</Button>
-                            </div>
+                                    </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label className="text-xs">Stage Label (Display Name)</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <Label className="text-xs">Stage Label (Display Name)</Label>
                                     <Input value={s.label} onChange={e => updateStage({ label: e.target.value })} className="h-10 text-sm" />
-                                </div>
-                                <div className="space-y-2">
+                                        </div>
+                                        <div className="space-y-2">
                                     <Label className="text-xs text-muted-foreground font-medium flex items-center justify-between">Unique ID (System Key)</Label>
                                     <Input value={s.key} disabled readOnly className="h-10 text-sm bg-muted/30 opacity-70 cursor-not-allowed border-dashed focus-visible:ring-0" />
-                                </div>
-                            </div>
+                                        </div>
+                                    </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-border/40">
                                 <FieldSelector title="Employee Fields" options={profileFieldOptions} selectedFields={s.employee_fields} otherStagesFields={otherProfileFields} onUpdate={(fields) => updateStage({ employee_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'employee', list: [...s.employee_fields], draggingKey: null })} />
                                 <div className="space-y-6">
                                     <FieldSelector title="Contract Fields" options={contractFieldOptions} selectedFields={s.contract_fields} otherStagesFields={otherContractFields} onUpdate={(fields) => updateStage({ contract_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'contract', list: [...s.contract_fields], draggingKey: null })} />
                                     <FieldSelector title="Bank Fields" options={bankAccountFieldOptions} selectedFields={s.bank_account_fields} otherStagesFields={otherBankFields} onUpdate={(fields) => updateStage({ bank_account_fields: fields })} onSortClick={() => setSortFieldsDialog({ open: true, kind: 'bank', list: [...s.bank_account_fields], draggingKey: null })} />
-                                </div>
-                            </div>
-                            
+                                                    </div>
+                                                </div>
+
                             <DocumentSelector selectedDocs={s.documents} documentTypes={documentTypes} otherStagesDocs={otherDocuments} onUpdate={(docs) => updateStage({ documents: docs })} />
-                        </div>
+                                </div>
                     ) : (
                         <div className="glass-card p-6 lg:col-span-9 flex flex-col items-center justify-center text-muted-foreground h-[400px]">
-                            <svg className="w-16 h-16 opacity-30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                            </svg>
-                            <p>Select a stage from the left to configure it.</p>
-                        </div>
-                    )}
-                </div>
+                        <svg className="w-16 h-16 opacity-30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <p>Select a stage from the left to configure it.</p>
+                    </div>
+                )}
+            </div>
 
-                <div className="flex flex-col-reverse md:flex-row items-center justify-end gap-3 pt-6 pb-12">
+            <div className="flex flex-col-reverse md:flex-row items-center justify-end gap-3 pt-6 pb-12">
                     {onCancel && <Button type="button" variant="ghost" onClick={onCancel} className="w-full md:w-40 h-12 rounded-xl text-muted-foreground hover:text-foreground">Discard Changes</Button>}
                     <Button type="submit" className="w-full md:w-64 h-12 rounded-xl text-lg font-semibold shadow-lg shadow-primary/20" disabled={form.processing}>{template ? 'Update Template' : 'Create Template'}</Button>
                 </div>
@@ -401,6 +401,6 @@ return;
                     toast.success(`${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : 'Employee'} fields order updated.`);
                 }} 
             />
-        </form>
-    );
+    </form>
+);
 }

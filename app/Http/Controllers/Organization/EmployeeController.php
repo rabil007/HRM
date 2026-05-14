@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
+use App\Imports\EmployeesImport;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\Country;
@@ -934,5 +935,112 @@ class EmployeeController extends Controller
         return Excel::download($export, "{$baseName}.csv", ExcelWriter::CSV, [
             'Content-Type' => 'text/csv; charset=UTF-8',
         ]);
+    }
+
+    public function importTemplate()
+    {
+        $headers = EmployeesImport::TEMPLATE_HEADERS;
+
+        $sampleRow = array_fill(0, count($headers), '');
+        $sampleMap = [
+            'employee_no' => 'EMP-001',
+            'first_name' => 'John',
+            'last_name' => 'Doe',
+            'work_email' => 'john.doe@example.com',
+            'phone' => '+971500000000',
+            'date_of_birth' => '1990-01-15',
+            'marital_status' => 'single',
+            'contract_type' => 'unlimited',
+            'start_date' => now()->format('Y-m-d'),
+            'status' => 'active',
+        ];
+
+        foreach ($headers as $i => $header) {
+            if (isset($sampleMap[$header])) {
+                $sampleRow[$i] = $sampleMap[$header];
+            }
+        }
+
+        $callback = function () use ($headers, $sampleRow) {
+            $out = fopen('php://output', 'w');
+            fputcsv($out, $headers);
+            fputcsv($out, $sampleRow);
+            fclose($out);
+        };
+
+        return response()->streamDownload($callback, 'employees-import-template.csv', [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+        ]);
+    }
+
+    public function importPreview(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+        ]);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $importer = new EmployeesImport($companyId, (int) $request->user()->id);
+
+        $file = $request->file('file');
+        $headers = $importer->readHeaders($file);
+        $mapping = $importer->autoMap($headers);
+        $rows = $importer->readRows($file);
+        $result = $importer->validateRows($rows, $mapping);
+
+        return response()->json([
+            'headers' => $headers,
+            'mapping' => $mapping,
+            'rows' => array_slice($result['rows'], 0, 10),
+            'errors' => $result['errors'],
+            'summary' => $result['summary'],
+            'token' => null,
+        ]);
+    }
+
+    public function import(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:csv,txt,xlsx,xls', 'max:10240'],
+        ]);
+
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $importer = new EmployeesImport($companyId, (int) $request->user()->id);
+
+        $file = $request->file('file');
+        $headers = $importer->readHeaders($file);
+        $mapping = $importer->autoMap($headers);
+        $rows = $importer->readRows($file);
+        $validation = $importer->validateRows($rows, $mapping);
+
+        $invalidRowNumbers = collect($validation['errors'])->pluck('row')->unique()->all();
+        $importable = collect($validation['rows'])
+            ->reject(fn ($_, $i) => in_array($i + 2, $invalidRowNumbers, true))
+            ->values()
+            ->all();
+
+        $result = $importer->execute($importable);
+
+        $message = sprintf(
+            'Imported %d employee%s. %d row%s skipped.',
+            $result['created'],
+            $result['created'] === 1 ? '' : 's',
+            count($invalidRowNumbers) + count($result['failed']),
+            count($invalidRowNumbers) + count($result['failed']) === 1 ? '' : 's',
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'created' => $result['created'],
+                'skipped' => $invalidRowNumbers,
+                'failed' => $result['failed'],
+                'errors' => $validation['errors'],
+                'message' => $message,
+            ]);
+        }
+
+        return redirect()
+            ->route('organization.employees')
+            ->with('success', $message);
     }
 }

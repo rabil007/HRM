@@ -305,3 +305,121 @@ test('authenticated users can export employees as csv, excel, and pdf', function
     $this->get('/organization/employees/export?format=xlsx')->assertOk();
     $this->get('/organization/employees/export?format=pdf')->assertOk();
 });
+
+test('authenticated users with permission can download the import template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
+
+    $response = $this->get('/organization/employees/import/template');
+    $response->assertOk();
+    expect($response->headers->get('Content-Type'))->toContain('text/csv');
+});
+
+test('authenticated users can preview and import an employees CSV', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TST',
+        'name' => 'Testland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TST',
+        'name' => 'Test Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $branch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Main Office',
+        'code' => 'DXB',
+        'status' => 'active',
+        'is_headquarters' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
+
+    $csv = "employee_no,first_name,last_name,branch,contract_type,start_date\n"
+        ."EMP-IMP-1,Alice,Imported,Main Office,unlimited,2026-03-01\n"
+        ."EMP-IMP-2,Bob,Imported,Unknown Branch,unlimited,2026-03-02\n"
+        ."EMP-IMP-3,,MissingFirstName,Main Office,unlimited,2026-03-03\n";
+
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+    ]);
+
+    $preview->assertOk();
+    $previewJson = $preview->json();
+    expect($previewJson['summary']['total'])->toBe(3);
+    expect(collect($previewJson['errors'])->pluck('row')->unique())
+        ->toContain(3)
+        ->toContain(4);
+
+    $importFile = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->post('/organization/employees/import', [
+        'file' => $importFile,
+    ])->assertRedirect('/organization/employees');
+
+    $this->assertDatabaseHas('employees', [
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-IMP-1',
+        'first_name' => 'Alice',
+        'branch_id' => $branch->id,
+    ]);
+
+    $this->assertDatabaseMissing('employees', [
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-IMP-2',
+    ]);
+
+    $this->assertDatabaseHas('employee_contracts', [
+        'company_id' => $company->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-03-01',
+    ]);
+});

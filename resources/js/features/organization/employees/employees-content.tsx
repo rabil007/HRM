@@ -1,5 +1,5 @@
-import { router } from '@inertiajs/react';
-import { Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { router, usePage } from '@inertiajs/react';
+import { Eye, Filter, Plus, Trash2, Upload } from 'lucide-react';
 import { Suspense, lazy, useMemo, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
@@ -37,6 +37,12 @@ const EmployeeFiltersSheet = lazy(() =>
 const EmployeeDeleteDialog = lazy(() =>
     import('./components/employee-delete-dialog').then((m) => ({
         default: m.EmployeeDeleteDialog,
+    })),
+);
+
+const EmployeeImportDialog = lazy(() =>
+    import('./components/employee-import-dialog').then((m) => ({
+        default: m.EmployeeImportDialog,
     })),
 );
 
@@ -80,9 +86,17 @@ export function EmployeesContent({
     const [view, setView] = useViewPreference('employees:view', 'grid');
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+    const [isImportOpen, setIsImportOpen] = useState(false);
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState<EmployeeFilters>(emptyFilters);
+
+    const { auth } = usePage().props as unknown as {
+        auth?: { permissions?: string[] };
+    };
+
+    const permissions = auth?.permissions ?? [];
+    const canImport = permissions.includes('employees.import');
 
     const handleAdd = () => {
         router.visit('/organization/employees/create');
@@ -221,6 +235,18 @@ export function EmployeesContent({
                                 </span>
                             ) : null}
                         </Button>
+
+                        {canImport ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                                onClick={() => setIsImportOpen(true)}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Import
+                            </Button>
+                        ) : null}
 
                         <ExportMenu
                             getUrl={getExportUrl}
@@ -405,6 +431,10 @@ export function EmployeesContent({
                     employee={currentEmployee}
                     onConfirm={confirmDelete}
                 />
+
+                {canImport ? (
+                    <EmployeeImportDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
+                ) : null}
             </Suspense>
         </Main>
     );
