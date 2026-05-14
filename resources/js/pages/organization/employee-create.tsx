@@ -1,10 +1,18 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Check, ChevronLeft, ChevronRight, UserPlus, Save, RotateCcw } from 'lucide-react';
+import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Save, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { DocumentRegistry } from '@/components/onboarding/document-registry';
 import { FieldRenderer } from '@/components/onboarding/field-renderer';
 import { Button } from '@/components/ui/button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { toast } from '@/lib/toast';
 
 type Option = { id: number | string; name: string; title?: string };
@@ -12,6 +20,7 @@ type Option = { id: number | string; name: string; title?: string };
 type OnboardingTemplate = {
     id: number;
     name: string;
+    description?: string | null;
     tasks: {
         version: number;
         stages: Array<any>;
@@ -19,8 +28,16 @@ type OnboardingTemplate = {
     };
 };
 
+type TemplateOption = {
+    id: number;
+    name: string;
+    description?: string | null;
+    is_default: boolean;
+};
+
 type Props = {
     template: OnboardingTemplate;
+    allTemplates: TemplateOption[];
     options: {
         branches: Option[];
         departments: Option[];
@@ -34,15 +51,42 @@ type Props = {
     };
 };
 
-export default function EmployeeCreate({ template, options }: Props) {
+export default function EmployeeCreate({ template, allTemplates, options }: Props) {
+    const normalizeFieldKey = (key: string): string => {
+        const legacyMap: Record<string, string> = {
+            nationality: 'nationality_id',
+            gender: 'gender_id',
+            religion: 'religion_id',
+            bank: 'bank_id',
+            branch: 'branch_id',
+            department: 'department_id',
+            position: 'position_id',
+            manager: 'manager_id',
+        };
+
+        return legacyMap[key] ?? key;
+    };
+
+    const normalizeFieldList = (fields: any[]): Array<{ key: string; required: boolean }> => {
+        const seen = new Set<string>();
+        const result: Array<{ key: string; required: boolean }> = [];
+        for (const f of fields) {
+            const key = normalizeFieldKey(typeof f === 'string' ? f : String(f?.key ?? ''));
+            if (!key || seen.has(key)) continue;
+            seen.add(key);
+            result.push({ key, required: typeof f === 'string' ? true : !!f?.required });
+        }
+        return result;
+    };
+
     const normalizeStages = (tasks: OnboardingTemplate['tasks']) => {
         if (tasks?.version === 2 && Array.isArray(tasks.stages)) {
             return tasks.stages.map((s: any) => ({
                 key: String(s?.key ?? ''),
                 label: String(s?.label ?? s?.key ?? ''),
-                employee_fields: Array.isArray(s?.employee_fields) ? s.employee_fields : [],
-                bank_account_fields: Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : [],
-                contract_fields: Array.isArray(s?.contract_fields) ? s.contract_fields : [],
+                employee_fields: normalizeFieldList(Array.isArray(s?.employee_fields) ? s.employee_fields : []),
+                bank_account_fields: normalizeFieldList(Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : []),
+                contract_fields: normalizeFieldList(Array.isArray(s?.contract_fields) ? s.contract_fields : []),
                 documents: Array.isArray(s?.documents) ? s.documents : [],
             }));
         }
@@ -55,15 +99,16 @@ export default function EmployeeCreate({ template, options }: Props) {
             return tasks.stages.map((s: any) => {
                 const mods = Array.isArray(s?.modules) ? s.modules : [];
                 const bankKeys = new Set(['bank_id', 'iban', 'account_name']);
-                const v1EmployeeFields = v1Profile.filter((k: any) => !bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
-                const v1BankFields = v1Profile.filter((k: any) => bankKeys.has(String(k))).map((k: any) => ({ key: String(k), required: true }));
+                const allProfileFields = normalizeFieldList(v1Profile);
+                const v1EmployeeFields = allProfileFields.filter((f) => !bankKeys.has(f.key));
+                const v1BankFields = allProfileFields.filter((f) => bankKeys.has(f.key));
 
                 return {
                     key: String(s?.key ?? ''),
                     label: String(s?.label ?? s?.key ?? ''),
                     employee_fields: mods.includes('profile') ? v1EmployeeFields : [],
                     bank_account_fields: mods.includes('profile') ? v1BankFields : [],
-                    contract_fields: mods.includes('contract') ? v1Contract.map((k: any) => ({ key: String(k), required: true })) : [],
+                    contract_fields: mods.includes('contract') ? normalizeFieldList(v1Contract) : [],
                     documents: mods.includes('documents') ? v1Docs : [],
                 };
             });
@@ -130,27 +175,10 @@ export default function EmployeeCreate({ template, options }: Props) {
 
     // --- AUTO-SAVE LOGIC ---
     const STORAGE_KEY = `onboarding_draft_${template.id}`;
+    const DRAFT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
     const isClearingRef = useRef(false);
 
-    const restoredDraft = (() => {
-        if (typeof window === 'undefined') {
-            return null;
-        }
-
-        const saved = window.localStorage.getItem(STORAGE_KEY);
-
-        if (!saved) {
-            return null;
-        }
-
-        try {
-            return JSON.parse(saved);
-        } catch {
-            return null;
-        }
-    })();
-
-    const [isRestored] = useState(() => !!restoredDraft);
+    const [isRestored, setIsRestored] = useState(false);
 
     const [docUploads, setDocUploads] = useState<
         Record<
@@ -162,49 +190,67 @@ export default function EmployeeCreate({ template, options }: Props) {
                 document_number?: string;
             }
         >
-    >(() => {
-        const meta = restoredDraft?.docMetadata;
-
-        if (!meta || typeof meta !== 'object') {
-            return {};
-        }
-
-        try {
-            return Object.fromEntries(
-                Object.entries(meta).map(([k, v]: any) => [k, { ...v, files: [] }]),
-            );
-        } catch {
-            return {};
-        }
-    });
+    >({});
 
     useEffect(() => {
-        if (restoredDraft?.formData) {
-            form.setData(restoredDraft.formData);
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (k && k.startsWith('onboarding_draft_') && k !== STORAGE_KEY) {
+                localStorage.removeItem(k);
+            }
         }
 
-        if (restoredDraft?.formData || restoredDraft?.docMetadata) {
-            toast.info('Draft restored from local session.');
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return;
+
+        try {
+            const parsed = JSON.parse(saved);
+            const age = Date.now() - (parsed?.timestamp ?? 0);
+
+            if (age > DRAFT_TTL_MS) {
+                localStorage.removeItem(STORAGE_KEY);
+                return;
+            }
+
+            if (parsed?.formData) {
+                form.setData(parsed.formData);
+            }
+
+            if (parsed?.docMetadata && typeof parsed.docMetadata === 'object') {
+                setDocUploads(
+                    Object.fromEntries(
+                        Object.entries(parsed.docMetadata).map(([k, v]: any) => [k, { ...v, files: [] }]),
+                    ),
+                );
+            }
+
+            if (parsed?.formData || parsed?.docMetadata) {
+                setIsRestored(true);
+                toast.info('Draft restored from local session.');
+            }
+        } catch {
+            localStorage.removeItem(STORAGE_KEY);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
         if (isClearingRef.current) {
-return;
-}
-        
+            return;
+        }
+
         const docMetadata = Object.fromEntries(
-            Object.entries(docUploads).map(([k, v]) => [k, { 
-                issue_date: v.issue_date, 
-                expiry_date: v.expiry_date, 
-                document_number: v.document_number 
-            }])
+            Object.entries(docUploads).map(([k, v]) => [
+                k,
+                { issue_date: v.issue_date, expiry_date: v.expiry_date, document_number: v.document_number },
+            ]),
         );
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            formData: form.data,
-            docMetadata,
-            timestamp: Date.now()
-        }));
+
+        localStorage.setItem(
+            STORAGE_KEY,
+            JSON.stringify({ formData: form.data, docMetadata, timestamp: Date.now() }),
+        );
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [form.data, docUploads]);
 
     const clearDraft = () => {
@@ -311,7 +357,7 @@ missingFields.push(labelFromKey(key));
         form.post('/organization/employees', {
             onSuccess: () => {
                 localStorage.removeItem(STORAGE_KEY);
-                toast.success('Employee created and onboarding started.');
+                toast.success('Employee created successfully.');
             },
             onError: () => setShowMissingIndicators(true),
         });
@@ -325,14 +371,60 @@ missingFields.push(labelFromKey(key));
                 {/* Top Bar */}
                 <div className="h-16 border-b border-border bg-background flex items-center justify-between px-6 shrink-0">
                     <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground">
+                        <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground shrink-0">
                             <UserPlus className="h-4 w-4" />
                         </div>
                         <div className="flex flex-col">
                             <h1 className="text-sm font-bold text-foreground">Launch New Hire</h1>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
-                                Pipeline: <span className="text-primary">{template.name}</span>
-                            </p>
+                            {allTemplates.length > 1 ? (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <button
+                                            type="button"
+                                            className="flex items-center gap-1 text-[10px] text-primary font-semibold uppercase tracking-tight hover:opacity-80 transition-opacity"
+                                        >
+                                            {template.name}
+                                            <ChevronDown className="h-3 w-3" />
+                                        </button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start" className="w-64">
+                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                                            Switch template
+                                        </DropdownMenuLabel>
+                                        <DropdownMenuSeparator />
+                                        {allTemplates.map((t) => (
+                                            <DropdownMenuItem
+                                                key={t.id}
+                                                onClick={() =>
+                                                    router.visit(`/organization/employees/create?template_id=${t.id}`)
+                                                }
+                                                className="flex flex-col items-start gap-0.5 py-2"
+                                            >
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <span className="font-medium text-sm">{t.name}</span>
+                                                    {t.id === template.id && (
+                                                        <Check className="h-3 w-3 text-primary ml-auto" />
+                                                    )}
+                                                    {t.is_default && t.id !== template.id && (
+                                                        <span className="ml-auto text-[10px] text-muted-foreground/60">
+                                                            default
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {t.description ? (
+                                                    <span className="text-[11px] text-muted-foreground/70 leading-tight line-clamp-1">
+                                                        {t.description}
+                                                    </span>
+                                                ) : null}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            ) : (
+                                <p className="text-[10px] text-muted-foreground uppercase tracking-tight font-medium">
+                                    Pipeline: <span className="text-primary">{template.name}</span>
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -343,7 +435,7 @@ missingFields.push(labelFromKey(key));
                                 Reset Draft
                             </Button>
                         )}
-                        <div className="h-4 w-[1px] bg-border mx-1" />
+                        <div className="bg-border mx-1 h-4 w-px" />
                         <Button
                             variant="ghost"
                             size="sm"

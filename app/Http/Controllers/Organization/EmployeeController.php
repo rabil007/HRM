@@ -188,28 +188,33 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $template = OnboardingTemplate::query()
+        $allTemplates = OnboardingTemplate::query()
             ->where('company_id', $companyId)
-            ->where('is_default', true)
-            ->first();
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'is_default']);
 
-        if (! $template) {
-            // Fallback to latest if no default
-            $template = OnboardingTemplate::query()
-                ->where('company_id', $companyId)
-                ->latest()
-                ->first();
-        }
+        if ($allTemplates->isEmpty()) {
+            $message = 'No onboarding template found for this company. Please create one before adding employees.';
 
-        if (! $template) {
             if (request()->user()?->can('onboarding.templates.create')) {
                 return redirect()
                     ->route('onboarding.templates.create')
-                    ->with('error', 'Please create an onboarding template first.');
+                    ->with('error', $message);
             }
 
-            abort(403, 'Please create an onboarding template first.');
+            return redirect()
+                ->route('organization.employees')
+                ->with('error', $message);
         }
+
+        $requestedId = (int) request()->query('template_id', 0);
+
+        $templateId = $requestedId && $allTemplates->contains('id', $requestedId)
+            ? $requestedId
+            : ($allTemplates->firstWhere('is_default', true)?->id ?? $allTemplates->first()?->id);
+
+        $template = OnboardingTemplate::query()->find($templateId);
 
         $branches = Branch::query()
             ->where('company_id', $companyId)
@@ -260,8 +265,15 @@ class EmployeeController extends Controller
             'template' => [
                 'id' => $template->id,
                 'name' => $template->name,
+                'description' => $template->description,
                 'tasks' => $template->tasks,
             ],
+            'allTemplates' => $allTemplates->map(fn ($t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'description' => $t->description,
+                'is_default' => $t->is_default,
+            ]),
             'options' => [
                 'branches' => $branches,
                 'departments' => $departments,

@@ -111,10 +111,6 @@ class OnboardingTemplateController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $template->company_id === $companyId, 404);
 
-        if ($template->records()->exists()) {
-            return redirect()->route('onboarding.templates.index')->with('error', 'Template is already in use.');
-        }
-
         $template->delete();
 
         return redirect()->route('onboarding.templates.index')->with('success', 'Template deleted successfully.');
