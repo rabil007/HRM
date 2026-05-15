@@ -150,4 +150,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeDocument::class)->latest('id');
     }
+
+    public function educationQualifications(): HasMany
+    {
+        return $this->hasMany(EmployeeEducationQualification::class)->orderByDesc('issue_date')->orderByDesc('id');
+    }
 }

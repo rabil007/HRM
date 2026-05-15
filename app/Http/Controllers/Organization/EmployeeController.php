@@ -17,6 +17,7 @@ use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
+use App\Models\EmployeeEducationQualification;
 use App\Models\Gender;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
@@ -409,6 +410,23 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $educationQualifications = EmployeeEducationQualification::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->with(['country:id,name,code'])
+            ->orderByDesc('issue_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeEducationQualification $row) => [
+                'id' => $row->id,
+                'certificate' => $row->certificate,
+                'issue_date' => $row->issue_date?->toDateString(),
+                'university' => $row->university,
+                'country_id' => $row->country_id,
+                'country_name' => $row->country?->name,
+            ])
+            ->all();
+
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
@@ -530,10 +548,12 @@ class EmployeeController extends Controller
             ],
             'contract' => $contract,
             'documents' => $documents,
+            'education_qualifications' => $educationQualifications,
             'document_types' => $documentTypes,
             'can' => [
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
                 'documents_delete' => request()->user()?->can('employees.documents.delete'),
+                'education_manage' => request()->user()?->can('employees.education.manage'),
             ],
             'branches' => $branches,
             'departments' => $departments,

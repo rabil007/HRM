@@ -1,6 +1,7 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { FileText, UploadCloud, X } from 'lucide-react';
+import { FileText, GraduationCap, UploadCloud, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { destroy, store, update } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -164,12 +165,22 @@ type DocumentTypeOption = {
     slug: string;
 };
 
-type EmployeeTab = 'personal' | 'contract' | 'bank' | 'documents';
+type EducationQualificationItem = {
+    id: number;
+    certificate: string;
+    issue_date: string | null;
+    university: string | null;
+    country_id: number | null;
+    country_name: string | null;
+};
+
+type EmployeeTab = 'personal' | 'contract' | 'bank' | 'education' | 'documents';
 
 export default function EmployeeDetails({
     employee,
     contract,
     documents,
+    education_qualifications,
     document_types,
     can,
     branches,
@@ -186,8 +197,9 @@ export default function EmployeeDetails({
     employee: EmployeeDetails;
     contract: EmployeeContractDetails | null;
     documents: EmployeeDocumentItem[];
+    education_qualifications: EducationQualificationItem[];
     document_types: DocumentTypeOption[];
-    can: { documents_upload: boolean; documents_delete: boolean };
+    can: { documents_upload: boolean; documents_delete: boolean; education_manage: boolean };
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
@@ -214,15 +226,30 @@ export default function EmployeeDetails({
     void recent_activity;
 
     const [activeField, setActiveField] = useState<string | null>(null);
-    const [tabValue, setTabValue] = useState<EmployeeTab>(() => (
-        typeof window !== 'undefined' && window.location.hash === '#documents' ? 'documents' : 'personal'
-    ));
+    const [tabValue, setTabValue] = useState<EmployeeTab>(() => {
+        if (typeof window === 'undefined') {
+            return 'personal';
+        }
+
+        if (window.location.hash === '#documents') {
+            return 'documents';
+        }
+
+        if (window.location.hash === '#education') {
+            return 'education';
+        }
+
+        return 'personal';
+    });
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
 
     const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<EmployeeDocumentItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
+    const [educationDialogOpen, setEducationDialogOpen] = useState(false);
+    const [editingEducation, setEditingEducation] = useState<EducationQualificationItem | null>(null);
+    const [deleteEducationId, setDeleteEducationId] = useState<number | null>(null);
     const [previewDoc, setPreviewDoc] = useState<EmployeeDocumentItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<EmployeeDocumentItem | null>(null);
     const [versionDoc, setVersionDoc] = useState<EmployeeDocumentItem | null>(null);
@@ -249,6 +276,13 @@ export default function EmployeeDetails({
 
     const replaceForm = useForm({
         file: null as File | null,
+    });
+
+    const educationForm = useForm({
+        certificate: '',
+        issue_date: '',
+        university: '',
+        country_id: '',
     });
 
     const addUploadFiles = useCallback((files: File[]) => {
@@ -478,11 +512,12 @@ export default function EmployeeDetails({
         { id: 'personal', label: 'Personal', count: null },
         { id: 'contract', label: 'Contract', count: null },
         { id: 'bank', label: 'Bank', count: form.data.bank_id || form.data.iban ? 1 : null },
+        { id: 'education', label: 'Education', count: education_qualifications.length || null },
         { id: 'documents', label: 'Documents', count: documents.length || null },
     ] satisfies Array<{ id: EmployeeTab; label: string; count: number | null }>;
 
     useEffect(() => {
-        if (window.location.hash === '#documents') {
+        if (window.location.hash === '#documents' || window.location.hash === '#education') {
             window.history.replaceState(null, '', window.location.pathname);
         }
     }, []);
@@ -694,7 +729,7 @@ export default function EmployeeDetails({
                             requiredDot={requiredDot}
                         />
 
-                        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                             <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
                                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Employee no</div>
                                 <div className="mt-2 text-lg font-bold text-zinc-100">{form.data.employee_no || employee.employee_no || '—'}</div>
@@ -707,6 +742,22 @@ export default function EmployeeDetails({
                                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Contract</div>
                                 <div className="mt-2 capitalize text-lg font-bold text-zinc-100">{form.data.contract_type || contract?.contract_type || '—'}</div>
                             </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTabValue('education');
+                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                                }}
+                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10"
+                            >
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                                    <GraduationCap className="h-3.5 w-3.5 text-emerald-400/80" />
+                                    Education
+                                </div>
+                                <div className="mt-2 text-lg font-bold text-zinc-100">
+                                    {education_qualifications.length} qualification{education_qualifications.length !== 1 ? 's' : ''}
+                                </div>
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -1539,6 +1590,257 @@ export default function EmployeeDetails({
                                         </div>
                                     </div>
                                 </div>
+                            </TabsContent>
+
+                            <TabsContent value="education" className="mt-6">
+                                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <h3 className="text-sm font-semibold text-zinc-200">
+                                            Education qualifications
+                                            <span className="ml-2 text-xs font-normal text-zinc-500">{education_qualifications.length} total</span>
+                                        </h3>
+                                        {can.education_manage && (
+                                            <Button
+                                                size="sm"
+                                                className="h-8 gap-1.5 text-xs"
+                                                type="button"
+                                                onClick={() => {
+                                                    educationForm.reset();
+                                                    educationForm.clearErrors();
+                                                    setEditingEducation(null);
+                                                    setEducationDialogOpen(true);
+                                                }}
+                                            >
+                                                + Add qualification
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    {education_qualifications.length === 0 ? (
+                                        <div className="py-10 text-center text-sm text-zinc-500">
+                                            No qualifications recorded.
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[680px] text-left">
+                                                <thead>
+                                                    <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
+                                                        <th className="py-2 pr-4">Certificate</th>
+                                                        <th className="py-2 pr-4">Issue date</th>
+                                                        <th className="py-2 pr-4">University</th>
+                                                        <th className="py-2 pr-4">Country</th>
+                                                        {can.education_manage ? <th className="py-2 pr-4" /> : null}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {education_qualifications.map((row) => (
+                                                        <tr key={row.id} className="text-sm text-zinc-200">
+                                                            <td className="py-3 pr-4 font-medium">{row.certificate}</td>
+                                                            <td className="py-3 pr-4 font-mono text-xs text-zinc-400">{row.issue_date ?? '—'}</td>
+                                                            <td className="py-3 pr-4 text-zinc-300">{row.university ?? '—'}</td>
+                                                            <td className="py-3 pr-4 text-xs text-zinc-400">{row.country_name ?? '—'}</td>
+                                                            {can.education_manage ? (
+                                                                <td className="py-3 pr-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+                                                                            onClick={() => {
+                                                                                setEditingEducation(row);
+                                                                                educationForm.setData({
+                                                                                    certificate: row.certificate,
+                                                                                    issue_date: row.issue_date ?? '',
+                                                                                    university: row.university ?? '',
+                                                                                    country_id: row.country_id ? String(row.country_id) : '',
+                                                                                });
+                                                                                educationForm.clearErrors();
+                                                                                setEducationDialogOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-red-400/60 transition-colors hover:text-red-400"
+                                                                            onClick={() => setDeleteEducationId(row.id)}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            ) : null}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Dialog
+                                    open={educationDialogOpen}
+                                    onOpenChange={(open) => {
+                                        setEducationDialogOpen(open);
+
+                                        if (!open) {
+                                            educationForm.reset();
+                                            educationForm.clearErrors();
+                                            setEditingEducation(null);
+                                        }
+                                    }}
+                                >
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>{editingEducation ? 'Edit qualification' : 'Add qualification'}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-2">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Certificate</Label>
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={educationForm.data.certificate}
+                                                    onChange={(e) => educationForm.setData('certificate', e.target.value)}
+                                                />
+                                                {educationForm.errors.certificate ? (
+                                                    <p className="text-xs text-destructive">{educationForm.errors.certificate}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Issue date</Label>
+                                                <Input
+                                                    type="date"
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={educationForm.data.issue_date}
+                                                    onChange={(e) => educationForm.setData('issue_date', e.target.value)}
+                                                />
+                                                {educationForm.errors.issue_date ? (
+                                                    <p className="text-xs text-destructive">{educationForm.errors.issue_date}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">University / institution</Label>
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={educationForm.data.university}
+                                                    onChange={(e) => educationForm.setData('university', e.target.value)}
+                                                />
+                                                {educationForm.errors.university ? (
+                                                    <p className="text-xs text-destructive">{educationForm.errors.university}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Country</Label>
+                                                <select
+                                                    value={educationForm.data.country_id}
+                                                    onChange={(e) => educationForm.setData('country_id', e.target.value)}
+                                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                                                >
+                                                    <option value="">—</option>
+                                                    {countries.map((c) => (
+                                                        <option key={c.id} value={String(c.id)}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {educationForm.errors.country_id ? (
+                                                    <p className="text-xs text-destructive">{educationForm.errors.country_id}</p>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" size="sm" type="button" onClick={() => setEducationDialogOpen(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                type="button"
+                                                disabled={educationForm.processing}
+                                                onClick={() => {
+                                                    educationForm.clearErrors();
+                                                    educationForm.transform((data) => ({
+                                                        certificate: data.certificate.trim(),
+                                                        issue_date: data.issue_date === '' ? null : data.issue_date,
+                                                        university: data.university.trim() === '' ? null : data.university.trim(),
+                                                        country_id: data.country_id === '' ? null : Number(data.country_id),
+                                                    }));
+
+                                                    const url = editingEducation
+                                                        ? update.url({
+                                                            employee: employee.id,
+                                                            qualification: editingEducation.id,
+                                                        })
+                                                        : store.url({ employee: employee.id });
+
+                                                    if (editingEducation) {
+                                                        educationForm.put(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setEducationDialogOpen(false);
+                                                                educationForm.reset();
+                                                                setEditingEducation(null);
+                                                                toast.success('Qualification updated.');
+                                                            },
+                                                        });
+                                                    } else {
+                                                        educationForm.post(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setEducationDialogOpen(false);
+                                                                educationForm.reset();
+                                                                toast.success('Qualification added.');
+                                                            },
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                {educationForm.processing ? 'Saving…' : 'Save'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+
+                                <AlertDialog
+                                    open={!!deleteEducationId}
+                                    onOpenChange={(open) => {
+                                        if (!open) {
+                                            setDeleteEducationId(null);
+                                        }
+                                    }}
+                                >
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Remove qualification?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                This education record will be permanently removed.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={() => {
+                                                    if (!deleteEducationId) {
+                                                        return;
+                                                    }
+
+                                                    router.delete(
+                                                        destroy.url({
+                                                            employee: employee.id,
+                                                            qualification: deleteEducationId,
+                                                        }), {
+                                                        preserveScroll: true,
+                                                        onSuccess: () => {
+                                                            setDeleteEducationId(null);
+                                                            toast.success('Qualification removed.');
+                                                        },
+                                                    });
+                                                }}
+                                            >
+                                                Remove
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
                             </TabsContent>
 
                             <TabsContent value="documents" className="mt-6">

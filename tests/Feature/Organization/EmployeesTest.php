@@ -109,6 +109,7 @@ test('authenticated users can view an employee details page', function () {
             ->component('organization/employee')
             ->has('employee')
             ->has('contract')
+            ->has('education_qualifications')
             ->has('documents')
         );
 });
