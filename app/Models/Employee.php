@@ -160,4 +160,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeWorkExperience::class)->orderBy('sort_order')->orderByDesc('date_from')->orderByDesc('id');
     }
+
+    public function vaccinations(): HasMany
+    {
+        return $this->hasMany(EmployeeVaccination::class)->orderBy('sort_order')->orderByDesc('id');
+    }
 }

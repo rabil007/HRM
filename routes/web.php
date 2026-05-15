@@ -11,7 +11,7 @@ use App\Http\Controllers\Organization\EmployeeController;
 use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentsIndexController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
-use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
+use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\UserController;
@@ -100,6 +100,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/work-experience', [EmployeeWorkExperienceController::class, 'store'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.store');
     Route::put('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'update'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.update');
     Route::delete('organization/employees/{employee}/work-experience/{workExperience}', [EmployeeWorkExperienceController::class, 'destroy'])->middleware('can:employees.work_experience.manage')->name('organization.employees.work-experience.destroy');
+
+    Route::get('organization/employees/{employee}/vaccinations/import/template', [EmployeeVaccinationController::class, 'importTemplate'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.import.template');
+    Route::post('organization/employees/{employee}/vaccinations/import', [EmployeeVaccinationController::class, 'import'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.import');
+    Route::post('organization/employees/{employee}/vaccinations', [EmployeeVaccinationController::class, 'store'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.store');
+    Route::put('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'update'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.update');
+    Route::delete('organization/employees/{employee}/vaccinations/{vaccination}', [EmployeeVaccinationController::class, 'destroy'])->middleware('can:employees.vaccination.manage')->name('organization.employees.vaccinations.destroy');
 
     Route::get('organization/activity-logs', [ActivityLogController::class, 'index'])
         ->middleware('can:audit.view')

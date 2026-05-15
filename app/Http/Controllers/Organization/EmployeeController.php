@@ -18,6 +18,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
+use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\Gender;
 use App\Models\OnboardingTemplate;
@@ -446,6 +447,25 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $vaccinations = EmployeeVaccination::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->with(['country:id,name,code'])
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeVaccination $row) => [
+                'id' => $row->id,
+                'vaccination_name' => $row->vaccination_name,
+                'country_id' => $row->country_id,
+                'country_name' => $row->country?->name,
+                'first_dose_date' => $row->first_dose_date?->toDateString(),
+                'second_dose_date' => $row->second_dose_date?->toDateString(),
+                'booster_dose_date' => $row->booster_dose_date?->toDateString(),
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
@@ -569,12 +589,14 @@ class EmployeeController extends Controller
             'documents' => $documents,
             'education_qualifications' => $educationQualifications,
             'work_experiences' => $workExperiences,
+            'vaccinations' => $vaccinations,
             'document_types' => $documentTypes,
             'can' => [
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
                 'documents_delete' => request()->user()?->can('employees.documents.delete'),
                 'education_manage' => request()->user()?->can('employees.education.manage'),
                 'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
+                'vaccination_manage' => request()->user()?->can('employees.vaccination.manage'),
             ],
             'branches' => $branches,
             'departments' => $departments,

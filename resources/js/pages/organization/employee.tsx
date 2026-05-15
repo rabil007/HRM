@@ -1,12 +1,12 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Briefcase, FileText, GraduationCap, UploadCloud, X } from 'lucide-react';
+import { Briefcase, FileText, GraduationCap, Syringe, UploadCloud, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { destroy, store, update } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import {
-    destroy as destroyWorkExperience,
-    store as storeWorkExperience,
-    update as updateWorkExperience,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
+    destroy as destroyVaccination,
+    store as storeVaccination,
+    update as updateVaccination,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeVaccinationController';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -44,7 +44,13 @@ import type {
 } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { VaccinationImportDialog } from '@/pages/organization/_components/vaccination-import-dialog';
 import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
+import {
+    destroy as destroyWorkExperience,
+    store as storeWorkExperience,
+    update as updateWorkExperience,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 
 type EmployeeDetails = {
     id: number;
@@ -189,7 +195,18 @@ type WorkExperienceItem = {
     created_at: string;
 };
 
-type EmployeeTab = 'personal' | 'contract' | 'bank' | 'education' | 'work_experience' | 'documents';
+type VaccinationItem = {
+    id: number;
+    vaccination_name: string;
+    country_id: number | null;
+    country_name: string | null;
+    first_dose_date: string | null;
+    second_dose_date: string | null;
+    booster_dose_date: string | null;
+    created_at: string;
+};
+
+type EmployeeTab = 'personal' | 'contract' | 'bank' | 'education' | 'work_experience' | 'vaccination' | 'documents';
 
 export default function EmployeeDetails({
     employee,
@@ -197,6 +214,7 @@ export default function EmployeeDetails({
     documents,
     education_qualifications,
     work_experiences,
+    vaccinations,
     document_types,
     can,
     branches,
@@ -215,12 +233,14 @@ export default function EmployeeDetails({
     documents: EmployeeDocumentItem[];
     education_qualifications: EducationQualificationItem[];
     work_experiences: WorkExperienceItem[];
+    vaccinations: VaccinationItem[];
     document_types: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
         documents_delete: boolean;
         education_manage: boolean;
         work_experience_manage: boolean;
+        vaccination_manage: boolean;
     };
     branches: BranchOption[];
     departments: DepartmentOption[];
@@ -265,6 +285,10 @@ export default function EmployeeDetails({
             return 'work_experience';
         }
 
+        if (window.location.hash === '#vaccination') {
+            return 'vaccination';
+        }
+
         return 'personal';
     });
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
@@ -280,6 +304,10 @@ export default function EmployeeDetails({
     const [workExperienceImportOpen, setWorkExperienceImportOpen] = useState(false);
     const [editingWorkExperience, setEditingWorkExperience] = useState<WorkExperienceItem | null>(null);
     const [deleteWorkExperienceId, setDeleteWorkExperienceId] = useState<number | null>(null);
+    const [vaccinationDialogOpen, setVaccinationDialogOpen] = useState(false);
+    const [vaccinationImportOpen, setVaccinationImportOpen] = useState(false);
+    const [editingVaccination, setEditingVaccination] = useState<VaccinationItem | null>(null);
+    const [deleteVaccinationId, setDeleteVaccinationId] = useState<number | null>(null);
     const [previewDoc, setPreviewDoc] = useState<EmployeeDocumentItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<EmployeeDocumentItem | null>(null);
     const [versionDoc, setVersionDoc] = useState<EmployeeDocumentItem | null>(null);
@@ -321,6 +349,14 @@ export default function EmployeeDetails({
         date_from: '',
         date_to: '',
         responsibility: '',
+    });
+
+    const vaccinationForm = useForm({
+        vaccination_name: '',
+        country_id: '',
+        first_dose_date: '',
+        second_dose_date: '',
+        booster_dose_date: '',
     });
 
     const addUploadFiles = useCallback((files: File[]) => {
@@ -578,6 +614,7 @@ export default function EmployeeDetails({
         { id: 'bank', label: 'Bank', count: form.data.bank_id || form.data.iban ? 1 : null },
         { id: 'education', label: 'Education', count: education_qualifications.length || null },
         { id: 'work_experience', label: 'Work experience', count: work_experiences.length || null },
+        { id: 'vaccination', label: 'Vaccination', count: vaccinations.length || null },
         { id: 'documents', label: 'Documents', count: documents.length || null },
     ] satisfies Array<{ id: EmployeeTab; label: string; count: number | null }>;
 
@@ -585,7 +622,8 @@ export default function EmployeeDetails({
         if (
             window.location.hash === '#documents' ||
             window.location.hash === '#education' ||
-            window.location.hash === '#work-experience'
+            window.location.hash === '#work-experience' ||
+            window.location.hash === '#vaccination'
         ) {
             window.history.replaceState(null, '', window.location.pathname);
         }
@@ -798,7 +836,7 @@ export default function EmployeeDetails({
                             requiredDot={requiredDot}
                         />
 
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
                             <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
                                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Employee no</div>
                                 <div className="mt-2 text-lg font-bold text-zinc-100">{form.data.employee_no || employee.employee_no || '—'}</div>
@@ -841,6 +879,22 @@ export default function EmployeeDetails({
                                 </div>
                                 <div className="mt-2 text-lg font-bold text-zinc-100">
                                     {work_experiences.length} entr{work_experiences.length !== 1 ? 'ies' : 'y'}
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTabValue('vaccination');
+                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                                }}
+                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-teal-500/30 hover:bg-teal-500/10"
+                            >
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                                    <Syringe className="h-3.5 w-3.5 text-teal-400/80" />
+                                    Vaccination
+                                </div>
+                                <div className="mt-2 text-lg font-bold text-zinc-100">
+                                    {vaccinations.length} record{vaccinations.length !== 1 ? 's' : ''}
                                 </div>
                             </button>
                             <button
@@ -2222,6 +2276,306 @@ export default function EmployeeDetails({
                                 <WorkExperienceImportDialog
                                     open={workExperienceImportOpen}
                                     onOpenChange={setWorkExperienceImportOpen}
+                                    employeeId={employee.id}
+                                />
+                            </TabsContent>
+
+                            <TabsContent value="vaccination" className="mt-6">
+                                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <h3 className="text-sm font-semibold text-zinc-200">
+                                            Vaccination
+                                            <span className="ml-2 text-xs font-normal text-zinc-500">{vaccinations.length} total</span>
+                                        </h3>
+                                        {can.vaccination_manage ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 gap-1.5 text-xs"
+                                                    type="button"
+                                                    onClick={() => setVaccinationImportOpen(true)}
+                                                >
+                                                    Import CSV
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="h-8 gap-1.5 text-xs"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        vaccinationForm.reset();
+                                                        vaccinationForm.clearErrors();
+                                                        setEditingVaccination(null);
+                                                        setVaccinationDialogOpen(true);
+                                                    }}
+                                                >
+                                                    + Add line
+                                                </Button>
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    {vaccinations.length === 0 ? (
+                                        <div className="py-10 text-center text-sm text-zinc-500">No vaccination records.</div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[880px] text-left">
+                                                <thead>
+                                                    <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
+                                                        <th className="py-2 pr-4">Vaccination</th>
+                                                        <th className="py-2 pr-4">Country</th>
+                                                        <th className="py-2 pr-4">1st dose</th>
+                                                        <th className="py-2 pr-4">2nd dose</th>
+                                                        <th className="py-2 pr-4">Booster</th>
+                                                        <th className="py-2 pr-4">Added</th>
+                                                        {can.vaccination_manage ? <th className="py-2 pr-4 text-right" /> : null}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {vaccinations.map((row) => (
+                                                        <tr key={row.id} className="text-sm text-zinc-200">
+                                                            <td className="max-w-[200px] truncate py-3 pr-4 font-medium" title={row.vaccination_name}>
+                                                                {row.vaccination_name}
+                                                            </td>
+                                                            <td className="py-3 pr-4 text-xs text-zinc-400">{row.country_name ?? '—'}</td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-400">
+                                                                {formatWorkExpDate(row.first_dose_date)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-400">
+                                                                {formatWorkExpDate(row.second_dose_date)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-400">
+                                                                {formatWorkExpDate(row.booster_dose_date)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-500">
+                                                                {new Date(row.created_at).toLocaleString(undefined, {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    hour: 'numeric',
+                                                                    minute: '2-digit',
+                                                                })}
+                                                            </td>
+                                                            {can.vaccination_manage ? (
+                                                                <td className="py-3 pr-0 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+                                                                            onClick={() => {
+                                                                                setEditingVaccination(row);
+                                                                                vaccinationForm.setData({
+                                                                                    vaccination_name: row.vaccination_name,
+                                                                                    country_id: row.country_id ? String(row.country_id) : '',
+                                                                                    first_dose_date: row.first_dose_date ?? '',
+                                                                                    second_dose_date: row.second_dose_date ?? '',
+                                                                                    booster_dose_date: row.booster_dose_date ?? '',
+                                                                                });
+                                                                                vaccinationForm.clearErrors();
+                                                                                setVaccinationDialogOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-red-400/60 transition-colors hover:text-red-400"
+                                                                            onClick={() => setDeleteVaccinationId(row.id)}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            ) : null}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Dialog
+                                    open={vaccinationDialogOpen}
+                                    onOpenChange={(openDialog) => {
+                                        setVaccinationDialogOpen(openDialog);
+
+                                        if (!openDialog) {
+                                            vaccinationForm.reset();
+                                            vaccinationForm.clearErrors();
+                                            setEditingVaccination(null);
+                                        }
+                                    }}
+                                >
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>{editingVaccination ? 'Edit vaccination' : 'Add vaccination'}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-2">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Vaccination</Label>
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={vaccinationForm.data.vaccination_name}
+                                                    onChange={(e) => vaccinationForm.setData('vaccination_name', e.target.value)}
+                                                />
+                                                {vaccinationForm.errors.vaccination_name ? (
+                                                    <p className="text-xs text-destructive">{vaccinationForm.errors.vaccination_name}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Country</Label>
+                                                <select
+                                                    value={vaccinationForm.data.country_id}
+                                                    onChange={(e) => vaccinationForm.setData('country_id', e.target.value)}
+                                                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                                                >
+                                                    <option value="">—</option>
+                                                    {countries.map((c) => (
+                                                        <option key={c.id} value={String(c.id)}>
+                                                            {c.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {vaccinationForm.errors.country_id ? (
+                                                    <p className="text-xs text-destructive">{vaccinationForm.errors.country_id}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="grid gap-3 sm:grid-cols-3">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs">1st dose</Label>
+                                                    <Input
+                                                        type="date"
+                                                        className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                        value={vaccinationForm.data.first_dose_date}
+                                                        onChange={(e) => vaccinationForm.setData('first_dose_date', e.target.value)}
+                                                    />
+                                                    {vaccinationForm.errors.first_dose_date ? (
+                                                        <p className="text-xs text-destructive">{vaccinationForm.errors.first_dose_date}</p>
+                                                    ) : null}
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs">2nd dose</Label>
+                                                    <Input
+                                                        type="date"
+                                                        className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                        value={vaccinationForm.data.second_dose_date}
+                                                        onChange={(e) => vaccinationForm.setData('second_dose_date', e.target.value)}
+                                                    />
+                                                    {vaccinationForm.errors.second_dose_date ? (
+                                                        <p className="text-xs text-destructive">{vaccinationForm.errors.second_dose_date}</p>
+                                                    ) : null}
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs">Booster</Label>
+                                                    <Input
+                                                        type="date"
+                                                        className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                        value={vaccinationForm.data.booster_dose_date}
+                                                        onChange={(e) => vaccinationForm.setData('booster_dose_date', e.target.value)}
+                                                    />
+                                                    {vaccinationForm.errors.booster_dose_date ? (
+                                                        <p className="text-xs text-destructive">{vaccinationForm.errors.booster_dose_date}</p>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" size="sm" type="button" onClick={() => setVaccinationDialogOpen(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                type="button"
+                                                disabled={vaccinationForm.processing}
+                                                onClick={() => {
+                                                    vaccinationForm.clearErrors();
+                                                    vaccinationForm.transform((data) => ({
+                                                        vaccination_name: data.vaccination_name.trim(),
+                                                        country_id: data.country_id === '' ? null : Number(data.country_id),
+                                                        first_dose_date: data.first_dose_date === '' ? null : data.first_dose_date,
+                                                        second_dose_date: data.second_dose_date === '' ? null : data.second_dose_date,
+                                                        booster_dose_date: data.booster_dose_date === '' ? null : data.booster_dose_date,
+                                                    }));
+
+                                                    const url = editingVaccination
+                                                        ? updateVaccination.url({
+                                                            employee: employee.id,
+                                                            vaccination: editingVaccination.id,
+                                                        })
+                                                        : storeVaccination.url({ employee: employee.id });
+
+                                                    if (editingVaccination) {
+                                                        vaccinationForm.put(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setVaccinationDialogOpen(false);
+                                                                vaccinationForm.reset();
+                                                                setEditingVaccination(null);
+                                                                toast.success('Vaccination updated.');
+                                                            },
+                                                        });
+                                                    } else {
+                                                        vaccinationForm.post(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setVaccinationDialogOpen(false);
+                                                                vaccinationForm.reset();
+                                                                toast.success('Vaccination added.');
+                                                            },
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                {vaccinationForm.processing ? 'Saving…' : 'Save'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+
+                                <AlertDialog
+                                    open={!!deleteVaccinationId}
+                                    onOpenChange={(openDialog) => {
+                                        if (!openDialog) {
+                                            setDeleteVaccinationId(null);
+                                        }
+                                    }}
+                                >
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Remove vaccination record?</AlertDialogTitle>
+                                            <AlertDialogDescription>This entry will be permanently removed.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={() => {
+                                                    if (!deleteVaccinationId) {
+                                                        return;
+                                                    }
+
+                                                    router.delete(
+                                                        destroyVaccination.url({
+                                                            employee: employee.id,
+                                                            vaccination: deleteVaccinationId,
+                                                        }), {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setDeleteVaccinationId(null);
+                                                                toast.success('Vaccination removed.');
+                                                            },
+                                                        });
+                                                }}
+                                            >
+                                                Remove
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+
+                                <VaccinationImportDialog
+                                    open={vaccinationImportOpen}
+                                    onOpenChange={setVaccinationImportOpen}
                                     employeeId={employee.id}
                                 />
                             </TabsContent>
