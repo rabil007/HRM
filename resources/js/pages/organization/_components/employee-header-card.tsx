@@ -22,6 +22,7 @@ export function EmployeeHeaderCard({
     managers,
     genders,
     religions,
+    ranks,
     form,
     activeField,
     setActiveField,
@@ -36,6 +37,7 @@ export function EmployeeHeaderCard({
     managers: any[];
     genders: Option[];
     religions: Option[];
+    ranks: Option[];
     form: any;
     activeField: string | null;
     setActiveField: (v: string | null) => void;
@@ -443,6 +445,41 @@ export function EmployeeHeaderCard({
                     </div>
 
                     <div className="space-y-2">
+                        <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">
+                            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
+                                <label className="text-xs font-medium text-zinc-400">
+                                    Rank
+                                </label>
+                                {activeField === 'rank_id' && canUpdate ? (
+                                    <select
+                                        className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
+                                        value={form.data.rank_id}
+                                        onChange={(e) => form.setData('rank_id', e.target.value)}
+                                        onBlur={() => setActiveField(null)}
+                                        autoFocus
+                                    >
+                                        <option value="">—</option>
+                                        {ranks.map((r) => (
+                                            <option key={r.id} value={String(r.id)}>
+                                                {r.name ?? `#${r.id}`}
+                                            </option>
+                                        ))}
+                                    </select>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                        onClick={() => beginEdit('rank_id')}
+                                        disabled={!canUpdate}
+                                    >
+                                        {ranks.find((r) => String(r.id) === String(form.data.rank_id || employee.rank_id || ''))?.name ??
+                                            employee.rank?.name ??
+                                            '—'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+
                         <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">
                             <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
                                 <label className="text-xs font-medium text-zinc-400">

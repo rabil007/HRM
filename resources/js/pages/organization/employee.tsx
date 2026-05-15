@@ -64,6 +64,7 @@ export default function EmployeeDetails({
     religions,
     genders,
     banks,
+    ranks,
     recent_activity,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
@@ -149,6 +150,7 @@ export default function EmployeeDetails({
             branch_id: employee.branch?.id ? String(employee.branch.id) : '',
             department_id: employee.department?.id ? String(employee.department.id) : '',
             position_id: employee.position?.id ? String(employee.position.id) : '',
+            rank_id: employee.rank_id ? String(employee.rank_id) : '',
             manager_id: employee.manager?.id ? String(employee.manager.id) : '',
             personal_email: employee.personal_email ?? employee.work_email ?? '',
             work_email: employee.work_email ?? '',
@@ -184,6 +186,7 @@ export default function EmployeeDetails({
             employee.branch,
             employee.department,
             employee.position,
+            employee.rank_id,
             employee.manager,
             employee.personal_email,
             employee.work_email,
@@ -549,6 +552,7 @@ export default function EmployeeDetails({
                             branches={branches}
                             departments={departments}
                             positions={positions}
+                            ranks={ranks}
                             managers={managers}
                             genders={genders}
                             religions={religions}

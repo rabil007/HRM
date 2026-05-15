@@ -10,6 +10,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
+use App\Models\Rank;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -114,6 +115,7 @@ test('authenticated users can view an employee details page', function () {
             ->has('work_experiences')
             ->has('vaccinations')
             ->has('documents')
+            ->has('ranks')
         );
 });
 
@@ -169,6 +171,11 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'title' => 'Software Engineer',
         'grade' => 'G5',
         'status' => 'active',
+    ]);
+
+    $rank = Rank::query()->create([
+        'name' => 'Chief Officer',
+        'is_active' => true,
     ]);
 
     $template = OnboardingTemplate::query()->create([
@@ -240,6 +247,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'branch_id' => $branch->id,
         'department_id' => $department->id,
         'position_id' => $position->id,
+        'rank_id' => $rank->id,
         'work_email' => 'janet@example.com',
         'phone' => '+971511111111',
     ])->assertRedirect("/organization/employees/{$employeeId}");
@@ -248,6 +256,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'id' => $employeeId,
         'name' => 'Janet Smith',
         'status' => 'inactive',
+        'rank_id' => $rank->id,
     ]);
 
     $this->assertDatabaseHas('employee_contracts', [

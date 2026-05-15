@@ -392,6 +392,7 @@ class EmployeeController extends Controller
             'branch:id,name',
             'department:id,name',
             'position:id,title',
+            'rank:id,name',
             'manager:id,name,employee_no',
             'user:id,name,email',
             'religionRef:id,name',
@@ -516,6 +517,16 @@ class EmployeeController extends Controller
             ->orderBy('title')
             ->get(['id', 'title']);
 
+        $ranks = Rank::query()
+            ->where(function ($q) use ($employee): void {
+                $q->where('is_active', true);
+                if ($employee->rank_id) {
+                    $q->orWhere('id', $employee->rank_id);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         $recentActivity = [];
         $request = request();
         if ($request->user()?->can('audit.view')) {
@@ -562,6 +573,11 @@ class EmployeeController extends Controller
                 'position' => $employee->position_id ? [
                     'id' => $employee->position_id,
                     'title' => $employee->position?->title,
+                ] : null,
+                'rank_id' => $employee->rank_id,
+                'rank' => $employee->rank_id ? [
+                    'id' => $employee->rank_id,
+                    'name' => $employee->rank?->name,
                 ] : null,
                 'manager' => $employee->manager_id ? [
                     'id' => $employee->manager_id,
@@ -652,6 +668,7 @@ class EmployeeController extends Controller
             'religions' => $religions,
             'genders' => $genders,
             'banks' => $banks,
+            'ranks' => $ranks,
             'recent_activity' => $recentActivity,
         ]);
     }
@@ -905,6 +922,7 @@ class EmployeeController extends Controller
             'branch_id',
             'department_id',
             'position_id',
+            'rank_id',
             'manager_id',
             'date_of_birth',
             'nationality_id',

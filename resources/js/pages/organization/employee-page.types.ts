@@ -6,6 +6,7 @@ import type {
     GenderOption,
     ManagerOption,
     PositionOption,
+    RankOption,
     ReligionOption,
     UserOption,
 } from '@/features/organization/employees/types';
@@ -16,6 +17,8 @@ export type EmployeeDetails = {
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
     position: { id: number; title: string | null } | null;
+    rank_id?: number | null;
+    rank?: { id: number; name: string | null } | null;
     manager: {
         id: number;
         employee_no: string | null;
@@ -197,5 +200,6 @@ export type EmployeePageProps = {
     religions: ReligionOption[];
     genders: GenderOption[];
     banks: BankOption[];
+    ranks: RankOption[];
     recent_activity: ActivityItem[];
 };

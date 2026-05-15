@@ -36,6 +36,11 @@ export type GenderOption = {
     name: string;
 };
 
+export type RankOption = {
+    id: number;
+    name: string;
+};
+
 export type BankOption = {
     id: number;
     name: string;
