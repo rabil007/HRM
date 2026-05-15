@@ -27,8 +27,6 @@ class UpdateOnboardingTemplateRequest extends FormRequest
             'description' => ['nullable', 'string'],
             'tasks_json' => ['required', 'string'],
             'is_default' => ['sometimes', 'boolean'],
-            'rank_ids' => ['nullable', 'array'],
-            'rank_ids.*' => ['integer', 'exists:ranks,id'],
         ];
     }
 }

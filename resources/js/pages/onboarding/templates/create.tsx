@@ -3,10 +3,10 @@ import { ArrowLeft } from 'lucide-react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
+import type { DocumentTypeModel } from '../template-form';
 import { TemplateForm } from '../template-form';
-import type { DocumentTypeModel, RankOption } from '../template-form';
 
-export default function CreateTemplate({ documentTypes, ranks }: { documentTypes: DocumentTypeModel[]; ranks: RankOption[] }) {
+export default function CreateTemplate({ documentTypes }: { documentTypes: DocumentTypeModel[] }) {
     return (
         <Main className="p-0">
             <Head title="Create Onboarding Template" />
@@ -14,7 +14,7 @@ export default function CreateTemplate({ documentTypes, ranks }: { documentTypes
                 <PageHeader
                     kicker="Onboarding"
                     title="New template"
-                    description="Name your template, pick which ranks it applies to, then build one or more steps. Each step can ask for different employee, contract, bank, document, or maritime health fields."
+                    description="Name your template, then build one or more steps. Each step can ask for employee fields (rank is like gender—include it in a step if you need it), contract, bank, documents, or maritime health fields."
                     right={
                         <Button
                             type="button"
@@ -29,7 +29,7 @@ export default function CreateTemplate({ documentTypes, ranks }: { documentTypes
                     }
                 />
 
-                <TemplateForm documentTypes={documentTypes} ranks={ranks} onCancel={() => router.visit('/onboarding/templates')} />
+                <TemplateForm documentTypes={documentTypes} onCancel={() => router.visit('/onboarding/templates')} />
             </div>
         </Main>
     );

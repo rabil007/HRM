@@ -34,7 +34,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -45,11 +44,6 @@ import { cn } from '@/lib/utils';
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
-export type RankOption = {
-    id: number;
-    name: string;
-};
-
 export type Template = {
     id: number;
     name: string;
@@ -57,7 +51,6 @@ export type Template = {
     tasks: unknown;
     is_default: boolean;
     created_at: string;
-    ranks?: RankOption[];
 };
 
 export type FormData = {
@@ -65,7 +58,6 @@ export type FormData = {
     description: string;
     is_default: boolean;
     tasks_json: string;
-    rank_ids: number[];
 };
 
 export type DocsRequirement = { 
@@ -312,12 +304,10 @@ export function buildTasksFromBuilder(builder: BuilderState) {
 export function TemplateForm({ 
     template, 
     documentTypes,
-    ranks,
     onCancel 
 }: { 
     template?: Template | null; 
     documentTypes: DocumentTypeModel[];
-    ranks: RankOption[];
     onCancel?: () => void 
 }) {
     const [builder, setBuilder] = useState<BuilderState>(() => toBuilderState(template?.tasks));
@@ -370,20 +360,7 @@ return vaccinationFieldOptions.find((o) => o.key === key)?.label ?? key;
         description: template?.description ?? '',
         is_default: template?.is_default ?? false,
         tasks_json: JSON.stringify(buildTasksFromBuilder(toBuilderState(template?.tasks)), null, 2),
-        rank_ids: template?.ranks?.map((r) => r.id) ?? [],
     });
-
-    const toggleRank = (rankId: number, checked: boolean) => {
-        const current = form.data.rank_ids;
-
-        if (checked) {
-            form.setData('rank_ids', [...current, rankId]);
-
-            return;
-        }
-
-        form.setData('rank_ids', current.filter((id) => id !== rankId));
-    };
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -430,8 +407,8 @@ return;
                     <CardHeader>
                         <CardTitle className="text-lg">Template details</CardTitle>
                         <CardDescription>
-                            Visible when assigning onboarding. Mark as default to prefer this template for new hires
-                            when it applies to their rank (or when no rank filters are set).
+                            Visible when assigning onboarding. Rank works like gender—a field on the employee when you
+                            include it in steps—not a filter for which template is used.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
@@ -457,7 +434,7 @@ return;
                                                 Default template
                                             </Label>
                                             <p className="text-xs text-muted-foreground">
-                                                Offered first when ranks match multiple templates.
+                                                Used when creating a new hire if no other template is chosen.
                                             </p>
                                         </div>
                                         <Switch
@@ -484,43 +461,6 @@ return;
                             />
                             {form.errors.description ? (
                                 <p className="text-xs text-destructive">{form.errors.description}</p>
-                            ) : null}
-                        </div>
-                        <div className="space-y-3 border-t border-border/60 pt-6">
-                            <div>
-                                <Label>Applicable ranks</Label>
-                                <p className="mt-1 text-sm text-muted-foreground">
-                                    Leave empty to use this template for every rank. Select ranks to narrow who sees it when
-                                    multiple templates apply.
-                                </p>
-                            </div>
-                            {ranks.length === 0 ? (
-                                <p className="text-sm text-muted-foreground">
-                                    No active ranks. Add them under{' '}
-                                    <span className="font-medium text-foreground">Settings → Master Data → Ranks</span>.
-                                </p>
-                            ) : (
-                                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                    {ranks.map((rank) => {
-                                        const checked = form.data.rank_ids.includes(rank.id);
-
-                                        return (
-                                            <label
-                                                key={rank.id}
-                                                className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5 hover:bg-muted/40"
-                                            >
-                                                <Checkbox
-                                                    checked={checked}
-                                                    onCheckedChange={(v) => toggleRank(rank.id, v === true)}
-                                                />
-                                                <span className="text-sm font-medium">{rank.name}</span>
-                                            </label>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                            {form.errors.rank_ids ? (
-                                <p className="text-xs text-destructive">{form.errors.rank_ids}</p>
                             ) : null}
                         </div>
                     </CardContent>

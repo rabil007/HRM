@@ -7,6 +7,7 @@ use App\Models\OnboardingTemplate;
 use App\Models\Rank;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Testing\AssertableInertia as Assert;
 
 uses(RefreshDatabase::class);
@@ -49,11 +50,14 @@ function setupCompanyForOnboardingRanks(): array
     return [$user, $company];
 }
 
-test('onboarding template store syncs selected ranks', function () {
+test('onboarding_template_rank pivot is removed after migrations', function () {
+    expect(Schema::hasTable('onboarding_template_rank'))->toBeFalse();
+});
+
+test('onboarding template can be stored without rank pivot', function () {
     [$user, $company] = setupCompanyForOnboardingRanks();
 
-    $captain = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
-    $mate = Rank::query()->create(['name' => 'Chief Mate', 'is_active' => true]);
+    Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
 
     $tasks = json_encode([
         'version' => 2,
@@ -75,17 +79,13 @@ test('onboarding template store syncs selected ranks', function () {
             'description' => 'For captains',
             'tasks_json' => $tasks,
             'is_default' => false,
-            'rank_ids' => [$captain->id, $mate->id],
         ])
         ->assertRedirect(route('onboarding.templates.index'));
 
-    $template = OnboardingTemplate::query()->where('company_id', $company->id)->first();
-
-    expect($template)->not->toBeNull();
-    expect($template->ranks()->pluck('ranks.id')->all())->toEqual([$captain->id, $mate->id]);
+    expect(OnboardingTemplate::query()->where('company_id', $company->id)->count())->toBe(1);
 });
 
-test('employee create filters templates by rank', function () {
+test('employee create lists all templates regardless of rank', function () {
     [$user, $company] = setupCompanyForOnboardingRanks();
 
     $captainRank = Rank::query()->create(['name' => 'Captain', 'is_active' => true]);
@@ -105,47 +105,42 @@ test('employee create filters templates by rank', function () {
         ],
     ];
 
-    $general = OnboardingTemplate::query()->create([
+    OnboardingTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'General',
         'is_default' => true,
         'tasks' => $tasks,
     ]);
 
-    $captainTemplate = OnboardingTemplate::query()->create([
+    OnboardingTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Captain flow',
         'is_default' => false,
         'tasks' => $tasks,
     ]);
-    $captainTemplate->ranks()->sync([$captainRank->id]);
 
-    $mateTemplate = OnboardingTemplate::query()->create([
+    OnboardingTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Mate flow',
         'is_default' => false,
         'tasks' => $tasks,
     ]);
-    $mateTemplate->ranks()->sync([$mateRank->id]);
 
     $this->actingAs($user)
         ->get("/organization/employees/create?rank_id={$captainRank->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee-create')
-            ->where('template.name', 'Captain flow')
+            ->where('template.name', 'General')
             ->where('selectedRankId', $captainRank->id)
-            ->has('allTemplates', 1)
-        );
+            ->has('allTemplates', 3));
+
+    $mateTemplate = OnboardingTemplate::query()->where('name', 'Mate flow')->firstOrFail();
 
     $this->actingAs($user)
-        ->get("/organization/employees/create?rank_id={$mateRank->id}")
+        ->get("/organization/employees/create?rank_id={$mateRank->id}&template_id={$mateTemplate->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('template.name', 'Mate flow')
-        );
-
-    expect($general->appliesToRank($captainRank->id))->toBeTrue();
-    expect($captainTemplate->appliesToRank($captainRank->id))->toBeTrue();
-    expect($mateTemplate->appliesToRank($captainRank->id))->toBeFalse();
+            ->where('selectedRankId', $mateRank->id));
 });

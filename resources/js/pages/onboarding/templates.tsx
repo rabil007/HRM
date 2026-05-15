@@ -8,11 +8,6 @@ import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 
-type TemplateRank = {
-    id: number;
-    name: string;
-};
-
 type Template = {
     id: number;
     name: string;
@@ -20,7 +15,6 @@ type Template = {
     tasks: unknown;
     is_default: boolean;
     created_at: string;
-    ranks?: TemplateRank[];
 };
 
 export default function OnboardingTemplates({ templates }: { templates: Template[] }) {
@@ -67,7 +61,6 @@ export default function OnboardingTemplates({ templates }: { templates: Template
                 description: t.description,
                 tasks_json: JSON.stringify(t.tasks ?? {}, null, 2),
                 is_default: !t.is_default,
-                rank_ids: (t.ranks ?? []).map((r) => r.id),
             },
             {
                 preserveScroll: true,
@@ -97,12 +90,11 @@ export default function OnboardingTemplates({ templates }: { templates: Template
 
                 <div className="rounded-xl border border-border/60 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[980px]">
+                        <div className="min-w-[760px]">
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
-                                <div className="col-span-3">Name</div>
-                                <div className="col-span-3">Description</div>
-                                <div className="col-span-3">Ranks</div>
-                                <div className="col-span-1">Default</div>
+                                <div className="col-span-4">Name</div>
+                                <div className="col-span-4">Description</div>
+                                <div className="col-span-2">Default</div>
                                 <div className="col-span-2 text-right">Actions</div>
                             </div>
 
@@ -111,12 +103,9 @@ export default function OnboardingTemplates({ templates }: { templates: Template
                                     key={t.id}
                                     className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap"
                                 >
-                                    <div className="col-span-3 text-sm font-medium truncate">{t.name}</div>
-                                    <div className="col-span-3 text-sm text-muted-foreground truncate">{t.description ?? '—'}</div>
-                                    <div className="col-span-3 text-sm text-muted-foreground truncate">
-                                        {(t.ranks ?? []).length === 0 ? 'All ranks' : (t.ranks ?? []).map((r) => r.name).join(', ')}
-                                    </div>
-                                    <div className="col-span-1 flex items-center">
+                                    <div className="col-span-4 text-sm font-medium truncate">{t.name}</div>
+                                    <div className="col-span-4 text-sm text-muted-foreground truncate">{t.description ?? '—'}</div>
+                                    <div className="col-span-2 flex items-center">
                                         <Switch checked={t.is_default} onCheckedChange={() => toggleDefault(t)} />
                                     </div>
                                     <div className="col-span-2 flex justify-end gap-2 flex-nowrap">

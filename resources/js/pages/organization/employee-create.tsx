@@ -55,12 +55,8 @@ type Props = {
 };
 
 export default function EmployeeCreate({ template, allTemplates, selectedRankId, options }: Props) {
-    const buildCreateUrl = (params: { templateId?: number; rankId?: number | null }) => {
+    const buildCreateUrl = (params: { templateId?: number }) => {
         const search = new URLSearchParams();
-
-        if (params.rankId) {
-            search.set('rank_id', String(params.rankId));
-        }
 
         if (params.templateId) {
             search.set('template_id', String(params.templateId));
@@ -465,11 +461,7 @@ missingFields.push(labelFromKey(key));
                             {options.ranks.length > 0 ? (
                                 <select
                                     value={form.data.rank_id}
-                                    onChange={(e) => {
-                                        const rankId = e.target.value ? Number(e.target.value) : null;
-                                        form.setData('rank_id', e.target.value);
-                                        router.visit(buildCreateUrl({ rankId }), { replace: true });
-                                    }}
+                                    onChange={(e) => form.setData('rank_id', e.target.value)}
                                     className="ml-2 h-7 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground"
                                 >
                                     <option value="">Select rank</option>
@@ -498,13 +490,9 @@ missingFields.push(labelFromKey(key));
                                             <DropdownMenuItem
                                                 key={t.id}
                                                 onClick={() =>
-                                                    router.visit(
-                                                        buildCreateUrl({
-                                                            templateId: t.id,
-                                                            rankId: form.data.rank_id ? Number(form.data.rank_id) : null,
-                                                        }),
-                                                        { replace: true },
-                                                    )
+                                                    router.visit(buildCreateUrl({ templateId: t.id }), {
+                                                        replace: true,
+                                                    })
                                                 }
                                                 className="flex items-center gap-2 py-2"
                                             >

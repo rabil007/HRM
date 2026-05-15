@@ -200,14 +200,11 @@ class EmployeeController extends Controller
 
         $rankId = (int) request()->query('rank_id', 0);
 
-        $allTemplatesQuery = OnboardingTemplate::query()
+        $allTemplates = OnboardingTemplate::query()
             ->where('company_id', $companyId)
-            ->with(['ranks:id,name'])
             ->orderByDesc('is_default')
-            ->orderBy('name');
-
-        $allTemplates = $allTemplatesQuery
-            ->get(['id', 'name', 'description', 'is_default']);
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'is_default', 'tasks']);
 
         if ($allTemplates->isEmpty()) {
             $message = 'No onboarding template found for this company. Please create one before adding employees.';
@@ -223,43 +220,11 @@ class EmployeeController extends Controller
                 ->with('error', $message);
         }
 
-        $applicableTemplates = $rankId > 0
-            ? $allTemplates->filter(fn (OnboardingTemplate $t) => $t->appliesToRank($rankId))->values()
-            : $allTemplates;
-
-        if ($applicableTemplates->isEmpty()) {
-            $message = 'No onboarding template is configured for the selected rank.';
-
-            if (request()->user()?->can('onboarding.templates.create')) {
-                return redirect()
-                    ->route('onboarding.templates.create')
-                    ->with('error', $message);
-            }
-
-            return redirect()
-                ->route('organization.employees')
-                ->with('error', $message);
-        }
-
-        $candidates = $applicableTemplates;
-
-        if ($rankId > 0) {
-            $rankSpecific = $applicableTemplates->filter(fn (OnboardingTemplate $t) => $t->ranks->isNotEmpty());
-
-            $candidates = $rankSpecific->isNotEmpty()
-                ? $rankSpecific
-                : $applicableTemplates->filter(fn (OnboardingTemplate $t) => $t->ranks->isEmpty());
-        }
-
-        if ($candidates->isEmpty()) {
-            $candidates = $applicableTemplates;
-        }
-
         $requestedId = (int) request()->query('template_id', 0);
 
-        $templateId = $requestedId && $candidates->contains('id', $requestedId)
+        $templateId = $requestedId && $allTemplates->contains('id', $requestedId)
             ? $requestedId
-            : ($candidates->firstWhere('is_default', true)?->id ?? $candidates->first()?->id);
+            : ($allTemplates->firstWhere('is_default', true)?->id ?? $allTemplates->first()?->id);
 
         $template = OnboardingTemplate::query()->find($templateId);
 
@@ -321,7 +286,7 @@ class EmployeeController extends Controller
                 'tasks' => $template->tasks,
             ],
             'selectedRankId' => $rankId > 0 ? $rankId : null,
-            'allTemplates' => $candidates->map(fn (OnboardingTemplate $t) => [
+            'allTemplates' => $allTemplates->map(fn (OnboardingTemplate $t) => [
                 'id' => $t->id,
                 'name' => $t->name,
                 'description' => $t->description,
