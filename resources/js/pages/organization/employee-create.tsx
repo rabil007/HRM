@@ -14,6 +14,7 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/lib/toast';
+import { seaServiceFieldOptions, vaccinationFieldOptions } from '@/pages/onboarding/template-form';
 
 type Option = { id: number | string; name: string; title?: string };
 
@@ -105,7 +106,18 @@ continue;
         return result;
     };
 
-    const normalizeStages = (tasks: OnboardingTemplate['tasks']) => {
+    type NormalizedStage = {
+        key: string;
+        label: string;
+        employee_fields: Array<{ key: string; required: boolean }>;
+        bank_account_fields: Array<{ key: string; required: boolean }>;
+        contract_fields: Array<{ key: string; required: boolean }>;
+        sea_service_fields: Array<{ key: string; required: boolean }>;
+        vaccination_fields: Array<{ key: string; required: boolean }>;
+        documents: any[];
+    };
+
+    const normalizeStages = (tasks: OnboardingTemplate['tasks']): NormalizedStage[] => {
         if (tasks?.version === 2 && Array.isArray(tasks.stages)) {
             return tasks.stages.map((s: any) => ({
                 key: String(s?.key ?? ''),
@@ -113,6 +125,8 @@ continue;
                 employee_fields: normalizeFieldList(Array.isArray(s?.employee_fields) ? s.employee_fields : []),
                 bank_account_fields: normalizeFieldList(Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : []),
                 contract_fields: normalizeFieldList(Array.isArray(s?.contract_fields) ? s.contract_fields : []),
+                sea_service_fields: normalizeFieldList(Array.isArray(s?.sea_service_fields) ? s.sea_service_fields : []),
+                vaccination_fields: normalizeFieldList(Array.isArray(s?.vaccination_fields) ? s.vaccination_fields : []),
                 documents: Array.isArray(s?.documents) ? s.documents : [],
             }));
         }
@@ -135,6 +149,8 @@ continue;
                     employee_fields: mods.includes('profile') ? v1EmployeeFields : [],
                     bank_account_fields: mods.includes('profile') ? v1BankFields : [],
                     contract_fields: mods.includes('contract') ? normalizeFieldList(v1Contract) : [],
+                    sea_service_fields: [],
+                    vaccination_fields: [],
                     documents: mods.includes('documents') ? v1Docs : [],
                 };
             });
@@ -143,10 +159,42 @@ continue;
         return [];
     };
 
-    const stages = normalizeStages(template.tasks);
+    const stageHasCollectableContent = (s: NormalizedStage) => {
+        const docsConfigured =
+            Array.isArray(s.documents) &&
+            s.documents.some((d: any) => d != null && String(d?.type ?? '').trim() !== '');
+
+        return (
+            s.employee_fields.length > 0 ||
+            s.bank_account_fields.length > 0 ||
+            s.contract_fields.length > 0 ||
+            s.sea_service_fields.length > 0 ||
+            s.vaccination_fields.length > 0 ||
+            docsConfigured
+        );
+    };
+
+    const emptyPlaceholderStage: NormalizedStage = {
+        key: '__no_template_fields__',
+        label: 'Complete',
+        employee_fields: [],
+        bank_account_fields: [],
+        contract_fields: [],
+        sea_service_fields: [],
+        vaccination_fields: [],
+        documents: [],
+    };
+
+    const rawStages = normalizeStages(template.tasks);
+    const stagesWithContent = rawStages.filter(stageHasCollectableContent);
+    const stages = stagesWithContent.length > 0 ? stagesWithContent : [emptyPlaceholderStage];
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
     const [showMissingIndicators, setShowMissingIndicators] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        setCurrentStageIdx(0);
+    }, [template.id]);
 
     const form = useForm<any>({
         onboarding_template_id: template.id,
@@ -297,6 +345,12 @@ return;
 
         return labelKey.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
     };
+
+    const seaOnboardingLabel = (fieldKey: string) =>
+        seaServiceFieldOptions.find((o) => o.key === fieldKey)?.label ?? labelFromKey(fieldKey);
+
+    const vaccinationOnboardingLabel = (fieldKey: string) =>
+        vaccinationFieldOptions.find((o) => o.key === fieldKey)?.label ?? labelFromKey(fieldKey);
 
     const isEmpty = (value: unknown) => value === null || value === undefined || String(value).trim() === '';
 
@@ -563,8 +617,16 @@ missingFields.push(labelFromKey(key));
                                     <h2 className="text-xl font-semibold text-foreground">{activeStage.label}</h2>
                                 </div>
 
+                                {activeStage.key === '__no_template_fields__' && (
+                                    <div className="rounded-xl border border-border bg-muted/20 px-4 py-8 text-center text-sm text-muted-foreground">
+                                        This onboarding template does not collect any employee, contract, bank, document,
+                                        sea service, or vaccination fields. You can create the employee and add those
+                                        details afterward from the employee profile.
+                                    </div>
+                                )}
+
                                 {/* Employee Fields */}
-                                {activeStage.employee_fields.length > 0 && (
+                                {activeStage.key !== '__no_template_fields__' && activeStage.employee_fields.length > 0 && (
                                     <div className="space-y-6">
                                         {activeStage.employee_fields.some((f: any) => f.key === 'image') && (
                                             <FieldRenderer
@@ -597,7 +659,7 @@ missingFields.push(labelFromKey(key));
                                 )}
 
                                 {/* Bank Account Fields */}
-                                {activeStage.bank_account_fields.length > 0 && (
+                                {activeStage.key !== '__no_template_fields__' && activeStage.bank_account_fields.length > 0 && (
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-medium text-foreground">Bank Account</span>
@@ -620,7 +682,7 @@ missingFields.push(labelFromKey(key));
                                 )}
 
                                 {/* Contract Fields */}
-                                {activeStage.contract_fields.length > 0 && (
+                                {activeStage.key !== '__no_template_fields__' && activeStage.contract_fields.length > 0 && (
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-medium text-foreground">Contract</span>
@@ -643,7 +705,7 @@ missingFields.push(labelFromKey(key));
                                 )}
 
                                 {/* Documents */}
-                                {activeStage.documents.length > 0 && (
+                                {activeStage.key !== '__no_template_fields__' && activeStage.documents.length > 0 && (
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-3">
                                             <span className="text-sm font-medium text-foreground">Documents</span>
@@ -655,6 +717,46 @@ missingFields.push(labelFromKey(key));
                                             documentTypes={options.document_types}
                                             onUploadChange={(type, data) => setDocUploads(prev => ({ ...prev, [type]: data }))}
                                         />
+                                    </div>
+                                )}
+
+                                {activeStage.key !== '__no_template_fields__' && activeStage.sea_service_fields.length > 0 && (
+                                    <div className="space-y-4 rounded-xl border border-border/60 bg-muted/10 px-4 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Sea service</span>
+                                            <div className="flex-1 h-px bg-border" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            Add sea service history from the employee profile after this employee is created. This template expects the following fields to be maintained there:
+                                        </p>
+                                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                                            {activeStage.sea_service_fields.map((f) => (
+                                                <li key={f.key}>
+                                                    {seaOnboardingLabel(f.key)}
+                                                    {f.required ? ' — required when adding entries' : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {activeStage.key !== '__no_template_fields__' && activeStage.vaccination_fields.length > 0 && (
+                                    <div className="space-y-4 rounded-xl border border-border/60 bg-muted/10 px-4 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Vaccinations</span>
+                                            <div className="flex-1 h-px bg-border" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            Record vaccinations from the employee profile after this employee is created. This template expects the following fields to be maintained there:
+                                        </p>
+                                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                                            {activeStage.vaccination_fields.map((f) => (
+                                                <li key={f.key}>
+                                                    {vaccinationOnboardingLabel(f.key)}
+                                                    {f.required ? ' — required when adding entries' : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
                                     </div>
                                 )}
                             </div>

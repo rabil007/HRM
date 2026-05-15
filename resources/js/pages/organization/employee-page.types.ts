@@ -209,6 +209,15 @@ export type EmployeeTab =
     | 'sea_service'
     | 'documents';
 
+export type EmployeeProfileTabVisibility = {
+    personal: boolean;
+    contract: boolean;
+    bank: boolean;
+    documents: boolean;
+    sea_service: boolean;
+    vaccination: boolean;
+};
+
 export type EmployeePageProps = {
     employee: EmployeeDetails;
     contract: EmployeeContractDetails | null;
@@ -240,5 +249,6 @@ export type EmployeePageProps = {
     ranks: RankOption[];
     vessels: VesselOption[];
     clients: ClientOption[];
+    employee_tabs: EmployeeProfileTabVisibility;
     recent_activity: ActivityItem[];
 };

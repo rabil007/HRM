@@ -55,6 +55,8 @@ export type StageBuilder = {
     employee_fields: FieldRequirement[];
     bank_account_fields: FieldRequirement[];
     contract_fields: FieldRequirement[];
+    sea_service_fields: FieldRequirement[];
+    vaccination_fields: FieldRequirement[];
     documents: DocsRequirement[];
 };
 
@@ -114,6 +116,25 @@ export const contractFieldOptions = [
     { key: 'other_allowances', label: 'Other Allowances' },
 ] as const;
 
+export const seaServiceFieldOptions = [
+    { key: 'vessel_id', label: 'Vessel' },
+    { key: 'rank_id', label: 'Rank' },
+    { key: 'total_months', label: 'Total months' },
+    { key: 'total_days', label: 'Total days' },
+    { key: 'grt', label: 'GRT' },
+    { key: 'bhp', label: 'BHP' },
+    { key: 'client_id', label: 'Client' },
+    { key: 'is_offshore', label: 'Offshore' },
+] as const;
+
+export const vaccinationFieldOptions = [
+    { key: 'vaccination_name', label: 'Vaccination name' },
+    { key: 'country_id', label: 'Country' },
+    { key: 'first_dose_date', label: 'First dose date' },
+    { key: 'second_dose_date', label: 'Second dose date' },
+    { key: 'booster_dose_date', label: 'Booster dose date' },
+] as const;
+
 export type DocumentTypeModel = {
     id: number;
     title: string;
@@ -161,6 +182,8 @@ return false;
                 employee_fields: mapFields(['employee_no', 'name', 'work_email', 'phone', 'nationality_id']),
                 bank_account_fields: [],
                 contract_fields: [],
+                sea_service_fields: [],
+                vaccination_fields: [],
                 documents: []
             },
             { 
@@ -170,6 +193,8 @@ return false;
                 employee_fields: [],
                 bank_account_fields: [],
                 contract_fields: mapFields(['contract_type', 'start_date']),
+                sea_service_fields: [],
+                vaccination_fields: [],
                 documents: []
             },
         ],
@@ -190,6 +215,8 @@ return false;
                 employee_fields: mapFields(s.employee_fields),
                 bank_account_fields: mapFields(s.bank_account_fields),
                 contract_fields: mapFields(s.contract_fields),
+                sea_service_fields: mapFields(s.sea_service_fields),
+                vaccination_fields: mapFields(s.vaccination_fields),
                 documents: Array.isArray(s.documents)
                     ? s.documents.map((d: any) => ({
                           type: String(d?.type ?? ''),
@@ -220,6 +247,8 @@ return false;
                 employee_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileEmployee) : [],
                 bank_account_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileBank) : [],
                 contract_fields: Array.isArray(s.modules) && s.modules.includes('contract') ? mapFields(v1Contract) : [],
+                sea_service_fields: [],
+                vaccination_fields: [],
                 documents: Array.isArray(s.modules) && s.modules.includes('documents') ? v1Docs : [],
             }))
         };
@@ -237,6 +266,8 @@ export function buildTasksFromBuilder(builder: BuilderState) {
             employee_fields: s.employee_fields,
             bank_account_fields: s.bank_account_fields,
             contract_fields: s.contract_fields,
+            sea_service_fields: s.sea_service_fields,
+            vaccination_fields: s.vaccination_fields,
             documents: s.documents.map((d) => ({
                 type: d.type,
                 min: d.min,
@@ -275,6 +306,14 @@ return contractFieldOptions.find((o) => o.key === key)?.label ?? key;
 
         if (kind === 'bank') {
 return bankAccountFieldOptions.find((o) => o.key === key)?.label ?? key;
+}
+
+        if (kind === 'sea_service') {
+return seaServiceFieldOptions.find((o) => o.key === key)?.label ?? key;
+}
+
+        if (kind === 'vaccination') {
+return vaccinationFieldOptions.find((o) => o.key === key)?.label ?? key;
 }
 
         return profileFieldOptions.find((o) => o.key === key)?.label ?? key;
@@ -345,6 +384,8 @@ return;
     const otherContractFields = new Set(otherStages.flatMap(x => x.contract_fields.map(f => f.key)));
     const otherBankFields = new Set(otherStages.flatMap(x => x.bank_account_fields.map(f => f.key)));
     const otherDocuments = new Set(otherStages.flatMap(x => x.documents.map(d => String(d.type))));
+    const otherSeaFields = new Set(otherStages.flatMap(x => x.sea_service_fields.map(f => f.key)));
+    const otherVacFields = new Set(otherStages.flatMap(x => x.vaccination_fields.map(f => f.key)));
 
     return (
         <form onSubmit={submit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -439,6 +480,39 @@ return;
                                                     </div>
                                                 </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-border/40">
+                                <FieldSelector
+                                    title="Sea service fields"
+                                    options={seaServiceFieldOptions}
+                                    selectedFields={s.sea_service_fields}
+                                    otherStagesFields={otherSeaFields}
+                                    onUpdate={(fields) => updateStage({ sea_service_fields: fields })}
+                                    onSortClick={() =>
+                                        setSortFieldsDialog({
+                                            open: true,
+                                            kind: 'sea_service',
+                                            list: [...s.sea_service_fields],
+                                            draggingKey: null,
+                                        })
+                                    }
+                                />
+                                <FieldSelector
+                                    title="Vaccination fields"
+                                    options={vaccinationFieldOptions}
+                                    selectedFields={s.vaccination_fields}
+                                    otherStagesFields={otherVacFields}
+                                    onUpdate={(fields) => updateStage({ vaccination_fields: fields })}
+                                    onSortClick={() =>
+                                        setSortFieldsDialog({
+                                            open: true,
+                                            kind: 'vaccination',
+                                            list: [...s.vaccination_fields],
+                                            draggingKey: null,
+                                        })
+                                    }
+                                />
+                            </div>
+
                             <DocumentSelector selectedDocs={s.documents} documentTypes={documentTypes} otherStagesDocs={otherDocuments} onUpdate={(docs) => updateStage({ documents: docs })} />
                                 </div>
                     ) : (
@@ -463,12 +537,20 @@ return;
                 getLabel={sortFieldDialogLabel} 
                 onSave={(kind, list) => {
                     updateStage(
-                        kind === 'contract' ? { contract_fields: list } :
-                        kind === 'bank' ? { bank_account_fields: list } :
-                        { employee_fields: list }
+                        kind === 'contract'
+                            ? { contract_fields: list }
+                            : kind === 'bank'
+                              ? { bank_account_fields: list }
+                              : kind === 'sea_service'
+                                ? { sea_service_fields: list }
+                                : kind === 'vaccination'
+                                  ? { vaccination_fields: list }
+                                  : { employee_fields: list }
                     );
                     setSortFieldsDialog({ open: false, kind: null, list: [], draggingKey: null });
-                    toast.success(`${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : 'Employee'} fields order updated.`);
+                    toast.success(
+                        `${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : kind === 'sea_service' ? 'Sea service' : kind === 'vaccination' ? 'Vaccination' : 'Employee'} fields order updated.`,
+                    );
                 }} 
             />
     </form>

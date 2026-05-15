@@ -31,6 +31,7 @@ use App\Models\Religion;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\OnboardingTemplateTabVisibility;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -623,6 +624,26 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $employeeTabsPayload = [
+            'personal' => true,
+            'contract' => true,
+            'bank' => true,
+            'documents' => true,
+            'sea_service' => true,
+            'vaccination' => true,
+        ];
+
+        if ($employee->onboarding_template_id) {
+            $onboardingTpl = OnboardingTemplate::query()
+                ->where('company_id', $companyId)
+                ->whereKey($employee->onboarding_template_id)
+                ->first(['tasks']);
+
+            $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks(
+                is_array($onboardingTpl?->tasks) ? $onboardingTpl->tasks : null,
+            );
+        }
+
         $recentActivity = [];
         $request = request();
         if ($request->user()?->can('audit.view')) {
@@ -771,6 +792,7 @@ class EmployeeController extends Controller
             'ranks' => $ranks,
             'vessels' => $vessels,
             'clients' => $clients,
+            'employee_tabs' => $employeeTabsPayload,
             'recent_activity' => $recentActivity,
         ]);
     }

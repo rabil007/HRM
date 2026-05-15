@@ -9,7 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export type SortDialogKind = 'employee' | 'contract' | 'bank' | null;
+export type SortDialogKind = 'employee' | 'contract' | 'bank' | 'sea_service' | 'vaccination' | null;
 
 export type SortDialogItem = { key: string; required: boolean };
 
@@ -49,7 +49,11 @@ export function SortDialog({
                             ? 'Sort contract fields'
                             : state.kind === 'bank'
                               ? 'Sort bank fields'
-                              : 'Sort employee fields'}
+                              : state.kind === 'sea_service'
+                                ? 'Sort sea service fields'
+                                : state.kind === 'vaccination'
+                                  ? 'Sort vaccination fields'
+                                  : 'Sort employee fields'}
                     </DialogTitle>
                     <DialogDescription>
                         Drag items to reorder, or use the arrows. This order will be saved in the template.

@@ -77,6 +77,7 @@ export default function EmployeeDetails({
     ranks,
     vessels,
     clients,
+    employee_tabs,
     recent_activity,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
@@ -115,62 +116,93 @@ export default function EmployeeDetails({
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
 
-    const tabs = useMemo(
-        () =>
-            [
-                { id: 'personal' as const, label: 'Personal', count: null },
-                { id: 'contract' as const, label: 'Contract', count: null },
-                {
-                    id: 'bank' as const,
-                    label: 'Bank',
-                    count: form.data.bank_id || form.data.iban ? 1 : null,
-                },
-                {
-                    id: 'education' as const,
-                    label: 'Education',
-                    count: education_qualifications.length || null,
-                },
-                {
-                    id: 'work_experience' as const,
-                    label: 'Work experience',
-                    count: work_experiences.length || null,
-                },
-                {
-                    id: 'vaccination' as const,
-                    label: 'Vaccination',
-                    count: vaccinations.length || null,
-                },
-                {
-                    id: 'languages' as const,
-                    label: 'Languages',
-                    count: languages.length || null,
-                },
-                {
-                    id: 'sea_service' as const,
-                    label: 'Sea Service',
-                    count: sea_services.length || null,
-                },
-                {
-                    id: 'documents' as const,
-                    label: 'Documents',
-                    count: documents.length || null,
-                },
-            ] satisfies Array<{
-                id: EmployeeTab;
-                label: string;
-                count: number | null;
-            }>,
-        [
-            documents.length,
-            education_qualifications.length,
-            form.data.bank_id,
-            form.data.iban,
-            languages.length,
-            sea_services.length,
-            vaccinations.length,
-            work_experiences.length,
-        ],
-    );
+    const tabs = useMemo(() => {
+        const list = [
+            { id: 'personal' as const, label: 'Personal', count: null },
+            { id: 'contract' as const, label: 'Contract', count: null },
+            {
+                id: 'bank' as const,
+                label: 'Bank',
+                count: form.data.bank_id || form.data.iban ? 1 : null,
+            },
+            {
+                id: 'education' as const,
+                label: 'Education',
+                count: education_qualifications.length || null,
+            },
+            {
+                id: 'work_experience' as const,
+                label: 'Work experience',
+                count: work_experiences.length || null,
+            },
+            {
+                id: 'vaccination' as const,
+                label: 'Vaccination',
+                count: vaccinations.length || null,
+            },
+            {
+                id: 'languages' as const,
+                label: 'Languages',
+                count: languages.length || null,
+            },
+            {
+                id: 'sea_service' as const,
+                label: 'Sea Service',
+                count: sea_services.length || null,
+            },
+            {
+                id: 'documents' as const,
+                label: 'Documents',
+                count: documents.length || null,
+            },
+        ] satisfies Array<{
+            id: EmployeeTab;
+            label: string;
+            count: number | null;
+        }>;
+
+        return list.filter((tab) => {
+            switch (tab.id) {
+                case 'personal':
+                    return employee_tabs.personal;
+                case 'contract':
+                    return employee_tabs.contract;
+                case 'bank':
+                    return employee_tabs.bank;
+                case 'documents':
+                    return employee_tabs.documents;
+                case 'sea_service':
+                    return employee_tabs.sea_service;
+                case 'vaccination':
+                    return employee_tabs.vaccination;
+                default:
+                    return true;
+            }
+        });
+    }, [
+        employee_tabs.bank,
+        employee_tabs.contract,
+        employee_tabs.documents,
+        employee_tabs.personal,
+        employee_tabs.sea_service,
+        employee_tabs.vaccination,
+        documents.length,
+        education_qualifications.length,
+        form.data.bank_id,
+        form.data.iban,
+        languages.length,
+        sea_services.length,
+        vaccinations.length,
+        work_experiences.length,
+    ]);
+
+    useEffect(() => {
+        if (tabs.some((t) => t.id === tabValue)) {
+            return;
+        }
+
+        setTabValue(tabs[0]?.id ?? 'personal');
+    }, [tabs, tabValue]);
 
     useEffect(() => {
         if (EMPLOYEE_PAGE_LEGACY_HASH_KEYS.has(window.location.hash)) {
@@ -326,30 +358,36 @@ export default function EmployeeDetails({
                                     ))}
                                 </TabsList>
 
-                                <EmployeePersonalTab
-                                    employee={employee}
-                                    countries={countries}
-                                    form={form}
-                                    activeField={activeField}
-                                    setActiveField={setActiveField}
-                                    beginEdit={beginEdit}
-                                />
-                                <EmployeeContractTab
-                                    contract={contract}
-                                    form={form}
-                                    activeField={activeField}
-                                    setActiveField={setActiveField}
-                                    beginEdit={beginEdit}
-                                    requiredDot={requiredDot}
-                                />
-                                <EmployeeBankTab
-                                    employee={employee}
-                                    banks={banks}
-                                    form={form}
-                                    activeField={activeField}
-                                    setActiveField={setActiveField}
-                                    beginEdit={beginEdit}
-                                />
+                                {employee_tabs.personal ? (
+                                    <EmployeePersonalTab
+                                        employee={employee}
+                                        countries={countries}
+                                        form={form}
+                                        activeField={activeField}
+                                        setActiveField={setActiveField}
+                                        beginEdit={beginEdit}
+                                    />
+                                ) : null}
+                                {employee_tabs.contract ? (
+                                    <EmployeeContractTab
+                                        contract={contract}
+                                        form={form}
+                                        activeField={activeField}
+                                        setActiveField={setActiveField}
+                                        beginEdit={beginEdit}
+                                        requiredDot={requiredDot}
+                                    />
+                                ) : null}
+                                {employee_tabs.bank ? (
+                                    <EmployeeBankTab
+                                        employee={employee}
+                                        banks={banks}
+                                        form={form}
+                                        activeField={activeField}
+                                        setActiveField={setActiveField}
+                                        beginEdit={beginEdit}
+                                    />
+                                ) : null}
                                 <EmployeeEducationTab
                                     employeeId={employee.id}
                                     education_qualifications={
@@ -363,39 +401,44 @@ export default function EmployeeDetails({
                                     work_experiences={work_experiences}
                                     canManage={can.work_experience_manage}
                                 />
-                                <EmployeeVaccinationTab
-                                    employeeId={employee.id}
-                                    vaccinations={vaccinations}
-                                    countries={countries}
-                                    canManage={can.vaccination_manage}
-                                />
+                                {employee_tabs.vaccination ? (
+                                    <EmployeeVaccinationTab
+                                        employeeId={employee.id}
+                                        vaccinations={vaccinations}
+                                        countries={countries}
+                                        canManage={can.vaccination_manage}
+                                    />
+                                ) : null}
                                 <EmployeeLanguagesTab
                                     employeeId={employee.id}
                                     languages={languages}
                                     canManage={can.languages_manage}
                                 />
-                                <EmployeeSeaServiceTab
-                                    employeeId={employee.id}
-                                    sea_services={sea_services}
-                                    vessels={vessels}
-                                    ranks={ranks}
-                                    clients={clients}
-                                    employeeRankId={employee.rank_id ?? null}
-                                    canManage={can.sea_service_manage}
-                                />
-
-                                <EmployeeDocumentsTab
-                                    employee={{
-                                        id: employee.id,
-                                        name: employee.name,
-                                    }}
-                                    documents={documents}
-                                    document_types={document_types}
-                                    can={{
-                                        documents_upload: can.documents_upload,
-                                        documents_delete: can.documents_delete,
-                                    }}
-                                />
+                                {employee_tabs.sea_service ? (
+                                    <EmployeeSeaServiceTab
+                                        employeeId={employee.id}
+                                        sea_services={sea_services}
+                                        vessels={vessels}
+                                        ranks={ranks}
+                                        clients={clients}
+                                        employeeRankId={employee.rank_id ?? null}
+                                        canManage={can.sea_service_manage}
+                                    />
+                                ) : null}
+                                {employee_tabs.documents ? (
+                                    <EmployeeDocumentsTab
+                                        employee={{
+                                            id: employee.id,
+                                            name: employee.name,
+                                        }}
+                                        documents={documents}
+                                        document_types={document_types}
+                                        can={{
+                                            documents_upload: can.documents_upload,
+                                            documents_delete: can.documents_delete,
+                                        }}
+                                    />
+                                ) : null}
                             </Tabs>
                         </div>
                     </div>

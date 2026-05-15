@@ -33,6 +33,8 @@ export function SidebarStages({
                             employee_fields: [],
                             bank_account_fields: [],
                             contract_fields: [],
+                            sea_service_fields: [],
+                            vaccination_fields: [],
                             documents: [],
                         };
 
@@ -79,11 +81,13 @@ export function SidebarStages({
                                     {s.label || s.key}
                                 </span>
                             </div>
-                            <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 grid grid-cols-4 gap-x-3 gap-y-1 pl-6">
+                            <div className="text-[10px] uppercase font-bold text-muted-foreground/70 mt-2 grid grid-cols-3 sm:grid-cols-6 gap-x-2 gap-y-1 pl-6">
                                 <span>{s.employee_fields?.length ?? 0} Profile</span>
                                 <span>{s.bank_account_fields?.length ?? 0} Bank</span>
                                 <span>{s.contract_fields?.length ?? 0} Contract</span>
                                 <span>{s.documents?.length ?? 0} Docs</span>
+                                <span>{s.sea_service_fields?.length ?? 0} Sea</span>
+                                <span>{s.vaccination_fields?.length ?? 0} Vacc</span>
                             </div>
                         </button>
                     );
