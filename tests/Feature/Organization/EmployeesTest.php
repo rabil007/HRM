@@ -111,6 +111,7 @@ test('authenticated users can view an employee details page', function () {
             ->has('employee')
             ->has('contract')
             ->has('education_qualifications')
+            ->has('work_experiences')
             ->has('documents')
         );
 });

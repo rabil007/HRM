@@ -155,4 +155,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeEducationQualification::class)->orderByDesc('issue_date')->orderByDesc('id');
     }
+
+    public function workExperiences(): HasMany
+    {
+        return $this->hasMany(EmployeeWorkExperience::class)->orderBy('sort_order')->orderByDesc('date_from')->orderByDesc('id');
+    }
 }

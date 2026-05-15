@@ -1,7 +1,12 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { FileText, GraduationCap, UploadCloud, X } from 'lucide-react';
+import { Briefcase, FileText, GraduationCap, UploadCloud, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { destroy, store, update } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
+import {
+    destroy as destroyWorkExperience,
+    store as storeWorkExperience,
+    update as updateWorkExperience,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -39,6 +44,7 @@ import type {
 } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
 
 type EmployeeDetails = {
     id: number;
@@ -173,13 +179,24 @@ type EducationQualificationItem = {
     country_name: string | null;
 };
 
-type EmployeeTab = 'personal' | 'contract' | 'bank' | 'education' | 'documents';
+type WorkExperienceItem = {
+    id: number;
+    company_name: string;
+    job_title: string;
+    date_from: string | null;
+    date_to: string | null;
+    responsibility: string | null;
+    created_at: string;
+};
+
+type EmployeeTab = 'personal' | 'contract' | 'bank' | 'education' | 'work_experience' | 'documents';
 
 export default function EmployeeDetails({
     employee,
     contract,
     documents,
     education_qualifications,
+    work_experiences,
     document_types,
     can,
     branches,
@@ -197,8 +214,14 @@ export default function EmployeeDetails({
     contract: EmployeeContractDetails | null;
     documents: EmployeeDocumentItem[];
     education_qualifications: EducationQualificationItem[];
+    work_experiences: WorkExperienceItem[];
     document_types: DocumentTypeOption[];
-    can: { documents_upload: boolean; documents_delete: boolean; education_manage: boolean };
+    can: {
+        documents_upload: boolean;
+        documents_delete: boolean;
+        education_manage: boolean;
+        work_experience_manage: boolean;
+    };
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
@@ -238,6 +261,10 @@ export default function EmployeeDetails({
             return 'education';
         }
 
+        if (window.location.hash === '#work-experience') {
+            return 'work_experience';
+        }
+
         return 'personal';
     });
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
@@ -249,6 +276,10 @@ export default function EmployeeDetails({
     const [educationDialogOpen, setEducationDialogOpen] = useState(false);
     const [editingEducation, setEditingEducation] = useState<EducationQualificationItem | null>(null);
     const [deleteEducationId, setDeleteEducationId] = useState<number | null>(null);
+    const [workExperienceDialogOpen, setWorkExperienceDialogOpen] = useState(false);
+    const [workExperienceImportOpen, setWorkExperienceImportOpen] = useState(false);
+    const [editingWorkExperience, setEditingWorkExperience] = useState<WorkExperienceItem | null>(null);
+    const [deleteWorkExperienceId, setDeleteWorkExperienceId] = useState<number | null>(null);
     const [previewDoc, setPreviewDoc] = useState<EmployeeDocumentItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<EmployeeDocumentItem | null>(null);
     const [versionDoc, setVersionDoc] = useState<EmployeeDocumentItem | null>(null);
@@ -282,6 +313,14 @@ export default function EmployeeDetails({
         issue_date: '',
         university: '',
         country_id: '',
+    });
+
+    const workExperienceForm = useForm({
+        company_name: '',
+        job_title: '',
+        date_from: '',
+        date_to: '',
+        responsibility: '',
     });
 
     const addUploadFiles = useCallback((files: File[]) => {
@@ -507,16 +546,47 @@ export default function EmployeeDetails({
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
 
+    const formatWorkExpDate = (iso: string | null): string => {
+        if (!iso) {
+            return '—';
+        }
+
+        const parts = iso.split('-');
+
+        if (parts.length !== 3) {
+            return iso;
+        }
+
+        const y = Number(parts[0]);
+        const m = Number(parts[1]);
+        const d = Number(parts[2]);
+
+        if (!y || !m || !d) {
+            return iso;
+        }
+
+        return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+        });
+    };
+
     const tabs = [
         { id: 'personal', label: 'Personal', count: null },
         { id: 'contract', label: 'Contract', count: null },
         { id: 'bank', label: 'Bank', count: form.data.bank_id || form.data.iban ? 1 : null },
         { id: 'education', label: 'Education', count: education_qualifications.length || null },
+        { id: 'work_experience', label: 'Work experience', count: work_experiences.length || null },
         { id: 'documents', label: 'Documents', count: documents.length || null },
     ] satisfies Array<{ id: EmployeeTab; label: string; count: number | null }>;
 
     useEffect(() => {
-        if (window.location.hash === '#documents' || window.location.hash === '#education') {
+        if (
+            window.location.hash === '#documents' ||
+            window.location.hash === '#education' ||
+            window.location.hash === '#work-experience'
+        ) {
             window.history.replaceState(null, '', window.location.pathname);
         }
     }, []);
@@ -728,7 +798,7 @@ export default function EmployeeDetails({
                             requiredDot={requiredDot}
                         />
 
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                             <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
                                 <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Employee no</div>
                                 <div className="mt-2 text-lg font-bold text-zinc-100">{form.data.employee_no || employee.employee_no || '—'}</div>
@@ -755,6 +825,22 @@ export default function EmployeeDetails({
                                 </div>
                                 <div className="mt-2 text-lg font-bold text-zinc-100">
                                     {education_qualifications.length} qualification{education_qualifications.length !== 1 ? 's' : ''}
+                                </div>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setTabValue('work_experience');
+                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                                }}
+                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/10"
+                            >
+                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
+                                    <Briefcase className="h-3.5 w-3.5 text-indigo-400/80" />
+                                    Work experience
+                                </div>
+                                <div className="mt-2 text-lg font-bold text-zinc-100">
+                                    {work_experiences.length} entr{work_experiences.length !== 1 ? 'ies' : 'y'}
                                 </div>
                             </button>
                             <button
@@ -1840,6 +1926,304 @@ export default function EmployeeDetails({
                                         </AlertDialogFooter>
                                     </AlertDialogContent>
                                 </AlertDialog>
+                            </TabsContent>
+
+                            <TabsContent value="work_experience" className="mt-6">
+                                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
+                                    <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <h3 className="text-sm font-semibold text-zinc-200">
+                                            Work experience
+                                            <span className="ml-2 text-xs font-normal text-zinc-500">{work_experiences.length} total</span>
+                                        </h3>
+                                        {can.work_experience_manage ? (
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-8 gap-1.5 text-xs"
+                                                    type="button"
+                                                    onClick={() => setWorkExperienceImportOpen(true)}
+                                                >
+                                                    Import CSV
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    className="h-8 gap-1.5 text-xs"
+                                                    type="button"
+                                                    onClick={() => {
+                                                        workExperienceForm.reset();
+                                                        workExperienceForm.clearErrors();
+                                                        setEditingWorkExperience(null);
+                                                        setWorkExperienceDialogOpen(true);
+                                                    }}
+                                                >
+                                                    + Add line
+                                                </Button>
+                                            </div>
+                                        ) : null}
+                                    </div>
+
+                                    {work_experiences.length === 0 ? (
+                                        <div className="py-10 text-center text-sm text-zinc-500">
+                                            No work history recorded.
+                                        </div>
+                                    ) : (
+                                        <div className="overflow-x-auto">
+                                            <table className="w-full min-w-[800px] text-left">
+                                                <thead>
+                                                    <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
+                                                        <th className="py-2 pr-4">Company</th>
+                                                        <th className="py-2 pr-4">Job title</th>
+                                                        <th className="py-2 pr-4">From</th>
+                                                        <th className="py-2 pr-4">To</th>
+                                                        <th className="py-2 pr-4">Responsibility</th>
+                                                        <th className="py-2 pr-4">Added</th>
+                                                        {can.work_experience_manage ? <th className="py-2 pr-4 text-right" /> : null}
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-white/5">
+                                                    {work_experiences.map((row) => (
+                                                        <tr key={row.id} className="text-sm text-zinc-200">
+                                                            <td className="max-w-[200px] truncate py-3 pr-4 font-medium" title={row.company_name}>
+                                                                {row.company_name}
+                                                            </td>
+                                                            <td className="max-w-[160px] truncate py-3 pr-4 text-zinc-300" title={row.job_title}>
+                                                                {row.job_title}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-400">
+                                                                {formatWorkExpDate(row.date_from)}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-400">
+                                                                {formatWorkExpDate(row.date_to)}
+                                                            </td>
+                                                            <td className="max-w-[220px] truncate py-3 pr-4 text-xs text-zinc-400" title={row.responsibility ?? ''}>
+                                                                {row.responsibility?.trim() ? row.responsibility : '—'}
+                                                            </td>
+                                                            <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-500">
+                                                                {new Date(row.created_at).toLocaleString(undefined, {
+                                                                    month: 'short',
+                                                                    day: 'numeric',
+                                                                    hour: 'numeric',
+                                                                    minute: '2-digit',
+                                                                })}
+                                                            </td>
+                                                            {can.work_experience_manage ? (
+                                                                <td className="py-3 pr-0 text-right">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
+                                                                            onClick={() => {
+                                                                                setEditingWorkExperience(row);
+                                                                                workExperienceForm.setData({
+                                                                                    company_name: row.company_name,
+                                                                                    job_title: row.job_title,
+                                                                                    date_from: row.date_from ?? '',
+                                                                                    date_to: row.date_to ?? '',
+                                                                                    responsibility: row.responsibility ?? '',
+                                                                                });
+                                                                                workExperienceForm.clearErrors();
+                                                                                setWorkExperienceDialogOpen(true);
+                                                                            }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="text-xs text-red-400/60 transition-colors hover:text-red-400"
+                                                                            onClick={() => setDeleteWorkExperienceId(row.id)}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                </td>
+                                                            ) : null}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <Dialog
+                                    open={workExperienceDialogOpen}
+                                    onOpenChange={(openDialog) => {
+                                        setWorkExperienceDialogOpen(openDialog);
+
+                                        if (!openDialog) {
+                                            workExperienceForm.reset();
+                                            workExperienceForm.clearErrors();
+                                            setEditingWorkExperience(null);
+                                        }
+                                    }}
+                                >
+                                    <DialogContent className="sm:max-w-md">
+                                        <DialogHeader>
+                                            <DialogTitle>{editingWorkExperience ? 'Edit work experience' : 'Add work experience'}</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="space-y-4 py-2">
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Company name</Label>
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={workExperienceForm.data.company_name}
+                                                    onChange={(e) => workExperienceForm.setData('company_name', e.target.value)}
+                                                />
+                                                {workExperienceForm.errors.company_name ? (
+                                                    <p className="text-xs text-destructive">{workExperienceForm.errors.company_name}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Job title</Label>
+                                                <Input
+                                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                    value={workExperienceForm.data.job_title}
+                                                    onChange={(e) => workExperienceForm.setData('job_title', e.target.value)}
+                                                />
+                                                {workExperienceForm.errors.job_title ? (
+                                                    <p className="text-xs text-destructive">{workExperienceForm.errors.job_title}</p>
+                                                ) : null}
+                                            </div>
+                                            <div className="grid gap-3 sm:grid-cols-2">
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs">Date from</Label>
+                                                    <Input
+                                                        type="date"
+                                                        className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                        value={workExperienceForm.data.date_from}
+                                                        onChange={(e) => workExperienceForm.setData('date_from', e.target.value)}
+                                                    />
+                                                    {workExperienceForm.errors.date_from ? (
+                                                        <p className="text-xs text-destructive">{workExperienceForm.errors.date_from}</p>
+                                                    ) : null}
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-xs">Date to</Label>
+                                                    <Input
+                                                        type="date"
+                                                        className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                                        value={workExperienceForm.data.date_to}
+                                                        onChange={(e) => workExperienceForm.setData('date_to', e.target.value)}
+                                                    />
+                                                    {workExperienceForm.errors.date_to ? (
+                                                        <p className="text-xs text-destructive">{workExperienceForm.errors.date_to}</p>
+                                                    ) : null}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1.5">
+                                                <Label className="text-xs">Responsibility</Label>
+                                                <textarea
+                                                    rows={4}
+                                                    className="min-h-[88px] w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
+                                                    value={workExperienceForm.data.responsibility}
+                                                    onChange={(e) => workExperienceForm.setData('responsibility', e.target.value)}
+                                                />
+                                                {workExperienceForm.errors.responsibility ? (
+                                                    <p className="text-xs text-destructive">{workExperienceForm.errors.responsibility}</p>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                        <DialogFooter>
+                                            <Button variant="outline" size="sm" type="button" onClick={() => setWorkExperienceDialogOpen(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                type="button"
+                                                disabled={workExperienceForm.processing}
+                                                onClick={() => {
+                                                    workExperienceForm.clearErrors();
+                                                    workExperienceForm.transform((data) => ({
+                                                        company_name: data.company_name.trim(),
+                                                        job_title: data.job_title.trim(),
+                                                        date_from: data.date_from,
+                                                        date_to: data.date_to === '' ? null : data.date_to,
+                                                        responsibility:
+                                                            data.responsibility.trim() === '' ? null : data.responsibility.trim(),
+                                                    }));
+
+                                                    const url = editingWorkExperience
+                                                        ? updateWorkExperience.url({
+                                                            employee: employee.id,
+                                                            workExperience: editingWorkExperience.id,
+                                                        })
+                                                        : storeWorkExperience.url({ employee: employee.id });
+
+                                                    if (editingWorkExperience) {
+                                                        workExperienceForm.put(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setWorkExperienceDialogOpen(false);
+                                                                workExperienceForm.reset();
+                                                                setEditingWorkExperience(null);
+                                                                toast.success('Work experience updated.');
+                                                            },
+                                                        });
+                                                    } else {
+                                                        workExperienceForm.post(url, {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setWorkExperienceDialogOpen(false);
+                                                                workExperienceForm.reset();
+                                                                toast.success('Work experience added.');
+                                                            },
+                                                        });
+                                                    }
+                                                }}
+                                            >
+                                                {workExperienceForm.processing ? 'Saving…' : 'Save'}
+                                            </Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+
+                                <AlertDialog
+                                    open={!!deleteWorkExperienceId}
+                                    onOpenChange={(openDialog) => {
+                                        if (!openDialog) {
+                                            setDeleteWorkExperienceId(null);
+                                        }
+                                    }}
+                                >
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Remove work experience?</AlertDialogTitle>
+                                            <AlertDialogDescription>This entry will be permanently removed.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction
+                                                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                                onClick={() => {
+                                                    if (!deleteWorkExperienceId) {
+                                                        return;
+                                                    }
+
+                                                    router.delete(
+                                                        destroyWorkExperience.url({
+                                                            employee: employee.id,
+                                                            workExperience: deleteWorkExperienceId,
+                                                        }), {
+                                                            preserveScroll: true,
+                                                            onSuccess: () => {
+                                                                setDeleteWorkExperienceId(null);
+                                                                toast.success('Work experience removed.');
+                                                            },
+                                                        });
+                                                }}
+                                            >
+                                                Remove
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+
+                                <WorkExperienceImportDialog
+                                    open={workExperienceImportOpen}
+                                    onOpenChange={setWorkExperienceImportOpen}
+                                    employeeId={employee.id}
+                                />
                             </TabsContent>
 
                             <TabsContent value="documents" className="mt-6">

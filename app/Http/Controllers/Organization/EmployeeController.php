@@ -18,6 +18,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
+use App\Models\EmployeeWorkExperience;
 use App\Models\Gender;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
@@ -427,6 +428,24 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $workExperiences = EmployeeWorkExperience::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->orderBy('sort_order')
+            ->orderByDesc('date_from')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeWorkExperience $row) => [
+                'id' => $row->id,
+                'company_name' => $row->company_name,
+                'job_title' => $row->job_title,
+                'date_from' => $row->date_from?->toDateString(),
+                'date_to' => $row->date_to?->toDateString(),
+                'responsibility' => $row->responsibility,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
@@ -549,11 +568,13 @@ class EmployeeController extends Controller
             'contract' => $contract,
             'documents' => $documents,
             'education_qualifications' => $educationQualifications,
+            'work_experiences' => $workExperiences,
             'document_types' => $documentTypes,
             'can' => [
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
                 'documents_delete' => request()->user()?->can('employees.documents.delete'),
                 'education_manage' => request()->user()?->can('employees.education.manage'),
+                'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
             ],
             'branches' => $branches,
             'departments' => $departments,
