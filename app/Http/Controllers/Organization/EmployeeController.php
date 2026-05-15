@@ -18,6 +18,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
+use App\Models\EmployeeLanguage;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\Gender;
@@ -512,6 +513,23 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $languages = EmployeeLanguage::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeLanguage $row) => [
+                'id' => $row->id,
+                'language_name' => $row->language_name,
+                'is_spoken' => $row->is_spoken,
+                'is_written' => $row->is_written,
+                'is_understood' => $row->is_understood,
+                'is_mother_tongue' => $row->is_mother_tongue,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
@@ -651,6 +669,7 @@ class EmployeeController extends Controller
             'education_qualifications' => $educationQualifications,
             'work_experiences' => $workExperiences,
             'vaccinations' => $vaccinations,
+            'languages' => $languages,
             'document_types' => $documentTypes,
             'can' => [
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
@@ -658,6 +677,7 @@ class EmployeeController extends Controller
                 'education_manage' => request()->user()?->can('employees.education.manage'),
                 'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
                 'vaccination_manage' => request()->user()?->can('employees.vaccination.manage'),
+                'languages_manage' => request()->user()?->can('employees.languages.manage'),
             ],
             'branches' => $branches,
             'departments' => $departments,

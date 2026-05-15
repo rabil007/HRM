@@ -171,4 +171,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeVaccination::class)->orderBy('sort_order')->orderByDesc('id');
     }
+
+    public function languages(): HasMany
+    {
+        return $this->hasMany(EmployeeLanguage::class)->orderBy('sort_order')->orderByDesc('id');
+    }
 }

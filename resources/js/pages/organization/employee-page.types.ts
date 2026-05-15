@@ -167,6 +167,16 @@ export type VaccinationItem = {
     created_at: string;
 };
 
+export type LanguageItem = {
+    id: number;
+    language_name: string;
+    is_spoken: boolean;
+    is_written: boolean;
+    is_understood: boolean;
+    is_mother_tongue: boolean;
+    created_at: string;
+};
+
 export type EmployeeTab =
     | 'personal'
     | 'contract'
@@ -174,6 +184,7 @@ export type EmployeeTab =
     | 'education'
     | 'work_experience'
     | 'vaccination'
+    | 'languages'
     | 'documents';
 
 export type EmployeePageProps = {
@@ -183,6 +194,7 @@ export type EmployeePageProps = {
     education_qualifications: EducationQualificationItem[];
     work_experiences: WorkExperienceItem[];
     vaccinations: VaccinationItem[];
+    languages: LanguageItem[];
     document_types: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
@@ -190,6 +202,7 @@ export type EmployeePageProps = {
         education_manage: boolean;
         work_experience_manage: boolean;
         vaccination_manage: boolean;
+        languages_manage: boolean;
     };
     branches: BranchOption[];
     departments: DepartmentOption[];
