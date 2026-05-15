@@ -7,6 +7,7 @@ use App\Http\Requests\Onboarding\StoreOnboardingTemplateRequest;
 use App\Http\Requests\Onboarding\UpdateOnboardingTemplateRequest;
 use App\Models\DocumentType;
 use App\Models\OnboardingTemplate;
+use App\Models\Rank;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -18,6 +19,7 @@ class OnboardingTemplateController extends Controller
 
         $templates = OnboardingTemplate::query()
             ->where('company_id', $companyId)
+            ->with(['ranks:id,name'])
             ->orderByDesc('is_default')
             ->orderBy('name')
             ->get(['id', 'company_id', 'name', 'description', 'tasks', 'is_default', 'created_at']);
@@ -30,9 +32,14 @@ class OnboardingTemplateController extends Controller
     public function create()
     {
         $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title']);
+        $ranks = Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('onboarding/templates/create', [
             'documentTypes' => $documentTypes,
+            'ranks' => $ranks,
         ]);
     }
 
@@ -41,11 +48,18 @@ class OnboardingTemplateController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $template->company_id === $companyId, 404);
 
+        $template->load(['ranks:id,name']);
+
         $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title']);
+        $ranks = Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
         return Inertia::render('onboarding/templates/edit', [
             'template' => $template,
             'documentTypes' => $documentTypes,
+            'ranks' => $ranks,
         ]);
     }
 
@@ -54,6 +68,9 @@ class OnboardingTemplateController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         $data = $request->validated();
+        $rankIds = $data['rank_ids'] ?? [];
+        unset($data['rank_ids']);
+
         $tasks = json_decode((string) $data['tasks_json'], true);
         if (! is_array($tasks)) {
             return back()->withErrors(['tasks_json' => 'Invalid JSON.'])->with('error', 'Invalid template configuration.');
@@ -64,14 +81,15 @@ class OnboardingTemplateController extends Controller
         $data['company_id'] = $companyId;
         $data['is_default'] = (bool) ($data['is_default'] ?? false);
 
-        DB::transaction(function () use ($companyId, $data) {
+        DB::transaction(function () use ($companyId, $data, $rankIds) {
             if ($data['is_default']) {
                 OnboardingTemplate::query()
                     ->where('company_id', $companyId)
                     ->update(['is_default' => false]);
             }
 
-            OnboardingTemplate::query()->create($data);
+            $template = OnboardingTemplate::query()->create($data);
+            $template->ranks()->sync($rankIds);
         });
 
         return redirect()->route('onboarding.templates.index')->with('success', 'Template created successfully.');
@@ -83,6 +101,9 @@ class OnboardingTemplateController extends Controller
         abort_unless((int) $template->company_id === $companyId, 404);
 
         $data = $request->validated();
+        $rankIds = array_key_exists('rank_ids', $data) ? ($data['rank_ids'] ?? []) : null;
+        unset($data['rank_ids']);
+
         $tasks = json_decode((string) $data['tasks_json'], true);
         if (! is_array($tasks)) {
             return back()->withErrors(['tasks_json' => 'Invalid JSON.'])->with('error', 'Invalid template configuration.');
@@ -92,7 +113,7 @@ class OnboardingTemplateController extends Controller
         unset($data['tasks_json']);
         $data['is_default'] = (bool) ($data['is_default'] ?? $template->is_default);
 
-        DB::transaction(function () use ($companyId, $template, $data) {
+        DB::transaction(function () use ($companyId, $template, $data, $rankIds) {
             if ($data['is_default']) {
                 OnboardingTemplate::query()
                     ->where('company_id', $companyId)
@@ -101,6 +122,10 @@ class OnboardingTemplateController extends Controller
             }
 
             $template->update($data);
+
+            if ($rankIds !== null) {
+                $template->ranks()->sync($rankIds);
+            }
         });
 
         return redirect()->route('onboarding.templates.index')->with('success', 'Template updated successfully.');

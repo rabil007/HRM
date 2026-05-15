@@ -5,6 +5,7 @@ use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
+use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
 use App\Http\Controllers\Settings\MasterData\VesselController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
@@ -126,6 +127,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('vessels/{vessel}', [VesselController::class, 'destroy'])
             ->middleware('can:settings.master-data.vessels.delete')
             ->name('vessels.destroy');
+
+        Route::get('ranks/import/template', [RankController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.ranks.view')
+            ->name('ranks.import.template');
+        Route::post('ranks/import', [RankController::class, 'import'])
+            ->middleware('can:settings.master-data.ranks.create')
+            ->name('ranks.import');
+        Route::get('ranks', [RankController::class, 'index'])
+            ->middleware('can:settings.master-data.ranks.view')
+            ->name('ranks.index');
+        Route::post('ranks', [RankController::class, 'store'])
+            ->middleware('can:settings.master-data.ranks.create')
+            ->name('ranks.store');
+        Route::put('ranks/{rank}', [RankController::class, 'update'])
+            ->middleware('can:settings.master-data.ranks.update')
+            ->name('ranks.update');
+        Route::delete('ranks/{rank}', [RankController::class, 'destroy'])
+            ->middleware('can:settings.master-data.ranks.delete')
+            ->name('ranks.destroy');
 
         Route::get('document-types/import/template', [DocumentTypeController::class, 'importTemplate'])
             ->middleware('can:settings.master-data.document-types.view')

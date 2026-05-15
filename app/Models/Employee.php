@@ -29,6 +29,7 @@ class Employee extends Model
                 'branch_id',
                 'department_id',
                 'position_id',
+                'rank_id',
                 'manager_id',
                 'employee_no',
                 'name',
@@ -83,6 +84,11 @@ class Employee extends Model
     public function position(): BelongsTo
     {
         return $this->belongsTo(Position::class);
+    }
+
+    public function rank(): BelongsTo
+    {
+        return $this->belongsTo(Rank::class);
     }
 
     public function manager(): BelongsTo

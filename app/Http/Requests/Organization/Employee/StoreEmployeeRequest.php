@@ -37,6 +37,7 @@ class StoreEmployeeRequest extends FormRequest
                 'integer',
                 Rule::exists('positions', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
+            'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')],
             'manager_id' => [
                 'nullable',
                 'integer',

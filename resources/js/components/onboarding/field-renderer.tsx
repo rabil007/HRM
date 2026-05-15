@@ -20,6 +20,7 @@ interface FieldRendererProps {
         religions: Option[];
         genders: Option[];
         banks: Option[];
+        ranks: Option[];
     };
     imagePreview?: string | null;
     setImagePreview?: (url: string | null) => void;
@@ -128,6 +129,10 @@ export function FieldRenderer({
         );
 
         return renderSelect(filteredPositions, 'Select Position');
+    }
+
+    if (fieldKey === 'rank_id') {
+        return renderSelect(options.ranks, 'Select Rank');
     }
 
     if (fieldKey === 'manager_id') {

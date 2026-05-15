@@ -6,6 +6,7 @@ import { SidebarStages } from '@/components/onboarding/builder/sidebar-stages';
 import type { SortDialogState } from '@/components/onboarding/builder/sort-dialog';
 import { SortDialog } from '@/components/onboarding/builder/sort-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -14,6 +15,11 @@ import { toast } from '@/lib/toast';
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
 
+export type RankOption = {
+    id: number;
+    name: string;
+};
+
 export type Template = {
     id: number;
     name: string;
@@ -21,6 +27,7 @@ export type Template = {
     tasks: unknown;
     is_default: boolean;
     created_at: string;
+    ranks?: RankOption[];
 };
 
 export type FormData = {
@@ -28,6 +35,7 @@ export type FormData = {
     description: string;
     is_default: boolean;
     tasks_json: string;
+    rank_ids: number[];
 };
 
 export type DocsRequirement = { 
@@ -84,6 +92,7 @@ export const profileFieldOptions = [
     { key: 'branch_id', label: 'Branch' },
     { key: 'department_id', label: 'Department' },
     { key: 'position_id', label: 'Position' },
+    { key: 'rank_id', label: 'Rank' },
     { key: 'manager_id', label: 'Manager' },
 ] as const;
 
@@ -242,10 +251,12 @@ export function buildTasksFromBuilder(builder: BuilderState) {
 export function TemplateForm({ 
     template, 
     documentTypes,
+    ranks,
     onCancel 
 }: { 
     template?: Template | null; 
     documentTypes: DocumentTypeModel[];
+    ranks: RankOption[];
     onCancel?: () => void 
 }) {
     const [builder, setBuilder] = useState<BuilderState>(() => toBuilderState(template?.tasks));
@@ -284,7 +295,20 @@ return bankAccountFieldOptions.find((o) => o.key === key)?.label ?? key;
         description: template?.description ?? '',
         is_default: template?.is_default ?? false,
         tasks_json: JSON.stringify(buildTasksFromBuilder(toBuilderState(template?.tasks)), null, 2),
+        rank_ids: template?.ranks?.map((r) => r.id) ?? [],
     });
+
+    const toggleRank = (rankId: number, checked: boolean) => {
+        const current = form.data.rank_ids;
+
+        if (checked) {
+            form.setData('rank_ids', [...current, rankId]);
+
+            return;
+        }
+
+        form.setData('rank_ids', current.filter((id) => id !== rankId));
+    };
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -345,6 +369,37 @@ return;
                         <Label htmlFor="description">Description</Label>
                         <Input id="description" value={form.data.description} onChange={(e) => form.setData('description', e.target.value)} placeholder="Describe the purpose of this template" className="h-11 rounded-xl" />
                         {form.errors.description && <div className="text-xs text-destructive">{form.errors.description}</div>}
+                    </div>
+                    <div className="space-y-3">
+                        <div>
+                            <Label>Applicable ranks</Label>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                Leave empty to apply to all ranks. Select one or more to limit this template.
+                            </p>
+                        </div>
+                        {ranks.length === 0 ? (
+                            <p className="text-sm text-muted-foreground">No active ranks configured. Add ranks under Settings → Master Data.</p>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                                {ranks.map((rank) => {
+                                    const checked = form.data.rank_ids.includes(rank.id);
+
+                                    return (
+                                        <label
+                                            key={rank.id}
+                                            className="flex items-center gap-2 rounded-lg border border-border/60 px-3 py-2 cursor-pointer hover:bg-muted/30"
+                                        >
+                                            <Checkbox
+                                                checked={checked}
+                                                onCheckedChange={(v) => toggleRank(rank.id, v === true)}
+                                            />
+                                            <span className="text-sm">{rank.name}</span>
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                        {form.errors.rank_ids && <div className="text-xs text-destructive">{form.errors.rank_ids}</div>}
                     </div>
                 </div>
 

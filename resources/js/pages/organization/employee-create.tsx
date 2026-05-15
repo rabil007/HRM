@@ -38,6 +38,7 @@ type TemplateOption = {
 type Props = {
     template: OnboardingTemplate;
     allTemplates: TemplateOption[];
+    selectedRankId: number | null;
     options: {
         branches: Option[];
         departments: Option[];
@@ -47,11 +48,27 @@ type Props = {
         religions: Option[];
         genders: Option[];
         banks: Option[];
+        ranks: Option[];
         document_types: Array<{ id: number; title: string }>;
     };
 };
 
-export default function EmployeeCreate({ template, allTemplates, options }: Props) {
+export default function EmployeeCreate({ template, allTemplates, selectedRankId, options }: Props) {
+    const buildCreateUrl = (params: { templateId?: number; rankId?: number | null }) => {
+        const search = new URLSearchParams();
+
+        if (params.rankId) {
+            search.set('rank_id', String(params.rankId));
+        }
+
+        if (params.templateId) {
+            search.set('template_id', String(params.templateId));
+        }
+
+        const query = search.toString();
+
+        return `/organization/employees/create${query ? `?${query}` : ''}`;
+    };
     const normalizeFieldKey = (key: string): string => {
         const legacyMap: Record<string, string> = {
             nationality: 'nationality_id',
@@ -61,6 +78,7 @@ export default function EmployeeCreate({ template, allTemplates, options }: Prop
             branch: 'branch_id',
             department: 'department_id',
             position: 'position_id',
+            rank: 'rank_id',
             manager: 'manager_id',
             first_name: 'name',
             last_name: 'name',
@@ -158,6 +176,7 @@ continue;
         branch_id: '',
         department_id: '',
         position_id: '',
+        rank_id: selectedRankId ? String(selectedRankId) : '',
         manager_id: '',
         bank_id: '',
         iban: '',
@@ -389,6 +408,24 @@ missingFields.push(labelFromKey(key));
                         </div>
                         <div>
                             <span className="text-sm font-semibold text-foreground">New Employee</span>
+                            {options.ranks.length > 0 ? (
+                                <select
+                                    value={form.data.rank_id}
+                                    onChange={(e) => {
+                                        const rankId = e.target.value ? Number(e.target.value) : null;
+                                        form.setData('rank_id', e.target.value);
+                                        router.visit(buildCreateUrl({ rankId }), { replace: true });
+                                    }}
+                                    className="ml-2 h-7 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground"
+                                >
+                                    <option value="">Select rank</option>
+                                    {options.ranks.map((r) => (
+                                        <option key={r.id} value={String(r.id)}>
+                                            {r.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            ) : null}
                             {allTemplates.length > 1 ? (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -406,7 +443,15 @@ missingFields.push(labelFromKey(key));
                                         {allTemplates.map((t) => (
                                             <DropdownMenuItem
                                                 key={t.id}
-                                                onClick={() => router.visit(`/organization/employees/create?template_id=${t.id}`, { replace: true })}
+                                                onClick={() =>
+                                                    router.visit(
+                                                        buildCreateUrl({
+                                                            templateId: t.id,
+                                                            rankId: form.data.rank_id ? Number(form.data.rank_id) : null,
+                                                        }),
+                                                        { replace: true },
+                                                    )
+                                                }
                                                 className="flex items-center gap-2 py-2"
                                             >
                                                 <span className="flex-1 text-sm">{t.name}</span>

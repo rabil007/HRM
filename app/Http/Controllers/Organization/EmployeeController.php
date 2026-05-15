@@ -23,6 +23,7 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\Gender;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
+use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\User;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
@@ -192,10 +193,15 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $allTemplates = OnboardingTemplate::query()
+        $rankId = (int) request()->query('rank_id', 0);
+
+        $allTemplatesQuery = OnboardingTemplate::query()
             ->where('company_id', $companyId)
+            ->with(['ranks:id,name'])
             ->orderByDesc('is_default')
-            ->orderBy('name')
+            ->orderBy('name');
+
+        $allTemplates = $allTemplatesQuery
             ->get(['id', 'name', 'description', 'is_default']);
 
         if ($allTemplates->isEmpty()) {
@@ -212,11 +218,43 @@ class EmployeeController extends Controller
                 ->with('error', $message);
         }
 
+        $applicableTemplates = $rankId > 0
+            ? $allTemplates->filter(fn (OnboardingTemplate $t) => $t->appliesToRank($rankId))->values()
+            : $allTemplates;
+
+        if ($applicableTemplates->isEmpty()) {
+            $message = 'No onboarding template is configured for the selected rank.';
+
+            if (request()->user()?->can('onboarding.templates.create')) {
+                return redirect()
+                    ->route('onboarding.templates.create')
+                    ->with('error', $message);
+            }
+
+            return redirect()
+                ->route('organization.employees')
+                ->with('error', $message);
+        }
+
+        $candidates = $applicableTemplates;
+
+        if ($rankId > 0) {
+            $rankSpecific = $applicableTemplates->filter(fn (OnboardingTemplate $t) => $t->ranks->isNotEmpty());
+
+            $candidates = $rankSpecific->isNotEmpty()
+                ? $rankSpecific
+                : $applicableTemplates->filter(fn (OnboardingTemplate $t) => $t->ranks->isEmpty());
+        }
+
+        if ($candidates->isEmpty()) {
+            $candidates = $applicableTemplates;
+        }
+
         $requestedId = (int) request()->query('template_id', 0);
 
-        $templateId = $requestedId && $allTemplates->contains('id', $requestedId)
+        $templateId = $requestedId && $candidates->contains('id', $requestedId)
             ? $requestedId
-            : ($allTemplates->firstWhere('is_default', true)?->id ?? $allTemplates->first()?->id);
+            : ($candidates->firstWhere('is_default', true)?->id ?? $candidates->first()?->id);
 
         $template = OnboardingTemplate::query()->find($templateId);
 
@@ -265,6 +303,11 @@ class EmployeeController extends Controller
             ->orderBy('title')
             ->get(['id', 'title']);
 
+        $ranks = Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('organization/employee-create', [
             'template' => [
                 'id' => $template->id,
@@ -272,7 +315,8 @@ class EmployeeController extends Controller
                 'description' => $template->description,
                 'tasks' => $template->tasks,
             ],
-            'allTemplates' => $allTemplates->map(fn ($t) => [
+            'selectedRankId' => $rankId > 0 ? $rankId : null,
+            'allTemplates' => $candidates->map(fn (OnboardingTemplate $t) => [
                 'id' => $t->id,
                 'name' => $t->name,
                 'description' => $t->description,
@@ -287,6 +331,7 @@ class EmployeeController extends Controller
                 'religions' => $religions,
                 'genders' => $genders,
                 'banks' => $banks,
+                'ranks' => $ranks,
                 'document_types' => $documentTypes,
             ],
         ]);
@@ -678,6 +723,7 @@ class EmployeeController extends Controller
             'branch_id',
             'department_id',
             'position_id',
+            'rank_id',
             'manager_id',
             'date_of_birth',
             'nationality_id',

@@ -2,9 +2,9 @@ import { Head, router } from '@inertiajs/react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { TemplateForm  } from '../template-form';
-import type {DocumentTypeModel} from '../template-form';
+import type { DocumentTypeModel, RankOption } from '../template-form';
 
-export default function CreateTemplate({ documentTypes }: { documentTypes: DocumentTypeModel[] }) {
+export default function CreateTemplate({ documentTypes, ranks }: { documentTypes: DocumentTypeModel[]; ranks: RankOption[] }) {
     return (
         <Main>
             <Head title="Create Onboarding Template" />
@@ -15,7 +15,7 @@ export default function CreateTemplate({ documentTypes }: { documentTypes: Docum
                 className="mb-8"
             />
 
-            <TemplateForm documentTypes={documentTypes} onCancel={() => router.visit('/onboarding/templates')} />
+            <TemplateForm documentTypes={documentTypes} ranks={ranks} onCancel={() => router.visit('/onboarding/templates')} />
         </Main>
     );
 }

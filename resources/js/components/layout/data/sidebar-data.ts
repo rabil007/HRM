@@ -25,6 +25,7 @@ import {
     PiggyBank,
     Globe2,
     Sailboat,
+    Award,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
@@ -99,6 +100,11 @@ const baseSidebarData: SidebarData = {
                             title: 'Vessels',
                             url: '/settings/master-data/vessels',
                             icon: Sailboat,
+                        },
+                        {
+                            title: 'Ranks',
+                            url: '/settings/master-data/ranks',
+                            icon: Award,
                         },
                         {
                             title: 'Document types',
@@ -221,6 +227,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/vessels') {
                                 return has(permissions, 'settings.master-data.vessels.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/ranks') {
+                                return has(permissions, 'settings.master-data.ranks.view');
                             }
 
                             if (sub.url === '/settings/master-data/document-types') {
