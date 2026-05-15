@@ -115,8 +115,10 @@ test('authenticated users can view an employee details page', function () {
             ->has('work_experiences')
             ->has('vaccinations')
             ->has('languages')
+            ->has('sea_services')
             ->has('documents')
             ->has('ranks')
+            ->has('vessels')
         );
 });
 

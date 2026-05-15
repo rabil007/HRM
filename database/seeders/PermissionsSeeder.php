@@ -114,6 +114,7 @@ class PermissionsSeeder extends Seeder
             'employees.work_experience.manage',
             'employees.vaccination.manage',
             'employees.languages.manage',
+            'employees.sea_service.manage',
 
             'audit.view',
 

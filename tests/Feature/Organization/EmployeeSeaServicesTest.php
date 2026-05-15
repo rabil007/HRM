@@ -1,0 +1,282 @@
+<?php
+
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\Employee;
+use App\Models\EmployeeContract;
+use App\Models\EmployeeSeaService;
+use App\Models\Rank;
+use App\Models\User;
+use App\Models\Vessel;
+use Inertia\Testing\AssertableInertia as Assert;
+
+test('guests cannot manage sea services', function () {
+    $employee = Employee::factory()->create();
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_id' => 1,
+        'rank_id' => 1,
+        'total_months' => 1,
+        'total_days' => 0,
+    ])->assertRedirect(route('login'));
+});
+
+test('users without permission cannot manage sea services', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TS2',
+        'name' => 'Testland Sea',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TS2',
+        'name' => 'Test Currency Sea',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea',
+        'slug' => 'acme-sea',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0002',
+            'name' => 'Jane Doe',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_id' => 1,
+        'rank_id' => 1,
+        'total_months' => 1,
+        'total_days' => 0,
+    ])->assertForbidden();
+});
+
+test('employee show page includes sea services', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TS3',
+        'name' => 'Testland Sea Show',
+        'dial_code' => '+997',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TS3',
+        'name' => 'Test Currency Sea Show',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea Show',
+        'slug' => 'acme-sea-show',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0003',
+            'name' => 'Alex Row',
+            'nationality_id' => $country->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'BES SINCERE',
+        'is_active' => true,
+    ]);
+
+    $rank = Rank::query()->create([
+        'name' => 'Chief Officer',
+        'is_active' => true,
+    ]);
+
+    EmployeeSeaService::factory()
+        ->forEmployee($employee)
+        ->create([
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'total_months' => 5,
+            'total_days' => 22,
+            'client' => 'Berltiz',
+            'is_offshore' => false,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->has('sea_services', 1)
+            ->where('sea_services.0.vessel_name', 'BES SINCERE'));
+});
+
+test('users with permission can add update delete and reorder sea services', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TS4',
+        'name' => 'Testland Sea CRUD',
+        'dial_code' => '+996',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TS4',
+        'name' => 'Test Currency Sea CRUD',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea CRUD',
+        'slug' => 'acme-sea-crud',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0004',
+            'name' => 'Sam Sailor',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+
+    $vesselA = Vessel::query()->create([
+        'name' => 'Vessel A',
+        'is_active' => true,
+    ]);
+
+    $vesselB = Vessel::query()->create([
+        'name' => 'Vessel B',
+        'is_active' => true,
+    ]);
+
+    $vesselAPlus = Vessel::query()->create([
+        'name' => 'Vessel A+',
+        'is_active' => true,
+    ]);
+
+    $rankCaptain = Rank::query()->create([
+        'name' => 'Captain',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_id' => $vesselA->id,
+        'rank_id' => $rankCaptain->id,
+        'total_months' => 2,
+        'total_days' => 10,
+        'grt' => '1500.5',
+        'bhp' => 5000,
+        'client' => 'Client X',
+        'is_offshore' => true,
+    ])->assertRedirect();
+
+    $row = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
+
+    expect($row)->not->toBeNull();
+    expect($row->is_offshore)->toBeTrue();
+
+    $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'vessel_id' => $vesselB->id,
+        'rank_id' => $rankCaptain->id,
+        'sort_order' => 5,
+    ]);
+
+    $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
+        'vessel_id' => $vesselAPlus->id,
+        'rank_id' => $rankCaptain->id,
+        'total_months' => 3,
+        'total_days' => 1,
+        'is_offshore' => false,
+    ])->assertRedirect();
+
+    expect($row->fresh()->vessel_id)->toBe($vesselAPlus->id)
+        ->and((string) $row->fresh()->total_months)->toBe('3')
+        ->and($row->fresh()->is_offshore)->toBeFalse();
+
+    $ordered = [$second->id, $row->fresh()->id];
+
+    $this->post(route('organization.employees.sea-services.reorder', $employee), [
+        'order' => $ordered,
+    ])->assertRedirect();
+
+    expect(EmployeeSeaService::query()->find($second->id)->sort_order)->toBe(0)
+        ->and(EmployeeSeaService::query()->find($row->fresh()->id)->sort_order)->toBe(1);
+
+    $this->delete(route('organization.employees.sea-services.destroy', [$employee, $row->fresh()]))
+        ->assertRedirect();
+
+    $this->assertDatabaseMissing('employee_sea_services', ['id' => $row->id]);
+
+    $this->delete(route('organization.employees.sea-services.destroy', [$employee, $second]))->assertRedirect();
+});

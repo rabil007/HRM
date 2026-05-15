@@ -12,6 +12,7 @@ use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentsIndexController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeLanguageController;
+use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
@@ -112,6 +113,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/languages', [EmployeeLanguageController::class, 'store'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.store');
     Route::put('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'update'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.update');
     Route::delete('organization/employees/{employee}/languages/{language}', [EmployeeLanguageController::class, 'destroy'])->middleware('can:employees.languages.manage')->name('organization.employees.languages.destroy');
+
+    Route::post('organization/employees/{employee}/sea-services/reorder', [EmployeeSeaServiceController::class, 'reorder'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.reorder');
+    Route::post('organization/employees/{employee}/sea-services', [EmployeeSeaServiceController::class, 'store'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.store');
+    Route::put('organization/employees/{employee}/sea-services/{seaService}', [EmployeeSeaServiceController::class, 'update'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.update');
+    Route::delete('organization/employees/{employee}/sea-services/{seaService}', [EmployeeSeaServiceController::class, 'destroy'])->middleware('can:employees.sea_service.manage')->name('organization.employees.sea-services.destroy');
 
     Route::get('organization/activity-logs', [ActivityLogController::class, 'index'])
         ->middleware('can:audit.view')

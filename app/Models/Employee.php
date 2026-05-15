@@ -176,4 +176,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeLanguage::class)->orderBy('sort_order')->orderByDesc('id');
     }
+
+    public function seaServices(): HasMany
+    {
+        return $this->hasMany(EmployeeSeaService::class)->orderBy('sort_order')->orderByDesc('id');
+    }
 }

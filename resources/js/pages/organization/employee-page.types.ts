@@ -177,6 +177,26 @@ export type LanguageItem = {
     created_at: string;
 };
 
+export type VesselOption = {
+    id: number;
+    name: string;
+};
+
+export type SeaServiceItem = {
+    id: number;
+    vessel_id: number;
+    vessel_name: string | null;
+    rank_id: number;
+    rank_name: string | null;
+    total_months: number;
+    total_days: number;
+    grt: string | null;
+    bhp: number | null;
+    client: string | null;
+    is_offshore: boolean;
+    created_at: string;
+};
+
 export type EmployeeTab =
     | 'personal'
     | 'contract'
@@ -185,6 +205,7 @@ export type EmployeeTab =
     | 'work_experience'
     | 'vaccination'
     | 'languages'
+    | 'sea_service'
     | 'documents';
 
 export type EmployeePageProps = {
@@ -195,6 +216,7 @@ export type EmployeePageProps = {
     work_experiences: WorkExperienceItem[];
     vaccinations: VaccinationItem[];
     languages: LanguageItem[];
+    sea_services: SeaServiceItem[];
     document_types: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
@@ -203,6 +225,7 @@ export type EmployeePageProps = {
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;
+        sea_service_manage: boolean;
     };
     branches: BranchOption[];
     departments: DepartmentOption[];
@@ -214,5 +237,6 @@ export type EmployeePageProps = {
     genders: GenderOption[];
     banks: BankOption[];
     ranks: RankOption[];
+    vessels: VesselOption[];
     recent_activity: ActivityItem[];
 };

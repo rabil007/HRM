@@ -20,9 +20,13 @@ import { EmployeeEducationTab } from '@/pages/organization/_components/employee-
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
+import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
 import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
 import { EmployeeWorkExperienceTab } from '@/pages/organization/_components/employee-work-experience-tab';
-import { useEmployeeProfileForm  } from '@/pages/organization/_hooks/use-employee-profile-form';
+import {
+    useEmployeeProfileForm
+    
+} from '@/pages/organization/_hooks/use-employee-profile-form';
 import type {UseEmployeeProfileFormResult} from '@/pages/organization/_hooks/use-employee-profile-form';
 import type {
     EmployeePageProps,
@@ -35,6 +39,7 @@ const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#work-experience': 'work_experience',
     '#vaccination': 'vaccination',
     '#languages': 'languages',
+    '#sea-service': 'sea_service',
 };
 
 const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
@@ -57,6 +62,7 @@ export default function EmployeeDetails({
     work_experiences,
     vaccinations,
     languages,
+    sea_services,
     document_types,
     can,
     branches,
@@ -69,6 +75,7 @@ export default function EmployeeDetails({
     genders,
     banks,
     ranks,
+    vessels,
     recent_activity,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
@@ -138,6 +145,11 @@ export default function EmployeeDetails({
                     count: languages.length || null,
                 },
                 {
+                    id: 'sea_service' as const,
+                    label: 'Sea Service',
+                    count: sea_services.length || null,
+                },
+                {
                     id: 'documents' as const,
                     label: 'Documents',
                     count: documents.length || null,
@@ -153,6 +165,7 @@ export default function EmployeeDetails({
             form.data.bank_id,
             form.data.iban,
             languages.length,
+            sea_services.length,
             vaccinations.length,
             work_experiences.length,
         ],
@@ -359,6 +372,14 @@ export default function EmployeeDetails({
                                     employeeId={employee.id}
                                     languages={languages}
                                     canManage={can.languages_manage}
+                                />
+                                <EmployeeSeaServiceTab
+                                    employeeId={employee.id}
+                                    sea_services={sea_services}
+                                    vessels={vessels}
+                                    ranks={ranks}
+                                    employeeRankId={employee.rank_id ?? null}
+                                    canManage={can.sea_service_manage}
                                 />
 
                                 <EmployeeDocumentsTab

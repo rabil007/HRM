@@ -19,6 +19,7 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeLanguage;
+use App\Models\EmployeeSeaService;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\Gender;
@@ -27,6 +28,7 @@ use App\Models\Position;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -530,16 +532,71 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $seaServiceModels = EmployeeSeaService::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->with([
+                'vessel:id,name',
+                'rank:id,name',
+            ])
+            ->orderBy('sort_order')
+            ->orderByDesc('id')
+            ->get();
+
+        $referencedVesselIds = $seaServiceModels->pluck('vessel_id')->unique()->filter()->values()->all();
+
+        $vessels = Vessel::query()
+            ->where(function ($query) use ($referencedVesselIds): void {
+                $query->where('is_active', true);
+
+                if ($referencedVesselIds !== []) {
+                    $query->orWhereIn('id', $referencedVesselIds);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Vessel $vessel) => [
+                'id' => $vessel->id,
+                'name' => $vessel->name,
+            ])
+            ->all();
+
+        $seaServiceRankIds = $seaServiceModels->pluck('rank_id')->unique()->filter()->values()->all();
+
+        $sea_services = $seaServiceModels
+            ->map(fn (EmployeeSeaService $row) => [
+                'id' => $row->id,
+                'vessel_id' => $row->vessel_id,
+                'vessel_name' => $row->vessel?->name,
+                'rank_id' => $row->rank_id,
+                'rank_name' => $row->rank?->name,
+                'total_months' => $row->total_months,
+                'total_days' => $row->total_days,
+                'grt' => $row->grt !== null ? (string) $row->grt : null,
+                'bhp' => $row->bhp,
+                'client' => $row->client,
+                'is_offshore' => $row->is_offshore,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
             ->get(['id', 'title']);
 
         $ranks = Rank::query()
-            ->where(function ($q) use ($employee): void {
-                $q->where('is_active', true);
-                if ($employee->rank_id) {
-                    $q->orWhere('id', $employee->rank_id);
+            ->where(function ($query) use ($employee, $seaServiceRankIds): void {
+                $query->where('is_active', true);
+
+                $ensureIds = collect([$employee->rank_id, ...$seaServiceRankIds])
+                    ->filter()
+                    ->unique()
+                    ->values()
+                    ->all();
+
+                if ($ensureIds !== []) {
+                    $query->orWhereIn('id', $ensureIds);
                 }
             })
             ->orderBy('name')
@@ -670,6 +727,7 @@ class EmployeeController extends Controller
             'work_experiences' => $workExperiences,
             'vaccinations' => $vaccinations,
             'languages' => $languages,
+            'sea_services' => $sea_services,
             'document_types' => $documentTypes,
             'can' => [
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
@@ -678,6 +736,7 @@ class EmployeeController extends Controller
                 'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
                 'vaccination_manage' => request()->user()?->can('employees.vaccination.manage'),
                 'languages_manage' => request()->user()?->can('employees.languages.manage'),
+                'sea_service_manage' => request()->user()?->can('employees.sea_service.manage'),
             ],
             'branches' => $branches,
             'departments' => $departments,
@@ -689,6 +748,7 @@ class EmployeeController extends Controller
             'genders' => $genders,
             'banks' => $banks,
             'ranks' => $ranks,
+            'vessels' => $vessels,
             'recent_activity' => $recentActivity,
         ]);
     }
