@@ -12,6 +12,7 @@ use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentsIndexController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
+use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\UserController;
