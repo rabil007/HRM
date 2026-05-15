@@ -403,6 +403,7 @@ class EmployeeController extends Controller
             'religionRef:id,name',
             'genderRef:id,name',
             'nationalityRef:id,name,code',
+            'bankAccounts.bank:id,name',
             'primaryBankAccount.bank:id,name',
             'currentContract',
         ]);
@@ -530,6 +531,24 @@ class EmployeeController extends Controller
                 'is_written' => $row->is_written,
                 'is_understood' => $row->is_understood,
                 'is_mother_tongue' => $row->is_mother_tongue,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+
+        $bankAccounts = EmployeeBankAccount::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->with(['bank:id,name'])
+            ->orderByDesc('is_primary')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (EmployeeBankAccount $row) => [
+                'id' => $row->id,
+                'bank_id' => $row->bank_id,
+                'bank_name' => $row->bank?->name,
+                'iban' => $row->iban,
+                'account_name' => $row->account_name,
+                'is_primary' => $row->is_primary,
                 'created_at' => $row->created_at?->toDateTimeString(),
             ])
             ->all();
@@ -769,6 +788,7 @@ class EmployeeController extends Controller
             'work_experiences' => $workExperiences,
             'vaccinations' => $vaccinations,
             'languages' => $languages,
+            'bank_accounts' => $bankAccounts,
             'sea_services' => $sea_services,
             'document_types' => $documentTypes,
             'can' => [
@@ -778,6 +798,7 @@ class EmployeeController extends Controller
                 'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
                 'vaccination_manage' => request()->user()?->can('employees.vaccination.manage'),
                 'languages_manage' => request()->user()?->can('employees.languages.manage'),
+                'bank_accounts_manage' => request()->user()?->can('employees.bank_accounts.manage'),
                 'sea_service_manage' => request()->user()?->can('employees.sea_service.manage'),
             ],
             'branches' => $branches,
@@ -984,15 +1005,6 @@ class EmployeeController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
 
-        $primaryBankId = $data['bank_id'] ?? null;
-        $primaryIban = $data['iban'] ?? null;
-        $primaryAccountName = $data['account_name'] ?? null;
-        unset($data['bank_id'], $data['iban'], $data['account_name']);
-
-        if ($primaryAccountName === '') {
-            $primaryAccountName = null;
-        }
-
         if ($request->hasFile('image')) {
             if ($employee->image) {
                 Storage::disk('public')->delete($employee->image);
@@ -1037,10 +1049,6 @@ class EmployeeController extends Controller
             $data['gender_id'] = null;
         }
 
-        if (($data['bank_id'] ?? null) === '') {
-            $data['bank_id'] = null;
-        }
-
         foreach ([
             'user_id',
             'branch_id',
@@ -1057,8 +1065,6 @@ class EmployeeController extends Controller
             'emergency_contact',
             'emergency_phone',
             'address',
-            'iban',
-            'bank_id',
             'emirates_id',
             'passport_number',
             'labor_card_number',
@@ -1073,34 +1079,6 @@ class EmployeeController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         $employee->update($data);
-
-        $employee->loadMissing('primaryBankAccount');
-        $existingPrimary = $employee->primaryBankAccount;
-        $hasBankData = (bool) ($primaryBankId || $primaryIban || $primaryAccountName);
-
-        if ($hasBankData) {
-            EmployeeBankAccount::query()
-                ->where('company_id', $companyId)
-                ->where('employee_id', $employee->id)
-                ->where('is_primary', true)
-                ->update(['is_primary' => false]);
-
-            EmployeeBankAccount::query()->updateOrCreate(
-                [
-                    'company_id' => $companyId,
-                    'employee_id' => $employee->id,
-                    'id' => $existingPrimary?->id,
-                ],
-                [
-                    'bank_id' => $primaryBankId ?: null,
-                    'iban' => $primaryIban ?: null,
-                    'account_name' => $primaryAccountName ?: null,
-                    'is_primary' => true,
-                ]
-            );
-        } elseif ($existingPrimary) {
-            $existingPrimary->delete();
-        }
 
         $existingContract = $employee->currentContract;
         if ($existingContract) {

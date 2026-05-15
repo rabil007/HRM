@@ -62,6 +62,7 @@ export default function EmployeeDetails({
     work_experiences,
     vaccinations,
     languages,
+    bank_accounts,
     sea_services,
     document_types,
     can,
@@ -380,12 +381,10 @@ export default function EmployeeDetails({
                                 ) : null}
                                 {employee_tabs.bank ? (
                                     <EmployeeBankTab
-                                        employee={employee}
+                                        employeeId={employee.id}
+                                        bank_accounts={bank_accounts}
                                         banks={banks}
-                                        form={form}
-                                        activeField={activeField}
-                                        setActiveField={setActiveField}
-                                        beginEdit={beginEdit}
+                                        canManage={can.bank_accounts_manage}
                                     />
                                 ) : null}
                                 <EmployeeEducationTab

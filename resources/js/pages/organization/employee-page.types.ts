@@ -177,6 +177,16 @@ export type LanguageItem = {
     created_at: string;
 };
 
+export type EmployeeBankAccountItem = {
+    id: number;
+    bank_id: number | null;
+    bank_name: string | null;
+    iban: string | null;
+    account_name: string | null;
+    is_primary: boolean;
+    created_at: string;
+};
+
 export type ClientOption = {
     id: number;
     name: string;
@@ -226,6 +236,7 @@ export type EmployeePageProps = {
     work_experiences: WorkExperienceItem[];
     vaccinations: VaccinationItem[];
     languages: LanguageItem[];
+    bank_accounts: EmployeeBankAccountItem[];
     sea_services: SeaServiceItem[];
     document_types: DocumentTypeOption[];
     can: {
@@ -235,6 +246,7 @@ export type EmployeePageProps = {
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;
+        bank_accounts_manage: boolean;
         sea_service_manage: boolean;
     };
     branches: BranchOption[];

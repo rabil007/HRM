@@ -169,18 +169,9 @@ export function useEmployeeProfileForm(
         ],
     );
 
-    const initialBank = useMemo(
-        () => ({
-            bank_id: employee.bank_id ? String(employee.bank_id) : '',
-            account_name: employee.account_name ?? '',
-            iban: employee.iban ?? '',
-        }),
-        [employee.account_name, employee.bank_id, employee.iban],
-    );
-
     const initialAll = useMemo(
-        () => ({ ...initialPersonal, ...initialContract, ...initialBank }),
-        [initialBank, initialContract, initialPersonal],
+        () => ({ ...initialPersonal, ...initialContract }),
+        [initialContract, initialPersonal],
     );
 
     const form = useForm(initialAll);
@@ -321,9 +312,6 @@ export function useEmployeeProfileForm(
                     data.other_allowances === ''
                         ? null
                         : Number(data.other_allowances),
-                bank_id: data.bank_id ? Number(data.bank_id) : null,
-                iban: data.iban?.trim() || null,
-                account_name: data.account_name?.trim() || null,
             }));
 
             form.put(updateEmployee.url({ employee: employee.id }), {
