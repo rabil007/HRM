@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
+import { Download, Upload } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import Heading from '@/components/heading';
 import {
     AlertDialog,
@@ -20,7 +21,6 @@ import { Switch } from '@/components/ui/switch';
 type DocumentType = {
     id: number;
     title: string;
-    slug: string;
     is_active: boolean;
 };
 
@@ -29,6 +29,8 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [current, setCurrent] = useState<DocumentType | null>(null);
+    const [importMessage, setImportMessage] = useState<string | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm({
         title: '',
@@ -42,7 +44,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
             return document_types;
         }
 
-        return document_types.filter((d) => d.title.toLowerCase().includes(q) || d.slug.toLowerCase().includes(q));
+        return document_types.filter((d) => d.title.toLowerCase().includes(q));
     }, [document_types, query]);
 
     const openCreate = () => {
@@ -128,29 +130,61 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search by title or slug..." />
+                        <Input
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search by title…"
+                        />
                     </div>
-                    <Button onClick={openCreate}>Add document type</Button>
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                        <Button variant="outline" type="button" asChild>
+                            <a href="/settings/master-data/document-types/import/template">Download CSV template</a>
+                        </Button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".csv,text/csv,text/plain"
+                            className="sr-only"
+                            onChange={(event) => {
+                                const next = event.target.files?.[0];
+
+                                if (next) {
+                                    setImportMessage(null);
+                                    router.post('/settings/master-data/document-types/import', { file: next }, {
+                                        preserveScroll: true,
+                                        forceFormData: true,
+                                        onError: (errs) => setImportMessage((errs as { file?: string }).file ?? 'Import failed.'),
+                                        onSuccess: () => setImportMessage(null),
+                                    });
+                                }
+
+                                event.target.value = '';
+                            }}
+                        />
+                        <Button variant="outline" type="button" onClick={() => fileInputRef.current?.click()}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Import CSV
+                        </Button>
+                        <Button onClick={openCreate}>Add document type</Button>
+                    </div>
                 </div>
 
                 <div className="rounded-xl border border-border/60 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <div className="min-w-[820px]">
+                        <div className="min-w-[640px]">
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
-                                <div className="col-span-5">Title</div>
-                                <div className="col-span-4">Slug</div>
+                                <div className="col-span-8">Title</div>
                                 <div className="col-span-1">Active</div>
-                                <div className="col-span-2 text-right">Actions</div>
+                                <div className="col-span-3 text-right">Actions</div>
                             </div>
 
                             {rows.map((d) => (
                                 <div key={d.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
-                                    <div className="col-span-5 text-sm font-medium truncate">{d.title}</div>
-                                    <div className="col-span-4 text-sm font-mono text-muted-foreground truncate">{d.slug}</div>
+                                    <div className="col-span-8 text-sm font-medium truncate">{d.title}</div>
                                     <div className="col-span-1 flex items-center">
                                         <Switch checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
                                     </div>
-                                    <div className="col-span-2 flex justify-end gap-2 flex-nowrap">
+                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
                                         <Button variant="outline" size="sm" onClick={() => openEdit(d)}>
                                             Edit
                                         </Button>
@@ -167,6 +201,19 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                         </div>
                     </div>
                 </div>
+
+                <p className="text-xs text-muted-foreground">
+                    <span className="inline-flex items-start gap-2">
+                        <Download className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground/80" />
+                        <span>
+                            CSV columns: <span className="font-medium text-foreground/90">title</span> (required); optional{' '}
+                            <span className="font-medium text-foreground/90">is_active</span> — yes, true, 1, or active.
+                            {importMessage ? (
+                                <span className="mt-1 block text-destructive">{importMessage}</span>
+                            ) : null}
+                        </span>
+                    </span>
+                </p>
             </div>
 
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
@@ -241,4 +288,3 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
         </>
     );
 }
-

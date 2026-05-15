@@ -29,7 +29,7 @@ class OnboardingTemplateController extends Controller
 
     public function create()
     {
-        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title', 'slug']);
+        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title']);
 
         return Inertia::render('onboarding/templates/create', [
             'documentTypes' => $documentTypes,
@@ -41,7 +41,7 @@ class OnboardingTemplateController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $template->company_id === $companyId, 404);
 
-        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title', 'slug']);
+        $documentTypes = DocumentType::where('is_active', true)->get(['id', 'title']);
 
         return Inertia::render('onboarding/templates/edit', [
             'template' => $template,

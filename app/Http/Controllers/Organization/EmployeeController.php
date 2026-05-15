@@ -261,7 +261,7 @@ class EmployeeController extends Controller
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title', 'slug']);
+            ->get(['id', 'title']);
 
         return Inertia::render('organization/employee-create', [
             'template' => [
@@ -373,7 +373,7 @@ class EmployeeController extends Controller
         $documents = EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['documentType:id,title,slug', 'uploader:id,name', 'versions.replacer:id,name'])
+            ->with(['documentType:id,title', 'uploader:id,name', 'versions.replacer:id,name'])
             ->latest('id')
             ->get()
             ->map(fn (EmployeeDocument $doc) => [
@@ -430,7 +430,7 @@ class EmployeeController extends Controller
         $documentTypes = DocumentType::query()
             ->where('is_active', true)
             ->orderBy('title')
-            ->get(['id', 'title', 'slug']);
+            ->get(['id', 'title']);
 
         $recentActivity = [];
         $request = request();
@@ -687,13 +687,10 @@ class EmployeeController extends Controller
 
         if (is_array($documents) && count($documents) > 0) {
             $documentStore = app(StoresEmployeeDocument::class);
-            $docTypes = DocumentType::query()
+            $docTypesById = DocumentType::query()
                 ->where('is_active', true)
-                ->get(['id', 'title', 'slug'])
-                ->flatMap(fn (DocumentType $dt) => [
-                    (string) $dt->slug => $dt,
-                    (string) $dt->id => $dt,
-                ]);
+                ->get(['id', 'title'])
+                ->keyBy(fn (DocumentType $dt) => (string) $dt->id);
 
             foreach ($documents as $doc) {
                 if (! is_array($doc)) {
@@ -707,14 +704,23 @@ class EmployeeController extends Controller
                     continue;
                 }
 
-                $documentType = $docTypes->get($documentTypeKey);
+                $documentType = $docTypesById->get($documentTypeKey);
+
+                if (! $documentType && ctype_digit($documentTypeKey)) {
+                    $found = DocumentType::query()->find((int) $documentTypeKey);
+                    if ($found instanceof DocumentType) {
+                        $documentType = $found;
+                        $docTypesById->put($documentTypeKey, $documentType);
+                    }
+                }
 
                 if (! $documentType) {
+                    $derivedTitle = Str::headline(str_replace(['_', '-'], ' ', $documentTypeKey));
                     $documentType = DocumentType::query()->firstOrCreate(
-                        ['slug' => $documentTypeKey],
-                        ['title' => Str::headline($documentTypeKey), 'is_active' => true],
+                        ['title' => $derivedTitle],
+                        ['is_active' => true],
                     );
-                    $docTypes->put($documentTypeKey, $documentType);
+                    $docTypesById->put((string) $documentType->id, $documentType);
                 }
 
                 foreach ($files as $file) {

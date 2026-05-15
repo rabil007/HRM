@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\OnboardingTemplate;
@@ -177,6 +178,11 @@ test('authenticated users can create, update, toggle status, and delete an emplo
 
     grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.delete', 'employees.view']);
 
+    $passportDocType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Passport Copy'],
+        ['is_active' => true],
+    );
+
     $this->post('/organization/employees', [
         'onboarding_template_id' => $template->id,
         'employee_no' => 'EMP0002',
@@ -216,7 +222,8 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     $this->assertDatabaseHas('employee_documents', [
         'company_id' => $company->id,
         'employee_id' => $employeeId,
-        'document_type' => 'passport_copy',
+        'document_type_id' => $passportDocType->id,
+        'document_type' => (string) $passportDocType->id,
         'issue_date' => '2026-01-01',
         'expiry_date' => '2031-01-01',
         'document_number' => 'P1234567',

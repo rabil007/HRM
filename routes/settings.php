@@ -107,6 +107,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:settings.master-data.banks.delete')
             ->name('banks.destroy');
 
+        Route::get('document-types/import/template', [DocumentTypeController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.document-types.view')
+            ->name('document-types.import.template');
+        Route::post('document-types/import', [DocumentTypeController::class, 'import'])
+            ->middleware('can:settings.master-data.document-types.create')
+            ->name('document-types.import');
         Route::get('document-types', [DocumentTypeController::class, 'index'])
             ->middleware('can:settings.master-data.document-types.view')
             ->name('document-types.index');

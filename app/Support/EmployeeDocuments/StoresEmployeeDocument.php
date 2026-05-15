@@ -14,14 +14,14 @@ class StoresEmployeeDocument
 {
     public function create(Employee $employee, DocumentType $documentType, UploadedFile $file, array $data, int $companyId, ?int $userId): EmployeeDocument
     {
-        $path = $this->storeFile($file, $companyId, $employee->id, $documentType->slug);
+        $path = $this->storeFile($file, $companyId, $employee->id, $this->storageFolderSegment($documentType));
 
         return EmployeeDocument::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'document_type_id' => $documentType->id,
             'type' => 'other',
-            'document_type' => $documentType->slug,
+            'document_type' => (string) $documentType->id,
             'title' => $data['title'] ?? $documentType->title,
             'file_path' => $path,
             'original_filename' => $file->getClientOriginalName(),
@@ -54,7 +54,13 @@ class StoresEmployeeDocument
                 'replaced_by' => $userId,
             ]);
 
-            $path = $this->storeFile($file, $companyId, $employeeId, $document->document_type ?? 'document');
+            $document->loadMissing('documentType');
+
+            $segment = $document->documentType instanceof DocumentType
+                ? $this->storageFolderSegment($document->documentType)
+                : Str::slug((string) ($document->document_type ?? 'document'));
+
+            $path = $this->storeFile($file, $companyId, $employeeId, $segment);
 
             $document->update([
                 'file_path' => $path,
@@ -70,10 +76,15 @@ class StoresEmployeeDocument
         });
     }
 
-    private function storeFile(UploadedFile $file, int $companyId, int $employeeId, string $documentType): string
+    private function storageFolderSegment(DocumentType $documentType): string
+    {
+        return 'type-'.$documentType->id.'-'.Str::slug(Str::limit($documentType->title, 40, ''));
+    }
+
+    private function storeFile(UploadedFile $file, int $companyId, int $employeeId, string $folderSegment): string
     {
         return $file->storePublicly(
-            "employee-documents/{$companyId}/{$employeeId}/".Str::slug($documentType),
+            "employee-documents/{$companyId}/{$employeeId}/".Str::slug($folderSegment),
             ['disk' => 'public'],
         );
     }

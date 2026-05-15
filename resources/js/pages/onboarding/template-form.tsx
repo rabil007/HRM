@@ -108,7 +108,6 @@ export const contractFieldOptions = [
 export type DocumentTypeModel = {
     id: number;
     title: string;
-    slug: string;
 };
 
 export function toBuilderState(tasks: unknown): BuilderState {

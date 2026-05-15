@@ -21,7 +21,7 @@ class EmployeeDocumentController extends Controller
         abort_unless($employee->company_id === $companyId, 403);
 
         $validated = $request->validate([
-            'document_type' => ['required', 'string', Rule::exists('document_types', 'slug')->where('is_active', true)],
+            'document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('is_active', true)],
             'title' => ['nullable', 'string', 'max:200'],
             'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:20480'],
             'issue_date' => ['nullable', 'date'],
@@ -31,7 +31,7 @@ class EmployeeDocumentController extends Controller
         ]);
 
         $documentType = DocumentType::query()
-            ->where('slug', $validated['document_type'])
+            ->whereKey($validated['document_type_id'])
             ->where('is_active', true)
             ->firstOrFail();
 
@@ -48,7 +48,7 @@ class EmployeeDocumentController extends Controller
 
         $validated = $request->validate([
             'documents' => ['required', 'array', 'min:1', 'max:20'],
-            'documents.*.document_type' => ['required', 'string', Rule::exists('document_types', 'slug')->where('is_active', true)],
+            'documents.*.document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('is_active', true)],
             'documents.*.title' => ['nullable', 'string', 'max:200'],
             'documents.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:20480'],
             'documents.*.issue_date' => ['nullable', 'date'],
@@ -57,14 +57,15 @@ class EmployeeDocumentController extends Controller
             'documents.*.notes' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $ids = collect($validated['documents'])->pluck('document_type_id')->unique()->all();
         $types = DocumentType::query()
-            ->whereIn('slug', collect($validated['documents'])->pluck('document_type')->unique())
+            ->whereIn('id', $ids)
             ->where('is_active', true)
             ->get()
-            ->keyBy('slug');
+            ->keyBy('id');
 
         foreach ($validated['documents'] as $index => $documentData) {
-            $documentType = $types->get($documentData['document_type']);
+            $documentType = $types->get($documentData['document_type_id']);
 
             abort_unless($documentType instanceof DocumentType, 422);
 

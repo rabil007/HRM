@@ -47,7 +47,6 @@ class EmployeeDocumentsIndexController extends Controller
                 'employee_documents.status',
                 'employee_documents.created_at',
                 'document_types.title as document_type_title',
-                'document_types.slug as document_type_slug',
                 'employees.name',
                 'employees.employee_no',
                 'employees.branch_id',
@@ -56,8 +55,11 @@ class EmployeeDocumentsIndexController extends Controller
             ->when($status, fn ($q) => $q->where('employee_documents.status', $status))
             ->when($documentType, function ($q) use ($documentType) {
                 $q->where(function ($inner) use ($documentType) {
-                    $inner->where('document_types.slug', $documentType)
-                        ->orWhere('employee_documents.document_type', $documentType);
+                    if (ctype_digit($documentType)) {
+                        $inner->where('employee_documents.document_type_id', (int) $documentType);
+                    } else {
+                        $inner->where('employee_documents.document_type', $documentType);
+                    }
                 });
             })
             ->when($branchId, fn ($q) => $q->where('employees.branch_id', $branchId))
@@ -87,7 +89,7 @@ class EmployeeDocumentsIndexController extends Controller
             'employee_id' => $doc->employee_id,
             'employee_no' => $doc->employee_no,
             'employee_name' => $doc->name,
-            'document_type' => $doc->document_type_slug ?? $doc->document_type,
+            'document_type' => $doc->document_type_id ? (string) $doc->document_type_id : $doc->document_type,
             'document_type_label' => $doc->document_type_title ?? $doc->document_type,
             'title' => $doc->title,
             'file_url' => str_starts_with((string) $doc->file_path, 'http')
@@ -138,7 +140,7 @@ class EmployeeDocumentsIndexController extends Controller
                 'document_types' => DocumentType::query()
                     ->where('is_active', true)
                     ->orderBy('title')
-                    ->get(['id', 'title', 'slug']),
+                    ->get(['id', 'title']),
                 'branches' => Branch::query()
                     ->where('company_id', $companyId)
                     ->orderBy('name')

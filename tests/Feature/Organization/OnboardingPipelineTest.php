@@ -5,6 +5,7 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
+use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\OnboardingTemplate;
 use App\Models\Position;
@@ -196,9 +197,14 @@ test('onboarding pipeline correctly saves a complex payload with documents', fun
     expect($employee)->not->toBeNull();
     expect($employee->name)->toBe('Pipeline Test');
 
+    $idCardType = DocumentType::query()->where('title', 'Id Card')->first();
+
+    expect($idCardType)->not->toBeNull();
+
     $this->assertDatabaseHas('employee_documents', [
         'employee_id' => $employee->id,
-        'document_type' => 'id_card',
+        'document_type_id' => $idCardType->id,
+        'document_type' => (string) $idCardType->id,
         'document_number' => 'ID-999',
     ]);
 });

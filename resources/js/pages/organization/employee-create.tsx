@@ -47,7 +47,7 @@ type Props = {
         religions: Option[];
         genders: Option[];
         banks: Option[];
-        document_types: Array<{ id: number; title: string; slug: string }>;
+        document_types: Array<{ id: number; title: string }>;
     };
 };
 
@@ -309,7 +309,7 @@ missingFields.push(labelFromKey(key));
             const uploaded = docUploads[d.type]?.files?.length ?? 0;
 
             if (uploaded < Number(d.min ?? 0)) {
-                const dt = options.document_types.find((x) => String(x.id) === String(d.type) || x.slug === d.type);
+                const dt = options.document_types.find((x) => String(x.id) === String(d.type));
                 missingFields.push(`${dt?.title ?? 'Document'} (${uploaded}/${d.min})`);
             }
         }

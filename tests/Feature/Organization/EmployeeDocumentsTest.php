@@ -51,17 +51,17 @@ function makeDocumentFixtures(): array
         'status' => 'active',
     ]);
 
-    DocumentType::query()->firstOrCreate(
-        ['slug' => 'passport_copy'],
-        ['title' => 'Passport Copy', 'is_active' => true],
+    $passportType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Passport Copy'],
+        ['is_active' => true],
     );
 
-    DocumentType::query()->firstOrCreate(
-        ['slug' => 'visa'],
-        ['title' => 'Visa', 'is_active' => true],
+    $visaType = DocumentType::query()->firstOrCreate(
+        ['title' => 'Visa'],
+        ['is_active' => true],
     );
 
-    return compact('company', 'employee');
+    return compact('company', 'employee', 'passportType', 'visaType');
 }
 
 test('users with permission can upload a document', function () {
@@ -70,12 +70,12 @@ test('users with permission can upload a document', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
-        'document_type' => 'passport_copy',
+        'document_type_id' => $passportType->id,
         'title' => 'My Passport',
         'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
         'issue_date' => '2020-01-01',
@@ -87,7 +87,8 @@ test('users with permission can upload a document', function () {
     $this->assertDatabaseHas('employee_documents', [
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'document_type' => 'passport_copy',
+        'document_type_id' => $passportType->id,
+        'document_type' => (string) $passportType->id,
         'original_filename' => 'passport.pdf',
         'mime_type' => 'application/pdf',
         'title' => 'My Passport',
@@ -102,17 +103,17 @@ test('upload rejects inactive or unknown document types and unsupported files', 
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
-        'document_type' => 'unknown',
+        'document_type_id' => 999_999,
         'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
-    ])->assertSessionHasErrors('document_type');
+    ])->assertSessionHasErrors('document_type_id');
 
     $this->post("/organization/employees/{$employee->id}/documents", [
-        'document_type' => 'visa',
+        'document_type_id' => $visaType->id,
         'file' => UploadedFile::fake()->create('notes.txt', 10, 'text/plain'),
     ])->assertSessionHasErrors('file');
 });
@@ -123,19 +124,19 @@ test('users with permission can bulk upload documents', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType, 'visaType' => $visaType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents/bulk", [
         'documents' => [
             [
-                'document_type' => 'passport_copy',
+                'document_type_id' => $passportType->id,
                 'title' => 'Passport',
                 'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
             ],
             [
-                'document_type' => 'visa',
+                'document_type_id' => $visaType->id,
                 'title' => 'Visa',
                 'file' => UploadedFile::fake()->image('visa.jpg'),
                 'expiry_date' => now()->addDays(20)->toDateString(),
@@ -146,7 +147,7 @@ test('users with permission can bulk upload documents', function () {
     expect(EmployeeDocument::query()->where('employee_id', $employee->id)->count())->toBe(2);
     $this->assertDatabaseHas('employee_documents', [
         'employee_id' => $employee->id,
-        'document_type' => 'visa',
+        'document_type_id' => $visaType->id,
         'status' => 'expiring_soon',
     ]);
 });
@@ -155,10 +156,10 @@ test('users without permission cannot upload a document', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     $this->post("/organization/employees/{$employee->id}/documents", [
-        'document_type' => 'passport_copy',
+        'document_type_id' => $passportType->id,
         'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
     ])->assertForbidden();
 });
@@ -169,12 +170,12 @@ test('document status is derived correctly from expiry date', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
-        'document_type' => 'visa',
+        'document_type_id' => $visaType->id,
         'file' => UploadedFile::fake()->create('visa.pdf', 100, 'application/pdf'),
         'expiry_date' => now()->subDay()->toDateString(),
     ])->assertRedirect();
@@ -189,15 +190,16 @@ test('users with permission can edit document metadata', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
         'type' => 'other',
-        'document_type' => 'passport_copy',
+        'document_type' => (string) $passportType->id,
         'file_path' => 'employee-documents/test/file.pdf',
         'status' => 'valid',
     ]);
@@ -222,15 +224,16 @@ test('users with permission can delete a document', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.delete']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
         'type' => 'other',
-        'document_type' => 'passport_copy',
+        'document_type' => (string) $passportType->id,
         'file_path' => 'employee-documents/test/file.pdf',
         'status' => 'valid',
     ]);
@@ -247,15 +250,16 @@ test('users with permission can replace a document file and keep version history
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
         'type' => 'other',
-        'document_type' => 'passport_copy',
+        'document_type' => (string) $passportType->id,
         'file_path' => 'employee-documents/test/old.pdf',
         'original_filename' => 'old.pdf',
         'mime_type' => 'application/pdf',
@@ -281,21 +285,22 @@ test('document overview supports filters and pagination props', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'document_type_id' => $visaType->id,
         'type' => 'other',
-        'document_type' => 'visa',
+        'document_type' => (string) $visaType->id,
         'file_path' => 'employee-documents/test/visa.pdf',
         'expiry_date' => now()->subDay()->toDateString(),
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?status=expired&document_type=visa')
+    $this->get('/organization/documents?status=expired&document_type='.$visaType->id)
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents')
             ->where('active_status', 'expired')
@@ -309,15 +314,16 @@ test('dashboard includes document compliance stats', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
+        'document_type_id' => $visaType->id,
         'type' => 'other',
-        'document_type' => 'visa',
+        'document_type' => (string) $visaType->id,
         'file_path' => 'employee-documents/test/visa.pdf',
         'status' => 'expired',
     ]);
@@ -333,13 +339,13 @@ test('users cannot manage documents for employees in another company', function 
     $user = User::factory()->create();
     $this->actingAs($user);
 
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    ['company' => $company, 'visaType' => $visaType] = makeDocumentFixtures();
     ['employee' => $otherEmployee] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['employees.documents.upload', 'employees.documents.delete']);
 
     $this->post("/organization/employees/{$otherEmployee->id}/documents", [
-        'document_type' => 'visa',
+        'document_type_id' => $visaType->id,
         'file' => UploadedFile::fake()->create('visa.pdf', 100, 'application/pdf'),
     ])->assertForbidden();
 });

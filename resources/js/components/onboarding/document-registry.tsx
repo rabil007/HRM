@@ -6,7 +6,7 @@ interface DocumentRegistryProps {
     documents: Array<{ type: string; min: number; ask_issue_date?: boolean; ask_expiry_date?: boolean; ask_document_number?: boolean }>;
     docUploads: Record<string, { files: File[]; issue_date?: string; expiry_date?: string; document_number?: string }>;
     onUploadChange: (type: string, data: any) => void;
-    documentTypes: Array<{ id: number; title: string; slug: string }>;
+    documentTypes: Array<{ id: number; title: string }>;
 }
 
 export function DocumentRegistry({
@@ -19,7 +19,7 @@ export function DocumentRegistry({
     const [dragActive, setDragActive] = useState<string | null>(null);
 
     const getDocTitle = (type: string) => {
-        return documentTypes.find(dt => String(dt.slug) === String(type) || String(dt.id) === String(type))?.title 
+        return documentTypes.find(dt => String(dt.id) === String(type))?.title 
             || type.split('_').join(' ').toUpperCase();
     };
 

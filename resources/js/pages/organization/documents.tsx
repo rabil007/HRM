@@ -56,7 +56,7 @@ type Props = {
         uploaded_to: string;
     };
     filter_options: {
-        document_types: { id: number; title: string; slug: string }[];
+        document_types: { id: number; title: string }[];
         branches: { id: number; name: string }[];
         departments: { id: number; name: string }[];
     };
@@ -172,7 +172,7 @@ export default function Documents({ documents, pagination, counts, active_status
                     >
                         <option value="">All document types</option>
                         {filter_options.document_types.map((type) => (
-                            <option key={type.id} value={type.slug}>{type.title}</option>
+                            <option key={type.id} value={String(type.id)}>{type.title}</option>
                         ))}
                     </select>
                     <select

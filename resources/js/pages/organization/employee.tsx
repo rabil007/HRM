@@ -162,7 +162,6 @@ type EmployeeDocumentItem = {
 type DocumentTypeOption = {
     id: number;
     title: string;
-    slug: string;
 };
 
 type EducationQualificationItem = {
@@ -257,7 +256,7 @@ export default function EmployeeDetails({
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
     const uploadForm = useForm({
-        document_type: '',
+        document_type_id: '',
         title: '',
         file: null as File | null,
         issue_date: '',
@@ -1894,7 +1893,7 @@ export default function EmployeeDetails({
                                                         return (
                                                             <tr key={doc.id} className="text-sm text-zinc-200">
                                                                 <td className="py-3 pr-4 text-zinc-400 text-xs">
-                                                                    {doc.document_type_label ?? document_types.find(t => t.slug === doc.document_type || String(t.id) === doc.document_type)?.title ?? doc.document_type ?? doc.type ?? '—'}
+                                                                    {doc.document_type_label ?? document_types.find(t => String(t.id) === String(doc.document_type_id ?? doc.document_type))?.title ?? doc.document_type ?? doc.type ?? '—'}
                                                                     {doc.current_version && doc.current_version > 1 ? (
                                                                         <span className="ml-1 text-[10px] text-zinc-500">v{doc.current_version}</span>
                                                                     ) : null}
@@ -2109,17 +2108,17 @@ export default function EmployeeDetails({
                                                 <div className="space-y-1.5">
                                                     <Label className="text-xs">Document Type <span className="text-destructive">*</span></Label>
                                                     <select
-                                                        value={uploadForm.data.document_type}
-                                                        onChange={(event) => uploadForm.setData('document_type', event.target.value)}
+                                                        value={uploadForm.data.document_type_id}
+                                                        onChange={(event) => uploadForm.setData('document_type_id', event.target.value)}
                                                         className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
                                                     >
                                                         <option value="">Select type…</option>
                                                         {document_types.map((type) => (
-                                                            <option key={type.id} value={type.slug}>{type.title}</option>
+                                                            <option key={type.id} value={String(type.id)}>{type.title}</option>
                                                         ))}
                                                     </select>
-                                                    {uploadForm.errors.document_type ? (
-                                                        <p className="text-xs text-destructive">{uploadForm.errors.document_type}</p>
+                                                    {uploadForm.errors.document_type_id ? (
+                                                        <p className="text-xs text-destructive">{uploadForm.errors.document_type_id}</p>
                                                     ) : null}
                                                 </div>
 
@@ -2185,14 +2184,14 @@ export default function EmployeeDetails({
                                                 <Button variant="outline" size="sm" onClick={() => setUploadOpen(false)}>Cancel</Button>
                                                 <Button
                                                     size="sm"
-                                                    disabled={uploadForm.processing || bulkFiles.length === 0 || !uploadForm.data.document_type}
+                                                    disabled={uploadForm.processing || bulkFiles.length === 0 || !uploadForm.data.document_type_id}
                                                     onClick={() => {
                                                         if (bulkFiles.length > 1) {
                                                             router.post(
                                                                 `/organization/employees/${employee.id}/documents/bulk`,
                                                                 {
                                                                     documents: bulkFiles.map((file) => ({
-                                                                        document_type: uploadForm.data.document_type,
+                                                                        document_type_id: uploadForm.data.document_type_id,
                                                                         title: uploadForm.data.title || file.name,
                                                                         file,
                                                                         document_number: uploadForm.data.document_number,
