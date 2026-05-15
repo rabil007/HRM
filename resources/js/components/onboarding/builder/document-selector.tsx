@@ -46,30 +46,36 @@ export function DocumentSelector({
     }, [selectedDocs]);
 
     return (
-        <div className="space-y-4 pt-4 border-t border-border/40">
-            <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                    Select Documents
-                    <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">
-                        {selectedDocs.length} sel
-                    </span>
-                </Label>
+        <div className="space-y-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Label className="text-sm font-medium">Required documents</Label>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                            {selectedDocs.filter((sd) => String(sd.type).trim() !== '').length} selected
+                        </span>
+                    </div>
+                    <p className="mt-1 max-w-xl text-xs text-muted-foreground">
+                        Hires upload these during this step. A type used in another step stays disabled here until you
+                        remove it there.
+                    </p>
+                </div>
 
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 text-[10px] px-2 rounded-lg"
-                        disabled={selectedDocs.length < 2}
+                        className="h-8 rounded-lg px-2 text-xs"
+                        disabled={selectedDocs.filter((d) => String(d.type).trim()).length < 2}
                         onClick={() => setSort({ open: true, list: [...selectedDocs], draggingType: null })}
                     >
-                        Sort
+                        Reorder
                     </Button>
 
                     <Input
-                        placeholder="Search docs..."
-                        className="h-7 text-[11px] w-full sm:w-40 rounded-lg bg-card/30"
+                        placeholder="Filter document types…"
+                        className="h-8 w-full rounded-lg bg-background text-xs sm:w-44"
                         value={docSearch}
                         onChange={(e) => setDocSearch(e.target.value)}
                     />

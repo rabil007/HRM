@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 
 type FieldOption = { key: string; label: string };
@@ -36,27 +35,29 @@ export function FieldSelector({
 
     return (
         <div className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <Label className="text-sm font-medium flex items-center gap-2">
-                    {title}
-                    <span className="text-[10px] text-primary/80 font-mono py-0.5 px-1.5 rounded-md bg-primary/10">
-                        {selectedFields.length} sel
-                    </span>
-                </Label>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-[200px] shrink-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold leading-none text-foreground">{title}</span>
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold tabular-nums text-muted-foreground">
+                            {selectedFields.length} selected
+                        </span>
+                    </div>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="h-7 text-[10px] px-2 rounded-lg"
+                        className="h-8 rounded-lg px-2 text-xs"
                         disabled={selectedFields.length < 2}
                         onClick={onSortClick}
                     >
-                        Sort
+                        Reorder
                     </Button>
                     <Input
-                        placeholder="Search..."
-                        className="h-7 text-[10px] w-full sm:w-32 rounded-lg bg-card/30"
+                        placeholder="Filter list…"
+                        className="h-8 w-full rounded-lg bg-background text-xs sm:w-40"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />

@@ -1,18 +1,26 @@
 import type { ReactNode } from 'react';
+import { cn } from '@/lib/utils';
 
 export function PageHeader({
     kicker = 'Organization Management',
     title,
     description,
     right,
+    className,
 }: {
     kicker?: string;
     title: string;
     description?: string;
     right?: ReactNode;
+    className?: string;
 }) {
     return (
-        <div className="mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+        <div
+            className={cn(
+                'mb-8 flex flex-col gap-6 md:flex-row md:items-end md:justify-between',
+                className,
+            )}
+        >
             <div className="space-y-1.5">
                 <div className="flex items-center gap-2 mb-1">
                     <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
