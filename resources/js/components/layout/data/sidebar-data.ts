@@ -24,6 +24,7 @@ import {
     CalendarCheck2,
     PiggyBank,
     Globe2,
+    Sailboat,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
@@ -93,6 +94,11 @@ const baseSidebarData: SidebarData = {
                             title: 'Banks',
                             url: '/settings/master-data/banks',
                             icon: PiggyBank,
+                        },
+                        {
+                            title: 'Vessels',
+                            url: '/settings/master-data/vessels',
+                            icon: Sailboat,
                         },
                         {
                             title: 'Document types',
@@ -211,6 +217,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/banks') {
                                 return has(permissions, 'settings.master-data.banks.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/vessels') {
+                                return has(permissions, 'settings.master-data.vessels.view');
                             }
 
                             if (sub.url === '/settings/master-data/document-types') {

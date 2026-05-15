@@ -9,6 +9,7 @@ import {
     Users, 
     PiggyBank, 
     FileText,
+    Sailboat,
     ChevronRight,
     Settings as SettingsIcon,
     Database
@@ -35,6 +36,7 @@ const SETTINGS_GROUPS = [
             { title: 'Religions', href: '/settings/master-data/religions', icon: BadgeCheck, color: 'bg-indigo-500/10 text-indigo-600' },
             { title: 'Genders', href: '/settings/master-data/genders', icon: Users, color: 'bg-rose-500/10 text-rose-600' },
             { title: 'Banks', href: '/settings/master-data/banks', icon: PiggyBank, color: 'bg-orange-500/10 text-orange-600' },
+            { title: 'Vessels', href: '/settings/master-data/vessels', icon: Sailboat, color: 'bg-sky-500/10 text-sky-600' },
             { title: 'Document Types', href: '/settings/master-data/document-types', icon: FileText, color: 'bg-slate-500/10 text-slate-600' },
         ]
     }

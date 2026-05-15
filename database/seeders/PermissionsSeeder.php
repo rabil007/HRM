@@ -48,6 +48,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.banks.update',
             'settings.master-data.banks.delete',
 
+            'settings.master-data.vessels.view',
+            'settings.master-data.vessels.create',
+            'settings.master-data.vessels.update',
+            'settings.master-data.vessels.delete',
+
             'settings.master-data.document-types.view',
             'settings.master-data.document-types.create',
             'settings.master-data.document-types.update',
