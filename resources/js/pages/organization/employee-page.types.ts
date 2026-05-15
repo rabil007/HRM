@@ -177,7 +177,7 @@ export type LanguageItem = {
     created_at: string;
 };
 
-export type VesselOption = {
+export type ClientOption = {
     id: number;
     name: string;
 };
@@ -192,7 +192,8 @@ export type SeaServiceItem = {
     total_days: number;
     grt: string | null;
     bhp: number | null;
-    client: string | null;
+    client_id: number | null;
+    client_name: string | null;
     is_offshore: boolean;
     created_at: string;
 };
@@ -238,5 +239,6 @@ export type EmployeePageProps = {
     banks: BankOption[];
     ranks: RankOption[];
     vessels: VesselOption[];
+    clients: ClientOption[];
     recent_activity: ActivityItem[];
 };

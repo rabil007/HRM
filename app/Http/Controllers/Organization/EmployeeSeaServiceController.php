@@ -23,7 +23,7 @@ class EmployeeSeaServiceController extends Controller
             'total_days' => ['required', 'integer', 'min:0', 'max:366'],
             'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
-            'client' => ['nullable', 'string', 'max:255'],
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'is_offshore' => ['sometimes', 'boolean'],
         ]);
 
@@ -42,7 +42,7 @@ class EmployeeSeaServiceController extends Controller
             'total_days' => $validated['total_days'],
             'grt' => $validated['grt'] ?? null,
             'bhp' => isset($validated['bhp']) ? (int) $validated['bhp'] : null,
-            'client' => $validated['client'] ?? null,
+            'client_id' => isset($validated['client_id']) ? (int) $validated['client_id'] : null,
             'is_offshore' => (bool) ($validated['is_offshore'] ?? false),
         ]);
 
@@ -67,7 +67,7 @@ class EmployeeSeaServiceController extends Controller
             'total_days' => ['required', 'integer', 'min:0', 'max:366'],
             'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
             'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
-            'client' => ['nullable', 'string', 'max:255'],
+            'client_id' => ['nullable', 'integer', 'exists:clients,id'],
             'is_offshore' => ['sometimes', 'boolean'],
         ]);
 
@@ -78,7 +78,7 @@ class EmployeeSeaServiceController extends Controller
             'total_days' => $validated['total_days'],
             'grt' => $validated['grt'] ?? null,
             'bhp' => isset($validated['bhp']) ? (int) $validated['bhp'] : null,
-            'client' => $validated['client'] ?? null,
+            'client_id' => isset($validated['client_id']) ? (int) $validated['client_id'] : null,
             'is_offshore' => (bool) ($validated['is_offshore'] ?? false),
         ]);
 

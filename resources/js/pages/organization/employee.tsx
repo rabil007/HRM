@@ -76,6 +76,7 @@ export default function EmployeeDetails({
     banks,
     ranks,
     vessels,
+    clients,
     recent_activity,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
@@ -378,6 +379,7 @@ export default function EmployeeDetails({
                                     sea_services={sea_services}
                                     vessels={vessels}
                                     ranks={ranks}
+                                    clients={clients}
                                     employeeRankId={employee.rank_id ?? null}
                                     canManage={can.sea_service_manage}
                                 />

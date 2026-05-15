@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\MasterData\BankController;
+use App\Http\Controllers\Settings\MasterData\ClientController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
@@ -146,6 +147,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('ranks/{rank}', [RankController::class, 'destroy'])
             ->middleware('can:settings.master-data.ranks.delete')
             ->name('ranks.destroy');
+
+        Route::get('clients/import/template', [ClientController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.clients.view')
+            ->name('clients.import.template');
+        Route::post('clients/import', [ClientController::class, 'import'])
+            ->middleware('can:settings.master-data.clients.create')
+            ->name('clients.import');
+        Route::get('clients', [ClientController::class, 'index'])
+            ->middleware('can:settings.master-data.clients.view')
+            ->name('clients.index');
+        Route::post('clients', [ClientController::class, 'store'])
+            ->middleware('can:settings.master-data.clients.create')
+            ->name('clients.store');
+        Route::put('clients/{client}', [ClientController::class, 'update'])
+            ->middleware('can:settings.master-data.clients.update')
+            ->name('clients.update');
+        Route::delete('clients/{client}', [ClientController::class, 'destroy'])
+            ->middleware('can:settings.master-data.clients.delete')
+            ->name('clients.destroy');
 
         Route::get('document-types/import/template', [DocumentTypeController::class, 'importTemplate'])
             ->middleware('can:settings.master-data.document-types.view')

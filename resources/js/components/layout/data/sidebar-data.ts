@@ -26,6 +26,7 @@ import {
     Globe2,
     Sailboat,
     Award,
+    Handshake,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
@@ -105,6 +106,11 @@ const baseSidebarData: SidebarData = {
                             title: 'Ranks',
                             url: '/settings/master-data/ranks',
                             icon: Award,
+                        },
+                        {
+                            title: 'Clients',
+                            url: '/settings/master-data/clients',
+                            icon: Handshake,
                         },
                         {
                             title: 'Document types',
@@ -231,6 +237,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/ranks') {
                                 return has(permissions, 'settings.master-data.ranks.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/clients') {
+                                return has(permissions, 'settings.master-data.clients.view');
                             }
 
                             if (sub.url === '/settings/master-data/document-types') {

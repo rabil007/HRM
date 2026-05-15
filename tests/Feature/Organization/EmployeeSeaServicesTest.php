@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Client;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -139,14 +140,19 @@ test('employee show page includes sea services', function () {
         'is_active' => true,
     ]);
 
+    $client = Client::query()->create([
+        'name' => 'Berltiz',
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
             'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
+            'client_id' => $client->id,
             'total_months' => 5,
             'total_days' => 22,
-            'client' => 'Berltiz',
             'is_offshore' => false,
         ]);
 
@@ -230,6 +236,11 @@ test('users with permission can add update delete and reorder sea services', fun
         'is_active' => true,
     ]);
 
+    $clientX = Client::query()->create([
+        'name' => 'Client X',
+        'is_active' => true,
+    ]);
+
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_id' => $vesselA->id,
         'rank_id' => $rankCaptain->id,
@@ -237,7 +248,7 @@ test('users with permission can add update delete and reorder sea services', fun
         'total_days' => 10,
         'grt' => '1500.5',
         'bhp' => 5000,
-        'client' => 'Client X',
+        'client_id' => $clientX->id,
         'is_offshore' => true,
     ])->assertRedirect();
 
@@ -245,6 +256,7 @@ test('users with permission can add update delete and reorder sea services', fun
 
     expect($row)->not->toBeNull();
     expect($row->is_offshore)->toBeTrue();
+    expect($row->client_id)->toBe($clientX->id);
 
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
         'vessel_id' => $vesselB->id,

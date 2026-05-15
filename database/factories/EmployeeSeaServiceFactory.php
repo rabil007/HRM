@@ -39,7 +39,7 @@ class EmployeeSeaServiceFactory extends Factory
             'total_days' => fake()->numberBetween(0, 29),
             'grt' => null,
             'bhp' => null,
-            'client' => fake()->company(),
+            'client_id' => null,
             'is_offshore' => fake()->boolean(40),
         ];
     }

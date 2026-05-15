@@ -34,6 +34,7 @@ import type { RankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
+    ClientOption,
     SeaServiceItem,
     VesselOption,
 } from '@/pages/organization/employee-page.types';
@@ -51,6 +52,7 @@ export type EmployeeSeaServiceTabProps = {
     sea_services: SeaServiceItem[];
     vessels: VesselOption[];
     ranks: RankOption[];
+    clients: ClientOption[];
     employeeRankId: number | null;
     canManage: boolean;
 };
@@ -60,6 +62,7 @@ export function EmployeeSeaServiceTab({
     sea_services,
     vessels,
     ranks,
+    clients,
     employeeRankId,
     canManage,
 }: EmployeeSeaServiceTabProps): ReactElement {
@@ -75,7 +78,7 @@ export function EmployeeSeaServiceTab({
         total_days: '0',
         grt: '',
         bhp: '',
-        client: '',
+        client_id: '',
         is_offshore: false,
     });
 
@@ -149,7 +152,7 @@ export function EmployeeSeaServiceTab({
                                     total_days: '0',
                                     grt: '',
                                     bhp: '',
-                                    client: '',
+                                    client_id: '',
                                     is_offshore: false,
                                 });
                                 setEditingRow(null);
@@ -284,9 +287,9 @@ export function EmployeeSeaServiceTab({
                                         </td>
                                         <td
                                             className="max-w-[160px] truncate py-3 pr-4 text-xs text-zinc-400"
-                                            title={row.client ?? ''}
+                                            title={row.client_name ?? ''}
                                         >
-                                            {row.client ?? '—'}
+                                            {row.client_name ?? '—'}
                                         </td>
                                         <td className="py-3 pr-4 text-center text-xs">
                                             {row.is_offshore ? (
@@ -337,9 +340,13 @@ export function EmployeeSeaServiceTab({
                                                                                   row.bhp,
                                                                               )
                                                                             : '',
-                                                                    client:
-                                                                        row.client ??
-                                                                        '',
+                                                                    client_id:
+                                                                        row.client_id !=
+                                                                        null
+                                                                            ? String(
+                                                                                  row.client_id,
+                                                                              )
+                                                                            : '',
                                                                     is_offshore:
                                                                         row.is_offshore,
                                                                 },
@@ -536,20 +543,26 @@ export function EmployeeSeaServiceTab({
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Client</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={employeeForm.data.client}
+                            <select
+                                value={employeeForm.data.client_id}
                                 onChange={(e) =>
                                     employeeForm.setData(
-                                        'client',
+                                        'client_id',
                                         e.target.value,
                                     )
                                 }
-                                placeholder="Optional"
-                            />
-                            {employeeForm.errors.client ? (
+                                className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                            >
+                                <option value="">—</option>
+                                {clients.map((c) => (
+                                    <option key={c.id} value={String(c.id)}>
+                                        {c.name}
+                                    </option>
+                                ))}
+                            </select>
+                            {employeeForm.errors.client_id ? (
                                 <p className="text-xs text-destructive">
-                                    {employeeForm.errors.client}
+                                    {employeeForm.errors.client_id}
                                 </p>
                             ) : null}
                         </div>
@@ -613,10 +626,13 @@ export function EmployeeSeaServiceTab({
                                                       10,
                                                   ) || 0,
                                               ),
-                                    client:
-                                        data.client.trim() === ''
+                                    client_id:
+                                        data.client_id.trim() === ''
                                             ? null
-                                            : data.client.trim(),
+                                            : Number.parseInt(
+                                                  data.client_id,
+                                                  10,
+                                              ),
                                     is_offshore: !!data.is_offshore,
                                 }));
 

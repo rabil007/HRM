@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Imports\EmployeesImport;
 use App\Models\Bank;
 use App\Models\Branch;
+use App\Models\Client;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\DocumentType;
@@ -538,6 +539,7 @@ class EmployeeController extends Controller
             ->with([
                 'vessel:id,name',
                 'rank:id,name',
+                'client:id,name',
             ])
             ->orderBy('sort_order')
             ->orderByDesc('id')
@@ -561,6 +563,24 @@ class EmployeeController extends Controller
             ])
             ->all();
 
+        $referencedClientIds = $seaServiceModels->pluck('client_id')->unique()->filter()->values()->all();
+
+        $clients = Client::query()
+            ->where(function ($query) use ($referencedClientIds): void {
+                $query->where('is_active', true);
+
+                if ($referencedClientIds !== []) {
+                    $query->orWhereIn('id', $referencedClientIds);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Client $client) => [
+                'id' => $client->id,
+                'name' => $client->name,
+            ])
+            ->all();
+
         $seaServiceRankIds = $seaServiceModels->pluck('rank_id')->unique()->filter()->values()->all();
 
         $sea_services = $seaServiceModels
@@ -574,7 +594,8 @@ class EmployeeController extends Controller
                 'total_days' => $row->total_days,
                 'grt' => $row->grt !== null ? (string) $row->grt : null,
                 'bhp' => $row->bhp,
-                'client' => $row->client,
+                'client_id' => $row->client_id,
+                'client_name' => $row->client?->name,
                 'is_offshore' => $row->is_offshore,
                 'created_at' => $row->created_at?->toDateTimeString(),
             ])
@@ -749,6 +770,7 @@ class EmployeeController extends Controller
             'banks' => $banks,
             'ranks' => $ranks,
             'vessels' => $vessels,
+            'clients' => $clients,
             'recent_activity' => $recentActivity,
         ]);
     }

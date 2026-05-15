@@ -20,6 +20,7 @@ class EmployeeSeaService extends Model
             'sort_order' => 'integer',
             'vessel_id' => 'integer',
             'rank_id' => 'integer',
+            'client_id' => 'integer',
             'total_months' => 'integer',
             'total_days' => 'integer',
             'grt' => 'decimal:2',
@@ -46,5 +47,10 @@ class EmployeeSeaService extends Model
     public function rank(): BelongsTo
     {
         return $this->belongsTo(Rank::class);
+    }
+
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 }

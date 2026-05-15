@@ -58,6 +58,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.ranks.update',
             'settings.master-data.ranks.delete',
 
+            'settings.master-data.clients.view',
+            'settings.master-data.clients.create',
+            'settings.master-data.clients.update',
+            'settings.master-data.clients.delete',
+
             'settings.master-data.document-types.view',
             'settings.master-data.document-types.create',
             'settings.master-data.document-types.update',
