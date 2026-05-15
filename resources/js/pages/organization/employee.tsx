@@ -1,5 +1,4 @@
 import { Head, router, useForm, usePage } from '@inertiajs/react';
-import { Briefcase, GraduationCap, Syringe } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { destroy, store, update } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import {
@@ -559,92 +558,6 @@ export default function EmployeeDetails({
                             beginEdit={beginEdit}
                             requiredDot={requiredDot}
                         />
-
-                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7">
-                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Employee no</div>
-                                <div className="mt-2 text-lg font-bold text-zinc-100">{form.data.employee_no || employee.employee_no || '—'}</div>
-                            </div>
-                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Department</div>
-                                <div className="mt-2 truncate text-lg font-bold text-zinc-100">{employee.department?.name || '—'}</div>
-                            </div>
-                            <div className="rounded-2xl border border-white/10 bg-card/60 p-4 shadow-lg shadow-black/10 backdrop-blur-xl">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Contract</div>
-                                <div className="mt-2 capitalize text-lg font-bold text-zinc-100">{form.data.contract_type || contract?.contract_type || '—'}</div>
-                            </div>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setTabValue('education');
-                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-                                }}
-                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-emerald-500/30 hover:bg-emerald-500/10"
-                            >
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-                                    <GraduationCap className="h-3.5 w-3.5 text-emerald-400/80" />
-                                    Education
-                                </div>
-                                <div className="mt-2 text-lg font-bold text-zinc-100">
-                                    {education_qualifications.length} qualification{education_qualifications.length !== 1 ? 's' : ''}
-                                </div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setTabValue('work_experience');
-                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-                                }}
-                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-indigo-500/30 hover:bg-indigo-500/10"
-                            >
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-                                    <Briefcase className="h-3.5 w-3.5 text-indigo-400/80" />
-                                    Work experience
-                                </div>
-                                <div className="mt-2 text-lg font-bold text-zinc-100">
-                                    {work_experiences.length} entr{work_experiences.length !== 1 ? 'ies' : 'y'}
-                                </div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setTabValue('vaccination');
-                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-                                }}
-                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-teal-500/30 hover:bg-teal-500/10"
-                            >
-                                <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">
-                                    <Syringe className="h-3.5 w-3.5 text-teal-400/80" />
-                                    Vaccination
-                                </div>
-                                <div className="mt-2 text-lg font-bold text-zinc-100">
-                                    {vaccinations.length} record{vaccinations.length !== 1 ? 's' : ''}
-                                </div>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setTabValue('documents');
-                                    setTimeout(() => document.getElementById('employee-tabs')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
-                                }}
-                                className="rounded-2xl border border-white/10 bg-card/60 p-4 text-left shadow-lg shadow-black/10 backdrop-blur-xl transition-colors hover:border-primary/30 hover:bg-primary/10"
-                            >
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-zinc-500">Documents</div>
-                                <div className="mt-2 flex items-center gap-2">
-                                    <span className="text-lg font-bold text-zinc-100">{documents.length}</span>
-                                    {documents.filter((d) => d.status === 'expired').length > 0 && (
-                                        <span className="rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-400">
-                                            {documents.filter((d) => d.status === 'expired').length} expired
-                                        </span>
-                                    )}
-                                    {documents.filter((d) => d.status === 'expiring_soon').length > 0 && (
-                                        <span className="rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
-                                            {documents.filter((d) => d.status === 'expiring_soon').length} expiring
-                                        </span>
-                                    )}
-                                </div>
-                            </button>
-                        </div>
 
                     {/* Tabs Navigation */}
                         <div id="employee-tabs" className="rounded-[1.75rem] border border-white/10 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl">
