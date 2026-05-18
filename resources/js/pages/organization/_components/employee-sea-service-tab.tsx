@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { GripVertical } from 'lucide-react';
+import { GripVertical, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useRef, useState } from 'react';
 import {
@@ -438,129 +438,145 @@ export function EmployeeSeaServiceTab({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingRow
-                                ? 'Edit sea service'
-                                : 'Add sea service'}
+                            {editingRow ? 'Edit sea service' : 'Add sea service'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Enter the details of the vessel and the time served.
+                        </p>
                     </DialogHeader>
-                    <div className="grid gap-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Vessel type</Label>
-                            <select
-                                value={employeeForm.data.vessel_type_id}
-                                onChange={(e) =>
-                                    employeeForm.setData(
-                                        'vessel_type_id',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="">— Select —</option>
-                                {vessel_types.map((v) => (
-                                    <option key={v.id} value={String(v.id)}>
-                                        {v.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {employeeForm.errors.vessel_type_id ? (
-                                <p className="text-xs text-destructive">
-                                    {employeeForm.errors.vessel_type_id}
-                                </p>
-                            ) : null}
+
+                    <div className="space-y-4 py-1">
+                        {/* Section: Vessel & role */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Vessel & Role</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Vessel name</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={employeeForm.data.vessel_name}
-                                onChange={(e) =>
-                                    employeeForm.setData(
-                                        'vessel_name',
-                                        e.target.value,
-                                    )
-                                }
-                                placeholder="e.g. BES SINCERE"
-                            />
-                            {employeeForm.errors.vessel_name ? (
-                                <p className="text-xs text-destructive">
-                                    {employeeForm.errors.vessel_name}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Rank</Label>
-                            <select
-                                value={employeeForm.data.rank_id}
-                                onChange={(e) =>
-                                    employeeForm.setData(
-                                        'rank_id',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="">— Select —</option>
-                                {ranks.map((r) => (
-                                    <option key={r.id} value={String(r.id)}>
-                                        {r.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {employeeForm.errors.rank_id ? (
-                                <p className="text-xs text-destructive">
-                                    {employeeForm.errors.rank_id}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Total months</Label>
+                                <Label className="text-xs">Vessel name <span className="text-red-400">*</span></Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. BES SINCERE"
+                                    value={employeeForm.data.vessel_name}
+                                    onChange={(e) => employeeForm.setData('vessel_name', e.target.value)}
+                                />
+                                {employeeForm.errors.vessel_name ? (
+                                    <p className="text-xs text-destructive">{employeeForm.errors.vessel_name}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Name of the ship</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Vessel type <span className="text-red-400">*</span></Label>
+                                <select
+                                    value={employeeForm.data.vessel_type_id}
+                                    onChange={(e) => employeeForm.setData('vessel_type_id', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">— Select a type —</option>
+                                    {vessel_types.map((v) => (
+                                        <option key={v.id} value={String(v.id)}>
+                                            {v.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {employeeForm.errors.vessel_type_id ? (
+                                    <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Category of the vessel</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Rank <span className="text-red-400">*</span></Label>
+                                <select
+                                    value={employeeForm.data.rank_id}
+                                    onChange={(e) => employeeForm.setData('rank_id', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">— Select a rank —</option>
+                                    {ranks.map((r) => (
+                                        <option key={r.id} value={String(r.id)}>
+                                            {r.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {employeeForm.errors.rank_id ? (
+                                    <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Position held on board</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Client</Label>
+                                <select
+                                    value={employeeForm.data.client_id}
+                                    onChange={(e) => employeeForm.setData('client_id', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">— Select a client —</option>
+                                    {clients.map((c) => (
+                                        <option key={c.id} value={String(c.id)}>
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {employeeForm.errors.client_id ? (
+                                    <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Client or charterer (optional)</p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Section: Duration */}
+                        <div className="flex items-center gap-2 pt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Duration</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Total months <span className="text-red-400">*</span></Label>
                                 <Input
                                     type="number"
                                     min={0}
                                     inputMode="numeric"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
                                     value={employeeForm.data.total_months}
-                                    onChange={(e) =>
-                                        employeeForm.setData(
-                                            'total_months',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => employeeForm.setData('total_months', e.target.value)}
                                 />
                                 {employeeForm.errors.total_months ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.total_months}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{employeeForm.errors.total_months}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Full months served</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Total days</Label>
+                                <Label className="text-xs">Total days <span className="text-red-400">*</span></Label>
                                 <Input
                                     type="number"
                                     min={0}
                                     inputMode="numeric"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
                                     value={employeeForm.data.total_days}
-                                    onChange={(e) =>
-                                        employeeForm.setData(
-                                            'total_days',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => employeeForm.setData('total_days', e.target.value)}
                                 />
                                 {employeeForm.errors.total_days ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.total_days}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{employeeForm.errors.total_days}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Remaining days served</p>
+                                )}
                             </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+
+                        {/* Section: Specs & Settings */}
+                        <div className="flex items-center gap-2 pt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Specs & Settings</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">GRT</Label>
                                 <Input
@@ -569,20 +585,15 @@ export function EmployeeSeaServiceTab({
                                     step="any"
                                     inputMode="decimal"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
+                                    placeholder="e.g. 15000"
                                     value={employeeForm.data.grt}
-                                    onChange={(e) =>
-                                        employeeForm.setData(
-                                            'grt',
-                                            e.target.value,
-                                        )
-                                    }
-                                    placeholder="Optional"
+                                    onChange={(e) => employeeForm.setData('grt', e.target.value)}
                                 />
                                 {employeeForm.errors.grt ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.grt}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{employeeForm.errors.grt}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Gross Register Tonnage (optional)</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">BHP</Label>
@@ -591,65 +602,38 @@ export function EmployeeSeaServiceTab({
                                     min={0}
                                     inputMode="numeric"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
+                                    placeholder="e.g. 8000"
                                     value={employeeForm.data.bhp}
-                                    onChange={(e) =>
-                                        employeeForm.setData(
-                                            'bhp',
-                                            e.target.value,
-                                        )
-                                    }
-                                    placeholder="Optional"
+                                    onChange={(e) => employeeForm.setData('bhp', e.target.value)}
                                 />
                                 {employeeForm.errors.bhp ? (
-                                    <p className="text-xs text-destructive">
-                                        {employeeForm.errors.bhp}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{employeeForm.errors.bhp}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Brake Horsepower (optional)</p>
+                                )}
+                            </div>
+                            <div className="sm:col-span-2">
+                                <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                                    <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                        <Checkbox
+                                            checked={employeeForm.data.is_offshore}
+                                            onCheckedChange={(v) => employeeForm.setData('is_offshore', v === true)}
+                                        />
+                                        <div>
+                                            <div className="font-medium">Offshore experience</div>
+                                            <div className="mt-0.5 text-[11px] text-zinc-500">Mark if this sea service was completed offshore</div>
+                                        </div>
+                                    </label>
+                                </div>
                             </div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Client</Label>
-                            <select
-                                value={employeeForm.data.client_id}
-                                onChange={(e) =>
-                                    employeeForm.setData(
-                                        'client_id',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="">—</option>
-                                {clients.map((c) => (
-                                    <option key={c.id} value={String(c.id)}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {employeeForm.errors.client_id ? (
-                                <p className="text-xs text-destructive">
-                                    {employeeForm.errors.client_id}
-                                </p>
-                            ) : null}
-                        </div>
-                        <label className="flex items-center gap-2 text-sm text-zinc-200">
-                            <Checkbox
-                                checked={employeeForm.data.is_offshore}
-                                onCheckedChange={(v) =>
-                                    employeeForm.setData(
-                                        'is_offshore',
-                                        v === true,
-                                    )
-                                }
-                            />
-                            Offshore
-                        </label>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -657,6 +641,7 @@ export function EmployeeSeaServiceTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={employeeForm.processing}
                             onClick={() => {
                                 employeeForm.clearErrors();
@@ -718,17 +703,22 @@ export function EmployeeSeaServiceTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remove sea service?</AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>Remove sea service?</AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This row will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteRowId) {
                                     return;

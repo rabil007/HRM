@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -238,133 +239,113 @@ export function EmployeeVaccinationTab({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingVaccination
-                                ? 'Edit vaccination'
-                                : 'Add vaccination'}
+                            {editingVaccination ? 'Edit vaccination' : 'Add vaccination'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Log a vaccination record and dose dates.
+                        </p>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Vaccination</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={vaccinationForm.data.vaccination_name}
-                                onChange={(e) =>
-                                    vaccinationForm.setData(
-                                        'vaccination_name',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {vaccinationForm.errors.vaccination_name ? (
-                                <p className="text-xs text-destructive">
-                                    {vaccinationForm.errors.vaccination_name}
-                                </p>
-                            ) : null}
+
+                    <div className="space-y-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Vaccine details</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Country</Label>
-                            <select
-                                value={vaccinationForm.data.country_id}
-                                onChange={(e) =>
-                                    vaccinationForm.setData(
-                                        'country_id',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="">—</option>
-                                {countries.map((c) => (
-                                    <option key={c.id} value={String(c.id)}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {vaccinationForm.errors.country_id ? (
-                                <p className="text-xs text-destructive">
-                                    {vaccinationForm.errors.country_id}
-                                </p>
-                            ) : null}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Vaccination name <span className="text-red-400">*</span></Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. COVID-19 (Pfizer), Yellow Fever"
+                                    value={vaccinationForm.data.vaccination_name}
+                                    onChange={(e) => vaccinationForm.setData('vaccination_name', e.target.value)}
+                                />
+                                {vaccinationForm.errors.vaccination_name ? (
+                                    <p className="text-xs text-destructive">{vaccinationForm.errors.vaccination_name}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">The name or type of the vaccine</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Country</Label>
+                                <select
+                                    value={vaccinationForm.data.country_id}
+                                    onChange={(e) => vaccinationForm.setData('country_id', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">— Select a country —</option>
+                                    {countries.map((c) => (
+                                        <option key={c.id} value={String(c.id)}>
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {vaccinationForm.errors.country_id ? (
+                                    <p className="text-xs text-destructive">{vaccinationForm.errors.country_id}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Where the vaccination was administered (optional)</p>
+                                )}
+                            </div>
                         </div>
-                        <div className="grid gap-3 sm:grid-cols-3">
+
+                        <div className="flex items-center gap-2 pt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Dose dates</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-3">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">1st dose</Label>
                                 <Input
                                     type="date"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
                                     value={vaccinationForm.data.first_dose_date}
-                                    onChange={(e) =>
-                                        vaccinationForm.setData(
-                                            'first_dose_date',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => vaccinationForm.setData('first_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.first_dose_date ? (
-                                    <p className="text-xs text-destructive">
-                                        {vaccinationForm.errors.first_dose_date}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{vaccinationForm.errors.first_dose_date}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Date of first dose</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">2nd dose</Label>
                                 <Input
                                     type="date"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                    value={
-                                        vaccinationForm.data.second_dose_date
-                                    }
-                                    onChange={(e) =>
-                                        vaccinationForm.setData(
-                                            'second_dose_date',
-                                            e.target.value,
-                                        )
-                                    }
+                                    value={vaccinationForm.data.second_dose_date}
+                                    onChange={(e) => vaccinationForm.setData('second_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.second_dose_date ? (
-                                    <p className="text-xs text-destructive">
-                                        {
-                                            vaccinationForm.errors
-                                                .second_dose_date
-                                        }
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{vaccinationForm.errors.second_dose_date}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Date of second dose</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Booster</Label>
                                 <Input
                                     type="date"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                    value={
-                                        vaccinationForm.data.booster_dose_date
-                                    }
-                                    onChange={(e) =>
-                                        vaccinationForm.setData(
-                                            'booster_dose_date',
-                                            e.target.value,
-                                        )
-                                    }
+                                    value={vaccinationForm.data.booster_dose_date}
+                                    onChange={(e) => vaccinationForm.setData('booster_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.booster_dose_date ? (
-                                    <p className="text-xs text-destructive">
-                                        {
-                                            vaccinationForm.errors
-                                                .booster_dose_date
-                                        }
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{vaccinationForm.errors.booster_dose_date}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Date of booster dose</p>
+                                )}
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setVaccinationDialogOpen(false)}
                         >
                             Cancel
@@ -372,6 +353,7 @@ export function EmployeeVaccinationTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={vaccinationForm.processing}
                             onClick={() => {
                                 vaccinationForm.clearErrors();
@@ -443,19 +425,24 @@ export function EmployeeVaccinationTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Remove vaccination record?
-                        </AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>
+                                Remove vaccination record?
+                            </AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This entry will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteVaccinationId) {
                                     return;

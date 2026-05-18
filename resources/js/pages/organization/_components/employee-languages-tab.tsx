@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -257,88 +258,97 @@ export function EmployeeLanguagesTab({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
                             {editingLanguage ? 'Edit language' : 'Add language'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Specify the language and the employee's proficiency.
+                        </p>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+
+                    <div className="space-y-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Language details</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Language</Label>
+                            <Label className="text-xs">Language <span className="text-red-400">*</span></Label>
                             <Input
                                 className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
                                 value={languageForm.data.language_name}
-                                onChange={(e) =>
-                                    languageForm.setData(
-                                        'language_name',
-                                        e.target.value,
-                                    )
-                                }
-                                placeholder="e.g. English (US)"
+                                onChange={(e) => languageForm.setData('language_name', e.target.value)}
+                                placeholder="e.g. English, Arabic, Spanish"
                             />
                             {languageForm.errors.language_name ? (
-                                <p className="text-xs text-destructive">
-                                    {languageForm.errors.language_name}
-                                </p>
-                            ) : null}
+                                <p className="text-xs text-destructive">{languageForm.errors.language_name}</p>
+                            ) : (
+                                <p className="text-[11px] text-zinc-500">The name of the language</p>
+                            )}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Proficiencies</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="flex items-center gap-2 text-sm text-zinc-200">
-                                <Checkbox
-                                    checked={languageForm.data.is_spoken}
-                                    onCheckedChange={(v) =>
-                                        languageForm.setData(
-                                            'is_spoken',
-                                            v === true,
-                                        )
-                                    }
-                                />
-                                Spoken
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-200">
-                                <Checkbox
-                                    checked={languageForm.data.is_written}
-                                    onCheckedChange={(v) =>
-                                        languageForm.setData(
-                                            'is_written',
-                                            v === true,
-                                        )
-                                    }
-                                />
-                                Written
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-200">
-                                <Checkbox
-                                    checked={languageForm.data.is_understood}
-                                    onCheckedChange={(v) =>
-                                        languageForm.setData(
-                                            'is_understood',
-                                            v === true,
-                                        )
-                                    }
-                                />
-                                Understood
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-zinc-200">
-                                <Checkbox
-                                    checked={languageForm.data.is_mother_tongue}
-                                    onCheckedChange={(v) =>
-                                        languageForm.setData(
-                                            'is_mother_tongue',
-                                            v === true,
-                                        )
-                                    }
-                                />
-                                Mother tongue
-                            </label>
+                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                    <Checkbox
+                                        checked={languageForm.data.is_spoken}
+                                        onCheckedChange={(v) => languageForm.setData('is_spoken', v === true)}
+                                    />
+                                    <div>
+                                        <div className="font-medium">Spoken</div>
+                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can converse in this language</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                    <Checkbox
+                                        checked={languageForm.data.is_written}
+                                        onCheckedChange={(v) => languageForm.setData('is_written', v === true)}
+                                    />
+                                    <div>
+                                        <div className="font-medium">Written</div>
+                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can write in this language</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                    <Checkbox
+                                        checked={languageForm.data.is_understood}
+                                        onCheckedChange={(v) => languageForm.setData('is_understood', v === true)}
+                                    />
+                                    <div>
+                                        <div className="font-medium">Understood</div>
+                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can understand this language</div>
+                                    </div>
+                                </label>
+                            </div>
+                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                    <Checkbox
+                                        checked={languageForm.data.is_mother_tongue}
+                                        onCheckedChange={(v) => languageForm.setData('is_mother_tongue', v === true)}
+                                    />
+                                    <div>
+                                        <div className="font-medium">Mother tongue</div>
+                                        <div className="mt-0.5 text-[11px] text-zinc-500">Native language</div>
+                                    </div>
+                                </label>
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setLanguageDialogOpen(false)}
                         >
                             Cancel
@@ -346,6 +356,7 @@ export function EmployeeLanguagesTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={languageForm.processing}
                             onClick={() => {
                                 languageForm.clearErrors();
@@ -402,17 +413,22 @@ export function EmployeeLanguagesTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remove language?</AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>Remove language?</AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This entry will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteLanguageId) {
                                     return;

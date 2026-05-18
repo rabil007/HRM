@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -214,92 +215,99 @@ export function EmployeeBankTab({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingRow
-                                ? 'Edit bank account'
-                                : 'Add bank account'}
+                            {editingRow ? 'Edit bank account' : 'Add bank account'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Enter the account details used for payroll disbursement.
+                        </p>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+
+                    <div className="space-y-4 py-1">
+                        {/* Section: Account details */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Account details</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Bank</Label>
+                            <Label className="text-xs">Bank <span className="text-red-400">*</span></Label>
                             <select
-                                className="flex h-10 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-zinc-200 outline-none ring-offset-background focus-visible:ring-2 focus-visible:ring-ring"
+                                className="flex h-10 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
                                 value={bankForm.data.bank_id}
-                                onChange={(e) =>
-                                    bankForm.setData('bank_id', e.target.value)
-                                }
+                                onChange={(e) => bankForm.setData('bank_id', e.target.value)}
                             >
-                                <option value="">—</option>
+                                <option value="">— Select a bank —</option>
                                 {banks.map((bank) => (
-                                    <option
-                                        key={bank.id}
-                                        value={String(bank.id)}
-                                    >
+                                    <option key={bank.id} value={String(bank.id)}>
                                         {bank.name}
                                     </option>
                                 ))}
                             </select>
                             {bankForm.errors.bank_id ? (
-                                <p className="text-xs text-destructive">
-                                    {bankForm.errors.bank_id}
-                                </p>
-                            ) : null}
+                                <p className="text-xs text-destructive">{bankForm.errors.bank_id}</p>
+                            ) : (
+                                <p className="text-[11px] text-zinc-500">The financial institution holding this account</p>
+                            )}
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Account holder</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={bankForm.data.account_name}
-                                onChange={(e) =>
-                                    bankForm.setData(
-                                        'account_name',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {bankForm.errors.account_name ? (
-                                <p className="text-xs text-destructive">
-                                    {bankForm.errors.account_name}
-                                </p>
-                            ) : null}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Account holder <span className="text-red-400">*</span></Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. John M. Doe"
+                                    value={bankForm.data.account_name}
+                                    onChange={(e) => bankForm.setData('account_name', e.target.value)}
+                                />
+                                {bankForm.errors.account_name ? (
+                                    <p className="text-xs text-destructive">{bankForm.errors.account_name}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Full name as shown on the account</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">IBAN</Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 font-mono text-sm"
+                                    placeholder="e.g. AE07 0331 2345 6789 0123 456"
+                                    value={bankForm.data.iban}
+                                    onChange={(e) => bankForm.setData('iban', e.target.value)}
+                                />
+                                {bankForm.errors.iban ? (
+                                    <p className="text-xs text-destructive">{bankForm.errors.iban}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">International bank account number (optional)</p>
+                                )}
+                            </div>
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">IBAN</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 font-mono text-sm"
-                                value={bankForm.data.iban}
-                                onChange={(e) =>
-                                    bankForm.setData('iban', e.target.value)
-                                }
-                            />
-                            {bankForm.errors.iban ? (
-                                <p className="text-xs text-destructive">
-                                    {bankForm.errors.iban}
-                                </p>
-                            ) : null}
+
+                        {/* Section: Settings */}
+                        <div className="flex items-center gap-2 pt-1">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Settings</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
-                        <label className="flex items-center gap-2 text-sm text-zinc-200">
-                            <Checkbox
-                                checked={bankForm.data.is_primary}
-                                disabled={
-                                    editingRow !== null &&
-                                    bank_accounts.length === 1
-                                }
-                                onCheckedChange={(v) =>
-                                    bankForm.setData('is_primary', v === true)
-                                }
-                            />
-                            Primary payroll account
-                        </label>
+                        <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
+                            <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                <Checkbox
+                                    checked={bankForm.data.is_primary}
+                                    disabled={editingRow !== null && bank_accounts.length === 1}
+                                    onCheckedChange={(v) => bankForm.setData('is_primary', v === true)}
+                                />
+                                <div>
+                                    <div className="font-medium">Primary payroll account</div>
+                                    <div className="mt-0.5 text-[11px] text-zinc-500">Salary will be deposited to this account by default</div>
+                                </div>
+                            </label>
+                        </div>
                     </div>
-                    <DialogFooter>
+
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -307,6 +315,7 @@ export function EmployeeBankTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={bankForm.processing}
                             onClick={() => {
                                 bankForm.clearErrors();
@@ -370,17 +379,22 @@ export function EmployeeBankTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+            <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remove bank account?</AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>Remove bank account?</AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This entry will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteId) {
                                     return;

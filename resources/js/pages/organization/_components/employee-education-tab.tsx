@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -196,103 +197,92 @@ export function EmployeeEducationTab({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingEducation
-                                ? 'Edit qualification'
-                                : 'Add qualification'}
+                            {editingEducation ? 'Edit qualification' : 'Add qualification'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Enter the details of the educational qualification.
+                        </p>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
+
+                    <div className="space-y-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Qualification details</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Certificate</Label>
+                            <Label className="text-xs">Certificate / Degree <span className="text-red-400">*</span></Label>
                             <Input
                                 className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                placeholder="e.g. Bachelor of Science in Marine Engineering"
                                 value={educationForm.data.certificate}
-                                onChange={(e) =>
-                                    educationForm.setData(
-                                        'certificate',
-                                        e.target.value,
-                                    )
-                                }
+                                onChange={(e) => educationForm.setData('certificate', e.target.value)}
                             />
                             {educationForm.errors.certificate ? (
-                                <p className="text-xs text-destructive">
-                                    {educationForm.errors.certificate}
-                                </p>
-                            ) : null}
+                                <p className="text-xs text-destructive">{educationForm.errors.certificate}</p>
+                            ) : (
+                                <p className="text-[11px] text-zinc-500">The title of the obtained qualification</p>
+                            )}
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Issue date</Label>
-                            <Input
-                                type="date"
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={educationForm.data.issue_date}
-                                onChange={(e) =>
-                                    educationForm.setData(
-                                        'issue_date',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {educationForm.errors.issue_date ? (
-                                <p className="text-xs text-destructive">
-                                    {educationForm.errors.issue_date}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">
-                                University / institution
-                            </Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={educationForm.data.university}
-                                onChange={(e) =>
-                                    educationForm.setData(
-                                        'university',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {educationForm.errors.university ? (
-                                <p className="text-xs text-destructive">
-                                    {educationForm.errors.university}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Country</Label>
-                            <select
-                                value={educationForm.data.country_id}
-                                onChange={(e) =>
-                                    educationForm.setData(
-                                        'country_id',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                            >
-                                <option value="">—</option>
-                                {countries.map((c) => (
-                                    <option key={c.id} value={String(c.id)}>
-                                        {c.name}
-                                    </option>
-                                ))}
-                            </select>
-                            {educationForm.errors.country_id ? (
-                                <p className="text-xs text-destructive">
-                                    {educationForm.errors.country_id}
-                                </p>
-                            ) : null}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">University / Institution</Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. Maritime Academy"
+                                    value={educationForm.data.university}
+                                    onChange={(e) => educationForm.setData('university', e.target.value)}
+                                />
+                                {educationForm.errors.university ? (
+                                    <p className="text-xs text-destructive">{educationForm.errors.university}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">The awarding institution (optional)</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Country</Label>
+                                <select
+                                    value={educationForm.data.country_id}
+                                    onChange={(e) => educationForm.setData('country_id', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="">— Select a country —</option>
+                                    {countries.map((c) => (
+                                        <option key={c.id} value={String(c.id)}>
+                                            {c.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {educationForm.errors.country_id ? (
+                                    <p className="text-xs text-destructive">{educationForm.errors.country_id}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Country of the institution (optional)</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Issue date</Label>
+                                <Input
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={educationForm.data.issue_date}
+                                    onChange={(e) => educationForm.setData('issue_date', e.target.value)}
+                                />
+                                {educationForm.errors.issue_date ? (
+                                    <p className="text-xs text-destructive">{educationForm.errors.issue_date}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">When the certificate was issued (optional)</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setEducationDialogOpen(false)}
                         >
                             Cancel
@@ -300,6 +290,7 @@ export function EmployeeEducationTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={educationForm.processing}
                             onClick={() => {
                                 educationForm.clearErrors();
@@ -366,19 +357,24 @@ export function EmployeeEducationTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Remove qualification?
-                        </AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>
+                                Remove qualification?
+                            </AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This education record will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteEducationId) {
                                     return;

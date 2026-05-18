@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -324,184 +325,177 @@ export function EmployeeContractTab({
                     }
                 }}
             >
-                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
                             {editingContract ? 'Edit contract' : 'Add contract'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Fill in the contract details. Salary fields are optional.
+                        </p>
                     </DialogHeader>
-                    <div className="grid gap-4 py-2">
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_type">Contract type</Label>
-                            <select
-                                id="contract_type"
-                                value={contractForm.data.contract_type}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'contract_type',
-                                        e.target.value,
-                                    )
-                                }
-                                className="h-10 w-full rounded-md border border-white/10 bg-background px-3 text-sm"
-                            >
-                                <option value="unlimited">Unlimited</option>
-                                <option value="limited">Limited</option>
-                                <option value="part_time">Part time</option>
-                                <option value="contract">Contract</option>
-                            </select>
+
+                    {/* Section: Contract details */}
+                    <div className="space-y-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Contract details</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_status">Status</Label>
-                            <select
-                                id="contract_status"
-                                value={contractForm.data.status}
-                                onChange={(e) =>
-                                    contractForm.setData('status', e.target.value)
-                                }
-                                className="h-10 w-full rounded-md border border-white/10 bg-background px-3 text-sm"
-                            >
-                                <option value="active">Active</option>
-                                <option value="ended">Ended</option>
-                                <option value="draft">Draft</option>
-                            </select>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_type" className="text-xs">Contract type</Label>
+                                <select
+                                    id="contract_type"
+                                    value={contractForm.data.contract_type}
+                                    onChange={(e) => contractForm.setData('contract_type', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="unlimited">Unlimited</option>
+                                    <option value="limited">Limited</option>
+                                    <option value="part_time">Part time</option>
+                                    <option value="contract">Contract</option>
+                                </select>
+                                <p className="text-[11px] text-zinc-500">The nature of the employment term</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_status" className="text-xs">Status</Label>
+                                <select
+                                    id="contract_status"
+                                    value={contractForm.data.status}
+                                    onChange={(e) => contractForm.setData('status', e.target.value)}
+                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                >
+                                    <option value="active">Active</option>
+                                    <option value="ended">Ended</option>
+                                    <option value="draft">Draft</option>
+                                </select>
+                                <p className="text-[11px] text-zinc-500">Current state of this contract</p>
+                            </div>
                         </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_start_date">Start date</Label>
-                            <Input
-                                id="contract_start_date"
-                                type="date"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.start_date}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'start_date',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {contractForm.errors.start_date ? (
-                                <p className="text-xs text-destructive">
-                                    {contractForm.errors.start_date}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_end_date">End date</Label>
-                            <Input
-                                id="contract_end_date"
-                                type="date"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.end_date}
-                                onChange={(e) =>
-                                    contractForm.setData('end_date', e.target.value)
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_probation_end_date">
-                                Probation end date
-                            </Label>
-                            <Input
-                                id="contract_probation_end_date"
-                                type="date"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.probation_end_date}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'probation_end_date',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_labor_contract_id">
-                                Labor contract ID
-                            </Label>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contract_labor_contract_id" className="text-xs">Labor contract ID</Label>
                             <Input
                                 id="contract_labor_contract_id"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
+                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                placeholder="e.g. MOL-2024-00123"
                                 value={contractForm.data.labor_contract_id}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'labor_contract_id',
-                                        e.target.value,
-                                    )
-                                }
+                                onChange={(e) => contractForm.setData('labor_contract_id', e.target.value)}
                             />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_basic_salary">Basic salary</Label>
-                            <Input
-                                id="contract_basic_salary"
-                                inputMode="decimal"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.basic_salary}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'basic_salary',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_housing_allowance">
-                                Housing allowance
-                            </Label>
-                            <Input
-                                id="contract_housing_allowance"
-                                inputMode="decimal"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.housing_allowance}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'housing_allowance',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_transport_allowance">
-                                Transport allowance
-                            </Label>
-                            <Input
-                                id="contract_transport_allowance"
-                                inputMode="decimal"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.transport_allowance}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'transport_allowance',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                        </div>
-                        <div className="grid gap-2">
-                            <Label htmlFor="contract_other_allowances">
-                                Other allowances
-                            </Label>
-                            <Input
-                                id="contract_other_allowances"
-                                inputMode="decimal"
-                                className="h-10 rounded-xl border-white/5 bg-white/5"
-                                value={contractForm.data.other_allowances}
-                                onChange={(e) =>
-                                    contractForm.setData(
-                                        'other_allowances',
-                                        e.target.value,
-                                    )
-                                }
-                            />
+                            <p className="text-[11px] text-zinc-500">Reference number from the labor authority (optional)</p>
                         </div>
                     </div>
-                    <DialogFooter>
+
+                    {/* Section: Duration */}
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Duration</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_start_date" className="text-xs">Start date <span className="text-red-400">*</span></Label>
+                                <Input
+                                    id="contract_start_date"
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.start_date}
+                                    onChange={(e) => contractForm.setData('start_date', e.target.value)}
+                                />
+                                {contractForm.errors.start_date ? (
+                                    <p className="text-xs text-destructive">{contractForm.errors.start_date}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">When the contract becomes effective</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_end_date" className="text-xs">End date</Label>
+                                <Input
+                                    id="contract_end_date"
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.end_date}
+                                    onChange={(e) => contractForm.setData('end_date', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Leave blank for unlimited contracts</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_probation_end_date" className="text-xs">Probation end date</Label>
+                                <Input
+                                    id="contract_probation_end_date"
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.probation_end_date}
+                                    onChange={(e) => contractForm.setData('probation_end_date', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Date the probation period ends (optional)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Compensation */}
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Compensation</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_basic_salary" className="text-xs">Basic salary</Label>
+                                <Input
+                                    id="contract_basic_salary"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 5000.00"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.basic_salary}
+                                    onChange={(e) => contractForm.setData('basic_salary', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Monthly base salary in local currency</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_housing_allowance" className="text-xs">Housing allowance</Label>
+                                <Input
+                                    id="contract_housing_allowance"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 1500.00"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.housing_allowance}
+                                    onChange={(e) => contractForm.setData('housing_allowance', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Monthly housing benefit (optional)</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_transport_allowance" className="text-xs">Transport allowance</Label>
+                                <Input
+                                    id="contract_transport_allowance"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 500.00"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.transport_allowance}
+                                    onChange={(e) => contractForm.setData('transport_allowance', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Monthly transport benefit (optional)</p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label htmlFor="contract_other_allowances" className="text-xs">Other allowances</Label>
+                                <Input
+                                    id="contract_other_allowances"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 200.00"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={contractForm.data.other_allowances}
+                                    onChange={(e) => contractForm.setData('other_allowances', e.target.value)}
+                                />
+                                <p className="text-[11px] text-zinc-500">Any additional monthly allowances (optional)</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -509,6 +503,7 @@ export function EmployeeContractTab({
                         <Button
                             type="button"
                             size="sm"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={contractForm.processing}
                             onClick={submitContract}
                         >
@@ -526,17 +521,22 @@ export function EmployeeContractTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Remove contract?</AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>Remove contract?</AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This contract record will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteContractId) {
                                     return;

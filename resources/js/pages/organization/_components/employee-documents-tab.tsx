@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { FileText, UploadCloud, X } from 'lucide-react';
+import { FileText, Trash2, UploadCloud, X } from 'lucide-react';
 import { useCallback, useMemo, useState  } from 'react';
 import type {ReactElement} from 'react';
 import {
@@ -498,14 +498,22 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
                 </div>
             </div>
 
-            <DialogFooter className="items-center sm:justify-between">
-                <div className="text-xs text-muted-foreground">
+            <DialogFooter className="items-center border-t border-white/5 pt-4 sm:justify-between">
+                <div className="text-xs text-zinc-500">
                     {bulkFiles.length > 1 ? 'Bulk upload will create one document record per file.' : 'Select at least one file to upload.'}
                 </div>
                 <div className="flex gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setUploadOpen(false)}>Cancel</Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                        onClick={() => setUploadOpen(false)}
+                    >
+                        Cancel
+                    </Button>
                     <Button
                         size="sm"
+                        className="bg-indigo-600 text-white hover:bg-indigo-500"
                         disabled={uploadForm.processing || bulkFiles.length === 0 || !uploadForm.data.document_type_id}
                         onClick={() => {
                             if (bulkFiles.length > 1) {
@@ -559,43 +567,105 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
 setEditDoc(null);
 } 
 }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
             <DialogHeader>
                 <DialogTitle>Edit Document</DialogTitle>
+                <p className="text-xs text-zinc-500">
+                    Update the document's title and metadata.
+                </p>
             </DialogHeader>
-            <div className="space-y-4 py-2">
-                <div className="space-y-1.5">
-                    <Label className="text-xs">Title</Label>
-                    <Input className="h-9 text-sm" value={editForm.data.title} onChange={e => editForm.setData('title', e.target.value)} />
+
+            <div className="space-y-4 py-1">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Document details</span>
+                    <div className="h-px flex-1 bg-white/5" />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1.5">
-                        <Label className="text-xs">Document Number</Label>
-                        <Input className="h-9 text-sm" value={editForm.data.document_number} onChange={e => editForm.setData('document_number', e.target.value)} />
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5 sm:col-span-2">
+                        <Label className="text-xs">Title <span className="text-red-400">*</span></Label>
+                        <Input
+                            className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                            placeholder="e.g. Passport Copy"
+                            value={editForm.data.title}
+                            onChange={e => editForm.setData('title', e.target.value)}
+                        />
+                        {editForm.errors.title ? (
+                            <p className="text-xs text-destructive">{editForm.errors.title}</p>
+                        ) : (
+                            <p className="text-[11px] text-zinc-500">The document's title</p>
+                        )}
                     </div>
                     <div className="space-y-1.5">
+                        <Label className="text-xs">Document Number</Label>
+                        <Input
+                            className="h-10 rounded-xl border-white/5 bg-white/5 text-sm font-mono"
+                            placeholder="e.g. A12345678"
+                            value={editForm.data.document_number}
+                            onChange={e => editForm.setData('document_number', e.target.value)}
+                        />
+                        {editForm.errors.document_number && (
+                            <p className="text-xs text-destructive">{editForm.errors.document_number}</p>
+                        )}
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 pt-2">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Validity</span>
+                    <div className="h-px flex-1 bg-white/5" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-1.5">
                         <Label className="text-xs">Issue Date</Label>
-                        <Input type="date" className="h-9 text-sm" value={editForm.data.issue_date} onChange={e => editForm.setData('issue_date', e.target.value)} />
+                        <Input
+                            type="date"
+                            className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                            value={editForm.data.issue_date}
+                            onChange={e => editForm.setData('issue_date', e.target.value)}
+                        />
+                        {editForm.errors.issue_date && (
+                            <p className="text-xs text-destructive">{editForm.errors.issue_date}</p>
+                        )}
                     </div>
                     <div className="space-y-1.5">
                         <Label className="text-xs">Expiry Date</Label>
-                        <Input type="date" className="h-9 text-sm" value={editForm.data.expiry_date} onChange={e => editForm.setData('expiry_date', e.target.value)} />
+                        <Input
+                            type="date"
+                            className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                            value={editForm.data.expiry_date}
+                            onChange={e => editForm.setData('expiry_date', e.target.value)}
+                        />
+                        {editForm.errors.expiry_date && (
+                            <p className="text-xs text-destructive">{editForm.errors.expiry_date}</p>
+                        )}
                     </div>
                 </div>
-                <div className="space-y-1.5">
+
+                <div className="space-y-1.5 pt-2">
                     <Label className="text-xs">Notes</Label>
                     <textarea
-                        rows={2}
-                        className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary resize-none"
+                        rows={3}
+                        className="w-full resize-none rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
+                        placeholder="Optional notes, renewal reminders, or source details..."
                         value={editForm.data.notes}
                         onChange={e => editForm.setData('notes', e.target.value)}
                     />
+                    {editForm.errors.notes && (
+                        <p className="text-xs text-destructive">{editForm.errors.notes}</p>
+                    )}
                 </div>
             </div>
-            <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setEditDoc(null)}>Cancel</Button>
+            <DialogFooter className="border-t border-white/5 pt-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                    onClick={() => setEditDoc(null)}
+                >
+                    Cancel
+                </Button>
                 <Button
                     size="sm"
+                    className="bg-indigo-600 text-white hover:bg-indigo-500"
                     disabled={editForm.processing}
                     onClick={() => {
                         if (!editDoc) {
@@ -637,10 +707,18 @@ setReplaceDoc(null);
                 />
                 {replaceForm.errors.file && <p className="text-xs text-destructive">{replaceForm.errors.file}</p>}
             </div>
-            <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setReplaceDoc(null)}>Cancel</Button>
+            <DialogFooter className="border-t border-white/5 pt-4">
+                <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                    onClick={() => setReplaceDoc(null)}
+                >
+                    Cancel
+                </Button>
                 <Button
                     size="sm"
+                    className="bg-indigo-600 text-white hover:bg-indigo-500"
                     disabled={replaceForm.processing}
                     onClick={() => {
                         if (!replaceDoc) {
@@ -711,17 +789,22 @@ setVersionHistory([]);
 setDeleteDocId(null);
 } 
 }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-sm">
             <AlertDialogHeader>
-                <AlertDialogTitle>Delete document?</AlertDialogTitle>
+                <div className="mb-1 flex items-center gap-3">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                        <Trash2 className="size-4" />
+                    </span>
+                    <AlertDialogTitle>Delete document?</AlertDialogTitle>
+                </div>
                 <AlertDialogDescription>
                     The file and all metadata will be permanently removed. This cannot be undone.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                 <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    className="bg-red-600 text-white hover:bg-red-500"
                     onClick={() => {
                         if (!deleteDocId) {
 return;

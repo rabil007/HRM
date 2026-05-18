@@ -1,4 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -241,116 +242,106 @@ export function EmployeeWorkExperienceTab({
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>
-                            {editingWorkExperience
-                                ? 'Edit work experience'
-                                : 'Add work experience'}
+                            {editingWorkExperience ? 'Edit work experience' : 'Add work experience'}
                         </DialogTitle>
+                        <p className="text-xs text-zinc-500">
+                            Add details about the employee's previous employment.
+                        </p>
                     </DialogHeader>
-                    <div className="space-y-4 py-2">
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Company name</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={workExperienceForm.data.company_name}
-                                onChange={(e) =>
-                                    workExperienceForm.setData(
-                                        'company_name',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {workExperienceForm.errors.company_name ? (
-                                <p className="text-xs text-destructive">
-                                    {workExperienceForm.errors.company_name}
-                                </p>
-                            ) : null}
+
+                    <div className="space-y-4 py-1">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Role details</span>
+                            <div className="h-px flex-1 bg-white/5" />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label className="text-xs">Job title</Label>
-                            <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                value={workExperienceForm.data.job_title}
-                                onChange={(e) =>
-                                    workExperienceForm.setData(
-                                        'job_title',
-                                        e.target.value,
-                                    )
-                                }
-                            />
-                            {workExperienceForm.errors.job_title ? (
-                                <p className="text-xs text-destructive">
-                                    {workExperienceForm.errors.job_title}
-                                </p>
-                            ) : null}
-                        </div>
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Date from</Label>
+                                <Label className="text-xs">Company name <span className="text-red-400">*</span></Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. Ocean Maritime LLC"
+                                    value={workExperienceForm.data.company_name}
+                                    onChange={(e) => workExperienceForm.setData('company_name', e.target.value)}
+                                />
+                                {workExperienceForm.errors.company_name ? (
+                                    <p className="text-xs text-destructive">{workExperienceForm.errors.company_name}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">The employer's name</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Job title <span className="text-red-400">*</span></Label>
+                                <Input
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    placeholder="e.g. Chief Engineer"
+                                    value={workExperienceForm.data.job_title}
+                                    onChange={(e) => workExperienceForm.setData('job_title', e.target.value)}
+                                />
+                                {workExperienceForm.errors.job_title ? (
+                                    <p className="text-xs text-destructive">{workExperienceForm.errors.job_title}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">The held position or rank</p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Start date <span className="text-red-400">*</span></Label>
                                 <Input
                                     type="date"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
                                     value={workExperienceForm.data.date_from}
-                                    onChange={(e) =>
-                                        workExperienceForm.setData(
-                                            'date_from',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => workExperienceForm.setData('date_from', e.target.value)}
                                 />
                                 {workExperienceForm.errors.date_from ? (
-                                    <p className="text-xs text-destructive">
-                                        {workExperienceForm.errors.date_from}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{workExperienceForm.errors.date_from}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">When the employment started</p>
+                                )}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Date to</Label>
+                                <Label className="text-xs">End date</Label>
                                 <Input
                                     type="date"
                                     className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
                                     value={workExperienceForm.data.date_to}
-                                    onChange={(e) =>
-                                        workExperienceForm.setData(
-                                            'date_to',
-                                            e.target.value,
-                                        )
-                                    }
+                                    onChange={(e) => workExperienceForm.setData('date_to', e.target.value)}
                                 />
                                 {workExperienceForm.errors.date_to ? (
-                                    <p className="text-xs text-destructive">
-                                        {workExperienceForm.errors.date_to}
-                                    </p>
-                                ) : null}
+                                    <p className="text-xs text-destructive">{workExperienceForm.errors.date_to}</p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">Leave empty if currently employed</p>
+                                )}
                             </div>
                         </div>
+
+                        <div className="flex items-center gap-2 pt-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Responsibilities</span>
+                            <div className="h-px flex-1 bg-white/5" />
+                        </div>
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Responsibility</Label>
+                            <Label className="text-xs">Description</Label>
                             <textarea
                                 rows={4}
+                                placeholder="Describe the main tasks, responsibilities, and achievements..."
                                 className="min-h-[88px] w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
                                 value={workExperienceForm.data.responsibility}
-                                onChange={(e) =>
-                                    workExperienceForm.setData(
-                                        'responsibility',
-                                        e.target.value,
-                                    )
-                                }
+                                onChange={(e) => workExperienceForm.setData('responsibility', e.target.value)}
                             />
                             {workExperienceForm.errors.responsibility ? (
-                                <p className="text-xs text-destructive">
-                                    {workExperienceForm.errors.responsibility}
-                                </p>
-                            ) : null}
+                                <p className="text-xs text-destructive">{workExperienceForm.errors.responsibility}</p>
+                            ) : (
+                                <p className="text-[11px] text-zinc-500">Optional description of the role</p>
+                            )}
                         </div>
                     </div>
-                    <DialogFooter>
+                    <DialogFooter className="border-t border-white/5 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
+                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                             onClick={() => setWorkExperienceDialogOpen(false)}
                         >
                             Cancel
@@ -358,6 +349,7 @@ export function EmployeeWorkExperienceTab({
                         <Button
                             size="sm"
                             type="button"
+                            className="bg-indigo-600 text-white hover:bg-indigo-500"
                             disabled={workExperienceForm.processing}
                             onClick={() => {
                                 workExperienceForm.clearErrors();
@@ -425,19 +417,24 @@ export function EmployeeWorkExperienceTab({
                     }
                 }}
             >
-                <AlertDialogContent>
+                <AlertDialogContent className="sm:max-w-sm">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>
-                            Remove work experience?
-                        </AlertDialogTitle>
+                        <div className="mb-1 flex items-center gap-3">
+                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
+                                <Trash2 className="size-4" />
+                            </span>
+                            <AlertDialogTitle>
+                                Remove work experience?
+                            </AlertDialogTitle>
+                        </div>
                         <AlertDialogDescription>
                             This entry will be permanently removed.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
                         <AlertDialogAction
-                            className="text-destructive-foreground bg-destructive hover:bg-destructive/90"
+                            className="bg-red-600 text-white hover:bg-red-500"
                             onClick={() => {
                                 if (!deleteWorkExperienceId) {
                                     return;

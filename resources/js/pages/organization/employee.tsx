@@ -1,4 +1,5 @@
 import { Head, usePage } from '@inertiajs/react';
+import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import {
@@ -263,18 +264,24 @@ export default function EmployeeDetails({
                             open={unsavedDialogOpen}
                             onOpenChange={setUnsavedDialogOpen}
                         >
-                            <AlertDialogContent>
+                            <AlertDialogContent className="sm:max-w-sm">
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                        Unsaved changes
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
+                                    <div className="mb-1 flex items-center gap-3">
+                                        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
+                                            <AlertTriangle className="size-4" />
+                                        </span>
+                                        <AlertDialogTitle className="text-zinc-100">
+                                            Unsaved changes
+                                        </AlertDialogTitle>
+                                    </div>
+                                    <AlertDialogDescription className="text-zinc-400">
                                         You have unsaved changes. What would you
                                         like to do?
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <AlertDialogFooter>
+                                <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
                                     <AlertDialogCancel
+                                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                                         onClick={() => {
                                             setPendingTab(null);
                                             setUnsavedDialogOpen(false);
@@ -283,6 +290,7 @@ export default function EmployeeDetails({
                                         Stay
                                     </AlertDialogCancel>
                                     <AlertDialogAction
+                                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                                         onClick={() => {
                                             discardChanges();
 
@@ -297,6 +305,7 @@ export default function EmployeeDetails({
                                         Discard
                                     </AlertDialogAction>
                                     <AlertDialogAction
+                                        className="bg-indigo-600 text-white hover:bg-indigo-500"
                                         onClick={() => {
                                             saveChanges(() => {
                                                 if (pendingTab) {
