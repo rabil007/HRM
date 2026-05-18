@@ -197,12 +197,12 @@ export default function EmployeeDetails({
         work_experiences.length,
     ]);
 
-    useEffect(() => {
+    const activeTab = useMemo((): EmployeeTab => {
         if (tabs.some((t) => t.id === tabValue)) {
-            return;
+            return tabValue;
         }
 
-        setTabValue(tabs[0]?.id ?? 'personal');
+        return tabs[0]?.id ?? 'personal';
     }, [tabs, tabValue]);
 
     useEffect(() => {
@@ -336,7 +336,7 @@ export default function EmployeeDetails({
                             className="rounded-[1.75rem] border border-white/10 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl"
                         >
                             <Tabs
-                                value={tabValue}
+                                value={activeTab}
                                 onValueChange={(v) =>
                                     handleTabChange(v as EmployeeTab)
                                 }
