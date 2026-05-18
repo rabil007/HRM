@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -29,6 +29,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 
@@ -78,6 +87,18 @@ function formatMoney(value: number | null | undefined): string {
     }
 
     return String(value);
+}
+
+function contractStatusClass(status: string | null | undefined): string {
+    if (status === 'active') {
+        return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400';
+    }
+
+    if (status === 'draft') {
+        return 'border-amber-500/25 bg-amber-500/10 text-amber-300';
+    }
+
+    return 'border-zinc-500/25 bg-zinc-500/10 text-zinc-400';
 }
 
 export function EmployeeContractTab({
@@ -202,111 +223,138 @@ export function EmployeeContractTab({
 
     return (
         <TabsContent value="contract" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Contracts
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {contracts.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <EmployeeRecordsPanel
+                title="Contracts"
+                count={contracts.length}
+                isEmpty={contracts.length === 0}
+                emptyMessage="No contracts recorded yet."
+                actions={
+                    canManage ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
                             type="button"
                             onClick={openCreateDialog}
                         >
-                            + Add contract
+                            <Plus className="size-3.5" aria-hidden />
+                            Add contract
                         </Button>
-                    ) : null}
-                </div>
-
-                {contracts.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No contracts recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[960px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Type</th>
-                                    <th className="py-2 pr-4">Start</th>
-                                    <th className="py-2 pr-4">End</th>
-                                    <th className="py-2 pr-4">Status</th>
-                                    <th className="py-2 pr-4">Basic salary</th>
-                                    <th className="py-2 pr-4">Labor contract ID</th>
-                                    {canManage ? (
-                                        <th className="py-2 text-right">Actions</th>
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {contracts.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className="border-b border-white/5 text-sm text-zinc-200"
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[960px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Type</th>
+                            <th className={employeeRecordsTableThClass()}>Start</th>
+                            <th className={employeeRecordsTableThClass()}>End</th>
+                            <th className={employeeRecordsTableThClass()}>Status</th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Basic salary
+                            </th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Labor contract ID
+                            </th>
+                            {canManage ? (
+                                <th
+                                    className={cn(
+                                        employeeRecordsTableThClass(),
+                                        'text-right',
+                                    )}
+                                />
+                            ) : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {contracts.map((row) => (
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'font-medium text-zinc-100',
+                                    )}
+                                >
+                                    {formatContractType(row.contract_type)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'whitespace-nowrap text-zinc-400',
+                                    )}
+                                >
+                                    {formatIsoDateDisplay(row.start_date)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'whitespace-nowrap text-zinc-400',
+                                    )}
+                                >
+                                    {formatIsoDateDisplay(row.end_date)}
+                                </td>
+                                <td className={employeeRecordsTableTdClass()}>
+                                    <span
+                                        className={cn(
+                                            'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+                                            contractStatusClass(row.status),
+                                        )}
                                     >
-                                        <td className="py-3 pr-4">
-                                            {formatContractType(row.contract_type)}
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            {formatIsoDateDisplay(row.start_date)}
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            {formatIsoDateDisplay(row.end_date)}
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            <span
-                                                className={
-                                                    row.status === 'active'
-                                                        ? 'text-emerald-400'
-                                                        : 'text-zinc-400'
-                                                }
+                                        {formatStatus(row.status)}
+                                    </span>
+                                </td>
+                                <td className={employeeRecordsTableTdClass()}>
+                                    {formatMoney(row.basic_salary)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate',
+                                    )}
+                                    title={row.labor_contract_id ?? undefined}
+                                >
+                                    {row.labor_contract_id || '—'}
+                                </td>
+                                {canManage ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
+                                    >
+                                        <div className="flex items-center justify-end gap-1">
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 text-zinc-400 hover:text-zinc-100"
+                                                onClick={() => openEditDialog(row)}
+                                                aria-label="Edit contract"
                                             >
-                                                {formatStatus(row.status)}
-                                            </span>
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            {formatMoney(row.basic_salary)}
-                                        </td>
-                                        <td className="py-3 pr-4">
-                                            {row.labor_contract_id || '—'}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-white"
-                                                        onClick={() =>
-                                                            openEditDialog(row)
-                                                        }
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteContractId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                                                <Pencil className="size-3.5" />
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
+                                                onClick={() =>
+                                                    setDeleteContractId(row.id)
+                                                }
+                                                aria-label="Delete contract"
+                                            >
+                                                <Trash2 className="size-3.5" />
+                                            </Button>
+                                        </div>
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
 
             <Dialog
                 open={dialogOpen}

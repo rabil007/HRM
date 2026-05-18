@@ -1,0 +1,83 @@
+import type { ReactElement, ReactNode } from 'react';
+import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
+import {
+    formatPhoneForDisplay
+    
+} from '@/lib/phone-with-dial-code';
+import type {PhoneCountryOption} from '@/lib/phone-with-dial-code';
+export type EmployeeInlinePhoneFieldProps = {
+    fieldKey: string;
+    label: string;
+    value: string;
+    fallbackValue?: string | null;
+    countries: PhoneCountryOption[];
+    activeField: string | null;
+    setActiveField: (value: string | null) => void;
+    beginEdit: (field: string) => void;
+    onChange: (value: string) => void;
+    error?: string;
+    defaultDialCode?: string;
+    rowClassName?: string;
+    labelClassName?: string;
+    canEdit?: boolean;
+};
+
+export function EmployeeInlinePhoneField({
+    fieldKey,
+    label,
+    value,
+    fallbackValue,
+    countries,
+    activeField,
+    setActiveField,
+    beginEdit,
+    onChange,
+    error,
+    defaultDialCode,
+    rowClassName,
+    labelClassName,
+    canEdit = true,
+}: EmployeeInlinePhoneFieldProps): ReactElement {
+    const isEditing = activeField === fieldKey;
+    const resolved = value || fallbackValue || '';
+    const display = formatPhoneForDisplay(resolved);
+
+    let editor: ReactNode;
+
+    if (isEditing) {
+        editor = (
+            <div>
+                <PhoneInputWithCountry
+                    countries={countries}
+                    value={value}
+                    onChange={onChange}
+                    fieldKey={fieldKey}
+                    defaultDialCode={defaultDialCode}
+                    autoFocus
+                    onBlur={() => setActiveField(null)}
+                />
+                {error ? (
+                    <div className="mt-1 text-xs text-destructive">{error}</div>
+                ) : null}
+            </div>
+        );
+    } else {
+        editor = (
+            <button
+                type="button"
+                className="min-w-0 text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                onClick={() => beginEdit(fieldKey)}
+                disabled={!canEdit}
+            >
+                {display}
+            </button>
+        );
+    }
+
+    return (
+        <div className={rowClassName}>
+            <label className={labelClassName}>{label}</label>
+            <div className="min-w-0">{editor}</div>
+        </div>
+    );
+}

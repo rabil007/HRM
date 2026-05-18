@@ -50,6 +50,7 @@ export type CountryOption = {
     id: number;
     name: string;
     code: string;
+    dial_code: string | null;
 };
 
 export type Employee = {

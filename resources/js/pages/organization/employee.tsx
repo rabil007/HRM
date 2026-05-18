@@ -331,6 +331,7 @@ export default function EmployeeDetails({
                             positions={positions}
                             ranks={ranks}
                             managers={managers}
+                            countries={countries}
                             genders={genders}
                             religions={religions}
                             form={form}

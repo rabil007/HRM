@@ -77,7 +77,7 @@ class EmployeeController extends Controller
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code']);
+            ->get(['id', 'name', 'code', 'dial_code']);
 
         $religions = Religion::query()
             ->where('is_active', true)
@@ -251,7 +251,7 @@ class EmployeeController extends Controller
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name']);
+            ->get(['id', 'name', 'code', 'dial_code']);
 
         $religions = Religion::query()
             ->where('is_active', true)
@@ -336,7 +336,7 @@ class EmployeeController extends Controller
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'code']);
+            ->get(['id', 'name', 'code', 'dial_code']);
 
         $religions = Religion::query()
             ->where('is_active', true)

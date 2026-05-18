@@ -10,6 +10,8 @@ import {
     CommandList,
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
+import type { CountryOption } from '@/features/organization/employees/types';
+import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 
 type Option = { id: number; name?: string | null; title?: string | null };
 
@@ -20,6 +22,7 @@ export function EmployeeHeaderCard({
     departments,
     positions,
     managers,
+    countries,
     genders,
     religions,
     ranks,
@@ -35,6 +38,7 @@ export function EmployeeHeaderCard({
     departments: Option[];
     positions: Option[];
     managers: any[];
+    countries: CountryOption[];
     genders: Option[];
     religions: Option[];
     ranks: Option[];
@@ -322,14 +326,14 @@ export function EmployeeHeaderCard({
                 </div>
             </div>
 
-            <div className="relative mt-6 rounded-3xl border border-white/10 bg-black/10 p-4 shadow-inner shadow-black/10 md:p-5">
-                <div className="mb-4 flex items-center justify-between">
-                    <div className="text-xs font-semibold tracking-wide text-zinc-400">
+            <div className="relative mt-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent p-4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] md:p-5">
+                <div className="mb-4 border-b border-white/[0.06] pb-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
                         Details
-                    </div>
+                    </h2>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 md:gap-6">
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4 md:gap-5">
                     <div className="space-y-2">
                         <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">
                             <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
@@ -359,29 +363,22 @@ export function EmployeeHeaderCard({
                         </div>
 
                         <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">
-                            <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4">
-                                <label className="text-xs font-medium text-zinc-400">
-                                    Phone (UAE)
-                                </label>
-                                {activeField === 'phone' && canUpdate ? (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-zinc-200"
-                                        value={form.data.phone}
-                                        onChange={(e) => form.setData('phone', e.target.value)}
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                        onClick={() => beginEdit('phone')}
-                                        disabled={!canUpdate}
-                                    >
-                                        {form.data.phone || employee.phone || '—'}
-                                    </button>
-                                )}
-                            </div>
+                            <EmployeeInlinePhoneField
+                                fieldKey="phone"
+                                label="Phone (UAE)"
+                                value={form.data.phone ?? ''}
+                                fallbackValue={employee.phone}
+                                countries={countries}
+                                activeField={activeField}
+                                setActiveField={setActiveField}
+                                beginEdit={beginEdit}
+                                onChange={(next) => form.setData('phone', next)}
+                                error={form.errors.phone}
+                                defaultDialCode="+971"
+                                canEdit={canUpdate}
+                                rowClassName="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:items-center sm:gap-4"
+                                labelClassName="text-xs font-medium text-zinc-400"
+                            />
                         </div>
 
                         <div className="group rounded-xl px-2 py-2 transition-colors hover:bg-white/5">

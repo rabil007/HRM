@@ -1,8 +1,17 @@
+import { Globe, Mail, MapPin, Phone, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { Input } from '@/components/ui/input';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
+
+const personalFieldRowClass =
+    'grid grid-cols-1 gap-2 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-white/[0.06] hover:bg-white/[0.03] sm:grid-cols-[minmax(0,9.5rem)_1fr] sm:items-center sm:gap-5';
+const personalFieldLabelClass =
+    'text-[11px] font-medium uppercase tracking-wider text-zinc-500';
 
 export type EmployeePersonalFormSlice = {
     data: Record<string, unknown> & {
@@ -45,18 +54,16 @@ export function EmployeePersonalTab({
     beginEdit,
 }: EmployeePersonalTabProps): ReactElement {
     return (
-        <TabsContent value="personal" className="mt-6">
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2 2xl:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                    <div className="mb-4 flex items-center justify-between gap-3">
-                        <h3 className="text-sm font-semibold text-zinc-200">
-                            Private contact
-                        </h3>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                            <label className="text-xs font-medium text-zinc-400">
+        <TabsContent value="personal" className="mt-6 space-y-6">
+            <div className="grid items-stretch gap-4 lg:grid-cols-3">
+                <EmployeeSectionCard
+                    title="Private contact"
+                    description="Personal email and home-country phone"
+                    icon={Mail}
+                >
+                    <div className="space-y-1">
+                        <div className={personalFieldRowClass}>
+                            <label className={personalFieldLabelClass}>
                                 Email
                             </label>
                             {activeField === 'personal_email' ? (
@@ -92,23 +99,21 @@ export function EmployeePersonalTab({
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                            <label className="text-xs font-medium text-zinc-400">
+                        <div className={personalFieldRowClass}>
+                            <label className={personalFieldLabelClass}>
                                 Phone (Home Country)
                             </label>
                             {activeField === 'phone_home_country' ? (
                                 <div>
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.phone_home_country}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'phone_home_country',
-                                                e.target.value,
-                                            )
+                                    <PhoneInputWithCountry
+                                        countries={countries}
+                                        value={form.data.phone_home_country ?? ''}
+                                        onChange={(next) =>
+                                            form.setData('phone_home_country', next)
                                         }
-                                        onBlur={() => setActiveField(null)}
+                                        fieldKey="phone_home_country"
                                         autoFocus
+                                        onBlur={() => setActiveField(null)}
                                     />
                                     {form.errors.phone_home_country ? (
                                         <div className="mt-1 text-xs text-destructive">
@@ -124,15 +129,16 @@ export function EmployeePersonalTab({
                                         beginEdit('phone_home_country')
                                     }
                                 >
-                                    {form.data.phone_home_country ||
-                                        employee.phone_home_country ||
-                                        '—'}
+                                    {formatPhoneForDisplay(
+                                        form.data.phone_home_country ||
+                                            employee.phone_home_country,
+                                    )}
                                 </button>
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                            <label className="text-xs font-medium text-zinc-400">
+                        <div className={personalFieldRowClass}>
+                            <label className={personalFieldLabelClass}>
                                 Source Of CV
                             </label>
                             {activeField === 'cv_source' ? (
@@ -168,16 +174,14 @@ export function EmployeePersonalTab({
                             )}
                         </div>
                     </div>
-                </div>
+                </EmployeeSectionCard>
 
-                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-200">
-                            Emergency contact
-                        </h3>
-                    </div>
-
-                    <div className="space-y-3">
+                <EmployeeSectionCard
+                    title="Emergency contact"
+                    description="Primary and home-country contacts"
+                    icon={Phone}
+                >
+                    <div className="space-y-1">
                         {[
                             {
                                 label: 'Contact',
@@ -213,17 +217,16 @@ export function EmployeePersonalTab({
                                 label: 'Phone',
                                 value:
                                     activeField === 'emergency_phone' ? (
-                                        <Input
-                                            className="h-10 rounded-xl border-white/5 bg-white/5"
-                                            value={form.data.emergency_phone}
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'emergency_phone',
-                                                    e.target.value,
-                                                )
+                                        <PhoneInputWithCountry
+                                            countries={countries}
+                                            value={form.data.emergency_phone ?? ''}
+                                            onChange={(next) =>
+                                                form.setData('emergency_phone', next)
                                             }
-                                            onBlur={() => setActiveField(null)}
+                                            fieldKey="emergency_phone"
+                                            defaultDialCode="+971"
                                             autoFocus
+                                            onBlur={() => setActiveField(null)}
                                         />
                                     ) : (
                                         <button
@@ -233,9 +236,10 @@ export function EmployeePersonalTab({
                                                 beginEdit('emergency_phone')
                                             }
                                         >
-                                            {form.data.emergency_phone ||
-                                                employee.emergency_phone ||
-                                                '—'}
+                                            {formatPhoneForDisplay(
+                                                form.data.emergency_phone ||
+                                                    employee.emergency_phone,
+                                            )}
                                         </button>
                                     ),
                             },
@@ -281,20 +285,22 @@ export function EmployeePersonalTab({
                                 value:
                                     activeField ===
                                     'emergency_phone_home_country' ? (
-                                        <Input
-                                            className="h-10 rounded-xl border-white/5 bg-white/5"
+                                        <PhoneInputWithCountry
+                                            countries={countries}
                                             value={
                                                 form.data
-                                                    .emergency_phone_home_country
+                                                    .emergency_phone_home_country ??
+                                                ''
                                             }
-                                            onChange={(e) =>
+                                            onChange={(next) =>
                                                 form.setData(
                                                     'emergency_phone_home_country',
-                                                    e.target.value,
+                                                    next,
                                                 )
                                             }
-                                            onBlur={() => setActiveField(null)}
+                                            fieldKey="emergency_phone_home_country"
                                             autoFocus
+                                            onBlur={() => setActiveField(null)}
                                         />
                                     ) : (
                                         <button
@@ -306,37 +312,33 @@ export function EmployeePersonalTab({
                                                 )
                                             }
                                         >
-                                            {form.data
-                                                .emergency_phone_home_country ||
-                                                employee.emergency_phone_home_country ||
-                                                '—'}
+                                            {formatPhoneForDisplay(
+                                                form.data
+                                                    .emergency_phone_home_country ||
+                                                    employee.emergency_phone_home_country,
+                                            )}
                                         </button>
                                     ),
                             },
                         ].map((item, i) => (
-                            <div
-                                key={i}
-                                className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
-                            >
-                                <label className="text-xs font-medium text-zinc-400">
+                            <div key={i} className={personalFieldRowClass}>
+                                <label className={personalFieldLabelClass}>
                                     {item.label}
                                 </label>
-                                <div className="text-sm font-medium text-zinc-200">
+                                <div className="min-w-0 text-sm font-medium text-zinc-100">
                                     {item.value}
                                 </div>
                             </div>
                         ))}
                     </div>
-                </div>
+                </EmployeeSectionCard>
 
-                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-200">
-                            Family
-                        </h3>
-                    </div>
-
-                    <div className="space-y-3">
+                <EmployeeSectionCard
+                    title="Family"
+                    description="Spouse and dependents"
+                    icon={Users}
+                >
+                    <div className="space-y-1">
                         {[
                             {
                                 key: 'spouse_name',
@@ -419,11 +421,8 @@ export function EmployeePersonalTab({
                                           )),
                             },
                         ].map((row) => (
-                            <div
-                                key={row.key}
-                                className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
-                            >
-                                <label className="text-xs font-medium text-zinc-400">
+                            <div key={row.key} className={personalFieldRowClass}>
+                                <label className={personalFieldLabelClass}>
                                     {row.label}
                                 </label>
                                 {activeField === row.key ? (
@@ -440,16 +439,15 @@ export function EmployeePersonalTab({
                             </div>
                         ))}
                     </div>
-                </div>
+                </EmployeeSectionCard>
+            </div>
 
-                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-200">
-                            Location
-                        </h3>
-                    </div>
-
-                    <div className="space-y-3">
+            <EmployeeSectionCard
+                title="Location"
+                description="Travel and residence"
+                icon={MapPin}
+            >
+                <div className="space-y-1">
                         {[
                             {
                                 key: 'nearest_airport',
@@ -496,11 +494,8 @@ export function EmployeePersonalTab({
                                     '—',
                             },
                         ].map((row) => (
-                            <div
-                                key={row.key}
-                                className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
-                            >
-                                <label className="text-xs font-medium text-zinc-400">
+                            <div key={row.key} className={personalFieldRowClass}>
+                                <label className={personalFieldLabelClass}>
                                     {row.label}
                                 </label>
                                 {activeField === row.key ? (
@@ -516,19 +511,17 @@ export function EmployeePersonalTab({
                                 )}
                             </div>
                         ))}
-                    </div>
                 </div>
+            </EmployeeSectionCard>
 
-                <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl xl:col-span-2 2xl:col-span-3">
-                    <div className="mb-4 flex items-center justify-between">
-                        <h3 className="text-sm font-semibold text-zinc-200">
-                            Citizenship
-                        </h3>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4">
-                            <label className="text-xs font-medium text-zinc-400">
+            <EmployeeSectionCard
+                title="Citizenship"
+                description="Identity documents and work permits"
+                icon={Globe}
+                bodyClassName="grid gap-1 lg:grid-cols-2 lg:gap-x-10"
+            >
+                <div className={personalFieldRowClass}>
+                            <label className={personalFieldLabelClass}>
                                 Nationality (Country)
                             </label>
                             {activeField === 'nationality_id' ? (
@@ -608,11 +601,8 @@ export function EmployeePersonalTab({
                                     '—',
                             },
                         ].map((item) => (
-                            <div
-                                key={item.key}
-                                className="grid grid-cols-1 gap-1 sm:grid-cols-[180px_1fr] sm:items-center sm:gap-4"
-                            >
-                                <label className="text-xs font-medium text-zinc-400">
+                            <div key={item.key} className={personalFieldRowClass}>
+                                <label className={personalFieldLabelClass}>
                                     {item.label}
                                 </label>
                                 {activeField === item.key ? (
@@ -639,9 +629,7 @@ export function EmployeePersonalTab({
                                 )}
                             </div>
                         ))}
-                    </div>
-                </div>
-            </div>
+            </EmployeeSectionCard>
         </TabsContent>
     );
 }

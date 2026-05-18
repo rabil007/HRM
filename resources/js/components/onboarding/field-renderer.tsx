@@ -1,9 +1,24 @@
 import { UserPlus } from 'lucide-react';
 import React from 'react';
+import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 
-type Option = { id: number | string; name: string; title?: string };
+type Option = {
+    id: number | string;
+    name: string;
+    title?: string;
+    code?: string;
+    dial_code?: string | null;
+};
+
+const PHONE_FIELD_KEYS = new Set([
+    'phone',
+    'emergency_phone',
+    'phone_home_country',
+    'emergency_phone_home_country',
+]);
 
 interface FieldRendererProps {
     fieldKey: string;
@@ -266,9 +281,29 @@ export function FieldRenderer({
         );
     }
 
-    const inputType = (fieldKey === 'work_email' || fieldKey === 'personal_email') ? 'email'
-        : (fieldKey === 'phone' || fieldKey === 'emergency_phone' || fieldKey === 'phone_home_country' || fieldKey === 'emergency_phone_home_country') ? 'tel'
-        : 'text';
+    if (PHONE_FIELD_KEYS.has(fieldKey)) {
+        const phoneCountries = (options.countries ?? []) as PhoneCountryOption[];
+
+        return (
+            <div className="space-y-1.5">
+                <Label htmlFor={id} className="text-xs font-medium text-foreground">
+                    {label} {isRequired && <span className="text-destructive">*</span>}
+                </Label>
+                <PhoneInputWithCountry
+                    id={id}
+                    countries={phoneCountries}
+                    value={value ?? ''}
+                    onChange={onChange}
+                    fieldKey={fieldKey}
+                    inputClassName="rounded-lg border-input bg-background"
+                    selectClassName="rounded-lg border border-input bg-background"
+                />
+                {error && <p className="text-[10px] text-destructive">{error}</p>}
+            </div>
+        );
+    }
+
+    const inputType = (fieldKey === 'work_email' || fieldKey === 'personal_email') ? 'email' : 'text';
 
     return (
         <div className="space-y-1.5">
