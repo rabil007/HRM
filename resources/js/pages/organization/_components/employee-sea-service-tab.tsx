@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import type { RankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
+import { SeaServiceImportDialog } from '@/pages/organization/_components/sea-service-import-dialog';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
     ClientOption,
@@ -102,6 +103,7 @@ export function EmployeeSeaServiceTab({
     canManage,
 }: EmployeeSeaServiceTabProps): ReactElement {
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [seaServiceImportOpen, setSeaServiceImportOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<SeaServiceItem | null>(null);
     const [deleteRowId, setDeleteRowId] = useState<number | null>(null);
     const dragSourceIdRef = useRef<number | null>(null);
@@ -174,30 +176,41 @@ export function EmployeeSeaServiceTab({
                         </span>
                     </h3>
                     {canManage ? (
-                        <Button
-                            size="sm"
-                            className="h-8 gap-1.5 text-xs"
-                            type="button"
-                            onClick={() => {
-                                employeeForm.reset();
-                                employeeForm.clearErrors();
-                                employeeForm.setData({
-                                    vessel_type_id: '',
-                                    vessel_name: '',
-                                    rank_id: '',
-                                    total_months: '0',
-                                    total_days: '0',
-                                    grt: '',
-                                    bhp: '',
-                                    client_id: '',
-                                    is_offshore: false,
-                                });
-                                setEditingRow(null);
-                                setDialogOpen(true);
-                            }}
-                        >
-                            + Add a line
-                        </Button>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 gap-1.5 text-xs"
+                                type="button"
+                                onClick={() => setSeaServiceImportOpen(true)}
+                            >
+                                Import CSV
+                            </Button>
+                            <Button
+                                size="sm"
+                                className="h-8 gap-1.5 text-xs"
+                                type="button"
+                                onClick={() => {
+                                    employeeForm.reset();
+                                    employeeForm.clearErrors();
+                                    employeeForm.setData({
+                                        vessel_type_id: '',
+                                        vessel_name: '',
+                                        rank_id: '',
+                                        total_months: '0',
+                                        total_days: '0',
+                                        grt: '',
+                                        bhp: '',
+                                        client_id: '',
+                                        is_offshore: false,
+                                    });
+                                    setEditingRow(null);
+                                    setDialogOpen(true);
+                                }}
+                            >
+                                + Add a line
+                            </Button>
+                        </div>
                     ) : null}
                 </div>
 
@@ -746,6 +759,12 @@ export function EmployeeSeaServiceTab({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <SeaServiceImportDialog
+                open={seaServiceImportOpen}
+                onOpenChange={setSeaServiceImportOpen}
+                employeeId={employeeId}
+            />
         </TabsContent>
     );
 }

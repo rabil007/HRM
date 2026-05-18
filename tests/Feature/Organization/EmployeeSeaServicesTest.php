@@ -10,6 +10,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\VesselType;
+use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot manage sea services', function () {
@@ -22,6 +23,9 @@ test('guests cannot manage sea services', function () {
         'total_months' => 1,
         'total_days' => 0,
     ])->assertRedirect(route('login'));
+
+    $this->get(route('organization.employees.sea-services.import.template', $employee))
+        ->assertRedirect(route('login'));
 });
 
 test('users without permission cannot manage sea services', function () {
@@ -433,4 +437,90 @@ test('reorder rejects partial order lists', function () {
     $this->post(route('organization.employees.sea-services.reorder', $employee), [
         'order' => [$first->id],
     ])->assertStatus(422);
+});
+
+test('csv import appends sea service rows for the employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TSS',
+        'name' => 'Testland Sea Import',
+        'dial_code' => '+992',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TSS',
+        'name' => 'Test Currency Sea Import',
+        'symbol' => 'I$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea Import',
+        'slug' => 'acme-sea-import',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0099',
+            'name' => 'Sea Importer',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Bulk Carrier',
+        'is_active' => true,
+    ]);
+
+    $rank = Rank::query()->create([
+        'name' => 'Second Officer',
+        'is_active' => true,
+    ]);
+
+    $client = Client::query()->create([
+        'name' => 'Offshore Logistics',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+
+    $csv = <<<'CSV'
+vessel type,vessel name,rank,total months,total days,grt,bhp,client,is offshore
+Bulk Carrier,MV North Star,Second Officer,8,10,42000,6500,Offshore Logistics,yes
+
+CSV;
+
+    $file = UploadedFile::fake()->createWithContent('sea-service.csv', $csv);
+
+    $this->post(route('organization.employees.sea-services.import', $employee), [
+        'file' => $file,
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('employee_sea_services', [
+        'employee_id' => $employee->id,
+        'vessel_name' => 'MV North Star',
+        'vessel_type_id' => $vesselType->id,
+        'rank_id' => $rank->id,
+        'client_id' => $client->id,
+        'is_offshore' => true,
+    ]);
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
