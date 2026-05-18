@@ -417,7 +417,10 @@ return vaccinationFieldOptions.find((o) => o.key === key)?.label ?? key;
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.setData('tasks_json', JSON.stringify(buildTasksFromBuilder(builder)));
+        form.transform((data) => ({
+            ...data,
+            tasks_json: JSON.stringify(buildTasksFromBuilder(builder)),
+        }));
 
         if (template) {
             form.put(`/onboarding/templates/${template.id}`);

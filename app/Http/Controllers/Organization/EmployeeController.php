@@ -31,6 +31,7 @@ use App\Models\Religion;
 use App\Models\User;
 use App\Models\VesselType;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\OnboardingTemplateImportFields;
 use App\Support\OnboardingTemplateTabVisibility;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -1116,9 +1117,9 @@ class EmployeeController extends Controller
         ]);
     }
 
-    public function importTemplate()
+    public function importTemplate(Request $request)
     {
-        $headers = EmployeesImport::TEMPLATE_HEADERS;
+        $headers = $this->importColumnsForRequest($request);
 
         $sampleRow = array_fill(0, count($headers), '');
         $sampleMap = [
@@ -1171,11 +1172,18 @@ class EmployeeController extends Controller
             ?? $templates->first()['id']
             ?? null;
 
+        $importPageRequest = request();
+        if ($defaultTemplateId) {
+            $importPageRequest = request()->duplicate(
+                query: array_merge(request()->query(), ['template_id' => $defaultTemplateId]),
+            );
+        }
+
         return Inertia::render('organization/employee-import', [
             'template_url' => route('organization.employees.import.template'),
             'preview_url' => route('organization.employees.import.preview'),
             'import_url' => route('organization.employees.import'),
-            'field_options' => $this->importFieldOptions(request()),
+            'field_options' => $this->importFieldOptions($importPageRequest),
             'max_rows' => EmployeesImport::MAX_ROWS,
             'templates' => $templates,
             'default_template_id' => $defaultTemplateId,
@@ -1288,7 +1296,17 @@ class EmployeeController extends Controller
 
     private function allowedImportFields(Request $request): array
     {
-        return collect(EmployeesImport::fields())
+        return $this->permittedImportFields($request);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function permittedImportFields(Request $request): array
+    {
+        $columns = $this->importColumnsForRequest($request);
+
+        return collect($columns)
             ->filter(function (string $field) use ($request) {
                 $permission = EmployeesImport::SENSITIVE_FIELD_PERMISSIONS[$field] ?? null;
 
@@ -1300,8 +1318,10 @@ class EmployeeController extends Controller
 
     private function importFieldOptions(Request $request): array
     {
-        return collect(EmployeesImport::fields())
-            ->map(function (string $field) use ($request) {
+        $permitted = array_fill_keys($this->permittedImportFields($request), true);
+
+        return collect($this->importColumnsForRequest($request))
+            ->map(function (string $field) use ($permitted) {
                 $permission = EmployeesImport::SENSITIVE_FIELD_PERMISSIONS[$field] ?? null;
 
                 return [
@@ -1310,10 +1330,40 @@ class EmployeeController extends Controller
                     'required' => in_array($field, EmployeesImport::REQUIRED_FIELDS, true),
                     'sensitive' => $permission !== null,
                     'permission' => $permission,
-                    'allowed' => $permission === null || $request->user()?->can($permission),
+                    'allowed' => isset($permitted[$field]),
                 ];
             })
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function importColumnsForRequest(Request $request): array
+    {
+        $template = $this->resolveOnboardingTemplateForImport($request);
+
+        if ($template === null) {
+            return EmployeesImport::TEMPLATE_HEADERS;
+        }
+
+        return OnboardingTemplateImportFields::columnsForTasks(
+            is_array($template->tasks) ? $template->tasks : null,
+        );
+    }
+
+    private function resolveOnboardingTemplateForImport(Request $request): ?OnboardingTemplate
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $templateId = (int) $request->input('onboarding_template_id', $request->query('template_id', 0));
+
+        if ($templateId <= 0) {
+            return null;
+        }
+
+        return OnboardingTemplate::query()
+            ->where('company_id', $companyId)
+            ->find($templateId);
     }
 }

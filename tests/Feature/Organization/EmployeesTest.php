@@ -922,6 +922,71 @@ test('employee import rejects request without onboarding template', function () 
         ->assertJsonValidationErrors('onboarding_template_id');
 });
 
+test('employee import template download only includes fields from selected onboarding template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITC',
+        'name' => 'Import Template Columns',
+        'dial_code' => '+989',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITC',
+        'name' => 'Import Template Columns Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Template Columns Co',
+        'slug' => 'import-template-columns-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Minimal Import',
+        'is_default' => true,
+        'tasks' => [
+            'version' => 2,
+            'stages' => [
+                [
+                    'key' => 'main',
+                    'employee_fields' => [
+                        ['key' => 'employee_no'],
+                        ['key' => 'name'],
+                        ['key' => 'work_email'],
+                    ],
+                    'bank_account_fields' => [],
+                    'contract_fields' => [
+                        ['key' => 'start_date'],
+                    ],
+                ],
+            ],
+        ],
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+
+    $response->assertOk();
+    $csv = $response->streamedContent();
+    $lines = array_values(array_filter(explode("\n", trim($csv))));
+    $headers = str_getcsv($lines[0]);
+
+    expect($headers)->toContain('employee_no', 'name', 'work_email', 'start_date', 'status')
+        ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type');
+});
+
 test('employee import assigns onboarding_template_id to imported employees', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

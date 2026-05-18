@@ -91,6 +91,16 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
     const [result, setResult] = useState<{ created: number; skipped: number; failed: number } | null>(null);
     const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(default_template_id);
 
+    const templateDownloadUrl = useMemo(() => {
+        if (!selectedTemplateId) {
+            return template_url;
+        }
+
+        const separator = template_url.includes('?') ? '&' : '?';
+
+        return `${template_url}${separator}template_id=${selectedTemplateId}`;
+    }, [selectedTemplateId, template_url]);
+
     const errorsByRow = useMemo(() => {
         const map = new Map<number, RowError[]>();
 
@@ -243,7 +253,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         } finally {
             setIsImporting(false);
         }
-    }, [file, import_url, mapping, preview]);
+    }, [file, import_url, mapping, preview, selectedTemplateId]);
 
     const handleMappingChange = useCallback((field: string, header: string) => {
         if (!file) {
@@ -273,7 +283,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                 <Link href="/organization/employees">Cancel</Link>
                             </Button>
                             <Button variant="secondary" className="glass-card rounded-xl h-11 px-4 hover:bg-accent" asChild>
-                                <a href={template_url}>
+                                <a href={selectedTemplateId ? templateDownloadUrl : template_url}>
                                     <Download className="mr-2 h-4 w-4" />
                                     Template
                                 </a>
@@ -306,7 +316,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                     </label>
                                     <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">Required</span>
                                 </div>
-                                <p className="mb-3 text-xs text-muted-foreground">All imported employees will be assigned this template. The template controls which profile tabs are visible.</p>
+                                <p className="mb-3 text-xs text-muted-foreground">
+                                    All imported employees will be assigned this template. The downloadable import template and column mapping only include fields configured on that template (plus employee no and name).
+                                </p>
                                 {templates.length === 0 ? (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
                                         No onboarding templates found. Please create one before importing employees.
@@ -340,8 +352,12 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                     onDrop={(event) => {
                                         event.preventDefault();
                                         setIsDragging(false);
-                                        if (selectedTemplateId) selectFile(event.dataTransfer.files?.[0] ?? null);
-                                        else toast.error('Please select an onboarding template first.');
+
+                                        if (selectedTemplateId) {
+selectFile(event.dataTransfer.files?.[0] ?? null);
+} else {
+toast.error('Please select an onboarding template first.');
+}
                                     }}
                                     className={`flex min-h-[380px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
                                         !selectedTemplateId ? 'cursor-not-allowed border-border/30 bg-background/10 opacity-50' :
@@ -367,7 +383,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                     {selectedTemplateId ? (
                                         <div className="mt-5 flex flex-wrap justify-center gap-2">
                                             <Button variant="secondary" className="rounded-xl" asChild>
-                                                <a href={template_url}>
+                                                <a href={templateDownloadUrl}>
                                                     <Download className="mr-2 h-4 w-4" />
                                                     Import Template for Employees
                                                 </a>
@@ -447,7 +463,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
 
                                 <section className="space-y-2 text-xs">
                                     <h2 className="text-sm font-semibold text-foreground">Help</h2>
-                                    <a href={template_url} className="block text-primary hover:underline">Import Template for Employees</a>
+                                    <a href={templateDownloadUrl} className="block text-primary hover:underline">Import Template for Employees</a>
                                     <span className="block text-muted-foreground">
                                         Required fields to map are <strong className="text-foreground">Employee No</strong> and{' '}
                                         <strong className="text-foreground">Name</strong>. If you leave Contract type or Start date
