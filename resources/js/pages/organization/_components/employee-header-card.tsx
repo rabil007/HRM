@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 
 type Option = { id: number; name?: string | null; title?: string | null };
@@ -70,6 +71,19 @@ export function EmployeeHeaderCard({
             ? employee.image
             : `/storage/${employee.image.replace(/^\/+/, '')}`
         : null;
+
+    const displayPhone = useMemo(() => {
+        const formatted = formatPhoneForDisplay(
+            form.data.phone || employee.phone,
+            {
+                countries,
+                fieldKey: 'phone',
+                defaultDialCode: '+971',
+            },
+        );
+
+        return formatted === '—' ? 'No phone' : formatted;
+    }, [countries, employee.phone, form.data.phone]);
 
     const statusBadge = useMemo(() => {
         const status = employee.status;
@@ -175,7 +189,7 @@ export function EmployeeHeaderCard({
                                 </div>
                                 <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
                                     <Phone className="h-3.5 w-3.5" />
-                                    {form.data.phone || employee.phone || 'No phone'}
+                                    {displayPhone}
                                 </div>
                                 <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
                                     <MapPin className="h-3.5 w-3.5" />

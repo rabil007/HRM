@@ -40,7 +40,11 @@ export function EmployeeInlinePhoneField({
 }: EmployeeInlinePhoneFieldProps): ReactElement {
     const isEditing = activeField === fieldKey;
     const resolved = value || fallbackValue || '';
-    const display = formatPhoneForDisplay(resolved);
+    const display = formatPhoneForDisplay(resolved, {
+        countries,
+        fieldKey,
+        defaultDialCode,
+    });
 
     let editor: ReactNode;
 

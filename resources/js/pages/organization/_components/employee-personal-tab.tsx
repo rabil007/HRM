@@ -132,6 +132,10 @@ export function EmployeePersonalTab({
                                     {formatPhoneForDisplay(
                                         form.data.phone_home_country ||
                                             employee.phone_home_country,
+                                        {
+                                            countries,
+                                            fieldKey: 'phone_home_country',
+                                        },
                                     )}
                                 </button>
                             )}
@@ -239,6 +243,11 @@ export function EmployeePersonalTab({
                                             {formatPhoneForDisplay(
                                                 form.data.emergency_phone ||
                                                     employee.emergency_phone,
+                                                {
+                                                    countries,
+                                                    fieldKey: 'emergency_phone',
+                                                    defaultDialCode: '+971',
+                                                },
                                             )}
                                         </button>
                                     ),
@@ -316,6 +325,11 @@ export function EmployeePersonalTab({
                                                 form.data
                                                     .emergency_phone_home_country ||
                                                     employee.emergency_phone_home_country,
+                                                {
+                                                    countries,
+                                                    fieldKey:
+                                                        'emergency_phone_home_country',
+                                                },
                                             )}
                                         </button>
                                     ),

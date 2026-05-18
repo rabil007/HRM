@@ -66,12 +66,41 @@ export function combinePhoneWithDialCode(
     return `${dial}${digits}`;
 }
 
+export type FormatPhoneForDisplayOptions = {
+    countries?: PhoneCountryOption[];
+    fieldKey?: string;
+    defaultDialCode?: string;
+};
+
 export function formatPhoneForDisplay(
     full: string | null | undefined,
+    options: FormatPhoneForDisplayOptions = {},
 ): string {
     const trimmed = (full ?? '').trim();
 
-    return trimmed === '' ? '—' : trimmed;
+    if (trimmed === '') {
+        return '—';
+    }
+
+    const countries = options.countries ?? [];
+    const { dialCode, nationalNumber } = parsePhoneWithDialCode(trimmed, countries);
+
+    const effectiveDialCode =
+        dialCode ||
+        options.defaultDialCode ||
+        (options.fieldKey
+            ? defaultDialCodeForPhoneField(options.fieldKey, countries)
+            : '');
+
+    if (!effectiveDialCode) {
+        return trimmed;
+    }
+
+    if (dialCode) {
+        return nationalNumber ? `${dialCode} ${nationalNumber}` : dialCode;
+    }
+
+    return nationalNumber ? `${effectiveDialCode} ${nationalNumber}` : effectiveDialCode;
 }
 
 export function defaultDialCodeForPhoneField(
