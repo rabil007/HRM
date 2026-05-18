@@ -31,6 +31,11 @@ import { TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
 import type { LanguageItem } from '@/pages/organization/employee-page.types';
 
+const LANGUAGES_RELOAD = {
+    preserveScroll: true,
+    only: ['languages'],
+} as const;
+
 export type EmployeeLanguagesTabProps = {
     employeeId: number;
     languages: LanguageItem[];
@@ -363,7 +368,7 @@ export function EmployeeLanguagesTab({
 
                                 if (editingLanguage) {
                                     languageForm.put(url, {
-                                        preserveScroll: true,
+                                        ...LANGUAGES_RELOAD,
                                         onSuccess: () => {
                                             setLanguageDialogOpen(false);
                                             languageForm.reset();
@@ -373,7 +378,7 @@ export function EmployeeLanguagesTab({
                                     });
                                 } else {
                                     languageForm.post(url, {
-                                        preserveScroll: true,
+                                        ...LANGUAGES_RELOAD,
                                         onSuccess: () => {
                                             setLanguageDialogOpen(false);
                                             languageForm.reset();
@@ -419,7 +424,7 @@ export function EmployeeLanguagesTab({
                                         language: deleteLanguageId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...LANGUAGES_RELOAD,
                                         onSuccess: () => {
                                             setDeleteLanguageId(null);
                                             toast.success('Language removed.');

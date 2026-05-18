@@ -32,6 +32,11 @@ import type { BankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import type { EmployeeBankAccountItem } from '@/pages/organization/employee-page.types';
 
+const BANK_ACCOUNTS_RELOAD = {
+    preserveScroll: true,
+    only: ['bank_accounts', 'employee'],
+} as const;
+
 export type EmployeeBankTabProps = {
     employeeId: number;
     bank_accounts: EmployeeBankAccountItem[];
@@ -326,7 +331,7 @@ export function EmployeeBankTab({
 
                                 if (editingRow) {
                                     bankForm.put(url, {
-                                        preserveScroll: true,
+                                        ...BANK_ACCOUNTS_RELOAD,
                                         onSuccess: () => {
                                             setDialogOpen(false);
                                             bankForm.reset();
@@ -338,7 +343,7 @@ export function EmployeeBankTab({
                                     });
                                 } else {
                                     bankForm.post(url, {
-                                        preserveScroll: true,
+                                        ...BANK_ACCOUNTS_RELOAD,
                                         onSuccess: () => {
                                             setDialogOpen(false);
                                             bankForm.reset();
@@ -387,7 +392,7 @@ export function EmployeeBankTab({
                                         bankAccount: deleteId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...BANK_ACCOUNTS_RELOAD,
                                         onSuccess: () => {
                                             setDeleteId(null);
                                             toast.success(

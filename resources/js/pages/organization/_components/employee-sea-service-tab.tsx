@@ -47,6 +47,41 @@ function reorderByIndex<T>(list: T[], from: number, to: number): T[] {
     return next;
 }
 
+const SEA_SERVICE_RELOAD = {
+    preserveScroll: true,
+    only: ['sea_services'],
+} as const;
+
+function buildSeaServicePayload(data: {
+    vessel_type_id: string;
+    vessel_name: string;
+    rank_id: string;
+    total_months: string;
+    total_days: string;
+    grt: string;
+    bhp: string;
+    client_id: string;
+    is_offshore: boolean;
+}) {
+    return {
+        vessel_type_id: Number.parseInt(data.vessel_type_id, 10),
+        vessel_name: data.vessel_name.trim(),
+        rank_id: Number.parseInt(data.rank_id, 10),
+        total_months: Math.max(0, Number.parseInt(data.total_months, 10) || 0),
+        total_days: Math.max(0, Number.parseInt(data.total_days, 10) || 0),
+        grt: data.grt.trim() === '' ? null : Number(data.grt),
+        bhp:
+            data.bhp.trim() === ''
+                ? null
+                : Math.max(0, Number.parseInt(data.bhp, 10) || 0),
+        client_id:
+            data.client_id.trim() === ''
+                ? null
+                : Number.parseInt(data.client_id, 10),
+        is_offshore: !!data.is_offshore,
+    };
+}
+
 export type EmployeeSeaServiceTabProps = {
     employeeId: number;
     sea_services: SeaServiceItem[];
@@ -100,7 +135,7 @@ export function EmployeeSeaServiceTab({
             reorderSeaServices.url({ employee: employeeId }),
             { order },
             {
-                preserveScroll: true,
+                ...SEA_SERVICE_RELOAD,
                 onSuccess: () => toast.success('Order saved.'),
                 onError: () => toast.error('Could not save order.'),
             },
@@ -625,49 +660,10 @@ export function EmployeeSeaServiceTab({
                             disabled={employeeForm.processing}
                             onClick={() => {
                                 employeeForm.clearErrors();
-                                employeeForm.transform((data) => ({
-                                    vessel_type_id: Number.parseInt(
-                                        data.vessel_type_id,
-                                        10,
-                                    ),
-                                    vessel_name: data.vessel_name.trim(),
-                                    rank_id: Number.parseInt(data.rank_id, 10),
-                                    total_months: Math.max(
-                                        0,
-                                        Number.parseInt(
-                                            data.total_months,
-                                            10,
-                                        ) || 0,
-                                    ),
-                                    total_days: Math.max(
-                                        0,
-                                        Number.parseInt(data.total_days, 10) ||
-                                            0,
-                                    ),
-                                    grt:
-                                        data.grt.trim() === ''
-                                            ? null
-                                            : Number(data.grt),
-                                    bhp:
-                                        data.bhp.trim() === ''
-                                            ? null
-                                            : Math.max(
-                                                  0,
-                                                  Number.parseInt(
-                                                      data.bhp,
-                                                      10,
-                                                  ) || 0,
-                                              ),
-                                    client_id:
-                                        data.client_id.trim() === ''
-                                            ? null
-                                            : Number.parseInt(
-                                                  data.client_id,
-                                                  10,
-                                              ),
-                                    is_offshore: !!data.is_offshore,
-                                }));
 
+                                const payload = buildSeaServicePayload(
+                                    employeeForm.data,
+                                );
                                 const url = editingRow
                                     ? updateSeaService.url({
                                           employee: employeeId,
@@ -677,27 +673,34 @@ export function EmployeeSeaServiceTab({
                                           employee: employeeId,
                                       });
 
+                                const options = {
+                                    ...SEA_SERVICE_RELOAD,
+                                    onSuccess: () => {
+                                        setDialogOpen(false);
+                                        employeeForm.reset();
+                                        setEditingRow(null);
+                                        toast.success(
+                                            editingRow
+                                                ? 'Sea service updated.'
+                                                : 'Sea service added.',
+                                        );
+                                    },
+                                    onError: (errors: Record<string, string>) => {
+                                        Object.entries(errors).forEach(
+                                            ([key, message]) => {
+                                                employeeForm.setError(
+                                                    key as keyof typeof employeeForm.data,
+                                                    message,
+                                                );
+                                            },
+                                        );
+                                    },
+                                };
+
                                 if (editingRow) {
-                                    employeeForm.put(url, {
-                                        preserveScroll: true,
-                                        onSuccess: () => {
-                                            setDialogOpen(false);
-                                            employeeForm.reset();
-                                            setEditingRow(null);
-                                            toast.success(
-                                                'Sea service updated.',
-                                            );
-                                        },
-                                    });
+                                    router.put(url, payload, options);
                                 } else {
-                                    employeeForm.post(url, {
-                                        preserveScroll: true,
-                                        onSuccess: () => {
-                                            setDialogOpen(false);
-                                            employeeForm.reset();
-                                            toast.success('Sea service added.');
-                                        },
-                                    });
+                                    router.post(url, payload, options);
                                 }
                             }}
                         >
@@ -737,7 +740,7 @@ export function EmployeeSeaServiceTab({
                                         seaService: deleteRowId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...SEA_SERVICE_RELOAD,
                                         onSuccess: () => {
                                             setDeleteRowId(null);
                                             toast.success(

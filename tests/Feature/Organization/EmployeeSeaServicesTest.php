@@ -300,3 +300,142 @@ test('users with permission can add update delete and reorder sea services', fun
 
     $this->delete(route('organization.employees.sea-services.destroy', [$employee, $second]))->assertRedirect();
 });
+
+test('store requires vessel name and rejects inactive vessel type', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TS5',
+        'name' => 'Testland Sea Validation',
+        'dial_code' => '+995',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TS5',
+        'name' => 'Test Currency Sea Validation',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea Validation',
+        'slug' => 'acme-sea-validation',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0005',
+            'name' => 'Validation Sailor',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+
+    $inactiveVessel = VesselType::query()->create([
+        'name' => 'Inactive Vessel',
+        'is_active' => false,
+    ]);
+
+    $rank = Rank::query()->create([
+        'name' => 'Able Seaman',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_type_id' => $inactiveVessel->id,
+        'vessel_name' => 'MV Test',
+        'rank_id' => $rank->id,
+        'total_months' => 1,
+        'total_days' => 0,
+    ])->assertSessionHasErrors('vessel_type_id');
+
+    $activeVessel = VesselType::query()->create([
+        'name' => 'Active Vessel',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_type_id' => $activeVessel->id,
+        'rank_id' => $rank->id,
+        'total_months' => 1,
+        'total_days' => 0,
+    ])->assertSessionHasErrors('vessel_name');
+});
+
+test('reorder rejects partial order lists', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TS6',
+        'name' => 'Testland Sea Reorder',
+        'dial_code' => '+994',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TS6',
+        'name' => 'Test Currency Sea Reorder',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Sea Reorder',
+        'slug' => 'acme-sea-reorder',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0006',
+            'name' => 'Reorder Sailor',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'probation_end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+
+    $first = EmployeeSeaService::factory()->forEmployee($employee)->create();
+    $second = EmployeeSeaService::factory()->forEmployee($employee)->create();
+
+    $this->post(route('organization.employees.sea-services.reorder', $employee), [
+        'order' => [$first->id],
+    ])->assertStatus(422);
+});

@@ -33,6 +33,11 @@ import { VaccinationImportDialog } from '@/pages/organization/_components/vaccin
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
 
+const VACCINATION_RELOAD = {
+    preserveScroll: true,
+    only: ['vaccinations'],
+} as const;
+
 export type EmployeeVaccinationTabProps = {
     employeeId: number;
     vaccinations: VaccinationItem[];
@@ -402,7 +407,7 @@ export function EmployeeVaccinationTab({
 
                                 if (editingVaccination) {
                                     vaccinationForm.put(url, {
-                                        preserveScroll: true,
+                                        ...VACCINATION_RELOAD,
                                         onSuccess: () => {
                                             setVaccinationDialogOpen(false);
                                             vaccinationForm.reset();
@@ -414,7 +419,7 @@ export function EmployeeVaccinationTab({
                                     });
                                 } else {
                                     vaccinationForm.post(url, {
-                                        preserveScroll: true,
+                                        ...VACCINATION_RELOAD,
                                         onSuccess: () => {
                                             setVaccinationDialogOpen(false);
                                             vaccinationForm.reset();
@@ -462,7 +467,7 @@ export function EmployeeVaccinationTab({
                                         vaccination: deleteVaccinationId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...VACCINATION_RELOAD,
                                         onSuccess: () => {
                                             setDeleteVaccinationId(null);
                                             toast.success(

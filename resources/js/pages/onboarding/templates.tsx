@@ -12,7 +12,6 @@ type Template = {
     id: number;
     name: string;
     description: string | null;
-    tasks: unknown;
     is_default: boolean;
     created_at: string;
 };
@@ -54,18 +53,7 @@ export default function OnboardingTemplates({ templates }: { templates: Template
     };
 
     const toggleDefault = (t: Template) => {
-        router.put(
-            `/onboarding/templates/${t.id}`,
-            {
-                name: t.name,
-                description: t.description,
-                tasks_json: JSON.stringify(t.tasks ?? {}, null, 2),
-                is_default: !t.is_default,
-            },
-            {
-                preserveScroll: true,
-            }
-        );
+        router.patch(`/onboarding/templates/${t.id}/default`, {}, { preserveScroll: true });
     };
 
     return (

@@ -31,6 +31,11 @@ import type { CountryOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import type { EducationQualificationItem } from '@/pages/organization/employee-page.types';
 
+const EDUCATION_RELOAD = {
+    preserveScroll: true,
+    only: ['education_qualifications'],
+} as const;
+
 export type EmployeeEducationTabProps = {
     employeeId: number;
     education_qualifications: EducationQualificationItem[];
@@ -323,7 +328,7 @@ export function EmployeeEducationTab({
 
                                 if (editingEducation) {
                                     educationForm.put(url, {
-                                        preserveScroll: true,
+                                        ...EDUCATION_RELOAD,
                                         onSuccess: () => {
                                             setEducationDialogOpen(false);
                                             educationForm.reset();
@@ -335,7 +340,7 @@ export function EmployeeEducationTab({
                                     });
                                 } else {
                                     educationForm.post(url, {
-                                        preserveScroll: true,
+                                        ...EDUCATION_RELOAD,
                                         onSuccess: () => {
                                             setEducationDialogOpen(false);
                                             educationForm.reset();
@@ -385,7 +390,7 @@ export function EmployeeEducationTab({
                                         qualification: deleteEducationId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...EDUCATION_RELOAD,
                                         onSuccess: () => {
                                             setDeleteEducationId(null);
                                             toast.success(

@@ -102,6 +102,7 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
             { file: importFile },
             {
                 preserveScroll: true,
+                only: ['work_experiences'],
                 forceFormData: true,
                 onFinish: () => setImportProcessing(false),
                 onSuccess: () => {

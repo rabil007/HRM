@@ -102,6 +102,7 @@ export function VaccinationImportDialog({ open, onOpenChange, employeeId }: Vacc
             { file: importFile },
             {
                 preserveScroll: true,
+                only: ['vaccinations'],
                 forceFormData: true,
                 onFinish: () => setImportProcessing(false),
                 onSuccess: () => {

@@ -32,6 +32,11 @@ import { WorkExperienceImportDialog } from '@/pages/organization/_components/wor
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
+const WORK_EXPERIENCE_RELOAD = {
+    preserveScroll: true,
+    only: ['work_experiences'],
+} as const;
+
 export type EmployeeWorkExperienceTabProps = {
     employeeId: number;
     work_experiences: WorkExperienceItem[];
@@ -382,7 +387,7 @@ export function EmployeeWorkExperienceTab({
 
                                 if (editingWorkExperience) {
                                     workExperienceForm.put(url, {
-                                        preserveScroll: true,
+                                        ...WORK_EXPERIENCE_RELOAD,
                                         onSuccess: () => {
                                             setWorkExperienceDialogOpen(false);
                                             workExperienceForm.reset();
@@ -394,7 +399,7 @@ export function EmployeeWorkExperienceTab({
                                     });
                                 } else {
                                     workExperienceForm.post(url, {
-                                        preserveScroll: true,
+                                        ...WORK_EXPERIENCE_RELOAD,
                                         onSuccess: () => {
                                             setWorkExperienceDialogOpen(false);
                                             workExperienceForm.reset();
@@ -444,7 +449,7 @@ export function EmployeeWorkExperienceTab({
                                         workExperience: deleteWorkExperienceId,
                                     }),
                                     {
-                                        preserveScroll: true,
+                                        ...WORK_EXPERIENCE_RELOAD,
                                         onSuccess: () => {
                                             setDeleteWorkExperienceId(null);
                                             toast.success(

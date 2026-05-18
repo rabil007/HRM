@@ -40,7 +40,6 @@ use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 
 class EmployeeController extends Controller
 {
@@ -333,11 +332,6 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name', 'employee_no']);
 
-        $users = User::query()
-            ->where('company_id', $companyId)
-            ->orderBy('name')
-            ->get(['id', 'company_id', 'name', 'email']);
-
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
@@ -371,6 +365,7 @@ class EmployeeController extends Controller
             'bankAccounts.bank:id,name',
             'primaryBankAccount.bank:id,name',
             'currentContract',
+            'onboardingTemplate:id,tasks',
         ]);
 
         $contract = $employee->currentContract ? [
@@ -392,7 +387,8 @@ class EmployeeController extends Controller
         $documents = EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['documentType:id,title', 'uploader:id,name', 'versions.replacer:id,name'])
+            ->with(['documentType:id,title', 'uploader:id,name'])
+            ->withCount('versions')
             ->latest('id')
             ->get()
             ->map(fn (EmployeeDocument $doc) => [
@@ -416,16 +412,8 @@ class EmployeeController extends Controller
                 'status' => $doc->status,
                 'uploaded_by' => $doc->uploader?->name,
                 'created_at' => $doc->created_at?->toDateTimeString(),
-                'versions' => $doc->versions->map(fn ($version) => [
-                    'id' => $version->id,
-                    'version' => $version->version,
-                    'file_url' => $version->file_url,
-                    'original_filename' => $version->original_filename,
-                    'mime_type' => $version->mime_type,
-                    'size_bytes' => $version->size_bytes,
-                    'replaced_by' => $version->replacer?->name,
-                    'created_at' => $version->created_at?->toDateTimeString(),
-                ])->all(),
+                'versions_count' => (int) $doc->versions_count,
+                'versions' => [],
             ])
             ->all();
 
@@ -619,41 +607,9 @@ class EmployeeController extends Controller
         ];
 
         if ($employee->onboarding_template_id) {
-            $onboardingTpl = OnboardingTemplate::query()
-                ->where('company_id', $companyId)
-                ->whereKey($employee->onboarding_template_id)
-                ->first(['tasks']);
-
             $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks(
-                is_array($onboardingTpl?->tasks) ? $onboardingTpl->tasks : null,
+                is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null,
             );
-        }
-
-        $recentActivity = [];
-        $request = request();
-        if ($request->user()?->can('audit.view')) {
-            $recentActivity = Activity::query()
-                ->where('company_id', $companyId)
-                ->where('subject_type', Employee::class)
-                ->where('subject_id', $employee->id)
-                ->with(['causer:id,name,email'])
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (Activity $log) => [
-                    'id' => $log->id,
-                    'event' => $log->event,
-                    'description' => $log->description,
-                    'causer' => $log->causer ? [
-                        'id' => $log->causer->id,
-                        'name' => $log->causer->name,
-                        'email' => $log->causer->email,
-                    ] : null,
-                    'old_values' => $log->attribute_changes?->get('old'),
-                    'new_values' => $log->attribute_changes?->get('attributes'),
-                    'created_at' => $log->created_at,
-                ])
-                ->all();
         }
 
         return Inertia::render('organization/employee', [
@@ -771,7 +727,6 @@ class EmployeeController extends Controller
             'departments' => $departments,
             'positions' => $positions,
             'managers' => $managers,
-            'users' => $users,
             'countries' => $countries,
             'religions' => $religions,
             'genders' => $genders,
@@ -780,7 +735,6 @@ class EmployeeController extends Controller
             'vessel_types' => $vesselTypes,
             'clients' => $clients,
             'employee_tabs' => $employeeTabsPayload,
-            'recent_activity' => $recentActivity,
         ]);
     }
 

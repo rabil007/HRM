@@ -70,7 +70,6 @@ export default function EmployeeDetails({
     departments,
     positions,
     managers,
-    users,
     countries,
     religions,
     genders,
@@ -79,7 +78,6 @@ export default function EmployeeDetails({
     vessel_types,
     clients,
     employee_tabs,
-    recent_activity,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
@@ -91,8 +89,6 @@ export default function EmployeeDetails({
     void departments;
     void positions;
     void managers;
-    void users;
-    void recent_activity;
 
     const {
         form,

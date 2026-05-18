@@ -7,6 +7,7 @@ use App\Http\Requests\Onboarding\StoreOnboardingTemplateRequest;
 use App\Http\Requests\Onboarding\UpdateOnboardingTemplateRequest;
 use App\Models\DocumentType;
 use App\Models\OnboardingTemplate;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 
@@ -20,7 +21,7 @@ class OnboardingTemplateController extends Controller
             ->where('company_id', $companyId)
             ->orderByDesc('is_default')
             ->orderBy('name')
-            ->get(['id', 'company_id', 'name', 'description', 'tasks', 'is_default', 'created_at']);
+            ->get(['id', 'company_id', 'name', 'description', 'is_default', 'created_at']);
 
         return Inertia::render('onboarding/templates', [
             'templates' => $templates,
@@ -106,6 +107,22 @@ class OnboardingTemplateController extends Controller
         });
 
         return redirect()->route('onboarding.templates.index')->with('success', 'Template updated successfully.');
+    }
+
+    public function setDefault(OnboardingTemplate $template): RedirectResponse
+    {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $template->company_id === $companyId, 404);
+
+        DB::transaction(function () use ($companyId, $template): void {
+            OnboardingTemplate::query()
+                ->where('company_id', $companyId)
+                ->update(['is_default' => false]);
+
+            $template->update(['is_default' => true]);
+        });
+
+        return redirect()->route('onboarding.templates.index');
     }
 
     public function destroy(OnboardingTemplate $template)

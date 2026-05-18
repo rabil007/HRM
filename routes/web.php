@@ -94,6 +94,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.update');
     Route::post('organization/employees/{employee}/documents/{document}/replace', [EmployeeDocumentController::class, 'replace'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.replace');
     Route::delete('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'destroy'])->middleware('can:employees.documents.delete')->name('organization.employees.documents.destroy');
+    Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->middleware('can:employees.view')->name('organization.employees.documents.versions');
 
     Route::post('organization/employees/{employee}/education', [EmployeeEducationQualificationController::class, 'store'])->middleware('can:employees.education.manage')->name('organization.employees.education.store');
     Route::put('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'update'])->middleware('can:employees.education.manage')->name('organization.employees.education.update');
@@ -144,6 +145,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::put('templates/{template}', [OnboardingTemplateController::class, 'update'])
             ->middleware('can:onboarding.templates.update')
             ->name('templates.update');
+        Route::patch('templates/{template}/default', [OnboardingTemplateController::class, 'setDefault'])
+            ->middleware('can:onboarding.templates.update')
+            ->name('templates.set-default');
         Route::delete('templates/{template}', [OnboardingTemplateController::class, 'destroy'])
             ->middleware('can:onboarding.templates.delete')
             ->name('templates.destroy');

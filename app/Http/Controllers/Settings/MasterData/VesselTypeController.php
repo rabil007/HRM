@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportVesselTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselTypeRequest;
+use App\Models\EmployeeSeaService;
 use App\Models\VesselType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
@@ -44,6 +45,14 @@ class VesselTypeController extends Controller
 
     public function destroy(VesselType $vesselType): RedirectResponse
     {
+        if (EmployeeSeaService::query()->where('vessel_type_id', $vesselType->id)->exists()) {
+            return redirect()
+                ->route('settings.master-data.vessel-types.index')
+                ->withErrors([
+                    'name' => 'This vessel type is used on employee sea service records and cannot be deleted.',
+                ]);
+        }
+
         $vesselType->delete();
 
         return redirect()->route('settings.master-data.vessel-types.index');

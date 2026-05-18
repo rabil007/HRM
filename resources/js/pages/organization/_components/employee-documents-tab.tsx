@@ -1,6 +1,7 @@
 import { router, useForm } from '@inertiajs/react';
 import { FileText, UploadCloud, X } from 'lucide-react';
-import { useCallback, useMemo, useState, type ReactElement } from 'react';
+import { useCallback, useMemo, useState  } from 'react';
+import type {ReactElement} from 'react';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,6 +28,13 @@ import { DOCUMENT_STATUS_CLASSES, documentStatusLabel } from '@/features/organiz
 import { toast } from '@/lib/toast';
 import type { DocumentTypeOption, EmployeeDetails, EmployeeDocumentItem } from '@/pages/organization/employee-page.types';
 
+const DOCUMENTS_RELOAD = {
+    preserveScroll: true,
+    only: ['documents'],
+} as const;
+
+type DocumentVersionItem = EmployeeDocumentItem['versions'][number];
+
 export type EmployeeDocumentsTabProps = {
     employee: Pick<EmployeeDetails, 'id' | 'name'>;
     documents: EmployeeDocumentItem[];
@@ -44,6 +52,8 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
     const [previewDoc, setPreviewDoc] = useState<EmployeeDocumentItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<EmployeeDocumentItem | null>(null);
     const [versionDoc, setVersionDoc] = useState<EmployeeDocumentItem | null>(null);
+    const [versionHistory, setVersionHistory] = useState<DocumentVersionItem[]>([]);
+    const [versionsLoading, setVersionsLoading] = useState(false);
     const [bulkFiles, setBulkFiles] = useState<File[]>([]);
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
 
@@ -216,7 +226,31 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
                                                     <button
                                                         type="button"
                                                         className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                                                        onClick={() => setVersionDoc(doc)}
+                                                        onClick={() => {
+                                                            setVersionDoc(doc);
+                                                            setVersionHistory([]);
+                                                            setVersionsLoading(true);
+
+                                                            fetch(
+                                                                `/organization/employees/${employee.id}/documents/${doc.id}/versions`,
+                                                                {
+                                                                    headers: {
+                                                                        Accept: 'application/json',
+                                                                        'X-Requested-With': 'XMLHttpRequest',
+                                                                    },
+                                                                },
+                                                            )
+                                                                .then((response) => response.json())
+                                                                .then((data: { versions?: DocumentVersionItem[] }) => {
+                                                                    setVersionHistory(data.versions ?? []);
+                                                                })
+                                                                .catch(() => {
+                                                                    setVersionHistory([]);
+                                                                })
+                                                                .finally(() => {
+                                                                    setVersionsLoading(false);
+                                                                });
+                                                        }}
                                                     >
                                                         Versions
                                                     </button>
@@ -490,6 +524,7 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
                                     },
                                     {
                                         forceFormData: true,
+                                        ...DOCUMENTS_RELOAD,
                                         onSuccess: () => {
                                             setUploadOpen(false);
                                             resetUploadDialog();
@@ -631,6 +666,7 @@ return;
     <Dialog open={!!versionDoc} onOpenChange={open => {
  if (!open) {
 setVersionDoc(null);
+setVersionHistory([]);
 } 
 }}>
         <DialogContent className="sm:max-w-lg">
@@ -642,9 +678,11 @@ setVersionDoc(null);
                     <div className="text-sm font-medium">Current version v{versionDoc?.current_version ?? 1}</div>
                     <div className="text-xs text-muted-foreground">{versionDoc?.original_filename ?? 'Current file'}</div>
                 </div>
-                {versionDoc?.versions.length ? (
+                {versionsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading version history…</p>
+                ) : versionHistory.length ? (
                     <div className="space-y-2">
-                        {versionDoc.versions.map((version) => (
+                        {versionHistory.map((version) => (
                             <div key={version.id} className="flex items-center justify-between rounded-lg border border-border p-3">
                                 <div>
                                     <div className="text-sm font-medium">Version v{version.version}</div>
@@ -690,6 +728,7 @@ return;
 }
 
                         router.delete(`/organization/employees/${employee.id}/documents/${deleteDocId}`, {
+                            ...DOCUMENTS_RELOAD,
                             onSuccess: () => {
                                 setDeleteDocId(null);
                                 toast.success('Document deleted.');

@@ -8,7 +8,6 @@ import type {
     PositionOption,
     RankOption,
     ReligionOption,
-    UserOption,
 } from '@/features/organization/employees/types';
 
 export type EmployeeDetails = {
@@ -119,7 +118,7 @@ export type EmployeeDocumentItem = {
     notes: string | null;
     status: string | null;
     uploaded_by: string | null;
-    created_at: string;
+    versions_count?: number;
     versions: {
         id: number;
         version: number;
@@ -259,7 +258,6 @@ export type EmployeePageProps = {
     departments: DepartmentOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
-    users: UserOption[];
     countries: CountryOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
@@ -268,5 +266,4 @@ export type EmployeePageProps = {
     vessel_types: VesselTypeOption[];
     clients: ClientOption[];
     employee_tabs: EmployeeProfileTabVisibility;
-    recent_activity: ActivityItem[];
 };

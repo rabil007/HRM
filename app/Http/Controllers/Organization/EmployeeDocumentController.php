@@ -7,6 +7,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -132,5 +133,27 @@ class EmployeeDocumentController extends Controller
         $document->delete();
 
         return back()->with('success', 'Document deleted.');
+    }
+
+    public function versions(Request $request, Employee $employee, EmployeeDocument $document): JsonResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless($employee->company_id === $companyId && $document->employee_id === $employee->id, 403);
+
+        $document->load(['versions.replacer:id,name']);
+
+        return response()->json([
+            'versions' => $document->versions->map(fn ($version) => [
+                'id' => $version->id,
+                'version' => $version->version,
+                'file_url' => $version->file_url,
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'size_bytes' => $version->size_bytes,
+                'replaced_by' => $version->replacer?->name,
+                'created_at' => $version->created_at?->toDateTimeString(),
+            ])->values()->all(),
+        ]);
     }
 }

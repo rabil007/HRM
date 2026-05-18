@@ -333,8 +333,15 @@ function otherStageFieldUsage(
 export function buildTasksFromBuilder(builder: BuilderState) {
     return {
         version: 2,
-        stages: builder.stages.map((s) => {
-            const documents = s.documents
+        stages: builder.stages.map((s) => ({
+            key: s.key.trim(),
+            label: (s.label || s.key).trim(),
+            employee_fields: s.employee_fields,
+            bank_account_fields: s.bank_account_fields,
+            contract_fields: s.contract_fields,
+            sea_service_fields: s.sea_service_fields,
+            vaccination_fields: s.vaccination_fields,
+            documents: s.documents
                 .filter((d) => String(d.type).trim() !== '')
                 .map((d) => ({
                     type: d.type,
@@ -342,39 +349,8 @@ export function buildTasksFromBuilder(builder: BuilderState) {
                     ask_issue_date: !!d.ask_issue_date,
                     ask_expiry_date: !!d.ask_expiry_date,
                     ask_document_number: !!d.ask_document_number,
-                }));
-
-            const stage: Record<string, unknown> = {
-                key: s.key.trim(),
-                label: (s.label || s.key).trim(),
-            };
-
-            if (s.employee_fields.length > 0) {
-                stage.employee_fields = s.employee_fields;
-            }
-
-            if (s.bank_account_fields.length > 0) {
-                stage.bank_account_fields = s.bank_account_fields;
-            }
-
-            if (s.contract_fields.length > 0) {
-                stage.contract_fields = s.contract_fields;
-            }
-
-            if (s.sea_service_fields.length > 0) {
-                stage.sea_service_fields = s.sea_service_fields;
-            }
-
-            if (s.vaccination_fields.length > 0) {
-                stage.vaccination_fields = s.vaccination_fields;
-            }
-
-            if (documents.length > 0) {
-                stage.documents = documents;
-            }
-
-            return stage;
-        }),
+                })),
+        })),
     };
 }
 
@@ -436,15 +412,12 @@ return vaccinationFieldOptions.find((o) => o.key === key)?.label ?? key;
         name: template?.name ?? '',
         description: template?.description ?? '',
         is_default: template?.is_default ?? false,
-        tasks_json: JSON.stringify(buildTasksFromBuilder(toBuilderState(template?.tasks)), null, 2),
+        tasks_json: '',
     });
 
     const submit = (e: React.FormEvent) => {
         e.preventDefault();
-        form.transform((data) => ({
-            ...data,
-            tasks_json: JSON.stringify(buildTasksFromBuilder(builder), null, 2)
-        }));
+        form.setData('tasks_json', JSON.stringify(buildTasksFromBuilder(builder)));
 
         if (template) {
             form.put(`/onboarding/templates/${template.id}`);
@@ -567,6 +540,9 @@ return;
                                 <p className="text-xs text-destructive">{form.errors.description}</p>
                             ) : null}
                         </div>
+                        {form.errors.tasks_json ? (
+                            <p className="text-sm text-destructive">{form.errors.tasks_json}</p>
+                        ) : null}
                     </CardContent>
                 </Card>
 
