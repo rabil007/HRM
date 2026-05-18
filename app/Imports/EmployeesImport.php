@@ -452,7 +452,7 @@ class EmployeesImport
      * @param  array<int, array<string, mixed>>  $rows
      * @return array{created: int, failed: array<int, array{row: int, message: string}>}
      */
-    public function execute(array $rows): array
+    public function execute(array $rows, int $onboardingTemplateId): array
     {
         $this->primeLookups();
         $existingNos = $this->existingEmployeeNos();
@@ -460,7 +460,7 @@ class EmployeesImport
         $created = 0;
         $failed = [];
 
-        DB::transaction(function () use ($rows, $existingNos, &$created, &$failed) {
+        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, &$created, &$failed) {
             foreach ($rows as $index => $row) {
                 $rowNumber = $index + 2;
                 $no = (string) ($row['employee_no'] ?? '');
@@ -479,6 +479,7 @@ class EmployeesImport
 
                     $employee = Employee::create([
                         'company_id' => $this->companyId,
+                        'onboarding_template_id' => $onboardingTemplateId,
                         'employee_no' => $no,
                         'name' => $row['name'] ?? null,
                         'work_email' => $row['work_email'] ?? null,

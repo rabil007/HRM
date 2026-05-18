@@ -36,6 +36,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -1152,12 +1153,32 @@ class EmployeeController extends Controller
 
     public function importPage()
     {
+        $companyId = (int) request()->attributes->get('current_company_id');
+
+        $templates = OnboardingTemplate::query()
+            ->where('company_id', $companyId)
+            ->orderByDesc('is_default')
+            ->orderBy('name')
+            ->get(['id', 'name', 'description', 'is_default'])
+            ->map(fn (OnboardingTemplate $t) => [
+                'id' => $t->id,
+                'name' => $t->name,
+                'description' => $t->description,
+                'is_default' => $t->is_default,
+            ]);
+
+        $defaultTemplateId = $templates->firstWhere('is_default', true)['id']
+            ?? $templates->first()['id']
+            ?? null;
+
         return Inertia::render('organization/employee-import', [
             'template_url' => route('organization.employees.import.template'),
             'preview_url' => route('organization.employees.import.preview'),
             'import_url' => route('organization.employees.import'),
             'field_options' => $this->importFieldOptions(request()),
             'max_rows' => EmployeesImport::MAX_ROWS,
+            'templates' => $templates,
+            'default_template_id' => $defaultTemplateId,
         ]);
     }
 
@@ -1205,7 +1226,7 @@ class EmployeeController extends Controller
             ->values()
             ->all();
 
-        $result = $importer->execute($importable);
+        $result = $importer->execute($importable, (int) $validated['onboarding_template_id']);
 
         $message = sprintf(
             'Imported %d employee%s. %d row%s skipped.',
@@ -1232,6 +1253,8 @@ class EmployeeController extends Controller
 
     private function validateImportRequest(Request $request): array
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
         return $request->validate([
             'file' => [
                 'required',
@@ -1239,6 +1262,11 @@ class EmployeeController extends Controller
                 'mimes:csv,txt,xlsx,xls',
                 'mimetypes:'.implode(',', EmployeesImport::IMPORT_MIME_TYPES),
                 'max:10240',
+            ],
+            'onboarding_template_id' => [
+                'required',
+                'integer',
+                Rule::exists('onboarding_templates', 'id')->where('company_id', $companyId),
             ],
             'mapping' => ['nullable', 'array'],
             'mapping.*' => ['nullable', 'string', 'max:255'],

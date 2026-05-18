@@ -410,6 +410,8 @@ test('authenticated users with permission can open the import page', function ()
             ->has('template_url')
             ->has('preview_url')
             ->has('import_url')
+            ->has('templates')
+            ->has('default_template_id')
         );
 });
 
@@ -450,6 +452,13 @@ test('authenticated users can preview and import an employees CSV', function () 
         'is_headquarters' => true,
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
 
     $csv = "employee_no,name,branch,contract_type,start_date\n"
@@ -461,6 +470,7 @@ test('authenticated users can preview and import an employees CSV', function () 
 
     $preview = $this->post('/organization/employees/import/preview', [
         'file' => $file,
+        'onboarding_template_id' => $template->id,
     ]);
 
     $preview->assertOk();
@@ -474,6 +484,7 @@ test('authenticated users can preview and import an employees CSV', function () 
 
     $this->post('/organization/employees/import', [
         'file' => $importFile,
+        'onboarding_template_id' => $template->id,
     ])->assertRedirect('/organization/employees');
 
     $this->assertDatabaseHas('employees', [
@@ -524,6 +535,13 @@ test('employee import rejects unsupported file types', function () {
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.import']);
 
     $file = UploadedFile::fake()->createWithContent('employees.html', '<html></html>');
@@ -531,6 +549,7 @@ test('employee import rejects unsupported file types', function () {
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file,
+            'onboarding_template_id' => $template->id,
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('file');
@@ -565,6 +584,13 @@ test('employee import rejects files over the row limit', function () {
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.import']);
 
     $csv = "employee_no,name,contract_type,start_date\n";
@@ -578,6 +604,7 @@ test('employee import rejects files over the row limit', function () {
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file,
+            'onboarding_template_id' => $template->id,
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('file');
@@ -612,6 +639,13 @@ test('employee import accepts manual column mapping', function () {
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.import']);
 
     $csv = "Code,Full Name,Agreement,Join\n"
@@ -630,6 +664,7 @@ test('employee import accepts manual column mapping', function () {
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
             'mapping' => $mapping,
+            'onboarding_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -641,6 +676,7 @@ test('employee import accepts manual column mapping', function () {
         ->post('/organization/employees/import', [
             'file' => $importFile,
             'mapping' => $mapping,
+            'onboarding_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -680,6 +716,13 @@ test('employee import applies contract and start date defaults when omitted', fu
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.import']);
 
     $csv = "employee_no,name\n"
@@ -692,6 +735,7 @@ test('employee import applies contract and start date defaults when omitted', fu
     $preview = $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
+            'onboarding_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -703,6 +747,7 @@ test('employee import applies contract and start date defaults when omitted', fu
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import', [
             'file' => $importFile,
+            'onboarding_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -748,6 +793,13 @@ test('employee import ignores sensitive fields without extra import permissions'
         'status' => 'active',
     ]);
 
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Standard',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.import']);
 
     $csv = "employee_no,name,contract_type,start_date,iban,account_name,basic_salary,passport_number\n"
@@ -758,6 +810,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     $preview = $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
+            'onboarding_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -770,6 +823,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import', [
             'file' => $importFile,
+            'onboarding_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -793,5 +847,132 @@ test('employee import ignores sensitive fields without extra import permissions'
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'basic_salary' => null,
+    ]);
+});
+
+test('employee import rejects request without onboarding template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NTP',
+        'name' => 'No Template Land',
+        'dial_code' => '+991',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NTP',
+        'name' => 'No Template Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'No Template Co',
+        'slug' => 'no-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $csv = "employee_no,name\nEMP-NT-1,No Template Employee\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    // Missing onboarding_template_id
+    $this->withHeader('Accept', 'application/json')
+        ->post('/organization/employees/import/preview', [
+            'file' => $file,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('onboarding_template_id');
+
+    // Template from another company
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Co',
+        'slug' => 'other-co-nt',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $foreignTemplate = OnboardingTemplate::query()->create([
+        'company_id' => $otherCompany->id,
+        'name' => 'Foreign Template',
+        'is_default' => false,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
+    $file2 = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->withHeader('Accept', 'application/json')
+        ->post('/organization/employees/import/preview', [
+            'file' => $file2,
+            'onboarding_template_id' => $foreignTemplate->id,
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors('onboarding_template_id');
+});
+
+test('employee import assigns onboarding_template_id to imported employees', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ATM',
+        'name' => 'Assign Template Land',
+        'dial_code' => '+990',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ATM',
+        'name' => 'Assign Template Currency',
+        'symbol' => 'A$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Assign Template Co',
+        'slug' => 'assign-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Staff',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $csv = "employee_no,name\nEMP-ATM-1,Template Assigned\n";
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->withHeader('Accept', 'application/json')
+        ->post('/organization/employees/import', [
+            'file' => $file,
+            'onboarding_template_id' => $template->id,
+        ])
+        ->assertOk();
+
+    $this->assertDatabaseHas('employees', [
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-ATM-1',
+        'onboarding_template_id' => $template->id,
     ]);
 });

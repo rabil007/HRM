@@ -50,12 +50,21 @@ type ImportFieldOption = {
     allowed: boolean;
 };
 
+type TemplateOption = {
+    id: number;
+    name: string;
+    description: string | null;
+    is_default: boolean;
+};
+
 type Props = {
     template_url: string;
     preview_url: string;
     import_url: string;
     field_options: ImportFieldOption[];
     max_rows: number;
+    templates: TemplateOption[];
+    default_template_id: number | null;
 };
 
 const REQUIRED_FIELDS = ['employee_no', 'name'];
@@ -71,7 +80,7 @@ const PRIORITY_FIELDS = [
     'start_date',
 ];
 
-export default function EmployeeImport({ template_url, preview_url, import_url, field_options, max_rows }: Props) {
+export default function EmployeeImport({ template_url, preview_url, import_url, field_options, max_rows, templates, default_template_id }: Props) {
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [file, setFile] = useState<File | null>(null);
     const [preview, setPreview] = useState<PreviewResponse | null>(null);
@@ -80,6 +89,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
     const [isPreviewing, setIsPreviewing] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [result, setResult] = useState<{ created: number; skipped: number; failed: number } | null>(null);
+    const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(default_template_id);
 
     const errorsByRow = useMemo(() => {
         const map = new Map<number, RowError[]>();
@@ -127,7 +137,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         }
     }, []);
 
-    const previewFile = useCallback(async (selected: File, selectedMapping?: Mapping) => {
+    const previewFile = useCallback(async (selected: File, selectedMapping?: Mapping, templateId?: number | null) => {
         setFile(selected);
         setResult(null);
         setIsPreviewing(true);
@@ -135,6 +145,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         try {
             const formData = new FormData();
             formData.append('file', selected);
+            formData.append('onboarding_template_id', String(templateId ?? selectedTemplateId ?? ''));
             Object.entries(selectedMapping ?? {}).forEach(([field, header]) => {
                 formData.append(`mapping[${field}]`, header ?? '');
             });
@@ -168,7 +179,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         } finally {
             setIsPreviewing(false);
         }
-    }, [preview_url]);
+    }, [preview_url, selectedTemplateId]);
 
     const selectFile = useCallback((selected: File | null) => {
         if (!selected) {
@@ -189,6 +200,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
 
         const formData = new FormData();
         formData.append('file', file);
+        formData.append('onboarding_template_id', String(selectedTemplateId ?? ''));
         Object.entries(mapping).forEach(([field, header]) => {
             formData.append(`mapping[${field}]`, header ?? '');
         });
@@ -266,7 +278,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                     Template
                                 </a>
                             </Button>
-                            <Button className="rounded-xl shadow-lg shadow-primary/20 h-11 px-5" disabled={!preview || preview.summary.valid === 0 || isImporting} onClick={importFile}>
+                            <Button className="rounded-xl shadow-lg shadow-primary/20 h-11 px-5" disabled={!selectedTemplateId || !preview || preview.summary.valid === 0 || isImporting} onClick={importFile}>
                                 {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                                 Import
                                 {preview && preview.summary.valid > 0
@@ -285,61 +297,99 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                 </div>
 
                 {!preview && !result ? (
-                    <Card className="glass-card">
-                        <CardContent className="p-6">
-                            <div
-                            onDragOver={(event) => {
-                                event.preventDefault();
-                                setIsDragging(true);
-                            }}
-                            onDragLeave={() => setIsDragging(false)}
-                            onDrop={(event) => {
-                                event.preventDefault();
-                                setIsDragging(false);
-                                selectFile(event.dataTransfer.files?.[0] ?? null);
-                            }}
-                                className={`flex min-h-[460px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
-                                isDragging ? 'border-primary bg-primary/10' : 'border-border/60 bg-background/30 hover:bg-accent/20'
-                            }`}
-                        >
-                            <button
-                                type="button"
-                                onClick={() => inputRef.current?.click()}
-                                className="group flex flex-col items-center"
-                            >
-                                <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-primary/10 text-primary shadow-xl shadow-primary/10">
-                                    {isPreviewing ? <Loader2 className="h-9 w-9 animate-spin" /> : <FileSpreadsheet className="h-10 w-10" />}
+                    <div className="space-y-4">
+                        <Card className="glass-card">
+                            <CardContent className="p-5">
+                                <div className="mb-1 flex items-center gap-2">
+                                    <label htmlFor="onboarding-template" className="text-sm font-semibold text-foreground">
+                                        Onboarding Template
+                                    </label>
+                                    <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">Required</span>
                                 </div>
-                                <h1 className="text-xl font-bold text-foreground">Drop or upload a file to import</h1>
-                                <p className="mt-3 max-w-md text-sm text-muted-foreground">
-                                    Excel files are recommended because formatting is automatic. CSV files are also supported.
-                                </p>
-                                <p className="mt-2 text-xs text-muted-foreground/70">Click this area or drag a file here.</p>
-                            </button>
+                                <p className="mb-3 text-xs text-muted-foreground">All imported employees will be assigned this template. The template controls which profile tabs are visible.</p>
+                                {templates.length === 0 ? (
+                                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
+                                        No onboarding templates found. Please create one before importing employees.
+                                    </div>
+                                ) : (
+                                    <select
+                                        id="onboarding-template"
+                                        value={selectedTemplateId ?? ''}
+                                        onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
+                                        className="h-10 w-full max-w-sm rounded-md border border-white/10 bg-background px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary"
+                                    >
+                                        <option value="">Select a template…</option>
+                                        {templates.map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}{t.is_default ? ' (Default)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
+                            </CardContent>
+                        </Card>
 
-                            <div className="mt-5 flex flex-wrap justify-center gap-2">
-                                <Button variant="secondary" className="rounded-xl" asChild>
-                                    <a href={template_url}>
-                                        <Download className="mr-2 h-4 w-4" />
-                                        Import Template for Employees
-                                    </a>
-                                </Button>
-                                <Button type="button" variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10" onClick={() => inputRef.current?.click()}>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Upload Data File
-                                </Button>
-                            </div>
+                        <Card className="glass-card">
+                            <CardContent className="p-6">
+                                <div
+                                    onDragOver={(event) => {
+                                        event.preventDefault();
+                                        setIsDragging(true);
+                                    }}
+                                    onDragLeave={() => setIsDragging(false)}
+                                    onDrop={(event) => {
+                                        event.preventDefault();
+                                        setIsDragging(false);
+                                        if (selectedTemplateId) selectFile(event.dataTransfer.files?.[0] ?? null);
+                                        else toast.error('Please select an onboarding template first.');
+                                    }}
+                                    className={`flex min-h-[380px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
+                                        !selectedTemplateId ? 'cursor-not-allowed border-border/30 bg-background/10 opacity-50' :
+                                        isDragging ? 'border-primary bg-primary/10' : 'border-border/60 bg-background/30 hover:bg-accent/20'
+                                    }`}
+                                >
+                                    <button
+                                        type="button"
+                                        disabled={!selectedTemplateId}
+                                        onClick={() => selectedTemplateId && inputRef.current?.click()}
+                                        className="group flex flex-col items-center disabled:cursor-not-allowed"
+                                    >
+                                        <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-primary/10 text-primary shadow-xl shadow-primary/10">
+                                            {isPreviewing ? <Loader2 className="h-9 w-9 animate-spin" /> : <FileSpreadsheet className="h-10 w-10" />}
+                                        </div>
+                                        <h1 className="text-xl font-bold text-foreground">Drop or upload a file to import</h1>
+                                        <p className="mt-3 max-w-md text-sm text-muted-foreground">
+                                            {selectedTemplateId ? 'Excel files are recommended because formatting is automatic. CSV files are also supported.' : 'Select an onboarding template above to enable file upload.'}
+                                        </p>
+                                        {selectedTemplateId ? <p className="mt-2 text-xs text-muted-foreground/70">Click this area or drag a file here.</p> : null}
+                                    </button>
 
-                            <input
-                                ref={inputRef}
-                                type="file"
-                                className="hidden"
-                                accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
-                            />
-                            </div>
-                        </CardContent>
-                    </Card>
+                                    {selectedTemplateId ? (
+                                        <div className="mt-5 flex flex-wrap justify-center gap-2">
+                                            <Button variant="secondary" className="rounded-xl" asChild>
+                                                <a href={template_url}>
+                                                    <Download className="mr-2 h-4 w-4" />
+                                                    Import Template for Employees
+                                                </a>
+                                            </Button>
+                                            <Button type="button" variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10" onClick={() => inputRef.current?.click()}>
+                                                <Upload className="mr-2 h-4 w-4" />
+                                                Upload Data File
+                                            </Button>
+                                        </div>
+                                    ) : null}
+
+                                    <input
+                                        ref={inputRef}
+                                        type="file"
+                                        className="hidden"
+                                        accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        onChange={(event) => selectFile(event.target.files?.[0] ?? null)}
+                                    />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </div>
                 ) : null}
 
                 {preview ? (
@@ -382,6 +432,16 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                             <input type="checkbox" checked readOnly className="rounded" />
                                             Use first row as header
                                         </label>
+                                    </div>
+                                </section>
+
+                                <section className="space-y-2 text-xs">
+                                    <h2 className="text-sm font-semibold text-foreground">Template</h2>
+                                    <div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2">
+                                        <div className="font-medium text-foreground">
+                                            {templates.find((t) => t.id === selectedTemplateId)?.name ?? '—'}
+                                        </div>
+                                        <div className="mt-0.5 text-muted-foreground">Onboarding template</div>
                                     </div>
                                 </section>
 
