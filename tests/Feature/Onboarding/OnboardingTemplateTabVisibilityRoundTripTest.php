@@ -91,7 +91,6 @@ test('saving template with empty contract fields hides contract tab on employee 
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);

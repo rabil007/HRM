@@ -60,7 +60,6 @@ class EmployeesImport
         'other_allowances' => ['other_allowances', 'other allowances', 'allowances'],
         'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'hire date'],
         'end_date' => ['end_date', 'end date', 'termination date'],
-        'probation_end_date' => ['probation_end_date', 'probation end date', 'probation ends'],
         'contract_type' => ['contract_type', 'contract type', 'contract'],
         'status' => ['status'],
         'branch' => ['branch', 'branch name'],
@@ -132,7 +131,6 @@ class EmployeesImport
         'contract_type',
         'start_date',
         'end_date',
-        'probation_end_date',
         'labor_contract_id',
         'basic_salary',
         'housing_allowance',
@@ -374,7 +372,6 @@ class EmployeesImport
                 'date_of_birth' => ['nullable', 'date'],
                 'spouse_birthdate' => ['nullable', 'date'],
                 'end_date' => ['nullable', 'date'],
-                'probation_end_date' => ['nullable', 'date'],
                 'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
                 'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
                 'basic_salary' => ['nullable', 'numeric', 'min:0'],
@@ -530,7 +527,6 @@ class EmployeesImport
                         'contract_type' => $contractType,
                         'start_date' => $startDate,
                         'end_date' => $row['end_date'] ?? null,
-                        'probation_end_date' => $row['probation_end_date'] ?? null,
                         'labor_contract_id' => $row['labor_contract_id'] ?? null,
                         'basic_salary' => $row['basic_salary'] !== '' ? $row['basic_salary'] : null,
                         'housing_allowance' => $row['housing_allowance'] !== '' ? $row['housing_allowance'] : null,
@@ -606,7 +602,6 @@ class EmployeesImport
             'spouse_birthdate',
             'start_date',
             'end_date',
-            'probation_end_date',
         ]);
 
         if (isset($shaped['marital_status']) && is_string($shaped['marital_status'])) {

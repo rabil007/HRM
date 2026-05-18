@@ -109,7 +109,6 @@ class EmployeeFactory extends Factory
                 'contract_type' => $contractType,
                 'start_date' => $start->format('Y-m-d'),
                 'end_date' => fake()->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
-                'probation_end_date' => fake()->optional()->dateTimeBetween($start, '+6 months')?->format('Y-m-d'),
                 'labor_contract_id' => fake()->optional()->bothify('LCID-########'),
                 'basic_salary' => fake()->randomFloat(2, 0, 30000),
                 'housing_allowance' => fake()->randomFloat(2, 0, 15000),

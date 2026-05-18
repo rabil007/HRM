@@ -64,7 +64,6 @@ test('users without permission cannot manage bank accounts', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -127,7 +126,6 @@ test('employee show includes bank_accounts', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -200,7 +198,6 @@ test('users with permission can add update and delete bank accounts', function (
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);

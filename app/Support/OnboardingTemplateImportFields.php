@@ -59,7 +59,6 @@ final class OnboardingTemplateImportFields
         'contract_type',
         'start_date',
         'end_date',
-        'probation_end_date',
         'labor_contract_id',
         'basic_salary',
         'housing_allowance',

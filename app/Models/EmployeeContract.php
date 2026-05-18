@@ -19,7 +19,6 @@ class EmployeeContract extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
-            'probation_end_date' => 'date',
             'basic_salary' => 'decimal:2',
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',

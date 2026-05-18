@@ -67,7 +67,6 @@ test('users without permission cannot manage sea services', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -127,7 +126,6 @@ test('employee show page includes sea services', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -213,7 +211,6 @@ test('users with permission can add update delete and reorder sea services', fun
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -344,7 +341,6 @@ test('store requires vessel name and rejects inactive vessel type', function () 
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -425,7 +421,6 @@ test('reorder rejects partial order lists', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);

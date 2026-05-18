@@ -60,7 +60,6 @@ test('users without permission cannot manage languages', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -116,7 +115,6 @@ test('employee show page includes languages', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -182,7 +180,6 @@ test('users with permission can add update and delete languages', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);

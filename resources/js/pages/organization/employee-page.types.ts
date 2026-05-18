@@ -62,7 +62,6 @@ export type EmployeeDetails = {
     work_email: string | null;
     phone: string | null;
     start_date?: string | null;
-    probation_end_date?: string | null;
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
@@ -87,7 +86,6 @@ export type EmployeeContractDetails = {
     contract_type: string | null;
     start_date: string | null;
     end_date: string | null;
-    probation_end_date: string | null;
     labor_contract_id: string | null;
     status: string | null;
     basic_salary: number | null;

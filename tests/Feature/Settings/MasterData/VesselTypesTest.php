@@ -183,7 +183,6 @@ test('cannot delete vessel type used on employee sea service records', function 
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);

@@ -48,7 +48,7 @@ This file documents the **current, preferred patterns** in this repo so future c
   - Use keys: `bank_id`, `iban`, `account_name`
   - Do **not** include system-managed flags like `is_primary` (backend controls primary account)
 - **Contract fields (employee contracts)**:
-  - Use keys: `contract_type`, `start_date`, `end_date`, `probation_end_date`, `labor_contract_id`
+  - Use keys: `contract_type`, `start_date`, `end_date`, `labor_contract_id`
   - Salary keys are supported via `employee_contracts`: `basic_salary`, `housing_allowance`, `transport_allowance`, `other_allowances`
   - `status` is backend-managed (defaults to `active`)
 - **Documents** are defined by type + min uploads + optional metadata flags:

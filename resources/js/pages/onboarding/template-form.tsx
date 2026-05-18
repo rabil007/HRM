@@ -136,7 +136,6 @@ export const contractFieldOptions = [
     { key: 'contract_type', label: 'Contract Type' },
     { key: 'start_date', label: 'Start Date' },
     { key: 'end_date', label: 'End Date' },
-    { key: 'probation_end_date', label: 'Probation End Date' },
     { key: 'labor_contract_id', label: 'Labor Contract ID' },
     { key: 'basic_salary', label: 'Basic Salary' },
     { key: 'housing_allowance', label: 'Housing Allowance' },

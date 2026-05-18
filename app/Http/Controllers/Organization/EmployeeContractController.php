@@ -78,7 +78,6 @@ class EmployeeContractController extends Controller
             'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
             'start_date' => ['required', 'date'],
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
-            'probation_end_date' => ['nullable', 'date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'in:active,ended,draft'],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
@@ -98,7 +97,6 @@ class EmployeeContractController extends Controller
             'contract_type' => $validated['contract_type'],
             'start_date' => $validated['start_date'],
             'end_date' => $validated['end_date'] ?? null,
-            'probation_end_date' => $validated['probation_end_date'] ?? null,
             'labor_contract_id' => isset($validated['labor_contract_id']) && $validated['labor_contract_id'] !== ''
                 ? $validated['labor_contract_id']
                 : null,

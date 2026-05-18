@@ -96,7 +96,6 @@ export function EmployeeContractTab({
         contract_type: 'unlimited',
         start_date: '',
         end_date: '',
-        probation_end_date: '',
         labor_contract_id: '',
         status: 'active',
         basic_salary: '',
@@ -112,7 +111,6 @@ export function EmployeeContractTab({
             contract_type: 'unlimited',
             start_date: '',
             end_date: '',
-            probation_end_date: '',
             labor_contract_id: '',
             status: 'active',
             basic_salary: '',
@@ -130,7 +128,6 @@ export function EmployeeContractTab({
             contract_type: row.contract_type ?? 'unlimited',
             start_date: row.start_date ?? '',
             end_date: row.end_date ?? '',
-            probation_end_date: row.probation_end_date ?? '',
             labor_contract_id: row.labor_contract_id ?? '',
             status: row.status ?? 'active',
             basic_salary:
@@ -163,8 +160,6 @@ export function EmployeeContractTab({
             contract_type: data.contract_type,
             start_date: data.start_date,
             end_date: data.end_date === '' ? null : data.end_date,
-            probation_end_date:
-                data.probation_end_date === '' ? null : data.probation_end_date,
             labor_contract_id:
                 data.labor_contract_id.trim() === ''
                     ? null
@@ -417,17 +412,6 @@ export function EmployeeContractTab({
                                     onChange={(e) => contractForm.setData('end_date', e.target.value)}
                                 />
                                 <p className="text-[11px] text-zinc-500">Leave blank for unlimited contracts</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_probation_end_date" className="text-xs">Probation end date</Label>
-                                <Input
-                                    id="contract_probation_end_date"
-                                    type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
-                                    value={contractForm.data.probation_end_date}
-                                    onChange={(e) => contractForm.setData('probation_end_date', e.target.value)}
-                                />
-                                <p className="text-[11px] text-zinc-500">Date the probation period ends (optional)</p>
                             </div>
                         </div>
                     </div>

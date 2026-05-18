@@ -98,7 +98,6 @@ test('authenticated users can view an employee details page', function () {
         'contract_type' => 'unlimited',
         'start_date' => '2026-01-01',
         'end_date' => null,
-        'probation_end_date' => null,
         'labor_contract_id' => null,
         'status' => 'active',
     ]);
@@ -497,11 +496,19 @@ test('authenticated users can preview and import an employees CSV', function () 
         'employee_no' => 'EMP-IMP-2',
     ]);
 
-    $this->assertDatabaseHas('employee_contracts', [
-        'company_id' => $company->id,
-        'contract_type' => 'unlimited',
-        'start_date' => '2026-03-01',
-    ]);
+    $importedEmployee = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-IMP-1')
+        ->firstOrFail();
+
+    expect(
+        EmployeeContract::query()
+            ->where('company_id', $company->id)
+            ->where('employee_id', $importedEmployee->id)
+            ->where('contract_type', 'unlimited')
+            ->value('start_date')
+            ?->toDateString(),
+    )->toBe('2026-03-01');
 });
 
 test('employee import rejects unsupported file types', function () {

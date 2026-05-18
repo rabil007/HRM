@@ -107,7 +107,6 @@ test('employee show page includes contracts', function () {
         'contract_type' => 'limited',
         'start_date' => '2025-01-01',
         'end_date' => '2025-12-31',
-        'probation_end_date' => null,
         'labor_contract_id' => 'LC-100',
         'status' => 'ended',
     ]);

@@ -72,7 +72,6 @@ class StoreEmployeeRequest extends FormRequest
             'emergency_phone_home_country' => ['nullable', 'string', 'max:30'],
             'address' => ['nullable', 'string'],
             'start_date' => ['required', 'date'],
-            'probation_end_date' => ['nullable', 'date'],
             'contract_type' => ['required', 'in:limited,unlimited,part_time,contract'],
             'end_date' => ['nullable', 'date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],

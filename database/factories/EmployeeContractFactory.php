@@ -26,7 +26,6 @@ class EmployeeContractFactory extends Factory
             'contract_type' => $this->faker->randomElement(['limited', 'unlimited', 'part_time', 'contract']),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $this->faker->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
-            'probation_end_date' => $this->faker->optional()->dateTimeBetween($start, '+6 months')?->format('Y-m-d'),
             'labor_contract_id' => $this->faker->optional()->bothify('LCID-########'),
             'status' => 'active',
         ];
