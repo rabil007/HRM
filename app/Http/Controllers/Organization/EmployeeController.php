@@ -370,21 +370,27 @@ class EmployeeController extends Controller
             'onboardingTemplate:id,tasks',
         ]);
 
-        $contract = $employee->currentContract ? [
-            'id' => $employee->currentContract->id,
-            'contract_type' => $employee->currentContract->contract_type,
-            'start_date' => $employee->currentContract->start_date,
-            'end_date' => $employee->currentContract->end_date,
-            'probation_end_date' => $employee->currentContract->probation_end_date,
-            'labor_contract_id' => $employee->currentContract->labor_contract_id,
-            'status' => $employee->currentContract->status,
-            'basic_salary' => $employee->currentContract->basic_salary,
-            'housing_allowance' => $employee->currentContract->housing_allowance,
-            'transport_allowance' => $employee->currentContract->transport_allowance,
-            'other_allowances' => $employee->currentContract->other_allowances,
-            'created_at' => $employee->currentContract->created_at,
-            'updated_at' => $employee->currentContract->updated_at,
-        ] : null;
+        $contracts = EmployeeContract::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employee->id)
+            ->orderByDesc('start_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeContract $row) => [
+                'id' => $row->id,
+                'contract_type' => $row->contract_type,
+                'start_date' => $row->start_date?->toDateString(),
+                'end_date' => $row->end_date?->toDateString(),
+                'probation_end_date' => $row->probation_end_date?->toDateString(),
+                'labor_contract_id' => $row->labor_contract_id,
+                'status' => $row->status,
+                'basic_salary' => $row->basic_salary,
+                'housing_allowance' => $row->housing_allowance,
+                'transport_allowance' => $row->transport_allowance,
+                'other_allowances' => $row->other_allowances,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
 
         $documents = EmployeeDocument::query()
             ->where('company_id', $companyId)
@@ -706,7 +712,7 @@ class EmployeeController extends Controller
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
             ],
-            'contract' => $contract,
+            'contracts' => $contracts,
             'documents' => $documents,
             'education_qualifications' => $educationQualifications,
             'work_experiences' => $workExperiences,
@@ -719,6 +725,7 @@ class EmployeeController extends Controller
                 'documents_upload' => request()->user()?->can('employees.documents.upload'),
                 'documents_delete' => request()->user()?->can('employees.documents.delete'),
                 'education_manage' => request()->user()?->can('employees.education.manage'),
+                'contracts_manage' => request()->user()?->can('employees.contracts.manage'),
                 'work_experience_manage' => request()->user()?->can('employees.work_experience.manage'),
                 'vaccination_manage' => request()->user()?->can('employees.vaccination.manage'),
                 'languages_manage' => request()->user()?->can('employees.languages.manage'),
@@ -938,31 +945,6 @@ class EmployeeController extends Controller
             );
         }
 
-        $contract = [
-            'contract_type' => $data['contract_type'],
-            'start_date' => $data['start_date'],
-            'end_date' => $data['end_date'] ?? null,
-            'probation_end_date' => $data['probation_end_date'] ?? null,
-            'labor_contract_id' => $data['labor_contract_id'] ?? null,
-            'basic_salary' => $data['basic_salary'] ?? null,
-            'housing_allowance' => $data['housing_allowance'] ?? null,
-            'transport_allowance' => $data['transport_allowance'] ?? null,
-            'other_allowances' => $data['other_allowances'] ?? null,
-            'status' => 'active',
-        ];
-
-        unset(
-            $data['contract_type'],
-            $data['start_date'],
-            $data['end_date'],
-            $data['probation_end_date'],
-            $data['labor_contract_id'],
-            $data['basic_salary'],
-            $data['housing_allowance'],
-            $data['transport_allowance'],
-            $data['other_allowances'],
-        );
-
         if (($data['religion_id'] ?? null) === '') {
             $data['religion_id'] = null;
         }
@@ -1001,17 +983,6 @@ class EmployeeController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         $employee->update($data);
-
-        $existingContract = $employee->currentContract;
-        if ($existingContract) {
-            $existingContract->update($contract);
-        } else {
-            EmployeeContract::query()->create([
-                'company_id' => $companyId,
-                'employee_id' => $employee->id,
-                ...$contract,
-            ]);
-        }
 
         return redirect()
             ->route('organization.employees.show', $employee)

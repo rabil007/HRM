@@ -3,25 +3,14 @@ import {
     useCallback,
     useEffect,
     useMemo,
-    useState
-    
-    
-    
+    useState,
 } from 'react';
-import type {Dispatch, ReactElement, SetStateAction} from 'react';
+import type { Dispatch, ReactElement, SetStateAction } from 'react';
 import { update as updateEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { toast } from '@/lib/toast';
-import type {
-    EmployeeContractDetails,
-    EmployeeDetails,
-} from '@/pages/organization/employee-page.types';
+import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
 
-const REQUIRED_FIELDS = new Set([
-    'employee_no',
-    'name',
-    'start_date',
-    'contract_type',
-]);
+const REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 
 export type UseEmployeeProfileFormResult = {
     form: any;
@@ -37,7 +26,6 @@ export type UseEmployeeProfileFormResult = {
 
 export function useEmployeeProfileForm(
     employee: EmployeeDetails,
-    contract: EmployeeContractDetails | null,
     canUpdate: boolean,
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
@@ -124,64 +112,14 @@ export function useEmployeeProfileForm(
         ],
     );
 
-    const initialContract = useMemo(
-        () => ({
-            contract_type:
-                contract?.contract_type ??
-                employee.contract_type ??
-                'unlimited',
-            start_date: contract?.start_date ?? employee.start_date ?? '',
-            end_date: contract?.end_date ?? employee.end_date ?? '',
-            probation_end_date:
-                contract?.probation_end_date ??
-                employee.probation_end_date ??
-                '',
-            labor_contract_id:
-                contract?.labor_contract_id ?? employee.labor_contract_id ?? '',
-            basic_salary:
-                contract?.basic_salary === null ||
-                contract?.basic_salary === undefined
-                    ? ''
-                    : String(contract.basic_salary),
-            housing_allowance:
-                contract?.housing_allowance === null ||
-                contract?.housing_allowance === undefined
-                    ? ''
-                    : String(contract.housing_allowance),
-            transport_allowance:
-                contract?.transport_allowance === null ||
-                contract?.transport_allowance === undefined
-                    ? ''
-                    : String(contract.transport_allowance),
-            other_allowances:
-                contract?.other_allowances === null ||
-                contract?.other_allowances === undefined
-                    ? ''
-                    : String(contract.other_allowances),
-        }),
-        [
-            contract,
-            employee.contract_type,
-            employee.start_date,
-            employee.end_date,
-            employee.probation_end_date,
-            employee.labor_contract_id,
-        ],
-    );
-
-    const initialAll = useMemo(
-        () => ({ ...initialPersonal, ...initialContract }),
-        [initialContract, initialPersonal],
-    );
-
-    const form = useForm(initialAll);
+    const form = useForm(initialPersonal);
 
     const isDirty = useMemo(() => {
-        return (Object.keys(initialAll) as Array<keyof typeof initialAll>).some(
+        return (Object.keys(initialPersonal) as Array<keyof typeof initialPersonal>).some(
             (key) =>
-                String(form.data[key] ?? '') !== String(initialAll[key] ?? ''),
+                String(form.data[key] ?? '') !== String(initialPersonal[key] ?? ''),
         );
-    }, [form.data, initialAll]);
+    }, [form.data, initialPersonal]);
 
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
@@ -235,14 +173,6 @@ export function useEmployeeProfileForm(
                     missing.push('name');
                 }
 
-                if (!String(form.data.start_date ?? '').trim()) {
-                    missing.push('start_date');
-                }
-
-                if (!String(form.data.contract_type ?? '').trim()) {
-                    missing.push('contract_type');
-                }
-
                 if (missing.length) {
                     toast.error(
                         'Please fill the required fields before saving.',
@@ -290,28 +220,9 @@ export function useEmployeeProfileForm(
                     data.dependent_children_count === ''
                         ? null
                         : Number(data.dependent_children_count),
-                contract_type: data.contract_type,
-                start_date: data.start_date,
-                end_date: data.end_date || null,
-                probation_end_date: data.probation_end_date || null,
-                labor_contract_id: data.labor_contract_id?.trim() || null,
                 passport_number: data.passport_number?.trim() || null,
                 emirates_id: data.emirates_id?.trim() || null,
                 labor_card_number: data.labor_card_number?.trim() || null,
-                basic_salary:
-                    data.basic_salary === '' ? null : Number(data.basic_salary),
-                housing_allowance:
-                    data.housing_allowance === ''
-                        ? null
-                        : Number(data.housing_allowance),
-                transport_allowance:
-                    data.transport_allowance === ''
-                        ? null
-                        : Number(data.transport_allowance),
-                other_allowances:
-                    data.other_allowances === ''
-                        ? null
-                        : Number(data.other_allowances),
             }));
 
             form.put(updateEmployee.url({ employee: employee.id }), {
@@ -335,10 +246,10 @@ export function useEmployeeProfileForm(
     );
 
     const discardChanges = useCallback(() => {
-        form.setData(initialAll);
+        form.setData(initialPersonal);
         form.clearErrors();
         setActiveField(null);
-    }, [form, initialAll]);
+    }, [form, initialPersonal]);
 
     return {
         form: form as any,

@@ -56,7 +56,7 @@ function initialEmployeeTabFromLocation(): EmployeeTab {
 
 export default function EmployeeDetails({
     employee,
-    contract,
+    contracts,
     documents,
     education_qualifications,
     work_experiences,
@@ -102,7 +102,6 @@ export default function EmployeeDetails({
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
         employee,
-        contract,
         canUpdate,
     );
 
@@ -116,7 +115,11 @@ export default function EmployeeDetails({
     const tabs = useMemo(() => {
         const list = [
             { id: 'personal' as const, label: 'Personal', count: null },
-            { id: 'contract' as const, label: 'Contract', count: null },
+            {
+                id: 'contract' as const,
+                label: 'Contract',
+                count: contracts.length || null,
+            },
             {
                 id: 'bank' as const,
                 label: 'Bank',
@@ -183,6 +186,7 @@ export default function EmployeeDetails({
         employee_tabs.personal,
         employee_tabs.sea_service,
         employee_tabs.vaccination,
+        contracts.length,
         documents.length,
         education_qualifications.length,
         form.data.bank_id,
@@ -367,12 +371,9 @@ export default function EmployeeDetails({
                                 ) : null}
                                 {employee_tabs.contract ? (
                                     <EmployeeContractTab
-                                        contract={contract}
-                                        form={form}
-                                        activeField={activeField}
-                                        setActiveField={setActiveField}
-                                        beginEdit={beginEdit}
-                                        requiredDot={requiredDot}
+                                        employeeId={employee.id}
+                                        contracts={contracts}
+                                        canManage={can.contracts_manage}
                                     />
                                 ) : null}
                                 {employee_tabs.bank ? (

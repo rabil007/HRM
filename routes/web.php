@@ -8,6 +8,7 @@ use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
+use App\Http\Controllers\Organization\EmployeeContractController;
 use App\Http\Controllers\Organization\EmployeeController;
 use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentsIndexController;
@@ -95,6 +96,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/documents/{document}/replace', [EmployeeDocumentController::class, 'replace'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.replace');
     Route::delete('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'destroy'])->middleware('can:employees.documents.delete')->name('organization.employees.documents.destroy');
     Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->middleware('can:employees.view')->name('organization.employees.documents.versions');
+
+    Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:employees.contracts.manage')->name('organization.employees.contracts.store');
+    Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:employees.contracts.manage')->name('organization.employees.contracts.update');
+    Route::delete('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'destroy'])->middleware('can:employees.contracts.manage')->name('organization.employees.contracts.destroy');
 
     Route::post('organization/employees/{employee}/education', [EmployeeEducationQualificationController::class, 'store'])->middleware('can:employees.education.manage')->name('organization.employees.education.store');
     Route::put('organization/employees/{employee}/education/{qualification}', [EmployeeEducationQualificationController::class, 'update'])->middleware('can:employees.education.manage')->name('organization.employees.education.update');

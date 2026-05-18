@@ -14,6 +14,19 @@ class EmployeeContract extends Model
 
     protected $guarded = [];
 
+    protected function casts(): array
+    {
+        return [
+            'start_date' => 'date',
+            'end_date' => 'date',
+            'probation_end_date' => 'date',
+            'basic_salary' => 'decimal:2',
+            'housing_allowance' => 'decimal:2',
+            'transport_allowance' => 'decimal:2',
+            'other_allowances' => 'decimal:2',
+        ];
+    }
+
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);

@@ -110,7 +110,7 @@ test('authenticated users can view an employee details page', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
             ->has('employee')
-            ->has('contract')
+            ->has('contracts')
             ->has('education_qualifications')
             ->has('work_experiences')
             ->has('vaccinations')
@@ -247,8 +247,6 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     $this->put("/organization/employees/{$employeeId}", [
         'employee_no' => 'EMP0002',
         'name' => 'Janet Smith',
-        'start_date' => '2026-02-01',
-        'contract_type' => 'limited',
         'status' => 'inactive',
         'branch_id' => $branch->id,
         'department_id' => $department->id,
@@ -268,7 +266,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     $this->assertDatabaseHas('employee_contracts', [
         'employee_id' => $employeeId,
         'status' => 'active',
-        'contract_type' => 'limited',
+        'contract_type' => 'unlimited',
     ]);
 
     $activity = Activity::query()
@@ -756,12 +754,14 @@ test('employee import applies contract and start date defaults when omitted', fu
         ->where('employee_no', 'EMP-DEF-1')
         ->firstOrFail();
 
-    $this->assertDatabaseHas('employee_contracts', [
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'contract_type' => 'unlimited',
-        'start_date' => $expectedStart,
-    ]);
+    expect(
+        EmployeeContract::query()
+            ->where('company_id', $company->id)
+            ->where('employee_id', $employee->id)
+            ->where('contract_type', 'unlimited')
+            ->value('start_date')
+            ?->toDateString(),
+    )->toBe($expectedStart);
 });
 
 test('employee import ignores sensitive fields without extra import permissions', function () {

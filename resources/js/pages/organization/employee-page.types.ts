@@ -235,7 +235,7 @@ export type EmployeeProfileTabVisibility = {
 
 export type EmployeePageProps = {
     employee: EmployeeDetails;
-    contract: EmployeeContractDetails | null;
+    contracts: EmployeeContractDetails[];
     documents: EmployeeDocumentItem[];
     education_qualifications: EducationQualificationItem[];
     work_experiences: WorkExperienceItem[];
@@ -248,6 +248,7 @@ export type EmployeePageProps = {
         documents_upload: boolean;
         documents_delete: boolean;
         education_manage: boolean;
+        contracts_manage: boolean;
         work_experience_manage: boolean;
         vaccination_manage: boolean;
         languages_manage: boolean;

@@ -116,6 +116,7 @@ class PermissionsSeeder extends Seeder
             'employees.documents.upload',
             'employees.documents.delete',
             'employees.education.manage',
+            'employees.contracts.manage',
             'employees.work_experience.manage',
             'employees.vaccination.manage',
             'employees.languages.manage',
