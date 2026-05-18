@@ -11,6 +11,7 @@ export function FieldSelector({
     options,
     selectedFields,
     otherStagesFields,
+    otherStageLabels,
     onUpdate,
     onSortClick,
 }: {
@@ -18,16 +19,15 @@ export function FieldSelector({
     options: readonly FieldOption[];
     selectedFields: FieldRequirement[];
     otherStagesFields: Set<string>;
+    otherStageLabels?: Map<string, string>;
     onUpdate: (next: FieldRequirement[]) => void;
     onSortClick: () => void;
 }) {
     const [search, setSearch] = useState('');
 
     const visible = useMemo(() => {
-        return options
-            .filter((f) => f.label.toLowerCase().includes(search.toLowerCase()))
-            .filter((f) => !otherStagesFields.has(f.key) || selectedFields.some((sf) => sf.key === f.key));
-    }, [options, otherStagesFields, search, selectedFields]);
+        return options.filter((f) => f.label.toLowerCase().includes(search.toLowerCase()));
+    }, [options, search]);
 
     const orderByKey = useMemo(() => {
         return new Map(selectedFields.map((sf, i) => [sf.key, i + 1] as const));
@@ -98,25 +98,39 @@ export function FieldSelector({
 
             <div className="grid grid-cols-1 gap-2 p-3 rounded-xl border border-border/50 bg-card/30 max-h-[350px] overflow-y-auto">
                 {visible.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-muted-foreground">No fields found.</div>
+                    <div className="py-8 text-center text-xs text-muted-foreground">
+                        {search.trim() !== '' ? 'No fields match your filter.' : 'No fields available.'}
+                    </div>
                 ) : (
                     visible.map((f) => {
                         const isSelected = selectedFields.some((sf) => sf.key === f.key);
                         const reqData = selectedFields.find((sf) => sf.key === f.key);
+                        const usedOnOtherStep =
+                            !isSelected && otherStagesFields.has(f.key);
+                        const otherStepLabel = otherStageLabels?.get(f.key);
 
                         return (
                             <div
                                 key={f.key}
                                 className={`flex flex-col p-2.5 rounded-lg border transition-all ${
-                                    isSelected ? 'border-primary/50 bg-primary/5' : 'border-border/50 bg-card/30'
+                                    isSelected
+                                        ? 'border-primary/50 bg-primary/5'
+                                        : usedOnOtherStep
+                                          ? 'border-border/40 bg-muted/20 opacity-80'
+                                          : 'border-border/50 bg-card/30'
                                 }`}
                             >
                                 <div className="flex items-center justify-between">
-                                    <label className="flex items-center gap-2.5 text-sm cursor-pointer group flex-1">
+                                    <label
+                                        className={`flex flex-1 flex-wrap items-center gap-2.5 text-sm group ${
+                                            usedOnOtherStep ? 'cursor-not-allowed' : 'cursor-pointer'
+                                        }`}
+                                    >
                                         <input
                                             type="checkbox"
-                                            className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20"
+                                            className="rounded border-border/50 text-primary w-4 h-4 focus:ring-primary/20 disabled:cursor-not-allowed"
                                             checked={isSelected}
+                                            disabled={usedOnOtherStep}
                                             onChange={(e) => {
                                                 const next = e.target.checked;
                                                 onUpdate(
@@ -131,9 +145,20 @@ export function FieldSelector({
                                                 #{orderByKey.get(f.key)}
                                             </span>
                                         )}
-                                        <span className="group-hover:text-primary transition-colors font-medium">
+                                        <span
+                                            className={`font-medium transition-colors ${
+                                                usedOnOtherStep
+                                                    ? 'text-muted-foreground'
+                                                    : 'group-hover:text-primary'
+                                            }`}
+                                        >
                                             {f.label}
                                         </span>
+                                        {usedOnOtherStep && otherStepLabel ? (
+                                            <span className="text-[10px] font-medium text-muted-foreground">
+                                                On step: {otherStepLabel}
+                                            </span>
+                                        ) : null}
                                     </label>
                                     {isSelected && (
                                         <div className="flex items-center gap-2 pl-3 border-l border-border/60">

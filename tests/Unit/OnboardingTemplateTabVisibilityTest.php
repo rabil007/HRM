@@ -71,6 +71,47 @@ it('keeps sea service and vaccination visible when their keys are absent in vers
         ->and($tabs['vaccination'])->toBeTrue();
 });
 
+it('hides contract when explicitly empty in every version 2 stage', function () {
+    $tasks = [
+        'version' => 2,
+        'stages' => [
+            [
+                'key' => 'a',
+                'label' => 'A',
+                'employee_fields' => [],
+                'bank_account_fields' => [],
+                'contract_fields' => [],
+                'sea_service_fields' => [],
+                'vaccination_fields' => [],
+                'documents' => [],
+            ],
+        ],
+    ];
+
+    $tabs = OnboardingTemplateTabVisibility::fromTasks($tasks);
+
+    expect($tabs['contract'])->toBeFalse();
+});
+
+it('keeps contract visible when contract_fields keys are absent in version 2', function () {
+    $tasks = [
+        'version' => 2,
+        'stages' => [
+            [
+                'key' => 'a',
+                'label' => 'A',
+                'employee_fields' => [],
+                'bank_account_fields' => [],
+                'documents' => [],
+            ],
+        ],
+    ];
+
+    $tabs = OnboardingTemplateTabVisibility::fromTasks($tasks);
+
+    expect($tabs['contract'])->toBeTrue();
+});
+
 it('hides sea service and vaccination when explicitly empty in every version 2 stage', function () {
     $tasks = [
         'version' => 2,

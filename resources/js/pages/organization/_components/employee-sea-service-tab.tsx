@@ -73,6 +73,7 @@ export function EmployeeSeaServiceTab({
 
     const employeeForm = useForm({
         vessel_type_id: '',
+        vessel_name: '',
         rank_id: '',
         total_months: '0',
         total_days: '0',
@@ -147,6 +148,7 @@ export function EmployeeSeaServiceTab({
                                 employeeForm.clearErrors();
                                 employeeForm.setData({
                                     vessel_type_id: '',
+                                    vessel_name: '',
                                     rank_id: '',
                                     total_months: '0',
                                     total_days: '0',
@@ -189,7 +191,7 @@ export function EmployeeSeaServiceTab({
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
-                        <table className="w-full min-w-[960px] text-left">
+                        <table className="w-full min-w-[1100px] text-left">
                             <thead>
                                 <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
                                     {canManage ? (
@@ -199,6 +201,7 @@ export function EmployeeSeaServiceTab({
                                         />
                                     ) : null}
                                     <th className="py-2 pr-4">Vessel type</th>
+                                    <th className="py-2 pr-4">Vessel name</th>
                                     <th className="py-2 pr-4">Rank</th>
                                     <th className="py-2 pr-4 text-right tabular-nums">
                                         Total months
@@ -268,6 +271,12 @@ export function EmployeeSeaServiceTab({
                                             {row.vessel_type_name ?? '—'}
                                         </td>
                                         <td
+                                            className="max-w-[200px] truncate py-3 pr-4 text-sm text-zinc-300"
+                                            title={row.vessel_name ?? ''}
+                                        >
+                                            {row.vessel_name?.trim() ? row.vessel_name : '—'}
+                                        </td>
+                                        <td
                                             className="max-w-[180px] truncate py-3 pr-4 text-sm text-zinc-300"
                                             title={row.rank_name ?? ''}
                                         >
@@ -316,6 +325,9 @@ export function EmployeeSeaServiceTab({
                                                                         String(
                                                                             row.vessel_type_id,
                                                                         ),
+                                                                    vessel_name:
+                                                                        row.vessel_name ??
+                                                                        '',
                                                                     rank_id:
                                                                         String(
                                                                             row.rank_id,
@@ -422,6 +434,25 @@ export function EmployeeSeaServiceTab({
                             {employeeForm.errors.vessel_type_id ? (
                                 <p className="text-xs text-destructive">
                                     {employeeForm.errors.vessel_type_id}
+                                </p>
+                            ) : null}
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label className="text-xs">Vessel name</Label>
+                            <Input
+                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                value={employeeForm.data.vessel_name}
+                                onChange={(e) =>
+                                    employeeForm.setData(
+                                        'vessel_name',
+                                        e.target.value,
+                                    )
+                                }
+                                placeholder="e.g. BES SINCERE"
+                            />
+                            {employeeForm.errors.vessel_name ? (
+                                <p className="text-xs text-destructive">
+                                    {employeeForm.errors.vessel_name}
                                 </p>
                             ) : null}
                         </div>
@@ -599,6 +630,7 @@ export function EmployeeSeaServiceTab({
                                         data.vessel_type_id,
                                         10,
                                     ),
+                                    vessel_name: data.vessel_name.trim(),
                                     rank_id: Number.parseInt(data.rank_id, 10),
                                     total_months: Math.max(
                                         0,

@@ -29,6 +29,7 @@ class EmployeeSeaServiceFactory extends Factory
                     'is_active' => true,
                 ])->id;
             },
+            'vessel_name' => fake()->words(3, true),
             'rank_id' => static function (): int {
                 return Rank::query()->create([
                     'name' => 'R '.Str::uuid()->toString(),

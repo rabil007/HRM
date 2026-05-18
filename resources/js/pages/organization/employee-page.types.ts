@@ -201,6 +201,7 @@ export type SeaServiceItem = {
     id: number;
     vessel_type_id: number;
     vessel_type_name: string | null;
+    vessel_name: string | null;
     rank_id: number;
     rank_name: string | null;
     total_months: number;

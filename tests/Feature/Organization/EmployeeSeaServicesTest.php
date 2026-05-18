@@ -17,6 +17,7 @@ test('guests cannot manage sea services', function () {
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
+        'vessel_name' => 'Test Vessel',
         'rank_id' => 1,
         'total_months' => 1,
         'total_days' => 0,
@@ -75,6 +76,7 @@ test('users without permission cannot manage sea services', function () {
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
+        'vessel_name' => 'Test Vessel',
         'rank_id' => 1,
         'total_months' => 1,
         'total_days' => 0,
@@ -149,6 +151,7 @@ test('employee show page includes sea services', function () {
         ->forEmployee($employee)
         ->create([
             'vessel_type_id' => $vesselType->id,
+            'vessel_name' => 'MV Horizon',
             'rank_id' => $rank->id,
             'client_id' => $client->id,
             'total_months' => 5,
@@ -163,7 +166,8 @@ test('employee show page includes sea services', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
             ->has('sea_services', 1)
-            ->where('sea_services.0.vessel_type_name', 'BES SINCERE'));
+            ->where('sea_services.0.vessel_type_name', 'BES SINCERE')
+            ->where('sea_services.0.vessel_name', 'MV Horizon'));
 });
 
 test('users with permission can add update delete and reorder sea services', function () {
@@ -243,6 +247,7 @@ test('users with permission can add update delete and reorder sea services', fun
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $vesselA->id,
+        'vessel_name' => 'MV Alpha',
         'rank_id' => $rankCaptain->id,
         'total_months' => 2,
         'total_days' => 10,
@@ -255,6 +260,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $row = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
 
     expect($row)->not->toBeNull();
+    expect($row->vessel_name)->toBe('MV Alpha');
     expect($row->is_offshore)->toBeTrue();
     expect($row->client_id)->toBe($clientX->id);
 
@@ -266,6 +272,7 @@ test('users with permission can add update delete and reorder sea services', fun
 
     $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
         'vessel_type_id' => $vesselAPlus->id,
+        'vessel_name' => 'MV Alpha Plus',
         'rank_id' => $rankCaptain->id,
         'total_months' => 3,
         'total_days' => 1,
@@ -273,6 +280,7 @@ test('users with permission can add update delete and reorder sea services', fun
     ])->assertRedirect();
 
     expect($row->fresh()->vessel_type_id)->toBe($vesselAPlus->id)
+        ->and($row->fresh()->vessel_name)->toBe('MV Alpha Plus')
         ->and((string) $row->fresh()->total_months)->toBe('3')
         ->and($row->fresh()->is_offshore)->toBeFalse();
 

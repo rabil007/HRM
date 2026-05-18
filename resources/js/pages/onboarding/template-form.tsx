@@ -9,7 +9,7 @@ import {
     Syringe,
     UserRound,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DocumentSelector } from '@/components/onboarding/builder/document-selector';
 import { FieldSelector } from '@/components/onboarding/builder/field-selector';
 import { SidebarStages } from '@/components/onboarding/builder/sidebar-stages';
@@ -43,6 +43,12 @@ import { cn } from '@/lib/utils';
 
 
 export const generateId = () => Math.random().toString(36).substring(2, 9);
+
+const stageBuilderId = (key: string, index: number): string => {
+    const trimmed = key.trim();
+
+    return trimmed !== '' ? trimmed : `stage-${index}`;
+};
 
 export type Template = {
     id: number;
@@ -140,6 +146,7 @@ export const contractFieldOptions = [
 
 export const seaServiceFieldOptions = [
     { key: 'vessel_type_id', label: 'Vessel type' },
+    { key: 'vessel_name', label: 'Vessel name' },
     { key: 'rank_id', label: 'Rank' },
     { key: 'total_months', label: 'Total months' },
     { key: 'total_days', label: 'Total days' },
@@ -206,7 +213,7 @@ return false;
     const fallback: BuilderState = {
         stages: [
             { 
-                id: generateId(), 
+                id: stageBuilderId('profile_info', 0), 
                 key: 'profile_info', 
                 label: 'Profile Information', 
                 employee_fields: mapFields(['employee_no', 'name', 'work_email', 'phone', 'nationality_id']),
@@ -217,7 +224,7 @@ return false;
                 documents: []
             },
             { 
-                id: generateId(), 
+                id: stageBuilderId('contract_docs', 1), 
                 key: 'contract_docs', 
                 label: 'Contract & Documents', 
                 employee_fields: [],
@@ -238,10 +245,13 @@ return false;
 
     if (t.version === 2 && Array.isArray(t.stages)) {
         return {
-            stages: t.stages.map((s: any) => ({
-                id: generateId(),
-                key: String(s.key || '').trim(),
-                label: String(s.label || '').trim() || String(s.key || '').trim(),
+            stages: t.stages.map((s: any, index: number) => {
+                const key = String(s.key || '').trim();
+
+                return {
+                id: stageBuilderId(key, index),
+                key,
+                label: String(s.label || '').trim() || key,
                 employee_fields: mapFields(s.employee_fields),
                 bank_account_fields: mapFields(s.bank_account_fields),
                 contract_fields: mapFields(s.contract_fields),
@@ -256,7 +266,8 @@ return false;
                           ask_document_number: !!d?.ask_document_number,
                       }))
                     : [],
-            }))
+            };
+            }),
         };
     }
 
@@ -270,42 +281,100 @@ return false;
         const v1ProfileBank = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => bankKeys.has(String(k))) : [];
 
         return {
-            stages: t.stages.map((s: any) => ({
-                id: generateId(),
-                key: String(s.key || '').trim(),
-                label: String(s.label || '').trim() || String(s.key || '').trim(),
+            stages: t.stages.map((s: any, index: number) => {
+                const key = String(s.key || '').trim();
+
+                return {
+                id: stageBuilderId(key, index),
+                key,
+                label: String(s.label || '').trim() || key,
                 employee_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileEmployee) : [],
                 bank_account_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileBank) : [],
                 contract_fields: Array.isArray(s.modules) && s.modules.includes('contract') ? mapFields(v1Contract) : [],
                 sea_service_fields: [],
                 vaccination_fields: [],
                 documents: Array.isArray(s.modules) && s.modules.includes('documents') ? v1Docs : [],
-            }))
+            };
+            }),
         };
     }
 
     return fallback;
 }
 
+function otherStageFieldUsage(
+    stages: StageBuilder[],
+    activeStageId: string | null,
+    pick: (stage: StageBuilder) => FieldRequirement[],
+): { fields: Set<string>; labels: Map<string, string> } {
+    const fields = new Set<string>();
+    const labels = new Map<string, string>();
+
+    for (const stage of stages) {
+        if (stage.id === activeStageId) {
+            continue;
+        }
+
+        const stepLabel = stage.label || stage.key;
+
+        for (const field of pick(stage)) {
+            if (field.key === '') {
+                continue;
+            }
+
+            fields.add(field.key);
+            labels.set(field.key, stepLabel);
+        }
+    }
+
+    return { fields, labels };
+}
+
 export function buildTasksFromBuilder(builder: BuilderState) {
     return {
         version: 2,
-        stages: builder.stages.map((s) => ({
-            key: s.key.trim(),
-            label: (s.label || s.key).trim(),
-            employee_fields: s.employee_fields,
-            bank_account_fields: s.bank_account_fields,
-            contract_fields: s.contract_fields,
-            sea_service_fields: s.sea_service_fields,
-            vaccination_fields: s.vaccination_fields,
-            documents: s.documents.map((d) => ({
-                type: d.type,
-                min: d.min,
-                ask_issue_date: !!d.ask_issue_date,
-                ask_expiry_date: !!d.ask_expiry_date,
-                ask_document_number: !!d.ask_document_number,
-            })),
-        }))
+        stages: builder.stages.map((s) => {
+            const documents = s.documents
+                .filter((d) => String(d.type).trim() !== '')
+                .map((d) => ({
+                    type: d.type,
+                    min: d.min,
+                    ask_issue_date: !!d.ask_issue_date,
+                    ask_expiry_date: !!d.ask_expiry_date,
+                    ask_document_number: !!d.ask_document_number,
+                }));
+
+            const stage: Record<string, unknown> = {
+                key: s.key.trim(),
+                label: (s.label || s.key).trim(),
+            };
+
+            if (s.employee_fields.length > 0) {
+                stage.employee_fields = s.employee_fields;
+            }
+
+            if (s.bank_account_fields.length > 0) {
+                stage.bank_account_fields = s.bank_account_fields;
+            }
+
+            if (s.contract_fields.length > 0) {
+                stage.contract_fields = s.contract_fields;
+            }
+
+            if (s.sea_service_fields.length > 0) {
+                stage.sea_service_fields = s.sea_service_fields;
+            }
+
+            if (s.vaccination_fields.length > 0) {
+                stage.vaccination_fields = s.vaccination_fields;
+            }
+
+            if (documents.length > 0) {
+                stage.documents = documents;
+            }
+
+            return stage;
+        }),
     };
 }
 
@@ -400,13 +469,40 @@ return;
         });
     };
 
-    const otherStages = builder.stages.filter(x => x.id !== activeStageId);
-    const otherProfileFields = new Set(otherStages.flatMap(x => x.employee_fields.map(f => f.key)));
-    const otherContractFields = new Set(otherStages.flatMap(x => x.contract_fields.map(f => f.key)));
-    const otherBankFields = new Set(otherStages.flatMap(x => x.bank_account_fields.map(f => f.key)));
-    const otherDocuments = new Set(otherStages.flatMap(x => x.documents.map(d => String(d.type))));
-    const otherSeaFields = new Set(otherStages.flatMap(x => x.sea_service_fields.map(f => f.key)));
-    const otherVacFields = new Set(otherStages.flatMap(x => x.vaccination_fields.map(f => f.key)));
+    const otherDocuments = useMemo(
+        () =>
+            new Set(
+                builder.stages
+                    .filter((x) => x.id !== activeStageId)
+                    .flatMap((x) => x.documents.map((d) => String(d.type))),
+            ),
+        [builder.stages, activeStageId],
+    );
+
+    const otherEmployeeFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.employee_fields),
+        [builder.stages, activeStageId],
+    );
+
+    const otherContractFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.contract_fields),
+        [builder.stages, activeStageId],
+    );
+
+    const otherBankFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.bank_account_fields),
+        [builder.stages, activeStageId],
+    );
+
+    const otherSeaFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.sea_service_fields),
+        [builder.stages, activeStageId],
+    );
+
+    const otherVacFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.vaccination_fields),
+        [builder.stages, activeStageId],
+    );
 
     return (
         <form onSubmit={submit} className="animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -630,7 +726,8 @@ return;
                                             title="Profile & assignment fields"
                                             options={profileFieldOptions}
                                             selectedFields={s.employee_fields}
-                                            otherStagesFields={otherProfileFields}
+                                            otherStagesFields={otherEmployeeFields.fields}
+                                            otherStageLabels={otherEmployeeFields.labels}
                                             onUpdate={(fields) => updateStage({ employee_fields: fields })}
                                             onSortClick={() =>
                                                 setSortFieldsDialog({
@@ -648,7 +745,8 @@ return;
                                             title="Contract"
                                             options={contractFieldOptions}
                                             selectedFields={s.contract_fields}
-                                            otherStagesFields={otherContractFields}
+                                            otherStagesFields={otherContractFields.fields}
+                                            otherStageLabels={otherContractFields.labels}
                                             onUpdate={(fields) => updateStage({ contract_fields: fields })}
                                             onSortClick={() =>
                                                 setSortFieldsDialog({
@@ -666,7 +764,8 @@ return;
                                             title="Bank accounts (onboarding form)"
                                             options={bankAccountFieldOptions}
                                             selectedFields={s.bank_account_fields}
-                                            otherStagesFields={otherBankFields}
+                                            otherStagesFields={otherBankFields.fields}
+                                            otherStageLabels={otherBankFields.labels}
                                             onUpdate={(fields) => updateStage({ bank_account_fields: fields })}
                                             onSortClick={() =>
                                                 setSortFieldsDialog({
@@ -684,7 +783,8 @@ return;
                                             title="Sea service (profile after hire)"
                                             options={seaServiceFieldOptions}
                                             selectedFields={s.sea_service_fields}
-                                            otherStagesFields={otherSeaFields}
+                                            otherStagesFields={otherSeaFields.fields}
+                                            otherStageLabels={otherSeaFields.labels}
                                             onUpdate={(fields) => updateStage({ sea_service_fields: fields })}
                                             onSortClick={() =>
                                                 setSortFieldsDialog({
@@ -702,7 +802,8 @@ return;
                                             title="Vaccinations (profile after hire)"
                                             options={vaccinationFieldOptions}
                                             selectedFields={s.vaccination_fields}
-                                            otherStagesFields={otherVacFields}
+                                            otherStagesFields={otherVacFields.fields}
+                                            otherStageLabels={otherVacFields.labels}
                                             onUpdate={(fields) => updateStage({ vaccination_fields: fields })}
                                             onSortClick={() =>
                                                 setSortFieldsDialog({

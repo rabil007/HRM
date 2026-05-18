@@ -83,14 +83,20 @@ final class OnboardingTemplateTabVisibility
             }
         }
 
+        $hadEmployeeFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('employee_fields', $s));
+
+        $hadBankFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('bank_account_fields', $s));
+
+        $hadContractFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('contract_fields', $s));
+
         $hadSeaFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('sea_service_fields', $s));
 
         $hadVacFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('vaccination_fields', $s));
 
         return [
-            'personal' => $aggregateEmployeeNonEmpty,
-            'contract' => $aggregateContractNonEmpty,
-            'bank' => $aggregateBankNonEmpty,
+            'personal' => ! $hadEmployeeFieldKeyEver || $aggregateEmployeeNonEmpty,
+            'contract' => ! $hadContractFieldKeyEver || $aggregateContractNonEmpty,
+            'bank' => ! $hadBankFieldKeyEver || $aggregateBankNonEmpty,
             'documents' => $aggregateDocsNonEmpty,
             'sea_service' => ! $hadSeaFieldKeyEver || $aggregateSeaNonEmpty,
             'vaccination' => ! $hadVacFieldKeyEver || $aggregateVacNonEmpty,

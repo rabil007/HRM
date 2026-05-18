@@ -573,6 +573,7 @@ class EmployeeController extends Controller
                 'id' => $row->id,
                 'vessel_type_id' => $row->vessel_type_id,
                 'vessel_type_name' => $row->vesselType?->name,
+                'vessel_name' => $row->vessel_name,
                 'rank_id' => $row->rank_id,
                 'rank_name' => $row->rank?->name,
                 'total_months' => $row->total_months,
