@@ -36,7 +36,7 @@ import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-ser
 import type {
     ClientOption,
     SeaServiceItem,
-    VesselOption,
+    VesselTypeOption,
 } from '@/pages/organization/employee-page.types';
 
 function reorderByIndex<T>(list: T[], from: number, to: number): T[] {
@@ -50,7 +50,7 @@ function reorderByIndex<T>(list: T[], from: number, to: number): T[] {
 export type EmployeeSeaServiceTabProps = {
     employeeId: number;
     sea_services: SeaServiceItem[];
-    vessels: VesselOption[];
+    vessel_types: VesselTypeOption[];
     ranks: RankOption[];
     clients: ClientOption[];
     employeeRankId: number | null;
@@ -60,7 +60,7 @@ export type EmployeeSeaServiceTabProps = {
 export function EmployeeSeaServiceTab({
     employeeId,
     sea_services,
-    vessels,
+    vessel_types,
     ranks,
     clients,
     employeeRankId,
@@ -72,7 +72,7 @@ export function EmployeeSeaServiceTab({
     const dragSourceIdRef = useRef<number | null>(null);
 
     const employeeForm = useForm({
-        vessel_id: '',
+        vessel_type_id: '',
         rank_id: '',
         total_months: '0',
         total_days: '0',
@@ -146,7 +146,7 @@ export function EmployeeSeaServiceTab({
                                 employeeForm.reset();
                                 employeeForm.clearErrors();
                                 employeeForm.setData({
-                                    vessel_id: '',
+                                    vessel_type_id: '',
                                     rank_id: '',
                                     total_months: '0',
                                     total_days: '0',
@@ -198,7 +198,7 @@ export function EmployeeSeaServiceTab({
                                             aria-label="Reorder"
                                         />
                                     ) : null}
-                                    <th className="py-2 pr-4">Vessel</th>
+                                    <th className="py-2 pr-4">Vessel type</th>
                                     <th className="py-2 pr-4">Rank</th>
                                     <th className="py-2 pr-4 text-right tabular-nums">
                                         Total months
@@ -263,9 +263,9 @@ export function EmployeeSeaServiceTab({
                                         ) : null}
                                         <td
                                             className="max-w-[200px] truncate py-3 pr-4 font-medium text-zinc-200"
-                                            title={row.vessel_name ?? ''}
+                                            title={row.vessel_type_name ?? ''}
                                         >
-                                            {row.vessel_name ?? '—'}
+                                            {row.vessel_type_name ?? '—'}
                                         </td>
                                         <td
                                             className="max-w-[180px] truncate py-3 pr-4 text-sm text-zinc-300"
@@ -312,9 +312,9 @@ export function EmployeeSeaServiceTab({
                                                             setEditingRow(row);
                                                             employeeForm.setData(
                                                                 {
-                                                                    vessel_id:
+                                                                    vessel_type_id:
                                                                         String(
-                                                                            row.vessel_id,
+                                                                            row.vessel_type_id,
                                                                         ),
                                                                     rank_id:
                                                                         String(
@@ -401,27 +401,27 @@ export function EmployeeSeaServiceTab({
                     </DialogHeader>
                     <div className="grid gap-4 py-2">
                         <div className="space-y-1.5">
-                            <Label className="text-xs">Vessel</Label>
+                            <Label className="text-xs">Vessel type</Label>
                             <select
-                                value={employeeForm.data.vessel_id}
+                                value={employeeForm.data.vessel_type_id}
                                 onChange={(e) =>
                                     employeeForm.setData(
-                                        'vessel_id',
+                                        'vessel_type_id',
                                         e.target.value,
                                     )
                                 }
                                 className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
                             >
                                 <option value="">— Select —</option>
-                                {vessels.map((v) => (
+                                {vessel_types.map((v) => (
                                     <option key={v.id} value={String(v.id)}>
                                         {v.name}
                                     </option>
                                 ))}
                             </select>
-                            {employeeForm.errors.vessel_id ? (
+                            {employeeForm.errors.vessel_type_id ? (
                                 <p className="text-xs text-destructive">
-                                    {employeeForm.errors.vessel_id}
+                                    {employeeForm.errors.vessel_type_id}
                                 </p>
                             ) : null}
                         </div>
@@ -595,8 +595,8 @@ export function EmployeeSeaServiceTab({
                             onClick={() => {
                                 employeeForm.clearErrors();
                                 employeeForm.transform((data) => ({
-                                    vessel_id: Number.parseInt(
-                                        data.vessel_id,
+                                    vessel_type_id: Number.parseInt(
+                                        data.vessel_type_id,
                                         10,
                                     ),
                                     rank_id: Number.parseInt(data.rank_id, 10),

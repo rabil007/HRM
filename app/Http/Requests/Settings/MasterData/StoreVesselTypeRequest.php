@@ -4,7 +4,7 @@ namespace App\Http\Requests\Settings\MasterData;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UpdateVesselRequest extends FormRequest
+class StoreVesselTypeRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -13,10 +13,8 @@ class UpdateVesselRequest extends FormRequest
 
     public function rules(): array
     {
-        $vesselId = (int) $this->route('vessel')?->id;
-
         return [
-            'name' => ['required', 'string', 'max:120', "unique:vessels,name,{$vesselId}"],
+            'name' => ['required', 'string', 'max:120', 'unique:vessel_types,name'],
             'is_active' => ['nullable', 'boolean'],
         ];
     }

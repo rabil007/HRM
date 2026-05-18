@@ -98,8 +98,8 @@ const baseSidebarData: SidebarData = {
                             icon: PiggyBank,
                         },
                         {
-                            title: 'Vessels',
-                            url: '/settings/master-data/vessels',
+                            title: 'Vessel types',
+                            url: '/settings/master-data/vessel-types',
                             icon: Sailboat,
                         },
                         {
@@ -231,8 +231,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 return has(permissions, 'settings.master-data.banks.view');
                             }
 
-                            if (sub.url === '/settings/master-data/vessels') {
-                                return has(permissions, 'settings.master-data.vessels.view');
+                            if (sub.url === '/settings/master-data/vessel-types') {
+                                return has(permissions, 'settings.master-data.vessel-types.view');
                             }
 
                             if (sub.url === '/settings/master-data/ranks') {

@@ -29,7 +29,7 @@ use App\Models\Position;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\User;
-use App\Models\Vessel;
+use App\Models\VesselType;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\OnboardingTemplateTabVisibility;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -522,7 +522,7 @@ class EmployeeController extends Controller
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
             ->with([
-                'vessel:id,name',
+                'vesselType:id,name',
                 'rank:id,name',
                 'client:id,name',
             ])
@@ -530,21 +530,21 @@ class EmployeeController extends Controller
             ->orderByDesc('id')
             ->get();
 
-        $referencedVesselIds = $seaServiceModels->pluck('vessel_id')->unique()->filter()->values()->all();
+        $referencedVesselTypeIds = $seaServiceModels->pluck('vessel_type_id')->unique()->filter()->values()->all();
 
-        $vessels = Vessel::query()
-            ->where(function ($query) use ($referencedVesselIds): void {
+        $vesselTypes = VesselType::query()
+            ->where(function ($query) use ($referencedVesselTypeIds): void {
                 $query->where('is_active', true);
 
-                if ($referencedVesselIds !== []) {
-                    $query->orWhereIn('id', $referencedVesselIds);
+                if ($referencedVesselTypeIds !== []) {
+                    $query->orWhereIn('id', $referencedVesselTypeIds);
                 }
             })
             ->orderBy('name')
             ->get(['id', 'name'])
-            ->map(fn (Vessel $vessel) => [
-                'id' => $vessel->id,
-                'name' => $vessel->name,
+            ->map(fn (VesselType $vesselType) => [
+                'id' => $vesselType->id,
+                'name' => $vesselType->name,
             ])
             ->all();
 
@@ -571,8 +571,8 @@ class EmployeeController extends Controller
         $sea_services = $seaServiceModels
             ->map(fn (EmployeeSeaService $row) => [
                 'id' => $row->id,
-                'vessel_id' => $row->vessel_id,
-                'vessel_name' => $row->vessel?->name,
+                'vessel_type_id' => $row->vessel_type_id,
+                'vessel_type_name' => $row->vesselType?->name,
                 'rank_id' => $row->rank_id,
                 'rank_name' => $row->rank?->name,
                 'total_months' => $row->total_months,
@@ -776,7 +776,7 @@ class EmployeeController extends Controller
             'genders' => $genders,
             'banks' => $banks,
             'ranks' => $ranks,
-            'vessels' => $vessels,
+            'vessel_types' => $vesselTypes,
             'clients' => $clients,
             'employee_tabs' => $employeeTabsPayload,
             'recent_activity' => $recentActivity,

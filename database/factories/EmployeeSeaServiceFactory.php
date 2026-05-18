@@ -5,7 +5,7 @@ namespace Database\Factories;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
-use App\Models\Vessel;
+use App\Models\VesselType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -23,8 +23,8 @@ class EmployeeSeaServiceFactory extends Factory
     {
         return [
             'sort_order' => 0,
-            'vessel_id' => static function (): int {
-                return Vessel::query()->create([
+            'vessel_type_id' => static function (): int {
+                return VesselType::query()->create([
                     'name' => 'V '.Str::uuid()->toString(),
                     'is_active' => true,
                 ])->id;

@@ -9,14 +9,14 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
-use App\Models\Vessel;
+use App\Models\VesselType;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot manage sea services', function () {
     $employee = Employee::factory()->create();
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_id' => 1,
+        'vessel_type_id' => 1,
         'rank_id' => 1,
         'total_months' => 1,
         'total_days' => 0,
@@ -74,7 +74,7 @@ test('users without permission cannot manage sea services', function () {
     grantCompanyPermissions($user, $company, ['employees.view']);
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_id' => 1,
+        'vessel_type_id' => 1,
         'rank_id' => 1,
         'total_months' => 1,
         'total_days' => 0,
@@ -130,7 +130,7 @@ test('employee show page includes sea services', function () {
         'status' => 'active',
     ]);
 
-    $vessel = Vessel::query()->create([
+    $vesselType = VesselType::query()->create([
         'name' => 'BES SINCERE',
         'is_active' => true,
     ]);
@@ -148,7 +148,7 @@ test('employee show page includes sea services', function () {
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_id' => $vessel->id,
+            'vessel_type_id' => $vesselType->id,
             'rank_id' => $rank->id,
             'client_id' => $client->id,
             'total_months' => 5,
@@ -163,7 +163,7 @@ test('employee show page includes sea services', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
             ->has('sea_services', 1)
-            ->where('sea_services.0.vessel_name', 'BES SINCERE'));
+            ->where('sea_services.0.vessel_type_name', 'BES SINCERE'));
 });
 
 test('users with permission can add update delete and reorder sea services', function () {
@@ -216,17 +216,17 @@ test('users with permission can add update delete and reorder sea services', fun
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
 
-    $vesselA = Vessel::query()->create([
+    $vesselA = VesselType::query()->create([
         'name' => 'Vessel A',
         'is_active' => true,
     ]);
 
-    $vesselB = Vessel::query()->create([
+    $vesselB = VesselType::query()->create([
         'name' => 'Vessel B',
         'is_active' => true,
     ]);
 
-    $vesselAPlus = Vessel::query()->create([
+    $vesselAPlus = VesselType::query()->create([
         'name' => 'Vessel A+',
         'is_active' => true,
     ]);
@@ -242,7 +242,7 @@ test('users with permission can add update delete and reorder sea services', fun
     ]);
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_id' => $vesselA->id,
+        'vessel_type_id' => $vesselA->id,
         'rank_id' => $rankCaptain->id,
         'total_months' => 2,
         'total_days' => 10,
@@ -259,20 +259,20 @@ test('users with permission can add update delete and reorder sea services', fun
     expect($row->client_id)->toBe($clientX->id);
 
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
-        'vessel_id' => $vesselB->id,
+        'vessel_type_id' => $vesselB->id,
         'rank_id' => $rankCaptain->id,
         'sort_order' => 5,
     ]);
 
     $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
-        'vessel_id' => $vesselAPlus->id,
+        'vessel_type_id' => $vesselAPlus->id,
         'rank_id' => $rankCaptain->id,
         'total_months' => 3,
         'total_days' => 1,
         'is_offshore' => false,
     ])->assertRedirect();
 
-    expect($row->fresh()->vessel_id)->toBe($vesselAPlus->id)
+    expect($row->fresh()->vessel_type_id)->toBe($vesselAPlus->id)
         ->and((string) $row->fresh()->total_months)->toBe('3')
         ->and($row->fresh()->is_offshore)->toBeFalse();
 

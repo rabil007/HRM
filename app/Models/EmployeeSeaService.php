@@ -18,7 +18,7 @@ class EmployeeSeaService extends Model
     {
         return [
             'sort_order' => 'integer',
-            'vessel_id' => 'integer',
+            'vessel_type_id' => 'integer',
             'rank_id' => 'integer',
             'client_id' => 'integer',
             'total_months' => 'integer',
@@ -39,9 +39,9 @@ class EmployeeSeaService extends Model
         return $this->belongsTo(Company::class);
     }
 
-    public function vessel(): BelongsTo
+    public function vesselType(): BelongsTo
     {
-        return $this->belongsTo(Vessel::class);
+        return $this->belongsTo(VesselType::class);
     }
 
     public function rank(): BelongsTo

@@ -5,7 +5,7 @@ namespace App\Http\Requests\Settings\MasterData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
-class ImportVesselsRequest extends FormRequest
+class ImportVesselTypesRequest extends FormRequest
 {
     public function authorize(): bool
     {

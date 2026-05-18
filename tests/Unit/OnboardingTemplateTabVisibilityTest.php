@@ -33,7 +33,7 @@ it('aggregates version 2 visibility from non-empty field groups', function () {
                 'employee_fields' => [],
                 'bank_account_fields' => [['key' => 'iban', 'required' => false]],
                 'contract_fields' => [['key' => 'start_date', 'required' => true]],
-                'sea_service_fields' => [['key' => 'vessel_id', 'required' => true]],
+                'sea_service_fields' => [['key' => 'vessel_type_id', 'required' => true]],
                 'vaccination_fields' => [['key' => 'vaccination_name', 'required' => true]],
                 'documents' => [['type' => '1', 'min' => 1]],
             ],

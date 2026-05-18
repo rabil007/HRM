@@ -192,10 +192,15 @@ export type ClientOption = {
     name: string;
 };
 
+export type VesselTypeOption = {
+    id: number;
+    name: string;
+};
+
 export type SeaServiceItem = {
     id: number;
-    vessel_id: number;
-    vessel_name: string | null;
+    vessel_type_id: number;
+    vessel_type_name: string | null;
     rank_id: number;
     rank_name: string | null;
     total_months: number;
@@ -259,7 +264,7 @@ export type EmployeePageProps = {
     genders: GenderOption[];
     banks: BankOption[];
     ranks: RankOption[];
-    vessels: VesselOption[];
+    vessel_types: VesselTypeOption[];
     clients: ClientOption[];
     employee_tabs: EmployeeProfileTabVisibility;
     recent_activity: ActivityItem[];

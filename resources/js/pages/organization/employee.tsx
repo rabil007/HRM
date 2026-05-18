@@ -76,7 +76,7 @@ export default function EmployeeDetails({
     genders,
     banks,
     ranks,
-    vessels,
+    vessel_types,
     clients,
     employee_tabs,
     recent_activity,
@@ -417,7 +417,7 @@ export default function EmployeeDetails({
                                     <EmployeeSeaServiceTab
                                         employeeId={employee.id}
                                         sea_services={sea_services}
-                                        vessels={vessels}
+                                        vessel_types={vessel_types}
                                         ranks={ranks}
                                         clients={clients}
                                         employeeRankId={employee.rank_id ?? null}

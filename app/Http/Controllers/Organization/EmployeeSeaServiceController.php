@@ -17,7 +17,7 @@ class EmployeeSeaServiceController extends Controller
         abort_unless($employee->company_id === $companyId, 403);
 
         $validated = $request->validate([
-            'vessel_id' => ['required', 'exists:vessels,id'],
+            'vessel_type_id' => ['required', 'exists:vessel_types,id'],
             'rank_id' => ['required', 'exists:ranks,id'],
             'total_months' => ['required', 'integer', 'min:0', 'max:1200'],
             'total_days' => ['required', 'integer', 'min:0', 'max:366'],
@@ -36,7 +36,7 @@ class EmployeeSeaServiceController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            'vessel_id' => (int) $validated['vessel_id'],
+            'vessel_type_id' => (int) $validated['vessel_type_id'],
             'rank_id' => (int) $validated['rank_id'],
             'total_months' => $validated['total_months'],
             'total_days' => $validated['total_days'],
@@ -61,7 +61,7 @@ class EmployeeSeaServiceController extends Controller
         );
 
         $validated = $request->validate([
-            'vessel_id' => ['required', 'exists:vessels,id'],
+            'vessel_type_id' => ['required', 'exists:vessel_types,id'],
             'rank_id' => ['required', 'exists:ranks,id'],
             'total_months' => ['required', 'integer', 'min:0', 'max:1200'],
             'total_days' => ['required', 'integer', 'min:0', 'max:366'],
@@ -72,7 +72,7 @@ class EmployeeSeaServiceController extends Controller
         ]);
 
         $seaService->update([
-            'vessel_id' => (int) $validated['vessel_id'],
+            'vessel_type_id' => (int) $validated['vessel_type_id'],
             'rank_id' => (int) $validated['rank_id'],
             'total_months' => $validated['total_months'],
             'total_days' => $validated['total_days'],

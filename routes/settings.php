@@ -8,7 +8,7 @@ use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
 use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
-use App\Http\Controllers\Settings\MasterData\VesselController;
+use App\Http\Controllers\Settings\MasterData\VesselTypeController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Support\Facades\Route;
@@ -110,24 +110,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:settings.master-data.banks.delete')
             ->name('banks.destroy');
 
-        Route::get('vessels/import/template', [VesselController::class, 'importTemplate'])
-            ->middleware('can:settings.master-data.vessels.view')
-            ->name('vessels.import.template');
-        Route::post('vessels/import', [VesselController::class, 'import'])
-            ->middleware('can:settings.master-data.vessels.create')
-            ->name('vessels.import');
-        Route::get('vessels', [VesselController::class, 'index'])
-            ->middleware('can:settings.master-data.vessels.view')
-            ->name('vessels.index');
-        Route::post('vessels', [VesselController::class, 'store'])
-            ->middleware('can:settings.master-data.vessels.create')
-            ->name('vessels.store');
-        Route::put('vessels/{vessel}', [VesselController::class, 'update'])
-            ->middleware('can:settings.master-data.vessels.update')
-            ->name('vessels.update');
-        Route::delete('vessels/{vessel}', [VesselController::class, 'destroy'])
-            ->middleware('can:settings.master-data.vessels.delete')
-            ->name('vessels.destroy');
+        Route::get('vessel-types/import/template', [VesselTypeController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.vessel-types.view')
+            ->name('vessel-types.import.template');
+        Route::post('vessel-types/import', [VesselTypeController::class, 'import'])
+            ->middleware('can:settings.master-data.vessel-types.create')
+            ->name('vessel-types.import');
+        Route::get('vessel-types', [VesselTypeController::class, 'index'])
+            ->middleware('can:settings.master-data.vessel-types.view')
+            ->name('vessel-types.index');
+        Route::post('vessel-types', [VesselTypeController::class, 'store'])
+            ->middleware('can:settings.master-data.vessel-types.create')
+            ->name('vessel-types.store');
+        Route::put('vessel-types/{vessel_type}', [VesselTypeController::class, 'update'])
+            ->middleware('can:settings.master-data.vessel-types.update')
+            ->name('vessel-types.update');
+        Route::delete('vessel-types/{vessel_type}', [VesselTypeController::class, 'destroy'])
+            ->middleware('can:settings.master-data.vessel-types.delete')
+            ->name('vessel-types.destroy');
 
         Route::get('ranks/import/template', [RankController::class, 'importTemplate'])
             ->middleware('can:settings.master-data.ranks.view')

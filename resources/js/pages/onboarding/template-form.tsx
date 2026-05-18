@@ -139,7 +139,7 @@ export const contractFieldOptions = [
 ] as const;
 
 export const seaServiceFieldOptions = [
-    { key: 'vessel_id', label: 'Vessel' },
+    { key: 'vessel_type_id', label: 'Vessel type' },
     { key: 'rank_id', label: 'Rank' },
     { key: 'total_months', label: 'Total months' },
     { key: 'total_days', label: 'Total days' },
@@ -164,7 +164,15 @@ export type DocumentTypeModel = {
 
 export function toBuilderState(tasks: unknown): BuilderState {
     const normalizeFieldKey = (key: string) => {
-        return key === 'first_name' || key === 'last_name' ? 'name' : key;
+        if (key === 'first_name' || key === 'last_name') {
+            return 'name';
+        }
+
+        if (key === 'vessel_id') {
+            return 'vessel_type_id';
+        }
+
+        return key;
     };
 
     const mapFields = (fields: any): FieldRequirement[] => {

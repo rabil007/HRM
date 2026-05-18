@@ -3,50 +3,50 @@
 namespace App\Http\Controllers\Settings\MasterData;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Settings\MasterData\ImportVesselsRequest;
-use App\Http\Requests\Settings\MasterData\StoreVesselRequest;
-use App\Http\Requests\Settings\MasterData\UpdateVesselRequest;
-use App\Models\Vessel;
+use App\Http\Requests\Settings\MasterData\ImportVesselTypesRequest;
+use App\Http\Requests\Settings\MasterData\StoreVesselTypeRequest;
+use App\Http\Requests\Settings\MasterData\UpdateVesselTypeRequest;
+use App\Models\VesselType;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
-class VesselController extends Controller
+class VesselTypeController extends Controller
 {
     public function index(): InertiaResponse
     {
-        $vessels = Vessel::query()
+        $vesselTypes = VesselType::query()
             ->orderBy('name')
             ->get(['id', 'name', 'is_active']);
 
-        return Inertia::render('settings/master-data/vessels', [
-            'vessels' => $vessels,
+        return Inertia::render('settings/master-data/vessel-types', [
+            'vessel_types' => $vesselTypes,
         ]);
     }
 
-    public function store(StoreVesselRequest $request): RedirectResponse
+    public function store(StoreVesselTypeRequest $request): RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Vessel::query()->create($data);
+        VesselType::query()->create($data);
 
-        return redirect()->route('settings.master-data.vessels.index');
+        return redirect()->route('settings.master-data.vessel-types.index');
     }
 
-    public function update(UpdateVesselRequest $request, Vessel $vessel): RedirectResponse
+    public function update(UpdateVesselTypeRequest $request, VesselType $vesselType): RedirectResponse
     {
-        $vessel->update($request->validated());
+        $vesselType->update($request->validated());
 
-        return redirect()->route('settings.master-data.vessels.index');
+        return redirect()->route('settings.master-data.vessel-types.index');
     }
 
-    public function destroy(Vessel $vessel): RedirectResponse
+    public function destroy(VesselType $vesselType): RedirectResponse
     {
-        $vessel->delete();
+        $vesselType->delete();
 
-        return redirect()->route('settings.master-data.vessels.index');
+        return redirect()->route('settings.master-data.vessel-types.index');
     }
 
     public function importTemplate(): Response
@@ -55,11 +55,11 @@ class VesselController extends Controller
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="vessels-import-template.csv"',
+            'Content-Disposition' => 'attachment; filename="vessel-types-import-template.csv"',
         ]);
     }
 
-    public function import(ImportVesselsRequest $request): RedirectResponse
+    public function import(ImportVesselTypesRequest $request): RedirectResponse
     {
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -67,7 +67,7 @@ class VesselController extends Controller
 
         if ($handle === false) {
             return redirect()
-                ->route('settings.master-data.vessels.index')
+                ->route('settings.master-data.vessel-types.index')
                 ->withErrors(['file' => 'Could not read the uploaded file.']);
         }
 
@@ -76,14 +76,14 @@ class VesselController extends Controller
             fclose($handle);
 
             return redirect()
-                ->route('settings.master-data.vessels.index')
+                ->route('settings.master-data.vessel-types.index')
                 ->withErrors(['file' => 'The CSV file is empty.']);
         }
 
         $map = [];
         foreach ($header as $index => $cell) {
             $key = mb_strtolower(trim((string) $cell));
-            if (in_array($key, ['name', 'vessel', 'vessel name', 'title'], true)) {
+            if (in_array($key, ['name', 'vessel', 'vessel name', 'vessel type', 'type', 'title'], true)) {
                 $map['name'] = (int) $index;
             }
             if (in_array($key, ['active', 'is_active', 'status', 'enabled'], true)) {
@@ -95,7 +95,7 @@ class VesselController extends Controller
             fclose($handle);
 
             return redirect()
-                ->route('settings.master-data.vessels.index')
+                ->route('settings.master-data.vessel-types.index')
                 ->withErrors(['file' => 'The CSV must include a name column.']);
         }
 
@@ -116,7 +116,7 @@ class VesselController extends Controller
                 $active = $v === '' || in_array($v, ['1', 'yes', 'true', 'y', 'active'], true);
             }
 
-            Vessel::query()->updateOrCreate(
+            VesselType::query()->updateOrCreate(
                 ['name' => $name],
                 ['is_active' => $active],
             );
@@ -130,9 +130,9 @@ class VesselController extends Controller
         fclose($handle);
 
         return redirect()
-            ->route('settings.master-data.vessels.index')
+            ->route('settings.master-data.vessel-types.index')
             ->with('success', $imported > 0
-                ? "Imported {$imported} vessel row(s)."
+                ? "Imported {$imported} vessel type row(s)."
                 : 'No rows were imported.');
     }
 }

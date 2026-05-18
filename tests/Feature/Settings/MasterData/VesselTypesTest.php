@@ -4,14 +4,14 @@ use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\User;
-use App\Models\Vessel;
+use App\Models\VesselType;
 use Illuminate\Http\UploadedFile;
 
-test('guests cannot access vessels page', function () {
-    $this->get('/settings/master-data/vessels')->assertRedirect(route('login'));
+test('guests cannot access vessel types page', function () {
+    $this->get('/settings/master-data/vessel-types')->assertRedirect(route('login'));
 });
 
-test('authorized users can view, create, update, and delete vessels', function () {
+test('authorized users can view, create, update, and delete vessel types', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -41,39 +41,39 @@ test('authorized users can view, create, update, and delete vessels', function (
     ]);
 
     grantCompanyPermissions($user, $company, [
-        'settings.master-data.vessels.view',
-        'settings.master-data.vessels.create',
-        'settings.master-data.vessels.update',
-        'settings.master-data.vessels.delete',
+        'settings.master-data.vessel-types.view',
+        'settings.master-data.vessel-types.create',
+        'settings.master-data.vessel-types.update',
+        'settings.master-data.vessel-types.delete',
     ]);
 
-    $this->get('/settings/master-data/vessels')->assertOk();
+    $this->get('/settings/master-data/vessel-types')->assertOk();
 
-    $this->post('/settings/master-data/vessels', [
+    $this->post('/settings/master-data/vessel-types', [
         'name' => 'OSV Aurora',
         'is_active' => true,
-    ])->assertRedirect(route('settings.master-data.vessels.index'));
+    ])->assertRedirect(route('settings.master-data.vessel-types.index'));
 
-    $id = Vessel::query()->where('name', 'OSV Aurora')->value('id');
+    $id = VesselType::query()->where('name', 'OSV Aurora')->value('id');
     expect($id)->not->toBeNull();
 
-    $this->put("/settings/master-data/vessels/{$id}", [
+    $this->put("/settings/master-data/vessel-types/{$id}", [
         'name' => 'OSV Aurora II',
         'is_active' => true,
-    ])->assertRedirect(route('settings.master-data.vessels.index'));
+    ])->assertRedirect(route('settings.master-data.vessel-types.index'));
 
-    $this->assertDatabaseHas('vessels', [
+    $this->assertDatabaseHas('vessel_types', [
         'id' => $id,
         'name' => 'OSV Aurora II',
     ]);
 
-    $this->delete("/settings/master-data/vessels/{$id}")
-        ->assertRedirect(route('settings.master-data.vessels.index'));
+    $this->delete("/settings/master-data/vessel-types/{$id}")
+        ->assertRedirect(route('settings.master-data.vessel-types.index'));
 
-    $this->assertDatabaseMissing('vessels', ['id' => $id]);
+    $this->assertDatabaseMissing('vessel_types', ['id' => $id]);
 });
 
-test('authorized users can download template and import vessels from csv', function () {
+test('authorized users can download template and import vessel types from csv', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -103,20 +103,20 @@ test('authorized users can download template and import vessels from csv', funct
     ]);
 
     grantCompanyPermissions($user, $company, [
-        'settings.master-data.vessels.view',
-        'settings.master-data.vessels.create',
+        'settings.master-data.vessel-types.view',
+        'settings.master-data.vessel-types.create',
     ]);
 
-    $this->get('/settings/master-data/vessels/import/template')
+    $this->get('/settings/master-data/vessel-types/import/template')
         ->assertOk()
         ->assertDownload();
 
     $csvContent = "name,is_active\nHarbour Star,no\nPacific Runner,yes\n";
 
-    $this->post('/settings/master-data/vessels/import', [
-        'file' => UploadedFile::fake()->createWithContent('vessels.csv', $csvContent),
-    ])->assertRedirect(route('settings.master-data.vessels.index'));
+    $this->post('/settings/master-data/vessel-types/import', [
+        'file' => UploadedFile::fake()->createWithContent('vessel-types.csv', $csvContent),
+    ])->assertRedirect(route('settings.master-data.vessel-types.index'));
 
-    expect(Vessel::query()->where('name', 'Harbour Star')->value('is_active'))->toBe(false);
-    expect(Vessel::query()->where('name', 'Pacific Runner')->value('is_active'))->toBe(true);
+    expect(VesselType::query()->where('name', 'Harbour Star')->value('is_active'))->toBe(false);
+    expect(VesselType::query()->where('name', 'Pacific Runner')->value('is_active'))->toBe(true);
 });

@@ -119,7 +119,7 @@ test('authenticated users can view an employee details page', function () {
             ->has('sea_services')
             ->has('documents')
             ->has('ranks')
-            ->has('vessels')
+            ->has('vessel_types')
             ->has('clients')
             ->has('employee_tabs')
         );

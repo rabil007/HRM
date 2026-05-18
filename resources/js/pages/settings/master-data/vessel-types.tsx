@@ -29,17 +29,17 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 
-type Vessel = {
+type VesselTypeRow = {
     id: number;
     name: string;
     is_active: boolean;
 };
 
-export default function Vessels({ vessels }: { vessels: Vessel[] }) {
+export default function VesselTypes({ vessel_types }: { vessel_types: VesselTypeRow[] }) {
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
-    const [current, setCurrent] = useState<Vessel | null>(null);
+    const [current, setCurrent] = useState<VesselTypeRow | null>(null);
     const [importOpen, setImportOpen] = useState(false);
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -56,11 +56,11 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
         const q = query.trim().toLowerCase();
 
         if (!q) {
-            return vessels;
+            return vessel_types;
         }
 
-        return vessels.filter((v) => v.name.toLowerCase().includes(q));
-    }, [vessels, query]);
+        return vessel_types.filter((v) => v.name.toLowerCase().includes(q));
+    }, [vessel_types, query]);
 
     const openCreate = () => {
         setCurrent(null);
@@ -73,20 +73,20 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
         setSheetOpen(true);
     };
 
-    const openEdit = (vessel: Vessel) => {
-        setCurrent(vessel);
+    const openEdit = (row: VesselTypeRow) => {
+        setCurrent(row);
         form.reset();
         form.clearErrors();
         form.setData({
-            name: vessel.name,
-            is_active: vessel.is_active,
+            name: row.name,
+            is_active: row.is_active,
         });
         setSheetOpen(true);
     };
 
     const submit = () => {
         if (current) {
-            form.put(`/settings/master-data/vessels/${current.id}`, {
+            form.put(`/settings/master-data/vessel-types/${current.id}`, {
                 preserveScroll: true,
                 onSuccess: () => setSheetOpen(false),
             });
@@ -94,14 +94,14 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
             return;
         }
 
-        form.post('/settings/master-data/vessels', {
+        form.post('/settings/master-data/vessel-types', {
             preserveScroll: true,
             onSuccess: () => setSheetOpen(false),
         });
     };
 
-    const requestDelete = (vessel: Vessel) => {
-        setCurrent(vessel);
+    const requestDelete = (row: VesselTypeRow) => {
+        setCurrent(row);
         setDeleteOpen(true);
     };
 
@@ -110,7 +110,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
             return;
         }
 
-        router.delete(`/settings/master-data/vessels/${current.id}`, {
+        router.delete(`/settings/master-data/vessel-types/${current.id}`, {
             preserveScroll: true,
             onFinish: () => {
                 setDeleteOpen(false);
@@ -119,12 +119,12 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
         });
     };
 
-    const toggleActive = (vessel: Vessel) => {
+    const toggleActive = (row: VesselTypeRow) => {
         router.put(
-            `/settings/master-data/vessels/${vessel.id}`,
+            `/settings/master-data/vessel-types/${row.id}`,
             {
-                name: vessel.name,
-                is_active: !vessel.is_active,
+                name: row.name,
+                is_active: !row.is_active,
             },
             { preserveScroll: true },
         );
@@ -201,7 +201,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
         setImportMessage(null);
         setImportProcessing(true);
         router.post(
-            '/settings/master-data/vessels/import',
+            '/settings/master-data/vessel-types/import',
             { file: importFile },
             {
                 preserveScroll: true,
@@ -223,21 +223,21 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
 
     return (
         <>
-            <Head title="Vessels" />
+            <Head title="Vessel types" />
 
             <div className="space-y-6">
-                <Heading variant="small" title="Vessels" description="Manage vessels used across the system." />
+                <Heading variant="small" title="Vessel types" description="Manage vessel types used across the system." />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
-                        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search vessels..." />
+                        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search vessel types..." />
                     </div>
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         <Button variant="outline" type="button" onClick={openImport}>
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        <Button onClick={openCreate}>Add vessel</Button>
+                        <Button onClick={openCreate}>Add vessel type</Button>
                     </div>
                 </div>
 
@@ -268,7 +268,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No vessels found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">No vessel types found.</div>
                             ) : null}
                         </div>
                     </div>
@@ -301,7 +301,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
                                 <Upload className="size-5" />
                             </div>
                             <div className="min-w-0 space-y-1.5 pt-0.5">
-                                <DialogTitle className="text-xl leading-tight">Import vessels</DialogTitle>
+                                <DialogTitle className="text-xl leading-tight">Import vessel types</DialogTitle>
                                 <DialogDescription>
                                     Add or update rows in bulk. Existing names are updated; new names are created.
                                 </DialogDescription>
@@ -333,7 +333,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
                                     Download a file with the correct column headers so your import validates cleanly.
                                 </p>
                                 <Button variant="secondary" type="button" className="mt-3 w-full sm:w-auto" asChild>
-                                    <a href="/settings/master-data/vessels/import/template">
+                                    <a href="/settings/master-data/vessel-types/import/template">
                                         <Download className="mr-2 size-4" />
                                         Download CSV template
                                     </a>
@@ -348,7 +348,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
                                 type="file"
                                 accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
                                 className="sr-only"
-                                id="vessels-import-file"
+                                id="vessel-types-import-file"
                                 onChange={(event) => {
                                     pickImportFile(event.target.files?.[0]);
                                 }}
@@ -456,7 +456,7 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetContent side="right" className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
                     <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                        <SheetTitle className="text-xl font-bold tracking-tight text-white">{current ? 'Edit vessel' : 'New vessel'}</SheetTitle>
+                        <SheetTitle className="text-xl font-bold tracking-tight text-white">{current ? 'Edit vessel type' : 'New vessel type'}</SheetTitle>
                         <SheetDescription className="text-sm text-muted-foreground/80 mt-1">Keep names short and consistent.</SheetDescription>
                     </SheetHeader>
 
@@ -500,9 +500,9 @@ export default function Vessels({ vessels }: { vessels: Vessel[] }) {
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent className="glass-card">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete vessel</AlertDialogTitle>
+                        <AlertDialogTitle>Delete vessel type</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {current ? `This will permanently delete “${current.name}”.` : 'This will permanently delete this vessel.'}
+                            {current ? `This will permanently delete “${current.name}”.` : 'This will permanently delete this vessel type.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
