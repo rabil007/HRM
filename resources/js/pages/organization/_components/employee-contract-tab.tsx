@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -28,9 +28,11 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
+    EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
     EmployeeRecordsTable,
     employeeRecordsTableHeadClass,
@@ -255,14 +257,7 @@ export function EmployeeContractTab({
                             <th className={employeeRecordsTableThClass()}>
                                 Labor contract ID
                             </th>
-                            {canManage ? (
-                                <th
-                                    className={cn(
-                                        employeeRecordsTableThClass(),
-                                        'text-right',
-                                    )}
-                                />
-                            ) : null}
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
                         </tr>
                     </thead>
                     <tbody>
@@ -324,30 +319,10 @@ export function EmployeeContractTab({
                                             'text-right',
                                         )}
                                     >
-                                        <div className="flex items-center justify-end gap-1">
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-8 text-zinc-400 hover:text-zinc-100"
-                                                onClick={() => openEditDialog(row)}
-                                                aria-label="Edit contract"
-                                            >
-                                                <Pencil className="size-3.5" />
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant="ghost"
-                                                size="icon"
-                                                className="size-8 text-red-400/70 hover:bg-red-500/10 hover:text-red-400"
-                                                onClick={() =>
-                                                    setDeleteContractId(row.id)
-                                                }
-                                                aria-label="Delete contract"
-                                            >
-                                                <Trash2 className="size-3.5" />
-                                            </Button>
-                                        </div>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => openEditDialog(row)}
+                                            onDelete={() => setDeleteContractId(row.id)}
+                                        />
                                     </td>
                                 ) : null}
                             </tr>

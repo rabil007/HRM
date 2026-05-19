@@ -15,20 +15,63 @@ const REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 export type UseEmployeeProfileFormResult = {
     form: any;
     isDirty: boolean;
+    isUploadingPhoto: boolean;
     displayName: string;
     activeField: string | null;
     setActiveField: Dispatch<SetStateAction<string | null>>;
     beginEdit: (field: string) => void;
     requiredDot: (field: string) => ReactElement | null;
     saveChanges: (afterSuccess?: () => void) => void;
+    uploadPhoto: (file: File) => void;
     discardChanges: () => void;
 };
+
+function transformEmployeeFormData(data: Record<string, unknown>): Record<string, unknown> {
+    return {
+        ...data,
+        employee_no: String(data.employee_no ?? '').trim() || null,
+        name: String(data.name ?? '').trim() || null,
+        branch_id: data.branch_id ? Number(data.branch_id) : null,
+        department_id: data.department_id ? Number(data.department_id) : null,
+        position_id: data.position_id ? Number(data.position_id) : null,
+        manager_id: data.manager_id ? Number(data.manager_id) : null,
+        personal_email: String(data.personal_email ?? '').trim() || null,
+        work_email: String(data.work_email ?? '').trim() || null,
+        phone: String(data.phone ?? '').trim() || null,
+        phone_home_country: String(data.phone_home_country ?? '').trim() || null,
+        cv_source: String(data.cv_source ?? '').trim() || null,
+        emergency_contact: String(data.emergency_contact ?? '').trim() || null,
+        emergency_phone: String(data.emergency_phone ?? '').trim() || null,
+        emergency_contact_home_country:
+            String(data.emergency_contact_home_country ?? '').trim() || null,
+        emergency_phone_home_country:
+            String(data.emergency_phone_home_country ?? '').trim() || null,
+        nearest_airport: String(data.nearest_airport ?? '').trim() || null,
+        address: String(data.address ?? '').trim() || null,
+        date_of_birth: data.date_of_birth || null,
+        place_of_birth: String(data.place_of_birth ?? '').trim() || null,
+        gender_id: data.gender_id ? Number(data.gender_id) : null,
+        religion_id: data.religion_id ? Number(data.religion_id) : null,
+        nationality_id: data.nationality_id ? Number(data.nationality_id) : null,
+        marital_status: data.marital_status || null,
+        spouse_name: String(data.spouse_name ?? '').trim() || null,
+        spouse_birthdate: data.spouse_birthdate || null,
+        dependent_children_count:
+            data.dependent_children_count === ''
+                ? null
+                : Number(data.dependent_children_count),
+        passport_number: String(data.passport_number ?? '').trim() || null,
+        emirates_id: String(data.emirates_id ?? '').trim() || null,
+        labor_card_number: String(data.labor_card_number ?? '').trim() || null,
+    };
+}
 
 export function useEmployeeProfileForm(
     employee: EmployeeDetails,
     canUpdate: boolean,
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
     const initialPersonal = useMemo(
         () => ({
@@ -183,47 +226,7 @@ export function useEmployeeProfileForm(
                 }
             }
 
-            form.transform((data) => ({
-                ...data,
-                employee_no: data.employee_no?.trim() || null,
-                name: data.name?.trim() || null,
-                branch_id: data.branch_id ? Number(data.branch_id) : null,
-                department_id: data.department_id
-                    ? Number(data.department_id)
-                    : null,
-                position_id: data.position_id ? Number(data.position_id) : null,
-                manager_id: data.manager_id ? Number(data.manager_id) : null,
-                personal_email: data.personal_email?.trim() || null,
-                work_email: data.work_email?.trim() || null,
-                phone: data.phone?.trim() || null,
-                phone_home_country: data.phone_home_country?.trim() || null,
-                cv_source: data.cv_source?.trim() || null,
-                emergency_contact: data.emergency_contact?.trim() || null,
-                emergency_phone: data.emergency_phone?.trim() || null,
-                emergency_contact_home_country:
-                    data.emergency_contact_home_country?.trim() || null,
-                emergency_phone_home_country:
-                    data.emergency_phone_home_country?.trim() || null,
-                nearest_airport: data.nearest_airport?.trim() || null,
-                address: data.address?.trim() || null,
-                date_of_birth: data.date_of_birth || null,
-                place_of_birth: data.place_of_birth?.trim() || null,
-                gender_id: data.gender_id ? Number(data.gender_id) : null,
-                religion_id: data.religion_id ? Number(data.religion_id) : null,
-                nationality_id: data.nationality_id
-                    ? Number(data.nationality_id)
-                    : null,
-                marital_status: data.marital_status || null,
-                spouse_name: data.spouse_name?.trim() || null,
-                spouse_birthdate: data.spouse_birthdate || null,
-                dependent_children_count:
-                    data.dependent_children_count === ''
-                        ? null
-                        : Number(data.dependent_children_count),
-                passport_number: data.passport_number?.trim() || null,
-                emirates_id: data.emirates_id?.trim() || null,
-                labor_card_number: data.labor_card_number?.trim() || null,
-            }));
+            form.transform((data) => transformEmployeeFormData(data));
 
             form.put(updateEmployee.url({ employee: employee.id }), {
                 preserveScroll: true,
@@ -245,6 +248,48 @@ export function useEmployeeProfileForm(
         [beginEdit, canUpdate, employee.id, form],
     );
 
+    const uploadPhoto = useCallback(
+        (file: File) => {
+            if (!canUpdate) {
+                return;
+            }
+
+            if (!String(form.data.employee_no ?? '').trim() || !String(form.data.name ?? '').trim()) {
+                toast.error('Employee number and name are required before uploading a photo.');
+
+                return;
+            }
+
+            setIsUploadingPhoto(true);
+
+            form.transform((data) => ({
+                ...transformEmployeeFormData(data),
+                image: file,
+            }));
+
+            form.put(updateEmployee.url({ employee: employee.id }), {
+                forceFormData: true,
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Photo updated.');
+                },
+                onError: (errors) => {
+                    const first = Object.values(errors ?? {})[0];
+                    toast.error(
+                        typeof first === 'string' && first.length
+                            ? first
+                            : 'Failed to upload photo.',
+                    );
+                },
+                onFinish: () => {
+                    setIsUploadingPhoto(false);
+                    form.transform((data) => transformEmployeeFormData(data));
+                },
+            });
+        },
+        [canUpdate, employee.id, form],
+    );
+
     const discardChanges = useCallback(() => {
         form.setData(initialPersonal);
         form.clearErrors();
@@ -254,12 +299,14 @@ export function useEmployeeProfileForm(
     return {
         form: form as any,
         isDirty,
+        isUploadingPhoto,
         displayName,
         activeField,
         setActiveField,
         beginEdit,
         requiredDot,
         saveChanges,
+        uploadPhoto,
         discardChanges,
     };
 }

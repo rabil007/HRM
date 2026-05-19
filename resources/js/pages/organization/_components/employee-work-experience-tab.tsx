@@ -27,8 +27,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
@@ -69,24 +80,20 @@ export function EmployeeWorkExperienceTab({
 
     return (
         <TabsContent value="work_experience" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Work experience
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {work_experiences.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <EmployeeRecordsPanel
+                title="Work experience"
+                count={work_experiences.length}
+                isEmpty={work_experiences.length === 0}
+                emptyMessage="No work history recorded."
+                actions={
+                    canManage ? (
                         <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 size="sm"
                                 variant="outline"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
-                                onClick={() =>
-                                    setWorkExperienceImportOpen(true)
-                                }
+                                onClick={() => setWorkExperienceImportOpen(true)}
                             >
                                 Import CSV
                             </Button>
@@ -104,132 +111,89 @@ export function EmployeeWorkExperienceTab({
                                 + Add line
                             </Button>
                         </div>
-                    ) : null}
-                </div>
-
-                {work_experiences.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No work history recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[800px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Company</th>
-                                    <th className="py-2 pr-4">Job title</th>
-                                    <th className="py-2 pr-4">From</th>
-                                    <th className="py-2 pr-4">To</th>
-                                    <th className="py-2 pr-4">
-                                        Responsibility
-                                    </th>
-                                    <th className="py-2 pr-4">Added</th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-4 text-right" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {work_experiences.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className="text-sm text-zinc-200"
-                                    >
-                                        <td
-                                            className="max-w-[200px] truncate py-3 pr-4 font-medium"
-                                            title={row.company_name}
-                                        >
-                                            {row.company_name}
-                                        </td>
-                                        <td
-                                            className="max-w-[160px] truncate py-3 pr-4 text-zinc-300"
-                                            title={row.job_title}
-                                        >
-                                            {row.job_title}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-400">
-                                            {formatIsoDateDisplay(
-                                                row.date_from,
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-400">
-                                            {formatIsoDateDisplay(row.date_to)}
-                                        </td>
-                                        <td
-                                            className="max-w-[220px] truncate py-3 pr-4 text-xs text-zinc-400"
-                                            title={row.responsibility ?? ''}
-                                        >
-                                            {row.responsibility?.trim()
-                                                ? row.responsibility
-                                                : '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-500">
-                                            {new Date(
-                                                row.created_at,
-                                            ).toLocaleString(undefined, {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-0 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingWorkExperience(
-                                                                row,
-                                                            );
-                                                            workExperienceForm.setData(
-                                                                {
-                                                                    company_name:
-                                                                        row.company_name,
-                                                                    job_title:
-                                                                        row.job_title,
-                                                                    date_from:
-                                                                        row.date_from ??
-                                                                        '',
-                                                                    date_to:
-                                                                        row.date_to ??
-                                                                        '',
-                                                                    responsibility:
-                                                                        row.responsibility ??
-                                                                        '',
-                                                                },
-                                                            );
-                                                            workExperienceForm.clearErrors();
-                                                            setWorkExperienceDialogOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteWorkExperienceId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[800px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Company</th>
+                            <th className={employeeRecordsTableThClass()}>Job title</th>
+                            <th className={employeeRecordsTableThClass()}>From</th>
+                            <th className={employeeRecordsTableThClass()}>To</th>
+                            <th className={employeeRecordsTableThClass()}>Responsibility</th>
+                            <th className={employeeRecordsTableThClass()}>Added</th>
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {work_experiences.map((row) => (
+                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                    )}
+                                    title={row.company_name}
+                                >
+                                    {row.company_name}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[160px] truncate text-zinc-300',
+                                    )}
+                                    title={row.job_title}
+                                >
+                                    {row.job_title}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                    {formatIsoDateDisplay(row.date_from)}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                    {formatIsoDateDisplay(row.date_to)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[220px] truncate text-xs text-zinc-400',
+                                    )}
+                                    title={row.responsibility ?? ''}
+                                >
+                                    {row.responsibility?.trim() ? row.responsibility : '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                    {new Date(row.created_at).toLocaleString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                    })}
+                                </td>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingWorkExperience(row);
+                                                workExperienceForm.setData({
+                                                    company_name: row.company_name,
+                                                    job_title: row.job_title,
+                                                    date_from: row.date_from ?? '',
+                                                    date_to: row.date_to ?? '',
+                                                    responsibility: row.responsibility ?? '',
+                                                });
+                                                workExperienceForm.clearErrors();
+                                                setWorkExperienceDialogOpen(true);
+                                            }}
+                                            onDelete={() => setDeleteWorkExperienceId(row.id)}
+                                        />
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
             <Dialog
                 open={workExperienceDialogOpen}
                 onOpenChange={(openDialog) => {

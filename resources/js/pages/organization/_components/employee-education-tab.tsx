@@ -27,9 +27,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import type { EducationQualificationItem } from '@/pages/organization/employee-page.types';
 
 const EDUCATION_RELOAD = {
@@ -66,15 +77,13 @@ export function EmployeeEducationTab({
 
     return (
         <TabsContent value="education" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Education qualifications
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {education_qualifications.length} total
-                        </span>
-                    </h3>
-                    {canManage && (
+            <EmployeeRecordsPanel
+                title="Education qualifications"
+                count={education_qualifications.length}
+                isEmpty={education_qualifications.length === 0}
+                emptyMessage="No qualifications recorded."
+                actions={
+                    canManage ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -88,102 +97,89 @@ export function EmployeeEducationTab({
                         >
                             + Add qualification
                         </Button>
-                    )}
-                </div>
-
-                {education_qualifications.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No qualifications recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[680px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Certificate</th>
-                                    <th className="py-2 pr-4">Issue date</th>
-                                    <th className="py-2 pr-4">University</th>
-                                    <th className="py-2 pr-4">Country</th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-4" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {education_qualifications.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className="text-sm text-zinc-200"
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[680px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Certificate</th>
+                            <th className={employeeRecordsTableThClass()}>Issue date</th>
+                            <th className={employeeRecordsTableThClass()}>University</th>
+                            <th className={employeeRecordsTableThClass()}>Country</th>
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {education_qualifications.map((row) => (
+                            <tr
+                                key={row.id}
+                                className={employeeRecordsTableRowClass()}
+                            >
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'font-medium text-zinc-100',
+                                    )}
+                                >
+                                    {row.certificate}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'font-mono text-xs text-zinc-400',
+                                    )}
+                                >
+                                    {row.issue_date ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-zinc-300',
+                                    )}
+                                >
+                                    {row.university ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-xs text-zinc-400',
+                                    )}
+                                >
+                                    {row.country_name ?? '—'}
+                                </td>
+                                {canManage ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'text-right',
+                                        )}
                                     >
-                                        <td className="py-3 pr-4 font-medium">
-                                            {row.certificate}
-                                        </td>
-                                        <td className="py-3 pr-4 font-mono text-xs text-zinc-400">
-                                            {row.issue_date ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-zinc-300">
-                                            {row.university ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs text-zinc-400">
-                                            {row.country_name ?? '—'}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-4">
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingEducation(
-                                                                row,
-                                                            );
-                                                            educationForm.setData(
-                                                                {
-                                                                    certificate:
-                                                                        row.certificate,
-                                                                    issue_date:
-                                                                        row.issue_date ??
-                                                                        '',
-                                                                    university:
-                                                                        row.university ??
-                                                                        '',
-                                                                    country_id:
-                                                                        row.country_id
-                                                                            ? String(
-                                                                                  row.country_id,
-                                                                              )
-                                                                            : '',
-                                                                },
-                                                            );
-                                                            educationForm.clearErrors();
-                                                            setEducationDialogOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteEducationId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingEducation(row);
+                                                educationForm.setData({
+                                                    certificate: row.certificate,
+                                                    issue_date: row.issue_date ?? '',
+                                                    university: row.university ?? '',
+                                                    country_id: row.country_id
+                                                        ? String(row.country_id)
+                                                        : '',
+                                                });
+                                                educationForm.clearErrors();
+                                                setEducationDialogOpen(true);
+                                            }}
+                                            onDelete={() =>
+                                                setDeleteEducationId(row.id)
+                                            }
+                                        />
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
 
             <Dialog
                 open={educationDialogOpen}

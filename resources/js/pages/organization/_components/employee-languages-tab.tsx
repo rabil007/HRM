@@ -28,8 +28,19 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import type { LanguageItem } from '@/pages/organization/employee-page.types';
 
 const LANGUAGES_RELOAD = {
@@ -66,15 +77,13 @@ export function EmployeeLanguagesTab({
 
     return (
         <TabsContent value="languages" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Languages
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {languages.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <EmployeeRecordsPanel
+                title="Languages"
+                count={languages.length}
+                isEmpty={languages.length === 0}
+                emptyMessage="No languages recorded."
+                actions={
+                    canManage ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -95,157 +104,93 @@ export function EmployeeLanguagesTab({
                         >
                             + Add line
                         </Button>
-                    ) : null}
-                </div>
-
-                {languages.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No languages recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[720px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Language</th>
-                                    <th className="py-2 pr-4 text-center">
-                                        Spoken
-                                    </th>
-                                    <th className="py-2 pr-4 text-center">
-                                        Written
-                                    </th>
-                                    <th className="py-2 pr-4 text-center">
-                                        Understood
-                                    </th>
-                                    <th className="py-2 pr-4 text-center">
-                                        Mother tongue
-                                    </th>
-                                    <th className="py-2 pr-4">Added</th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-4 text-right" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {languages.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className="text-sm text-zinc-200"
-                                    >
-                                        <td
-                                            className="max-w-[220px] truncate py-3 pr-4 font-medium"
-                                            title={row.language_name}
-                                        >
-                                            {row.language_name}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_spoken ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_written ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_understood ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_mother_tongue ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-500">
-                                            {new Date(
-                                                row.created_at,
-                                            ).toLocaleString(undefined, {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-0 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingLanguage(
-                                                                row,
-                                                            );
-                                                            languageForm.setData(
-                                                                {
-                                                                    language_name:
-                                                                        row.language_name,
-                                                                    is_spoken:
-                                                                        row.is_spoken,
-                                                                    is_written:
-                                                                        row.is_written,
-                                                                    is_understood:
-                                                                        row.is_understood,
-                                                                    is_mother_tongue:
-                                                                        row.is_mother_tongue,
-                                                                },
-                                                            );
-                                                            languageForm.clearErrors();
-                                                            setLanguageDialogOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteLanguageId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[720px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Language</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Spoken</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Written</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Understood</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Mother tongue</th>
+                            <th className={employeeRecordsTableThClass()}>Added</th>
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {languages.map((row) => (
+                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[220px] truncate font-medium text-zinc-100',
+                                    )}
+                                    title={row.language_name}
+                                >
+                                    {row.language_name}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_spoken ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_written ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_understood ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_mother_tongue ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                    {new Date(row.created_at).toLocaleString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                    })}
+                                </td>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingLanguage(row);
+                                                languageForm.setData({
+                                                    language_name: row.language_name,
+                                                    is_spoken: row.is_spoken,
+                                                    is_written: row.is_written,
+                                                    is_understood: row.is_understood,
+                                                    is_mother_tongue: row.is_mother_tongue,
+                                                });
+                                                languageForm.clearErrors();
+                                                setLanguageDialogOpen(true);
+                                            }}
+                                            onDelete={() => setDeleteLanguageId(row.id)}
+                                        />
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
             <Dialog
                 open={languageDialogOpen}
                 onOpenChange={(openDialog) => {

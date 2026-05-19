@@ -12,6 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { EmployeeDocumentRowActions } from '@/components/employee-document-row-actions';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -26,6 +27,17 @@ import { TabsContent } from '@/components/ui/tabs';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
 import { DOCUMENT_STATUS_CLASSES, documentStatusLabel } from '@/features/organization/employee-documents/status';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsActionsTdClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import type { DocumentTypeOption, EmployeeDetails, EmployeeDocumentItem } from '@/pages/organization/employee-page.types';
 
 const DOCUMENTS_RELOAD = {
@@ -127,6 +139,29 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
         return bulkFiles.reduce((total, file) => total + file.size, 0);
     }, [bulkFiles]);
 
+    const openVersionHistory = useCallback((doc: EmployeeDocumentItem) => {
+        setVersionDoc(doc);
+        setVersionHistory([]);
+        setVersionsLoading(true);
+
+        fetch(`/organization/employees/${employee.id}/documents/${doc.id}/versions`, {
+            headers: {
+                Accept: 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+        })
+            .then((response) => response.json())
+            .then((data: { versions?: DocumentVersionItem[] }) => {
+                setVersionHistory(data.versions ?? []);
+            })
+            .catch(() => {
+                setVersionHistory([]);
+            })
+            .finally(() => {
+                setVersionsLoading(false);
+            });
+    }, [employee.id]);
+
     const formatFileSize = (bytes: number): string => {
         if (bytes < 1024) {
             return `${bytes} B`;
@@ -141,13 +176,13 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
 
     return (
 <TabsContent value="documents" className="mt-6">
-    <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-        <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-200">
-                Documents
-                <span className="ml-2 text-xs font-normal text-zinc-500">{documents.length} total</span>
-            </h3>
-            {can.documents_upload && (
+    <EmployeeRecordsPanel
+        title="Documents"
+        count={documents.length}
+        isEmpty={documents.length === 0}
+        emptyMessage="No documents uploaded."
+        actions={
+            can.documents_upload ? (
                 <Button
                     size="sm"
                     className="h-8 gap-1.5 text-xs"
@@ -159,149 +194,77 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
                 >
                     + Upload Document
                 </Button>
-            )}
-        </div>
-
-        {documents.length === 0 ? (
-            <div className="py-10 text-center text-sm text-zinc-500">
-                No documents uploaded.
-            </div>
-        ) : (
-            <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-left">
-                    <thead>
-                        <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                            <th className="py-2 pr-4">Type</th>
-                            <th className="py-2 pr-4">Title</th>
-                            <th className="py-2 pr-4">Number</th>
-                            <th className="py-2 pr-4">Issue</th>
-                            <th className="py-2 pr-4">Expiry</th>
-                            <th className="py-2 pr-4">Status</th>
-                            <th className="py-2 pr-4">Uploaded by</th>
-                            <th className="py-2 pr-4">File</th>
-                            {(can.documents_upload || can.documents_delete) && (
-                                <th className="py-2 pr-4" />
-                            )}
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
+            ) : undefined
+        }
+    >
+        <EmployeeRecordsTable className="min-w-[1020px]">
+            <thead>
+                <tr className={employeeRecordsTableHeadClass()}>
+                    <th className={employeeRecordsTableThClass()}>Type</th>
+                    <th className={employeeRecordsTableThClass()}>Title</th>
+                    <th className={employeeRecordsTableThClass()}>Number</th>
+                    <th className={employeeRecordsTableThClass()}>Issue</th>
+                    <th className={employeeRecordsTableThClass()}>Expiry</th>
+                    <th className={employeeRecordsTableThClass()}>Status</th>
+                    <th className={employeeRecordsTableThClass()}>Uploaded by</th>
+                    <EmployeeRecordsActionsHeader className="min-w-[13.5rem]" />
+                </tr>
+            </thead>
+            <tbody>
                         {documents.map((doc) => {
                             const statusColor = DOCUMENT_STATUS_CLASSES[doc.status ?? ''] ?? 'bg-white/5 text-zinc-400 border-white/10';
 
                             return (
-                                <tr key={doc.id} className="text-sm text-zinc-200">
-                                    <td className="py-3 pr-4 text-zinc-400 text-xs">
+                                <tr key={doc.id} className={employeeRecordsTableRowClass()}>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
                                         {doc.document_type_label ?? document_types.find(t => String(t.id) === String(doc.document_type_id ?? doc.document_type))?.title ?? doc.document_type ?? doc.type ?? '—'}
                                         {doc.current_version && doc.current_version > 1 ? (
                                             <span className="ml-1 text-[10px] text-zinc-500">v{doc.current_version}</span>
                                         ) : null}
                                     </td>
-                                    <td className="py-3 pr-4 font-medium">{doc.title || '—'}</td>
-                                    <td className="py-3 pr-4 text-zinc-400 font-mono text-xs">{doc.document_number || '—'}</td>
-                                    <td className="py-3 pr-4 text-zinc-400 text-xs">{doc.issue_date || '—'}</td>
-                                    <td className="py-3 pr-4 text-zinc-400 text-xs">{doc.expiry_date || '—'}</td>
-                                    <td className="py-3 pr-4">
+                                    <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-zinc-100')}>{doc.title || '—'}</td>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-zinc-400')}>{doc.document_number || '—'}</td>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{doc.issue_date || '—'}</td>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{doc.expiry_date || '—'}</td>
+                                    <td className={employeeRecordsTableTdClass()}>
                                         <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}>
                                             {documentStatusLabel(doc.status)}
                                         </span>
                                     </td>
-                                    <td className="py-3 pr-4 text-zinc-500 text-xs">{doc.uploaded_by || '—'}</td>
-                                    <td className="py-3 pr-4">
-                                        <div className="flex gap-2">
-                                            {doc.can_preview ? (
-                                                <button type="button" onClick={() => setPreviewDoc(doc)} className="text-xs font-semibold text-primary hover:underline">
-                                                    Preview
-                                                </button>
-                                            ) : null}
-                                            <a href={doc.file_url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-zinc-400 hover:text-primary hover:underline">
-                                                View
-                                            </a>
-                                        </div>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-500')}>{doc.uploaded_by || '—'}</td>
+                                    <td className={employeeRecordsActionsTdClass('min-w-[13.5rem]')}>
+                                        <EmployeeDocumentRowActions
+                                            canPreview={!!doc.can_preview}
+                                            fileUrl={doc.file_url}
+                                            onPreview={() => setPreviewDoc(doc)}
+                                            showVersions={can.documents_upload}
+                                            onVersions={() => openVersionHistory(doc)}
+                                            showReplace={can.documents_upload}
+                                            onReplace={() => {
+                                                replaceForm.reset();
+                                                setReplaceDoc(doc);
+                                            }}
+                                            showEdit={can.documents_upload}
+                                            onEdit={() => {
+                                                setEditDoc(doc);
+                                                editForm.setData({
+                                                    title: doc.title ?? '',
+                                                    document_number: doc.document_number ?? '',
+                                                    issue_date: doc.issue_date ?? '',
+                                                    expiry_date: doc.expiry_date ?? '',
+                                                    notes: doc.notes ?? '',
+                                                });
+                                            }}
+                                            showDelete={can.documents_delete}
+                                            onDelete={() => setDeleteDocId(doc.id)}
+                                        />
                                     </td>
-                                    {(can.documents_upload || can.documents_delete) && (
-                                        <td className="py-3 pr-4">
-                                            <div className="flex items-center gap-2">
-                                                {can.documents_upload && (
-                                                    <>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                                                        onClick={() => {
-                                                            setVersionDoc(doc);
-                                                            setVersionHistory([]);
-                                                            setVersionsLoading(true);
-
-                                                            fetch(
-                                                                `/organization/employees/${employee.id}/documents/${doc.id}/versions`,
-                                                                {
-                                                                    headers: {
-                                                                        Accept: 'application/json',
-                                                                        'X-Requested-With': 'XMLHttpRequest',
-                                                                    },
-                                                                },
-                                                            )
-                                                                .then((response) => response.json())
-                                                                .then((data: { versions?: DocumentVersionItem[] }) => {
-                                                                    setVersionHistory(data.versions ?? []);
-                                                                })
-                                                                .catch(() => {
-                                                                    setVersionHistory([]);
-                                                                })
-                                                                .finally(() => {
-                                                                    setVersionsLoading(false);
-                                                                });
-                                                        }}
-                                                    >
-                                                        Versions
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                                                        onClick={() => {
-                                                            replaceForm.reset();
-                                                            setReplaceDoc(doc);
-                                                        }}
-                                                    >
-                                                        Replace
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors"
-                                                        onClick={() => {
-                                                            setEditDoc(doc);
-                                                            editForm.setData({
-                                                                title: doc.title ?? '',
-                                                                document_number: doc.document_number ?? '',
-                                                                issue_date: doc.issue_date ?? '',
-                                                                expiry_date: doc.expiry_date ?? '',
-                                                                notes: doc.notes ?? '',
-                                                            });
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    </>
-                                                )}
-                                                {can.documents_delete && (
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 hover:text-red-400 transition-colors"
-                                                        onClick={() => setDeleteDocId(doc.id)}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    )}
                                 </tr>
                             );
                         })}
-                    </tbody>
-                </table>
-            </div>
-        )}
-    </div>
+            </tbody>
+        </EmployeeRecordsTable>
+    </EmployeeRecordsPanel>
 
     <Dialog
         open={uploadOpen}

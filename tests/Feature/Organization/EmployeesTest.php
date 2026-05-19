@@ -124,6 +124,70 @@ test('authenticated users can view an employee details page', function () {
         );
 });
 
+test('employee profile includes image and can be updated with a photo', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Storage::fake('public');
+
+    $country = Country::query()->create([
+        'code' => 'IMG',
+        'name' => 'Imagelands',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'IMG',
+        'name' => 'Image Currency',
+        'symbol' => 'I$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Photo Co',
+        'slug' => 'photo-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-PHOTO',
+            'name' => 'Photo Employee',
+            'status' => 'active',
+            'image' => null,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.image', null)
+        );
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-PHOTO',
+        'name' => 'Photo Employee',
+        'image' => UploadedFile::fake()->image('profile.jpg', 320, 320),
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    $path = $employee->fresh()->image;
+    expect($path)->not->toBeNull();
+    Storage::disk('public')->assertExists($path);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.image', $path)
+        );
+});
+
 test('authenticated users can create, update, toggle status, and delete an employee', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

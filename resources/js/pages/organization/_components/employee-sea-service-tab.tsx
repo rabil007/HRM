@@ -1,10 +1,9 @@
 import { router, useForm } from '@inertiajs/react';
-import { GripVertical, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import {
     destroy as destroySeaService,
-    reorder as reorderSeaServices,
     store as storeSeaService,
     update as updateSeaService,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
@@ -29,9 +28,21 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { RankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsActionsTdClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import { SeaServiceImportDialog } from '@/pages/organization/_components/sea-service-import-dialog';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
@@ -39,14 +50,6 @@ import type {
     SeaServiceItem,
     VesselTypeOption,
 } from '@/pages/organization/employee-page.types';
-
-function reorderByIndex<T>(list: T[], from: number, to: number): T[] {
-    const next = [...list];
-    const [removed] = next.splice(from, 1);
-    next.splice(to, 0, removed);
-
-    return next;
-}
 
 const SEA_SERVICE_RELOAD = {
     preserveScroll: true,
@@ -106,7 +109,6 @@ export function EmployeeSeaServiceTab({
     const [seaServiceImportOpen, setSeaServiceImportOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<SeaServiceItem | null>(null);
     const [deleteRowId, setDeleteRowId] = useState<number | null>(null);
-    const dragSourceIdRef = useRef<number | null>(null);
 
     const employeeForm = useForm({
         vessel_type_id: '',
@@ -132,50 +134,34 @@ export function EmployeeSeaServiceTab({
         return r.is_offshore;
     });
 
-    const persistReorder = (order: number[]) => {
-        router.post(
-            reorderSeaServices.url({ employee: employeeId }),
-            { order },
-            {
-                ...SEA_SERVICE_RELOAD,
-                onSuccess: () => toast.success('Order saved.'),
-                onError: () => toast.error('Could not save order.'),
-            },
-        );
-    };
-
-    const handleDropOnRow = (targetRow: SeaServiceItem) => {
-        const dragId = dragSourceIdRef.current;
-
-        dragSourceIdRef.current = null;
-
-        if (!dragId || dragId === targetRow.id || !canManage) {
-            return;
-        }
-
-        const ids = sea_services.map((r) => r.id);
-        const from = ids.indexOf(dragId);
-        const to = ids.indexOf(targetRow.id);
-
-        if (from < 0 || to < 0) {
-            return;
-        }
-
-        const nextOrder = reorderByIndex(ids, from, to);
-        persistReorder(nextOrder);
-    };
-
     return (
         <TabsContent value="sea_service" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Sea Service
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {sea_services.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
+                    <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
+                        Total experience in the applied rank (in years)
+                    </div>
+                    <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
+                        {appliedRankTotals}
+                    </div>
+                </div>
+                <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
+                    <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
+                        Offshore experience (in years)
+                    </div>
+                    <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
+                        {offshoreTotals}
+                    </div>
+                </div>
+            </div>
+
+            <EmployeeRecordsPanel
+                title="Sea Service"
+                count={sea_services.length}
+                isEmpty={sea_services.length === 0}
+                emptyMessage="No sea service recorded."
+                actions={
+                    canManage ? (
                         <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 size="sm"
@@ -211,233 +197,142 @@ export function EmployeeSeaServiceTab({
                                 + Add a line
                             </Button>
                         </div>
-                    ) : null}
-                </div>
-
-                <div className="mb-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
-                        <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
-                            Total experience in the applied rank (in years)
-                        </div>
-                        <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
-                            {appliedRankTotals}
-                        </div>
-                    </div>
-                    <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
-                        <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
-                            Offshore experience (in years)
-                        </div>
-                        <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
-                            {offshoreTotals}
-                        </div>
-                    </div>
-                </div>
-
-                {sea_services.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No sea service recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[1100px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    {canManage ? (
-                                        <th
-                                            className="w-8 py-2 pr-1"
-                                            aria-label="Reorder"
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[1100px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Vessel type</th>
+                            <th className={employeeRecordsTableThClass()}>Vessel name</th>
+                            <th className={employeeRecordsTableThClass()}>Rank</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                                Total months
+                            </th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                                Total days
+                            </th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>GRT</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>BHP</th>
+                            <th className={employeeRecordsTableThClass()}>Client</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Offshore</th>
+                            {canManage ? (
+                                <EmployeeRecordsActionsHeader className="min-w-[4.5rem]" />
+                            ) : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {sea_services.map((row) => (
+                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                    )}
+                                    title={row.vessel_type_name ?? ''}
+                                >
+                                    {row.vessel_type_name ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate text-zinc-300',
+                                    )}
+                                    title={row.vessel_name ?? ''}
+                                >
+                                    {row.vessel_name?.trim() ? row.vessel_name : '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[180px] truncate text-zinc-300',
+                                    )}
+                                    title={row.rank_name ?? ''}
+                                >
+                                    {row.rank_name ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-right tabular-nums text-zinc-300',
+                                    )}
+                                >
+                                    {row.total_months}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-right tabular-nums text-zinc-300',
+                                    )}
+                                >
+                                    {row.total_days}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-right text-xs tabular-nums text-zinc-400',
+                                    )}
+                                >
+                                    {row.grt ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'text-right text-xs tabular-nums text-zinc-400',
+                                    )}
+                                >
+                                    {row.bhp ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[160px] truncate text-xs text-zinc-400',
+                                    )}
+                                    title={row.client_name ?? ''}
+                                >
+                                    {row.client_name ?? '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_offshore ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                {canManage ? (
+                                    <td className={employeeRecordsActionsTdClass('min-w-[4.5rem]')}>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingRow(row);
+                                                employeeForm.setData({
+                                                    vessel_type_id: String(row.vessel_type_id),
+                                                    vessel_name: row.vessel_name ?? '',
+                                                    rank_id: String(row.rank_id),
+                                                    total_months: String(row.total_months),
+                                                    total_days: String(row.total_days),
+                                                    grt: row.grt ?? '',
+                                                    bhp:
+                                                        row.bhp !== null && row.bhp !== undefined
+                                                            ? String(row.bhp)
+                                                            : '',
+                                                    client_id:
+                                                        row.client_id != null
+                                                            ? String(row.client_id)
+                                                            : '',
+                                                    is_offshore: row.is_offshore,
+                                                });
+                                                employeeForm.clearErrors();
+                                                setDialogOpen(true);
+                                            }}
+                                            onDelete={() => setDeleteRowId(row.id)}
                                         />
-                                    ) : null}
-                                    <th className="py-2 pr-4">Vessel type</th>
-                                    <th className="py-2 pr-4">Vessel name</th>
-                                    <th className="py-2 pr-4">Rank</th>
-                                    <th className="py-2 pr-4 text-right tabular-nums">
-                                        Total months
-                                    </th>
-                                    <th className="py-2 pr-4 text-right tabular-nums">
-                                        Total days
-                                    </th>
-                                    <th className="py-2 pr-4 text-right tabular-nums">
-                                        GRT
-                                    </th>
-                                    <th className="py-2 pr-4 text-right tabular-nums">
-                                        BHP
-                                    </th>
-                                    <th className="py-2 pr-4">Client</th>
-                                    <th className="py-2 pr-4 text-center text-xs font-normal normal-case">
-                                        Offshore
-                                    </th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-0 text-right" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {sea_services.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className={
-                                            canManage
-                                                ? 'cursor-default'
-                                                : undefined
-                                        }
-                                        onDragOver={
-                                            canManage
-                                                ? (e) => e.preventDefault()
-                                                : undefined
-                                        }
-                                        onDrop={
-                                            canManage
-                                                ? () => handleDropOnRow(row)
-                                                : undefined
-                                        }
-                                    >
-                                        {canManage ? (
-                                            <td className="py-2 pr-1 align-middle text-zinc-500">
-                                                <button
-                                                    type="button"
-                                                    draggable
-                                                    className="flex cursor-grab items-center rounded p-1 active:cursor-grabbing"
-                                                    aria-label="Drag to reorder"
-                                                    onDragStart={() => {
-                                                        dragSourceIdRef.current =
-                                                            row.id;
-                                                    }}
-                                                    onDragEnd={() => {
-                                                        dragSourceIdRef.current =
-                                                            null;
-                                                    }}
-                                                >
-                                                    <GripVertical className="size-4" />
-                                                </button>
-                                            </td>
-                                        ) : null}
-                                        <td
-                                            className="max-w-[200px] truncate py-3 pr-4 font-medium text-zinc-200"
-                                            title={row.vessel_type_name ?? ''}
-                                        >
-                                            {row.vessel_type_name ?? '—'}
-                                        </td>
-                                        <td
-                                            className="max-w-[200px] truncate py-3 pr-4 text-sm text-zinc-300"
-                                            title={row.vessel_name ?? ''}
-                                        >
-                                            {row.vessel_name?.trim() ? row.vessel_name : '—'}
-                                        </td>
-                                        <td
-                                            className="max-w-[180px] truncate py-3 pr-4 text-sm text-zinc-300"
-                                            title={row.rank_name ?? ''}
-                                        >
-                                            {row.rank_name ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-right text-sm text-zinc-300 tabular-nums">
-                                            {row.total_months}
-                                        </td>
-                                        <td className="py-3 pr-4 text-right text-sm text-zinc-300 tabular-nums">
-                                            {row.total_days}
-                                        </td>
-                                        <td className="py-3 pr-4 text-right text-xs text-zinc-400 tabular-nums">
-                                            {row.grt ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-right text-xs text-zinc-400 tabular-nums">
-                                            {row.bhp ?? '—'}
-                                        </td>
-                                        <td
-                                            className="max-w-[160px] truncate py-3 pr-4 text-xs text-zinc-400"
-                                            title={row.client_name ?? ''}
-                                        >
-                                            {row.client_name ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_offshore ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-0 text-right align-middle">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingRow(row);
-                                                            employeeForm.setData(
-                                                                {
-                                                                    vessel_type_id:
-                                                                        String(
-                                                                            row.vessel_type_id,
-                                                                        ),
-                                                                    vessel_name:
-                                                                        row.vessel_name ??
-                                                                        '',
-                                                                    rank_id:
-                                                                        String(
-                                                                            row.rank_id,
-                                                                        ),
-                                                                    total_months:
-                                                                        String(
-                                                                            row.total_months,
-                                                                        ),
-                                                                    total_days:
-                                                                        String(
-                                                                            row.total_days,
-                                                                        ),
-                                                                    grt:
-                                                                        row.grt ??
-                                                                        '',
-                                                                    bhp:
-                                                                        row.bhp !==
-                                                                            null &&
-                                                                        row.bhp !==
-                                                                            undefined
-                                                                            ? String(
-                                                                                  row.bhp,
-                                                                              )
-                                                                            : '',
-                                                                    client_id:
-                                                                        row.client_id !=
-                                                                        null
-                                                                            ? String(
-                                                                                  row.client_id,
-                                                                              )
-                                                                            : '',
-                                                                    is_offshore:
-                                                                        row.is_offshore,
-                                                                },
-                                                            );
-                                                            employeeForm.clearErrors();
-                                                            setDialogOpen(true);
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteRowId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
 
             <Dialog
                 open={dialogOpen}

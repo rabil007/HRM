@@ -1,16 +1,25 @@
 import { router, useForm } from '@inertiajs/react';
-import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { Filter, Plus } from 'lucide-react';
 import { useState } from 'react';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -260,33 +269,31 @@ export function CompaniesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="glass-card w-full overflow-hidden">
-                    <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[860px]">
-                            <TableHeader>
-                                <TableRow className="border-border/60">
-                                    <TableHead className="pl-4">Company</TableHead>
-                                    <TableHead>Industry</TableHead>
-                                    <TableHead>Location</TableHead>
-                                    <TableHead>Currency</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right pr-4">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                <OrganizationDataTable minWidth="min-w-[860px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="pl-5">Company</DataTableHead>
+                            <DataTableHead>Industry</DataTableHead>
+                            <DataTableHead>Location</DataTableHead>
+                            <DataTableHead>Currency</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead className="text-right">Actions</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
                             <TableBody>
                                 {companies.map((company) => (
                                     <TableRow
                                         key={company.id}
-                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
+                                        className={dataTableBodyRowClass()}
                                         onClick={() => router.visit(`/organization/companies/${company.id}`)}
                                     >
-                                        <TableCell className="pl-4 font-semibold">{company.name}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">{company.industry ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">
+                                        <TableCell className={dataTableCellPrimaryClass()}>{company.name}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>{company.industry ?? '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             {[company.city, company.country.name].filter(Boolean).join(', ') || '—'}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground/80">{company.currency.code ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">
+                                        <TableCell className={dataTableCellClass()}>{company.currency.code ?? '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={company.status === 'active'}
@@ -297,46 +304,23 @@ export function CompaniesContent({
                                                 </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="pr-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/companies/${company.id}`); }}
-                                                    title="View"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(company); }}
-                                                    title="Edit"
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteClick(company); }}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                        <TableCell className={dataTableActionsCellClass()}>
+                                            <ListTableCrudActions
+                                                viewHref={`/organization/companies/${company.id}`}
+                                                onEdit={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(company);
+                                                }}
+                                                onDelete={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteClick(company);
+                                                }}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                </OrganizationDataTable>
             )}
 
             {companies.length === 0 ? <EmptyState title="No companies found." /> : null}

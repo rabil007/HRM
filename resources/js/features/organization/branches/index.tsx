@@ -1,16 +1,25 @@
 import { router, useForm } from '@inertiajs/react';
-import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { Filter, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -232,37 +241,35 @@ export function BranchesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="glass-card w-full overflow-hidden">
-                    <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[980px]">
+                <OrganizationDataTable minWidth="min-w-[980px]">
                             <TableHeader>
-                                <TableRow className="border-border/60">
-                                    <TableHead className="pl-4">Branch</TableHead>
-                                    <TableHead>Code</TableHead>
-                                    <TableHead>HQ</TableHead>
-                                    <TableHead>Location</TableHead>
-                                    <TableHead>Email</TableHead>
-                                    <TableHead>Phone</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right pr-4">Actions</TableHead>
-                                </TableRow>
+                                <DataTableHeaderRow>
+                                    <DataTableHead className="pl-5">Branch</DataTableHead>
+                                    <DataTableHead>Code</DataTableHead>
+                                    <DataTableHead>HQ</DataTableHead>
+                                    <DataTableHead>Location</DataTableHead>
+                                    <DataTableHead>Email</DataTableHead>
+                                    <DataTableHead>Phone</DataTableHead>
+                                    <DataTableHead>Status</DataTableHead>
+                                    <DataTableHead className="text-right">Actions</DataTableHead>
+                                </DataTableHeaderRow>
                             </TableHeader>
                             <TableBody>
                                 {branches.map((branch) => (
                                     <TableRow
                                         key={branch.id}
-                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
+                                        className={dataTableBodyRowClass()}
                                         onClick={() => router.visit(`/organization/branches/${branch.id}`)}
                                     >
-                                        <TableCell className="pl-4 font-semibold">{branch.name}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">{branch.code ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">{branch.is_headquarters ? 'Yes' : '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">
+                                        <TableCell className={dataTableCellPrimaryClass()}>{branch.name}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>{branch.code ?? '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>{branch.is_headquarters ? 'Yes' : '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             {[branch.city, branch.country].filter(Boolean).join(', ') || '—'}
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground/80">{branch.email ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">{branch.phone ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">
+                                        <TableCell className={dataTableCellClass()}>{branch.email ?? '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>{branch.phone ?? '—'}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={branch.status === 'active'}
@@ -273,46 +280,23 @@ export function BranchesContent({
                                                 </span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="pr-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/branches/${branch.id}`); }}
-                                                    title="View"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(branch); }}
-                                                    title="Edit"
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => { e.stopPropagation(); handleDeleteClick(branch); }}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                        <TableCell className={dataTableActionsCellClass()}>
+                                            <ListTableCrudActions
+                                                viewHref={`/organization/branches/${branch.id}`}
+                                                onEdit={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(branch);
+                                                }}
+                                                onDelete={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteClick(branch);
+                                                }}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                </OrganizationDataTable>
             )}
 
             {branches.length === 0 ? <EmptyState title="No branches found." /> : null}

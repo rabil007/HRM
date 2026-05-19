@@ -1,9 +1,19 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, ExternalLink, Eye, FileText, History, Trash2 } from 'lucide-react';
+import { Download, FileText, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import EmployeeDocumentBulkDelete from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentBulkDeleteController';
 import EmployeeDocumentDownload from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentDownloadController';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
 import { Main } from '@/components/layout/main';
+import { TableRowActions } from '@/components/table-row-actions';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
@@ -11,7 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { DocumentCard } from '@/features/organization/employee-documents/document-card';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
@@ -350,29 +360,27 @@ return;
                         </div>
                     </div>
                 )}
-                <Card className="glass-card w-full overflow-hidden">
-                    <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[900px]">
-                            <TableHeader>
-                                <TableRow className="border-border/60">
-                                    <TableHead className="w-10 pl-4">
-                                        <Checkbox
-                                            checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                                            onCheckedChange={toggleAll}
-                                            aria-label="Select all"
-                                        />
-                                    </TableHead>
-                                    <TableHead>Employee</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Title</TableHead>
-                                    <TableHead>Number</TableHead>
-                                    <TableHead>Issue Date</TableHead>
-                                    <TableHead>Expiry Date</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right">Size</TableHead>
-                                    <TableHead className="pr-4 text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                <OrganizationDataTable minWidth="min-w-[900px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="w-10 pl-5">
+                                <Checkbox
+                                    checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                                    onCheckedChange={toggleAll}
+                                    aria-label="Select all"
+                                />
+                            </DataTableHead>
+                            <DataTableHead>Employee</DataTableHead>
+                            <DataTableHead>Type</DataTableHead>
+                            <DataTableHead>Title</DataTableHead>
+                            <DataTableHead>Number</DataTableHead>
+                            <DataTableHead>Issue Date</DataTableHead>
+                            <DataTableHead>Expiry Date</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead className="text-right">Size</DataTableHead>
+                            <DataTableHead className="text-right">Actions</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
                             <TableBody>
                                 {(documents ?? []).length === 0 ? (
                                     <TableRow>
@@ -387,85 +395,67 @@ return;
                                     (documents ?? []).map((doc) => (
                                         <TableRow
                                             key={doc.id}
-                                            className={`border-border/40 cursor-pointer hover:bg-accent/40 ${selectedIds.has(doc.id) ? 'bg-primary/5' : ''}`}
+                                            className={`${dataTableBodyRowClass()} ${selectedIds.has(doc.id) ? 'bg-primary/5' : ''}`}
                                             onClick={() => window.open(`/organization/employees/${doc.employee_id}#documents`, '_self')}
                                         >
-                                            <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
+                                            <TableCell className={`w-10 ${dataTableCellClass()}`} onClick={(e) => e.stopPropagation()}>
                                                 <Checkbox
                                                     checked={selectedIds.has(doc.id)}
                                                     onCheckedChange={() => toggleOne(doc.id)}
                                                     aria-label={`Select ${doc.employee_name}`}
                                                 />
                                             </TableCell>
-                                            <TableCell className="pl-2">
-                                                <div className="font-semibold text-foreground">{doc.employee_name}</div>
+                                            <TableCell className={dataTableCellPrimaryClass()}>
+                                                <div>{doc.employee_name}</div>
                                                 <div className="text-xs text-muted-foreground/70">{doc.employee_no}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
-                                                <div className="text-sm">{doc.document_type_label ?? doc.document_type ?? '—'}</div>
+                                            <TableCell className={dataTableCellClass()}>
+                                                {doc.document_type_label ?? doc.document_type ?? '—'}
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">{doc.title ?? '—'}</TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground/80">{doc.document_number ?? '—'}</TableCell>
-                                            <TableCell className="text-xs text-muted-foreground/80">{doc.issue_date ?? '—'}</TableCell>
-                                            <TableCell className={`text-xs font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : 'text-muted-foreground/80'}`}>
+                                            <TableCell className={dataTableCellClass()}>{doc.title ?? '—'}</TableCell>
+                                            <TableCell className={`font-mono text-xs ${dataTableCellClass()}`}>{doc.document_number ?? '—'}</TableCell>
+                                            <TableCell className={dataTableCellClass()}>{doc.issue_date ?? '—'}</TableCell>
+                                            <TableCell
+                                                className={`${dataTableCellClass()} font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : ''}`}
+                                            >
                                                 {doc.expiry_date ?? '—'}
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className={dataTableCellClass()}>
                                                 <Badge variant={DOCUMENT_STATUS_VARIANTS[doc.status ?? ''] ?? 'outline'} className={`text-[10px] uppercase font-bold tracking-wider border ${DOCUMENT_STATUS_CLASSES[doc.status ?? ''] ?? ''}`}>
                                                     {documentStatusLabel(doc.status)}
                                                 </Badge>
                                             </TableCell>
-                                            <TableCell className="text-right font-mono text-xs text-muted-foreground/60 tabular-nums">
+                                            <TableCell className={`${dataTableCellClass()} text-right font-mono text-xs tabular-nums`}>
                                                 {formatBytes(doc.size_bytes)}
                                             </TableCell>
-                                            <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
-                                                <div className="flex items-center justify-end gap-1">
-                                                    {doc.can_preview ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                            onClick={() => setPreviewDoc(doc)}
-                                                            title="Preview"
-                                                        >
-                                                            <Eye className="h-4 w-4" />
-                                                        </Button>
-                                                    ) : null}
-                                                    <Button
-                                                        asChild
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                        title="View file"
-                                                    >
-                                                        <a href={doc.file_url} target="_blank" rel="noreferrer">
-                                                            <ExternalLink className="h-4 w-4" />
-                                                        </a>
-                                                    </Button>
-                                                    {(doc.current_version ?? 1) > 1 ? (
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                            onClick={() => setVersionsDoc(doc)}
-                                                            title={`Version history (v${doc.current_version})`}
-                                                        >
-                                                            <History className="h-4 w-4" />
-                                                        </Button>
-                                                    ) : null}
-                                                </div>
+                                            <TableCell className={dataTableActionsCellClass()}>
+                                                <TableRowActions
+                                                    actions={[
+                                                        {
+                                                            label: 'Preview',
+                                                            variant: 'primary',
+                                                            onClick: () => setPreviewDoc(doc),
+                                                            hidden: !doc.can_preview,
+                                                        },
+                                                        {
+                                                            label: 'View',
+                                                            href: doc.file_url,
+                                                            target: '_blank',
+                                                            rel: 'noreferrer',
+                                                        },
+                                                        {
+                                                            label: 'Versions',
+                                                            onClick: () => setVersionsDoc(doc),
+                                                            hidden: (doc.current_version ?? 1) <= 1,
+                                                        },
+                                                    ]}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     ))
                                 )}
                             </TableBody>
-
-                        </Table>
-                    </CardContent>
-                </Card>
+                </OrganizationDataTable>
                 <Pagination {...list.paginationProps} label="documents" />
                 </>
             )}

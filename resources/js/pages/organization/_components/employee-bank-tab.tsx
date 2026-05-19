@@ -28,9 +28,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { BankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import type { EmployeeBankAccountItem } from '@/pages/organization/employee-page.types';
 
 const BANK_ACCOUNTS_RELOAD = {
@@ -66,15 +77,13 @@ export function EmployeeBankTab({
 
     return (
         <TabsContent value="bank" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Bank accounts
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {bank_accounts.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <EmployeeRecordsPanel
+                title="Bank accounts"
+                count={bank_accounts.length}
+                isEmpty={bank_accounts.length === 0}
+                emptyMessage="No bank accounts recorded."
+                actions={
+                    canManage ? (
                         <Button
                             size="sm"
                             className="h-8 gap-1.5 text-xs"
@@ -86,10 +95,7 @@ export function EmployeeBankTab({
                                     bank_id: '',
                                     iban: '',
                                     account_name: '',
-                                    is_primary:
-                                        bank_accounts.length === 0
-                                            ? true
-                                            : false,
+                                    is_primary: bank_accounts.length === 0 ? true : false,
                                 });
                                 setEditingRow(null);
                                 setDialogOpen(true);
@@ -97,112 +103,75 @@ export function EmployeeBankTab({
                         >
                             + Add bank account
                         </Button>
-                    ) : null}
-                </div>
-
-                {bank_accounts.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No bank accounts recorded.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[720px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Bank</th>
-                                    <th className="py-2 pr-4">Account holder</th>
-                                    <th className="py-2 pr-4">IBAN</th>
-                                    <th className="py-2 pr-4 text-center">
-                                        Primary
-                                    </th>
-                                    <th className="py-2 pr-4">Added</th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-4 text-right" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {bank_accounts.map((row) => (
-                                    <tr key={row.id} className="text-sm text-zinc-200">
-                                        <td className="max-w-[200px] truncate py-3 pr-4 font-medium">
-                                            {row.bank_name ?? '—'}
-                                        </td>
-                                        <td className="max-w-[180px] truncate py-3 pr-4">
-                                            {row.account_name ?? '—'}
-                                        </td>
-                                        <td className="max-w-[240px] truncate py-3 pr-4 font-mono text-xs">
-                                            {row.iban ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-center text-xs">
-                                            {row.is_primary ? (
-                                                <span className="text-emerald-400">
-                                                    ✓
-                                                </span>
-                                            ) : (
-                                                <span className="text-zinc-600">
-                                                    —
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="whitespace-nowrap py-3 pr-4 text-xs text-zinc-500">
-                                            {new Date(
-                                                row.created_at,
-                                            ).toLocaleString(undefined, {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-0 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingRow(row);
-                                                            bankForm.setData({
-                                                                bank_id: row.bank_id
-                                                                    ? String(
-                                                                          row.bank_id,
-                                                                      )
-                                                                    : '',
-                                                                iban:
-                                                                    row.iban ??
-                                                                    '',
-                                                                account_name:
-                                                                    row.account_name ??
-                                                                    '',
-                                                                is_primary:
-                                                                    row.is_primary,
-                                                            });
-                                                            bankForm.clearErrors();
-                                                            setDialogOpen(true);
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteId(row.id)
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[720px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Bank</th>
+                            <th className={employeeRecordsTableThClass()}>Account holder</th>
+                            <th className={employeeRecordsTableThClass()}>IBAN</th>
+                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Primary</th>
+                            <th className={employeeRecordsTableThClass()}>Added</th>
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {bank_accounts.map((row) => (
+                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                    )}
+                                >
+                                    {row.bank_name ?? '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'max-w-[180px] truncate')}>
+                                    {row.account_name ?? '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'max-w-[240px] truncate font-mono text-xs')}>
+                                    {row.iban ?? '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
+                                    {row.is_primary ? (
+                                        <span className="text-emerald-400">✓</span>
+                                    ) : (
+                                        <span className="text-zinc-600">—</span>
+                                    )}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                    {new Date(row.created_at).toLocaleString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                    })}
+                                </td>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingRow(row);
+                                                bankForm.setData({
+                                                    bank_id: row.bank_id ? String(row.bank_id) : '',
+                                                    iban: row.iban ?? '',
+                                                    account_name: row.account_name ?? '',
+                                                    is_primary: row.is_primary,
+                                                });
+                                                bankForm.clearErrors();
+                                                setDialogOpen(true);
+                                            }}
+                                            onDelete={() => setDeleteId(row.id)}
+                                        />
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
             <Dialog
                 open={dialogOpen}
                 onOpenChange={(openDialog) => {

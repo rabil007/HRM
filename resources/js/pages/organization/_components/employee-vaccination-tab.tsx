@@ -27,9 +27,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
+import {
+    EmployeeRecordsActionsHeader,
+    EmployeeRecordsPanel,
+    EmployeeRecordsTable,
+    employeeRecordsTableHeadClass,
+    employeeRecordsTableRowClass,
+    employeeRecordsTableTdClass,
+    employeeRecordsTableThClass,
+} from '@/pages/organization/_components/employee-records-panel';
 import { VaccinationImportDialog } from '@/pages/organization/_components/vaccination-import-dialog';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
@@ -70,15 +81,13 @@ export function EmployeeVaccinationTab({
 
     return (
         <TabsContent value="vaccination" className="mt-6">
-            <div className="rounded-2xl border border-white/10 bg-card/70 p-5 shadow-lg shadow-black/10 backdrop-blur-xl">
-                <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 className="text-sm font-semibold text-zinc-200">
-                        Vaccination
-                        <span className="ml-2 text-xs font-normal text-zinc-500">
-                            {vaccinations.length} total
-                        </span>
-                    </h3>
-                    {canManage ? (
+            <EmployeeRecordsPanel
+                title="Vaccination"
+                count={vaccinations.length}
+                isEmpty={vaccinations.length === 0}
+                emptyMessage="No vaccination records."
+                actions={
+                    canManage ? (
                         <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 size="sm"
@@ -103,130 +112,77 @@ export function EmployeeVaccinationTab({
                                 + Add line
                             </Button>
                         </div>
-                    ) : null}
-                </div>
-
-                {vaccinations.length === 0 ? (
-                    <div className="py-10 text-center text-sm text-zinc-500">
-                        No vaccination records.
-                    </div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full min-w-[880px] text-left">
-                            <thead>
-                                <tr className="border-b border-white/5 text-xs font-semibold text-zinc-500">
-                                    <th className="py-2 pr-4">Vaccination</th>
-                                    <th className="py-2 pr-4">Country</th>
-                                    <th className="py-2 pr-4">1st dose</th>
-                                    <th className="py-2 pr-4">2nd dose</th>
-                                    <th className="py-2 pr-4">Booster</th>
-                                    <th className="py-2 pr-4">Added</th>
-                                    {canManage ? (
-                                        <th className="py-2 pr-4 text-right" />
-                                    ) : null}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-white/5">
-                                {vaccinations.map((row) => (
-                                    <tr
-                                        key={row.id}
-                                        className="text-sm text-zinc-200"
-                                    >
-                                        <td
-                                            className="max-w-[200px] truncate py-3 pr-4 font-medium"
-                                            title={row.vaccination_name}
-                                        >
-                                            {row.vaccination_name}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs text-zinc-400">
-                                            {row.country_name ?? '—'}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-400">
-                                            {formatIsoDateDisplay(
-                                                row.first_dose_date,
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-400">
-                                            {formatIsoDateDisplay(
-                                                row.second_dose_date,
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-400">
-                                            {formatIsoDateDisplay(
-                                                row.booster_dose_date,
-                                            )}
-                                        </td>
-                                        <td className="py-3 pr-4 text-xs whitespace-nowrap text-zinc-500">
-                                            {new Date(
-                                                row.created_at,
-                                            ).toLocaleString(undefined, {
-                                                month: 'short',
-                                                day: 'numeric',
-                                                hour: 'numeric',
-                                                minute: '2-digit',
-                                            })}
-                                        </td>
-                                        {canManage ? (
-                                            <td className="py-3 pr-0 text-right">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-zinc-400 transition-colors hover:text-zinc-200"
-                                                        onClick={() => {
-                                                            setEditingVaccination(
-                                                                row,
-                                                            );
-                                                            vaccinationForm.setData(
-                                                                {
-                                                                    vaccination_name:
-                                                                        row.vaccination_name,
-                                                                    country_id:
-                                                                        row.country_id
-                                                                            ? String(
-                                                                                  row.country_id,
-                                                                              )
-                                                                            : '',
-                                                                    first_dose_date:
-                                                                        row.first_dose_date ??
-                                                                        '',
-                                                                    second_dose_date:
-                                                                        row.second_dose_date ??
-                                                                        '',
-                                                                    booster_dose_date:
-                                                                        row.booster_dose_date ??
-                                                                        '',
-                                                                },
-                                                            );
-                                                            vaccinationForm.clearErrors();
-                                                            setVaccinationDialogOpen(
-                                                                true,
-                                                            );
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="text-xs text-red-400/60 transition-colors hover:text-red-400"
-                                                        onClick={() =>
-                                                            setDeleteVaccinationId(
-                                                                row.id,
-                                                            )
-                                                        }
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        ) : null}
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                )}
-            </div>
-
+                    ) : undefined
+                }
+            >
+                <EmployeeRecordsTable className="min-w-[880px]">
+                    <thead>
+                        <tr className={employeeRecordsTableHeadClass()}>
+                            <th className={employeeRecordsTableThClass()}>Vaccination</th>
+                            <th className={employeeRecordsTableThClass()}>Country</th>
+                            <th className={employeeRecordsTableThClass()}>1st dose</th>
+                            <th className={employeeRecordsTableThClass()}>2nd dose</th>
+                            <th className={employeeRecordsTableThClass()}>Booster</th>
+                            <th className={employeeRecordsTableThClass()}>Added</th>
+                            {canManage ? <EmployeeRecordsActionsHeader /> : null}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {vaccinations.map((row) => (
+                            <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                    )}
+                                    title={row.vaccination_name}
+                                >
+                                    {row.vaccination_name}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
+                                    {row.country_name ?? '—'}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                    {formatIsoDateDisplay(row.first_dose_date)}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                    {formatIsoDateDisplay(row.second_dose_date)}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                    {formatIsoDateDisplay(row.booster_dose_date)}
+                                </td>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                    {new Date(row.created_at).toLocaleString(undefined, {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        hour: 'numeric',
+                                        minute: '2-digit',
+                                    })}
+                                </td>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
+                                        <EmployeeRecordRowActions
+                                            onEdit={() => {
+                                                setEditingVaccination(row);
+                                                vaccinationForm.setData({
+                                                    vaccination_name: row.vaccination_name,
+                                                    country_id: row.country_id ? String(row.country_id) : '',
+                                                    first_dose_date: row.first_dose_date ?? '',
+                                                    second_dose_date: row.second_dose_date ?? '',
+                                                    booster_dose_date: row.booster_dose_date ?? '',
+                                                });
+                                                vaccinationForm.clearErrors();
+                                                setVaccinationDialogOpen(true);
+                                            }}
+                                            onDelete={() => setDeleteVaccinationId(row.id)}
+                                        />
+                                    </td>
+                                ) : null}
+                            </tr>
+                        ))}
+                    </tbody>
+                </EmployeeRecordsTable>
+            </EmployeeRecordsPanel>
             <Dialog
                 open={vaccinationDialogOpen}
                 onOpenChange={(openDialog) => {

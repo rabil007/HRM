@@ -1,4 +1,5 @@
 import type { ReactElement, ReactNode } from 'react';
+import { recordsTableTdClass, recordsTableThClass } from '@/components/data-table';
 import { cn } from '@/lib/utils';
 
 export type EmployeeRecordsPanelProps = {
@@ -70,18 +71,31 @@ export function EmployeeRecordsTable({
     );
 }
 
-export function employeeRecordsTableHeadClass(): string {
-    return 'border-b border-white/[0.08] bg-white/[0.03] text-[11px] font-semibold uppercase tracking-wider text-zinc-500';
+export {
+    recordsTableHeadRowClass as employeeRecordsTableHeadClass,
+    recordsTableRowClass as employeeRecordsTableRowClass,
+    recordsTableTdClass as employeeRecordsTableTdClass,
+    recordsTableThClass as employeeRecordsTableThClass,
+} from '@/components/data-table';
+
+export function EmployeeRecordsActionsHeader({
+    className,
+}: {
+    className?: string;
+} = {}): ReactElement {
+    return (
+        <th
+            className={cn(
+                recordsTableThClass(),
+                'whitespace-nowrap text-right',
+                className,
+            )}
+        >
+            Actions
+        </th>
+    );
 }
 
-export function employeeRecordsTableThClass(): string {
-    return 'px-5 py-3.5 font-medium first:pl-5 last:pr-5';
-}
-
-export function employeeRecordsTableRowClass(): string {
-    return 'border-b border-white/[0.05] transition-colors last:border-0 hover:bg-white/[0.03]';
-}
-
-export function employeeRecordsTableTdClass(): string {
-    return 'px-5 py-4 align-middle text-zinc-300 first:pl-5 last:pr-5';
+export function employeeRecordsActionsTdClass(className?: string): string {
+    return cn(recordsTableTdClass(), 'whitespace-nowrap text-right', className);
 }

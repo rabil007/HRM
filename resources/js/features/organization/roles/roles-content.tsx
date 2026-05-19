@@ -1,15 +1,24 @@
 import { router, useForm } from '@inertiajs/react';
-import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { Filter, Plus } from 'lucide-react';
 import { useState } from 'react';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -167,68 +176,43 @@ export function RolesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="glass-card w-full overflow-hidden">
-                    <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[980px]">
-                            <TableHeader>
-                                <TableRow className="border-border/60">
-                                    <TableHead className="pl-4">Role</TableHead>
-                                    <TableHead>Permissions</TableHead>
-                                    <TableHead className="text-right pr-4">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                <OrganizationDataTable minWidth="min-w-[980px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="pl-5">Role</DataTableHead>
+                            <DataTableHead>Permissions</DataTableHead>
+                            <DataTableHead className="text-right">Actions</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
                             <TableBody>
                                 {roles.map((role) => (
                                     <TableRow
                                         key={role.id}
-                                        className="border-border/40 cursor-pointer hover:bg-accent/40"
+                                        className={dataTableBodyRowClass()}
                                         onClick={() => router.visit(`/organization/roles/${role.id}`)}
                                     >
-                                        <TableCell className="pl-4 font-semibold">{role.name}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">
+                                        <TableCell className={dataTableCellPrimaryClass()}>{role.name}</TableCell>
+                                        <TableCell className={dataTableCellClass()}>
                                             {role.permissions.length ? role.permissions.slice(0, 4).join(', ') : '—'}
                                             {role.permissions.length > 4 ? ` (+${role.permissions.length - 4} more)` : ''}
                                         </TableCell>
-                                        <TableCell className="pr-4">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/roles/${role.id}`); }}
-                                                    title="View"
-                                                >
-                                                    <Eye className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(role); }}
-                                                    title="Edit"
-                                                >
-                                                    <Edit2 className="h-4 w-4" />
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(role); }}
-                                                    title="Delete"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
-                                            </div>
+                                        <TableCell className={dataTableActionsCellClass()}>
+                                            <ListTableCrudActions
+                                                viewHref={`/organization/roles/${role.id}`}
+                                                onEdit={(e) => {
+                                                    e.stopPropagation();
+                                                    handleEdit(role);
+                                                }}
+                                                onDelete={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(role);
+                                                }}
+                                            />
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                </OrganizationDataTable>
             )}
 
             {roles.length === 0 ? <EmptyState title="No roles found." /> : null}

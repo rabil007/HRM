@@ -1,16 +1,25 @@
 import { router, usePage } from '@inertiajs/react';
-import { Eye, Filter, Plus, Trash2, Upload } from 'lucide-react';
+import { Filter, Plus, Upload } from 'lucide-react';
 import { Suspense, lazy, useState } from 'react';
+import {
+    OrganizationDataTable,
+    DataTableHead,
+    DataTableHeaderRow,
+    dataTableActionsCellClass,
+    dataTableBodyRowClass,
+    dataTableCellClass,
+    dataTableCellPrimaryClass,
+} from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
@@ -223,23 +232,21 @@ export function EmployeesContent({
                     ))}
                 </div>
             ) : (
-                <Card className="glass-card w-full overflow-hidden">
-                    <CardContent className="w-full p-0 min-h-[360px]">
-                        <Table className="min-w-[1800px]">
-                            <TableHeader>
-                                <TableRow className="border-border/60">
-                                    <TableHead className="pl-4">Employee</TableHead>
-                                    <TableHead>Assignment</TableHead>
-                                    <TableHead>Emails</TableHead>
-                                    <TableHead>Phones</TableHead>
-                                    <TableHead>Personal</TableHead>
-                                    <TableHead>Emergency</TableHead>
-                                    <TableHead>Documents</TableHead>
-                                    <TableHead>Family</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead className="text-right pr-4">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
+                <OrganizationDataTable minWidth="min-w-[1800px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead className="pl-5">Employee</DataTableHead>
+                            <DataTableHead>Assignment</DataTableHead>
+                            <DataTableHead>Emails</DataTableHead>
+                            <DataTableHead>Phones</DataTableHead>
+                            <DataTableHead>Personal</DataTableHead>
+                            <DataTableHead>Emergency</DataTableHead>
+                            <DataTableHead>Documents</DataTableHead>
+                            <DataTableHead>Family</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead className="text-right">Actions</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
                             <TableBody>
                                 {employees.map((employee) => {
                                     const canToggle = employee.status === 'active' || employee.status === 'inactive';
@@ -247,29 +254,29 @@ export function EmployeesContent({
                                     return (
                                         <TableRow
                                             key={employee.id}
-                                            className="border-border/40 cursor-pointer hover:bg-accent/40"
+                                            className={dataTableBodyRowClass()}
                                             onClick={() => router.visit(`/organization/employees/${employee.id}`)}
                                         >
-                                            <TableCell className="pl-4">
-                                                <div className="font-semibold">{employee.name}</div>
+                                            <TableCell className={dataTableCellPrimaryClass()}>
+                                                <div>{employee.name}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.employee_no}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.branch?.name ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">
                                                     {employee.department?.name ?? '—'}
                                                     {employee.position?.title ? ` • ${employee.position.title}` : ''}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm truncate">{employee.work_email ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70 truncate">{employee.personal_email ?? '—'}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.phone ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.phone_home_country ?? '—'}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">
                                                     {employee.gender_ref?.name ?? '—'}
                                                     {employee.marital_status
@@ -285,7 +292,7 @@ export function EmployeesContent({
                                                     {employee.nationality_ref?.name ? ` • ${employee.nationality_ref.name}` : ''}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.emergency_contact ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.emergency_phone ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">
@@ -293,7 +300,7 @@ export function EmployeesContent({
                                                     {employee.emergency_phone_home_country ? ` • ${employee.emergency_phone_home_country}` : ''}
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-xs text-muted-foreground/70">
                                                     {employee.passport_number ?? '—'}
                                                 </div>
@@ -302,7 +309,7 @@ export function EmployeesContent({
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.labor_contract_id ?? '—'}</div>
                                             </TableCell>
-                                            <TableCell className="text-muted-foreground/80">
+                                            <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.spouse_name ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.spouse_birthdate ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">
@@ -311,7 +318,7 @@ export function EmployeesContent({
                                                         : String(employee.dependent_children_count)}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>
+                                            <TableCell className={dataTableCellClass()}>
                                                 {canToggle ? (
                                                     <div className="flex items-center gap-2">
                                                         <Switch
@@ -327,43 +334,21 @@ export function EmployeesContent({
                                                     <span className="text-xs text-muted-foreground/80">{employee.status}</span>
                                                 )}
                                             </TableCell>
-                                            <TableCell className="pr-4">
-                                                <div className="flex items-center justify-end gap-2">
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            router.visit(`/organization/employees/${employee.id}`);
-                                                        }}
-                                                        title="View"
-                                                    >
-                                                        <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDelete(employee);
-                                                        }}
-                                                        title="Delete"
-                                                    >
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
+                                            <TableCell className={dataTableActionsCellClass()}>
+                                                <ListTableCrudActions
+                                                    showEdit={false}
+                                                    viewHref={`/organization/employees/${employee.id}`}
+                                                    onDelete={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(employee);
+                                                    }}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     );
                                 })}
                             </TableBody>
-                        </Table>
-                    </CardContent>
-                </Card>
+                </OrganizationDataTable>
             )}
 
             {employees.length === 0 ? <EmptyState title="No employees found." /> : null}

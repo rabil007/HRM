@@ -682,6 +682,7 @@ class EmployeeController extends Controller
                 ] : null,
                 'employee_no' => $employee->employee_no,
                 'name' => $employee->name,
+                'image' => $employee->image,
                 'date_of_birth' => $employee->date_of_birth,
                 'place_of_birth' => $employee->place_of_birth,
                 'gender' => $employee->gender,

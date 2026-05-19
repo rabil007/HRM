@@ -1,6 +1,6 @@
-import { Briefcase, Building2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
+import { Briefcase, Building2, Camera, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import {
     CommandDialog,
@@ -12,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 
 type Option = { id: number; name?: string | null; title?: string | null };
@@ -32,6 +33,8 @@ export function EmployeeHeaderCard({
     setActiveField,
     beginEdit,
     requiredDot,
+    onPhotoSelect,
+    isUploadingPhoto = false,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -48,7 +51,23 @@ export function EmployeeHeaderCard({
     setActiveField: (v: string | null) => void;
     beginEdit: (field: string) => void;
     requiredDot: (field: string) => ReactNode;
+    onPhotoSelect?: (file: File) => void;
+    isUploadingPhoto?: boolean;
 }) {
+    const photoInputRef = useRef<HTMLInputElement>(null);
+    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+
+    useEffect(() => {
+        setPhotoPreview(null);
+    }, [employee.image]);
+
+    useEffect(() => {
+        return () => {
+            if (photoPreview?.startsWith('blob:')) {
+                URL.revokeObjectURL(photoPreview);
+            }
+        };
+    }, [photoPreview]);
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
@@ -71,6 +90,21 @@ export function EmployeeHeaderCard({
             ? employee.image
             : `/storage/${employee.image.replace(/^\/+/, '')}`
         : null;
+
+    const displayImageSrc = photoPreview ?? imageSrc;
+
+    const handlePhotoChange = (file: File | undefined) => {
+        if (!file || !onPhotoSelect) {
+            return;
+        }
+
+        if (!file.type.startsWith('image/')) {
+            return;
+        }
+
+        setPhotoPreview(URL.createObjectURL(file));
+        onPhotoSelect(file);
+    };
 
     const displayPhone = useMemo(() => {
         const formatted = formatPhoneForDisplay(
@@ -122,10 +156,35 @@ export function EmployeeHeaderCard({
 
             <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
                 <div className="mx-auto shrink-0 md:mx-0">
-                    <div className="h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/20 shadow-2xl shadow-black/30 ring-1 ring-white/5 md:h-32 md:w-32 lg:h-36 lg:w-36">
-                        {imageSrc ? (
+                    <input
+                        ref={photoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="sr-only"
+                        disabled={!canUpdate || isUploadingPhoto}
+                        onChange={(event) => {
+                            const file = event.target.files?.[0];
+                            handlePhotoChange(file);
+                            event.target.value = '';
+                        }}
+                    />
+                    <button
+                        type="button"
+                        className={cn(
+                            'group relative h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/20 shadow-2xl shadow-black/30 ring-1 ring-white/5 md:h-32 md:w-32 lg:h-36 lg:w-36',
+                            canUpdate ? 'cursor-pointer' : 'cursor-default',
+                        )}
+                        onClick={() => {
+                            if (canUpdate && !isUploadingPhoto) {
+                                photoInputRef.current?.click();
+                            }
+                        }}
+                        disabled={!canUpdate || isUploadingPhoto}
+                        aria-label={canUpdate ? 'Change employee photo' : 'Employee photo'}
+                    >
+                        {displayImageSrc ? (
                             <img
-                                src={imageSrc}
+                                src={displayImageSrc}
                                 alt={displayName}
                                 className="h-full w-full object-cover"
                             />
@@ -134,7 +193,21 @@ export function EmployeeHeaderCard({
                                 {initials}
                             </div>
                         )}
-                    </div>
+                        {canUpdate ? (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                                {isUploadingPhoto ? (
+                                    <Loader2 className="h-6 w-6 animate-spin text-white" />
+                                ) : (
+                                    <>
+                                        <Camera className="h-5 w-5 text-white" />
+                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-white/90">
+                                            {displayImageSrc ? 'Change' : 'Upload'}
+                                        </span>
+                                    </>
+                                )}
+                            </div>
+                        ) : null}
+                    </button>
                 </div>
 
                 <div className="min-w-0 flex-1 text-center md:text-left">

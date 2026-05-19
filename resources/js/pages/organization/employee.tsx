@@ -100,6 +100,8 @@ export default function EmployeeDetails({
         beginEdit,
         requiredDot,
         saveChanges,
+        uploadPhoto,
+        isUploadingPhoto,
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
         employee,
@@ -339,6 +341,8 @@ export default function EmployeeDetails({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             requiredDot={requiredDot}
+                            onPhotoSelect={uploadPhoto}
+                            isUploadingPhoto={isUploadingPhoto}
                         />
 
                         <div
