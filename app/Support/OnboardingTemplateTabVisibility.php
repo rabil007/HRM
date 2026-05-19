@@ -94,21 +94,25 @@ final class OnboardingTemplateTabVisibility
         $hadVacFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('vaccination_fields', $s));
 
         // #region agent log
-        $debugLogPath2 = base_path('.cursor/debug-4512e9.log');
-        file_put_contents($debugLogPath2, json_encode([
-            'sessionId' => '4512e9', 'hypothesisId' => 'A-C',
-            'location' => 'OnboardingTemplateTabVisibility.php:fromVersion2',
-            'message' => 'fromVersion2 computed values',
-            'data' => [
-                'hadSeaFieldKeyEver' => $hadSeaFieldKeyEver,
-                'aggregateSeaNonEmpty' => $aggregateSeaNonEmpty,
-                'hadVacFieldKeyEver' => $hadVacFieldKeyEver,
-                'aggregateVacNonEmpty' => $aggregateVacNonEmpty,
-                'sea_service_result' => ! $hadSeaFieldKeyEver || $aggregateSeaNonEmpty,
-                'stages_count' => count($stages),
-            ],
-            'timestamp' => round(microtime(true) * 1000),
-        ])."\n", FILE_APPEND);
+        try {
+            $debugLogPath2 = base_path('.cursor/debug-4512e9.log');
+            file_put_contents($debugLogPath2, json_encode([
+                'sessionId' => '4512e9', 'hypothesisId' => 'A-C',
+                'location' => 'OnboardingTemplateTabVisibility.php:fromVersion2',
+                'message' => 'fromVersion2 computed values',
+                'data' => [
+                    'hadSeaFieldKeyEver' => $hadSeaFieldKeyEver,
+                    'aggregateSeaNonEmpty' => $aggregateSeaNonEmpty,
+                    'hadVacFieldKeyEver' => $hadVacFieldKeyEver,
+                    'aggregateVacNonEmpty' => $aggregateVacNonEmpty,
+                    'sea_service_result' => $aggregateSeaNonEmpty,
+                    'vaccination_result' => $aggregateVacNonEmpty,
+                    'stages_count' => count($stages),
+                ],
+                'timestamp' => round(microtime(true) * 1000),
+            ])."\n", FILE_APPEND);
+        } catch (\Throwable) {
+        }
         // #endregion
 
         return [
@@ -116,8 +120,8 @@ final class OnboardingTemplateTabVisibility
             'contract' => ! $hadContractFieldKeyEver || $aggregateContractNonEmpty,
             'bank' => ! $hadBankFieldKeyEver || $aggregateBankNonEmpty,
             'documents' => $aggregateDocsNonEmpty,
-            'sea_service' => ! $hadSeaFieldKeyEver || $aggregateSeaNonEmpty,
-            'vaccination' => ! $hadVacFieldKeyEver || $aggregateVacNonEmpty,
+            'sea_service' => $aggregateSeaNonEmpty,
+            'vaccination' => $aggregateVacNonEmpty,
         ];
     }
 
