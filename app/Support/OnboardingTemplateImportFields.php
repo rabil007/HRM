@@ -85,13 +85,7 @@ final class OnboardingTemplateImportFields
 
         if (($tasks['version'] ?? null) === 2 && isset($tasks['stages']) && is_array($tasks['stages'])) {
             return self::orderedColumns(
-                self::columnsFromVersion2($tasks['stages']),
-            );
-        }
-
-        if (($tasks['version'] ?? null) === 1 && isset($tasks['stages']) && is_array($tasks['stages'])) {
-            return self::orderedColumns(
-                self::columnsFromVersion1($tasks),
+                self::columnsFromStages($tasks['stages']),
             );
         }
 
@@ -102,7 +96,7 @@ final class OnboardingTemplateImportFields
      * @param  array<int|string, mixed>  $stages
      * @return list<string>
      */
-    private static function columnsFromVersion2(array $stages): array
+    private static function columnsFromStages(array $stages): array
     {
         $employeeTemplateKeys = self::collectGroupTemplateKeys($stages, 'employee_fields', self::$bankTemplateKeys);
         $bankTemplateKeys = self::collectGroupTemplateKeys($stages, 'bank_account_fields', []);
@@ -133,66 +127,6 @@ final class OnboardingTemplateImportFields
         return self::mergeRequired(
             array_merge($employeeColumns, $contractColumns, $bankColumns),
         );
-    }
-
-    /**
-     * @param  array<string, mixed>  $tasks
-     * @return list<string>
-     */
-    private static function columnsFromVersion1(array $tasks): array
-    {
-        $stages = is_array($tasks['stages'] ?? null) ? $tasks['stages'] : [];
-        $modules = is_array($tasks['modules'] ?? null) ? $tasks['modules'] : [];
-
-        $v1Profile = is_array($modules['profile']['required_fields'] ?? null)
-            ? $modules['profile']['required_fields']
-            : [];
-        $v1Contract = is_array($modules['contract']['required_fields'] ?? null)
-            ? $modules['contract']['required_fields']
-            : [];
-
-        $hasProfileStage = collect($stages)->contains(
-            fn ($stage) => is_array($stage)
-                && is_array($stage['modules'] ?? null)
-                && in_array('profile', $stage['modules'], true),
-        );
-        $hasContractStage = collect($stages)->contains(
-            fn ($stage) => is_array($stage)
-                && is_array($stage['modules'] ?? null)
-                && in_array('contract', $stage['modules'], true),
-        );
-
-        $bankKeysSet = collect(self::$bankTemplateKeys);
-        $profileKeys = self::normalizeTemplateKeys($v1Profile);
-
-        $employeeTemplateKeys = collect($profileKeys)
-            ->reject(fn (string $key) => $bankKeysSet->contains($key))
-            ->values()
-            ->all();
-        $bankTemplateKeys = collect($profileKeys)
-            ->filter(fn (string $key) => $bankKeysSet->contains($key))
-            ->values()
-            ->all();
-
-        $employeeColumns = $hasProfileStage
-            ? self::mapTemplateKeysToImport($employeeTemplateKeys)
-            : [];
-        $bankColumns = $hasProfileStage
-            ? self::mapTemplateKeysToImport($bankTemplateKeys)
-            : [];
-        $contractColumns = $hasContractStage
-            ? self::mapTemplateKeysToImport(self::normalizeTemplateKeys($v1Contract))
-            : [];
-
-        if ($employeeColumns === [] && $bankColumns === [] && $contractColumns === []) {
-            return self::mergeRequired(array_merge(
-                self::DEFAULT_EMPLOYEE_IMPORT_COLUMNS,
-                self::DEFAULT_CONTRACT_IMPORT_COLUMNS,
-                self::DEFAULT_BANK_IMPORT_COLUMNS,
-            ));
-        }
-
-        return self::mergeRequired(array_merge($employeeColumns, $contractColumns, $bankColumns));
     }
 
     /**

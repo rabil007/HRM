@@ -17,97 +17,150 @@ class OnboardingTemplatesSeeder extends Seeder
 
         foreach ($companies as $company) {
             $officeTasks = [
-                'version' => 1,
+                'version' => 2,
                 'stages' => [
                     [
                         'key' => 'draft',
                         'label' => 'Draft',
-                        'modules' => ['profile'],
+                        'employee_fields' => [
+                            ['key' => 'employee_no', 'required' => true],
+                            ['key' => 'name', 'required' => true],
+                            ['key' => 'work_email', 'required' => true],
+                            ['key' => 'phone', 'required' => true],
+                            ['key' => 'nationality_id', 'required' => true],
+                            ['key' => 'branch_id', 'required' => true],
+                            ['key' => 'department_id', 'required' => true],
+                            ['key' => 'position_id', 'required' => true],
+                        ],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
                     [
                         'key' => 'documents',
                         'label' => 'Documents',
-                        'modules' => ['documents'],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [
+                            [
+                                'type' => 'passport_copy',
+                                'min' => 1,
+                                'ask_issue_date' => false,
+                                'ask_expiry_date' => false,
+                                'ask_document_number' => false,
+                            ],
+                            [
+                                'type' => 'photo',
+                                'min' => 1,
+                                'ask_issue_date' => false,
+                                'ask_expiry_date' => false,
+                                'ask_document_number' => false,
+                            ],
+                        ],
                     ],
                     [
                         'key' => 'contract',
                         'label' => 'Contract',
-                        'modules' => ['contract'],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [
+                            ['key' => 'contract_type', 'required' => true],
+                            ['key' => 'start_date', 'required' => true],
+                            ['key' => 'basic_salary', 'required' => true],
+                        ],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
                     [
                         'key' => 'done',
                         'label' => 'Done',
-                        'modules' => [],
-                    ],
-                ],
-                'modules' => [
-                    'profile' => [
-                        'label' => 'Profile',
-                        'store' => [
-                            'table' => 'employees',
-                        ],
-                        'required_fields' => [
-                            'employee_no',
-                            'name',
-                            'work_email',
-                            'phone',
-                            'nationality_id',
-                            'branch_id',
-                            'department_id',
-                            'position_id',
-                        ],
-                    ],
-                    'documents' => [
-                        'label' => 'Documents',
-                        'store' => [
-                            'table' => 'employee_documents',
-                        ],
-                        'required_docs' => [
-                            ['type' => 'passport_copy', 'min' => 1],
-                            ['type' => 'photo', 'min' => 1],
-                        ],
-                    ],
-                    'contract' => [
-                        'label' => 'Contract',
-                        'store' => [
-                            'table' => 'employee_contracts',
-                            'scope' => 'current_active',
-                        ],
-                        'required_fields' => [
-                            'contract_type',
-                            'start_date',
-                            'basic_salary',
-                        ],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
                 ],
             ];
 
             $offsiteTasks = [
-                'version' => 1,
+                'version' => 2,
                 'stages' => [
                     [
                         'key' => 'draft',
                         'label' => 'Draft',
-                        'modules' => ['profile'],
+                        'employee_fields' => [
+                            ['key' => 'employee_no', 'required' => true],
+                            ['key' => 'name', 'required' => true],
+                            ['key' => 'work_email', 'required' => true],
+                            ['key' => 'phone', 'required' => true],
+                            ['key' => 'nationality_id', 'required' => true],
+                            ['key' => 'branch_id', 'required' => true],
+                            ['key' => 'department_id', 'required' => true],
+                            ['key' => 'position_id', 'required' => true],
+                        ],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
                     [
                         'key' => 'contract',
                         'label' => 'Contract',
-                        'modules' => ['contract'],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [
+                            ['key' => 'contract_type', 'required' => true],
+                            ['key' => 'start_date', 'required' => true],
+                            ['key' => 'basic_salary', 'required' => true],
+                        ],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
                     [
                         'key' => 'documents',
                         'label' => 'Documents',
-                        'modules' => ['documents'],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [
+                            [
+                                'type' => 'passport_copy',
+                                'min' => 1,
+                                'ask_issue_date' => false,
+                                'ask_expiry_date' => false,
+                                'ask_document_number' => false,
+                            ],
+                            [
+                                'type' => 'photo',
+                                'min' => 1,
+                                'ask_issue_date' => false,
+                                'ask_expiry_date' => false,
+                                'ask_document_number' => false,
+                            ],
+                        ],
                     ],
                     [
                         'key' => 'done',
                         'label' => 'Done',
-                        'modules' => [],
+                        'employee_fields' => [],
+                        'bank_account_fields' => [],
+                        'contract_fields' => [],
+                        'sea_service_fields' => [],
+                        'vaccination_fields' => [],
+                        'documents' => [],
                     ],
-                ],
-                'modules' => [
-                    ...$officeTasks['modules'],
                 ],
             ];
 

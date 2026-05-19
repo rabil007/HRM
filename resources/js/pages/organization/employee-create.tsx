@@ -115,45 +115,20 @@ continue;
     };
 
     const normalizeStages = (tasks: OnboardingTemplate['tasks']): NormalizedStage[] => {
-        if (tasks?.version === 2 && Array.isArray(tasks.stages)) {
-            return tasks.stages.map((s: any) => ({
-                key: String(s?.key ?? ''),
-                label: String(s?.label ?? s?.key ?? ''),
-                employee_fields: normalizeFieldList(Array.isArray(s?.employee_fields) ? s.employee_fields : []),
-                bank_account_fields: normalizeFieldList(Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : []),
-                contract_fields: normalizeFieldList(Array.isArray(s?.contract_fields) ? s.contract_fields : []),
-                sea_service_fields: normalizeFieldList(Array.isArray(s?.sea_service_fields) ? s.sea_service_fields : []),
-                vaccination_fields: normalizeFieldList(Array.isArray(s?.vaccination_fields) ? s.vaccination_fields : []),
-                documents: Array.isArray(s?.documents) ? s.documents : [],
-            }));
+        if (tasks?.version !== 2 || !Array.isArray(tasks.stages)) {
+            return [];
         }
 
-        if (tasks?.version === 1 && Array.isArray(tasks.stages) && tasks.modules && typeof tasks.modules === 'object') {
-            const v1Profile = Array.isArray(tasks.modules?.profile?.required_fields) ? tasks.modules.profile.required_fields : [];
-            const v1Contract = Array.isArray(tasks.modules?.contract?.required_fields) ? tasks.modules.contract.required_fields : [];
-            const v1Docs = Array.isArray(tasks.modules?.documents?.required_docs) ? tasks.modules.documents.required_docs : [];
-
-            return tasks.stages.map((s: any) => {
-                const mods = Array.isArray(s?.modules) ? s.modules : [];
-                const bankKeys = new Set(['bank_id', 'iban', 'account_name']);
-                const allProfileFields = normalizeFieldList(v1Profile);
-                const v1EmployeeFields = allProfileFields.filter((f) => !bankKeys.has(f.key));
-                const v1BankFields = allProfileFields.filter((f) => bankKeys.has(f.key));
-
-                return {
-                    key: String(s?.key ?? ''),
-                    label: String(s?.label ?? s?.key ?? ''),
-                    employee_fields: mods.includes('profile') ? v1EmployeeFields : [],
-                    bank_account_fields: mods.includes('profile') ? v1BankFields : [],
-                    contract_fields: mods.includes('contract') ? normalizeFieldList(v1Contract) : [],
-                    sea_service_fields: [],
-                    vaccination_fields: [],
-                    documents: mods.includes('documents') ? v1Docs : [],
-                };
-            });
-        }
-
-        return [];
+        return tasks.stages.map((s: any) => ({
+            key: String(s?.key ?? ''),
+            label: String(s?.label ?? s?.key ?? ''),
+            employee_fields: normalizeFieldList(Array.isArray(s?.employee_fields) ? s.employee_fields : []),
+            bank_account_fields: normalizeFieldList(Array.isArray(s?.bank_account_fields) ? s.bank_account_fields : []),
+            contract_fields: normalizeFieldList(Array.isArray(s?.contract_fields) ? s.contract_fields : []),
+            sea_service_fields: normalizeFieldList(Array.isArray(s?.sea_service_fields) ? s.sea_service_fields : []),
+            vaccination_fields: normalizeFieldList(Array.isArray(s?.vaccination_fields) ? s.vaccination_fields : []),
+            documents: Array.isArray(s?.documents) ? s.documents : [],
+        }));
     };
 
     const stageHasCollectableContent = (s: NormalizedStage) => {

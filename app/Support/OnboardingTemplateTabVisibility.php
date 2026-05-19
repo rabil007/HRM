@@ -27,11 +27,7 @@ final class OnboardingTemplateTabVisibility
         }
 
         if (($tasks['version'] ?? null) === 2 && isset($tasks['stages']) && is_array($tasks['stages'])) {
-            return self::fromVersion2($tasks['stages']);
-        }
-
-        if (($tasks['version'] ?? null) === 1 && isset($tasks['stages']) && is_array($tasks['stages'])) {
-            return self::fromVersion1($tasks);
+            return self::fromStages($tasks['stages']);
         }
 
         return $defaults;
@@ -41,7 +37,7 @@ final class OnboardingTemplateTabVisibility
      * @param  array<int|string, mixed>  $stages
      * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool}
      */
-    private static function fromVersion2(array $stages): array
+    private static function fromStages(array $stages): array
     {
         $aggregateEmployeeNonEmpty = false;
         $aggregateBankNonEmpty = false;
@@ -96,57 +92,6 @@ final class OnboardingTemplateTabVisibility
             'documents' => $aggregateDocsNonEmpty,
             'sea_service' => $aggregateSeaNonEmpty,
             'vaccination' => $aggregateVacNonEmpty,
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $tasks
-     * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool}
-     */
-    private static function fromVersion1(array $tasks): array
-    {
-        $stages = is_array($tasks['stages'] ?? null) ? $tasks['stages'] : [];
-        $modules = is_array($tasks['modules'] ?? null) ? $tasks['modules'] : [];
-
-        $v1Profile = is_array($modules['profile']['required_fields'] ?? null)
-            ? $modules['profile']['required_fields']
-            : [];
-        $v1Contract = is_array($modules['contract']['required_fields'] ?? null)
-            ? $modules['contract']['required_fields']
-            : [];
-        $v1Docs = is_array($modules['documents']['required_docs'] ?? null)
-            ? $modules['documents']['required_docs']
-            : [];
-
-        $bankKeysSet = collect(self::$bankKeys);
-        $v1EmployeeCount = collect($v1Profile)->reject(fn ($item) => $bankKeysSet->contains((string) $item))->count();
-        $v1BankCount = collect($v1Profile)->filter(fn ($item) => $bankKeysSet->contains((string) $item))->count();
-
-        $hasProfileStage = collect($stages)->contains(
-            fn ($s) => is_array($s)
-                && is_array($s['modules'] ?? null)
-                && in_array('profile', $s['modules'], true),
-        );
-
-        $hasContractStage = collect($stages)->contains(
-            fn ($s) => is_array($s)
-                && is_array($s['modules'] ?? null)
-                && in_array('contract', $s['modules'], true),
-        );
-
-        $hasDocumentsStage = collect($stages)->contains(
-            fn ($s) => is_array($s)
-                && is_array($s['modules'] ?? null)
-                && in_array('documents', $s['modules'], true),
-        );
-
-        return [
-            'personal' => $hasProfileStage && $v1EmployeeCount > 0,
-            'contract' => $hasContractStage && count($v1Contract) > 0,
-            'bank' => $hasProfileStage && $v1BankCount > 0,
-            'documents' => $hasDocumentsStage && count($v1Docs) > 0,
-            'sea_service' => true,
-            'vaccination' => true,
         ];
     }
 

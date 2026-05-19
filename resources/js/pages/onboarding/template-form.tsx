@@ -270,34 +270,6 @@ return false;
         };
     }
 
-    if (t.version === 1 && Array.isArray(t.stages) && typeof t.modules === 'object') {
-        const v1Profile = t.modules?.profile?.required_fields || [];
-        const v1Contract = t.modules?.contract?.required_fields || [];
-        const v1Docs = t.modules?.documents?.required_docs || [];
-
-        const bankKeys = new Set(['bank_id', 'iban', 'account_name']);
-        const v1ProfileEmployee = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => !bankKeys.has(String(k))) : [];
-        const v1ProfileBank = Array.isArray(v1Profile) ? v1Profile.filter((k: any) => bankKeys.has(String(k))) : [];
-
-        return {
-            stages: t.stages.map((s: any, index: number) => {
-                const key = String(s.key || '').trim();
-
-                return {
-                id: stageBuilderId(key, index),
-                key,
-                label: String(s.label || '').trim() || key,
-                employee_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileEmployee) : [],
-                bank_account_fields: Array.isArray(s.modules) && s.modules.includes('profile') ? mapFields(v1ProfileBank) : [],
-                contract_fields: Array.isArray(s.modules) && s.modules.includes('contract') ? mapFields(v1Contract) : [],
-                sea_service_fields: [],
-                vaccination_fields: [],
-                documents: Array.isArray(s.modules) && s.modules.includes('documents') ? v1Docs : [],
-            };
-            }),
-        };
-    }
-
     return fallback;
 }
 

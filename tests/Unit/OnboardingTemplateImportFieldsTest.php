@@ -41,24 +41,3 @@ test('version 2 template without field group keys includes default import column
 
     expect($columns)->toContain('name', 'bank', 'iban', 'contract_type', 'start_date');
 });
-
-test('version 1 template maps profile and contract fields to import columns', function () {
-    $columns = OnboardingTemplateImportFields::columnsForTasks([
-        'version' => 1,
-        'stages' => [
-            ['key' => 'profile', 'modules' => ['profile']],
-            ['key' => 'contract', 'modules' => ['contract']],
-        ],
-        'modules' => [
-            'profile' => [
-                'required_fields' => ['employee_no', 'name', 'bank_id', 'iban'],
-            ],
-            'contract' => [
-                'required_fields' => ['contract_type', 'start_date'],
-            ],
-        ],
-    ]);
-
-    expect($columns)->toContain('employee_no', 'name', 'bank', 'iban', 'contract_type', 'start_date')
-        ->and($columns)->not->toContain('account_name');
-});
