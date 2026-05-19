@@ -3,10 +3,13 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Inertia\Middleware;
+use Inertia\Support\Header;
 use Spatie\Permission\PermissionRegistrar;
+use Symfony\Component\HttpFoundation\Response;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -27,6 +30,37 @@ class HandleInertiaRequests extends Middleware
     public function version(Request $request): ?string
     {
         return parent::version($request);
+    }
+
+    /**
+     * Prevent browsers and CDNs from caching Inertia JSON responses and serving
+     * them on full page loads (e.g. duplicated tabs, hard refresh).
+     */
+    public function handle(Request $request, Closure $next): Response
+    {
+        $response = parent::handle($request, $next);
+
+        if ($request->header(Header::INERTIA)) {
+            $response->headers->set('Cache-Control', 'no-store, private, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', '0');
+
+            return $response;
+        }
+
+        if ($request->user() && $response->isSuccessful() && $this->isHtmlResponse($response)) {
+            $response->headers->set('Cache-Control', 'private, no-cache, no-store, max-age=0, must-revalidate');
+            $response->headers->set('Pragma', 'no-cache');
+        }
+
+        return $response;
+    }
+
+    private function isHtmlResponse(Response $response): bool
+    {
+        $contentType = (string) $response->headers->get('Content-Type', '');
+
+        return str_contains($contentType, 'text/html');
     }
 
     /**

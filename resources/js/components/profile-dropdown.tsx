@@ -57,7 +57,7 @@ export function ProfileDropdown() {
                     <DropdownMenuSeparator />
                     <DropdownMenuGroup>
                         <DropdownMenuItem asChild>
-                            <Link href={`/organization/users/${user.id}`} prefetch>
+                            <Link href={`/organization/users/${user.id}`} prefetch="click">
                                 Profile
                                 <DropdownMenuShortcut>⇧⌘P</DropdownMenuShortcut>
                             </Link>
