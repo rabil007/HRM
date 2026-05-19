@@ -1,6 +1,7 @@
-import { Head, usePage } from '@inertiajs/react';
+import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -56,6 +57,7 @@ function initialEmployeeTabFromLocation(): EmployeeTab {
 }
 
 export default function EmployeeDetails({
+    employee_navigation,
     employee,
     contracts,
     documents,
@@ -113,7 +115,22 @@ export default function EmployeeDetails({
     );
 
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
+    const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(null);
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+
+    const visitEmployeeProfile = useCallback(
+        (employeeId: number) => {
+            const listQuery = employee_navigation?.list_query ?? {};
+            const baseUrl = show.url({ employee: employeeId }, { query: listQuery });
+            const hash =
+                typeof window !== 'undefined' ? window.location.hash : '';
+
+            router.visit(hash ? `${baseUrl}${hash}` : baseUrl, {
+                preserveScroll: true,
+            });
+        },
+        [employee_navigation?.list_query],
+    );
 
     const tabs = useMemo(() => {
         const list = [
@@ -222,10 +239,30 @@ export default function EmployeeDetails({
                 return;
             }
 
+            setPendingEmployeeId(null);
             setPendingTab(next);
             setUnsavedDialogOpen(true);
         },
         [canUpdate, isDirty],
+    );
+
+    const handleNavigateEmployee = useCallback(
+        (employeeId: number) => {
+            if (employeeId === employee.id) {
+                return;
+            }
+
+            if (!canUpdate || !isDirty) {
+                visitEmployeeProfile(employeeId);
+
+                return;
+            }
+
+            setPendingTab(null);
+            setPendingEmployeeId(employeeId);
+            setUnsavedDialogOpen(true);
+        },
+        [canUpdate, employee.id, isDirty, visitEmployeeProfile],
     );
 
     return (
@@ -264,7 +301,14 @@ export default function EmployeeDetails({
                         ) : null}
                         <AlertDialog
                             open={unsavedDialogOpen}
-                            onOpenChange={setUnsavedDialogOpen}
+                            onOpenChange={(open) => {
+                                setUnsavedDialogOpen(open);
+
+                                if (!open) {
+                                    setPendingTab(null);
+                                    setPendingEmployeeId(null);
+                                }
+                            }}
                         >
                             <AlertDialogContent className="sm:max-w-sm">
                                 <AlertDialogHeader>
@@ -282,25 +326,26 @@ export default function EmployeeDetails({
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-                                    <AlertDialogCancel
-                                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
-                                        onClick={() => {
-                                            setPendingTab(null);
-                                            setUnsavedDialogOpen(false);
-                                        }}
-                                    >
+                                    <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">
                                         Stay
                                     </AlertDialogCancel>
                                     <AlertDialogAction
                                         className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
                                         onClick={() => {
+                                            const nextEmployeeId = pendingEmployeeId;
+
                                             discardChanges();
 
                                             if (pendingTab) {
                                                 setTabValue(pendingTab);
                                             }
 
+                                            if (nextEmployeeId !== null) {
+                                                visitEmployeeProfile(nextEmployeeId);
+                                            }
+
                                             setPendingTab(null);
+                                            setPendingEmployeeId(null);
                                             setUnsavedDialogOpen(false);
                                         }}
                                     >
@@ -309,12 +354,19 @@ export default function EmployeeDetails({
                                     <AlertDialogAction
                                         className="bg-indigo-600 text-white hover:bg-indigo-500"
                                         onClick={() => {
+                                            const nextEmployeeId = pendingEmployeeId;
+
                                             saveChanges(() => {
                                                 if (pendingTab) {
                                                     setTabValue(pendingTab);
                                                 }
 
+                                                if (nextEmployeeId !== null) {
+                                                    visitEmployeeProfile(nextEmployeeId);
+                                                }
+
                                                 setPendingTab(null);
+                                                setPendingEmployeeId(null);
                                                 setUnsavedDialogOpen(false);
                                             });
                                         }}
@@ -328,6 +380,8 @@ export default function EmployeeDetails({
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
                             employee={employee}
+                            employeeNavigation={employee_navigation}
+                            onNavigateEmployee={handleNavigateEmployee}
                             branches={branches}
                             departments={departments}
                             positions={positions}
@@ -345,10 +399,7 @@ export default function EmployeeDetails({
                             isUploadingPhoto={isUploadingPhoto}
                         />
 
-                        <div
-                            id="employee-tabs"
-                            className="rounded-[1.75rem] border border-white/10 bg-card/60 p-2 shadow-2xl shadow-black/10 backdrop-blur-xl"
-                        >
+                        <div id="employee-tabs" className="space-y-4">
                             <Tabs
                                 value={activeTab}
                                 onValueChange={(v) =>
@@ -356,22 +407,24 @@ export default function EmployeeDetails({
                                 }
                                 className="w-full"
                             >
-                                <TabsList className="hide-scrollbar h-auto w-full flex-nowrap justify-start gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-black/10 p-1.5">
-                                    {tabs.map((tab) => (
-                                        <TabsTrigger
-                                            key={tab.id}
-                                            value={tab.id}
-                                            className="shrink-0 rounded-xl border border-transparent bg-transparent px-4 py-2.5 text-xs font-bold tracking-wide whitespace-nowrap text-zinc-400 transition-colors hover:bg-white/5 hover:text-zinc-200 data-[state=active]:border-white/10 data-[state=active]:bg-white/10 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-black/20"
-                                        >
-                                            {tab.label}
-                                            {tab.count !== null && (
-                                                <span className="ml-1.5 rounded-md bg-white/10 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-400 tabular-nums">
-                                                    {tab.count}
-                                                </span>
-                                            )}
-                                        </TabsTrigger>
-                                    ))}
-                                </TabsList>
+                                <div className="hide-scrollbar overflow-x-auto">
+                                    <TabsList className="inline-flex h-auto min-w-full flex-nowrap items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-1.5 shadow-inner shadow-black/20 backdrop-blur-xl">
+                                        {tabs.map((tab) => (
+                                            <TabsTrigger
+                                                key={tab.id}
+                                                value={tab.id}
+                                                className="group relative shrink-0 cursor-pointer rounded-xl border border-transparent bg-transparent px-4 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-zinc-500 transition-all duration-200 hover:border-white/10 hover:bg-white/[0.06] hover:text-zinc-300 data-[state=active]:border-indigo-500/20 data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-300 data-[state=active]:shadow-md data-[state=active]:shadow-indigo-950/40"
+                                            >
+                                                {tab.label}
+                                                {tab.count !== null && (
+                                                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white/[0.08] px-1 text-[10px] font-bold tabular-nums text-zinc-500 group-data-[state=active]:bg-indigo-500/20 group-data-[state=active]:text-indigo-300">
+                                                        {tab.count}
+                                                    </span>
+                                                )}
+                                            </TabsTrigger>
+                                        ))}
+                                    </TabsList>
+                                </div>
 
                                 {employee_tabs.personal ? (
                                     <EmployeePersonalTab

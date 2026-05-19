@@ -31,6 +31,9 @@ use App\Models\Religion;
 use App\Models\User;
 use App\Models\VesselType;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\Employees\EmployeeDirectoryFilters;
+use App\Support\Employees\EmployeeDirectoryQuery;
+use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\OnboardingTemplateImportFields;
 use App\Support\OnboardingTemplateTabVisibility;
 use App\Support\Pagination\ResolvesPerPage;
@@ -52,11 +55,12 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
-        $search = trim((string) request()->query('search', ''));
-        $branchId = trim((string) request()->query('branch_id', ''));
-        $departmentId = trim((string) request()->query('department_id', ''));
-        $positionId = trim((string) request()->query('position_id', ''));
-        $status = trim((string) request()->query('status', ''));
+        $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
+        $search = $directoryFilters->search;
+        $branchId = $directoryFilters->branchId;
+        $departmentId = $directoryFilters->departmentId;
+        $positionId = $directoryFilters->positionId;
+        $status = $directoryFilters->status;
 
         $branches = Branch::query()
             ->where('company_id', $companyId)
@@ -103,34 +107,21 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $paginator = Employee::query()
-            ->with([
-                'branch:id,name',
-                'department:id,name',
-                'position:id,title',
-                'manager:id,name,employee_no',
-                'user:id,name,email',
-                'religionRef:id,name',
-                'genderRef:id,name',
-                'nationalityRef:id,name,code',
-                'primaryBankAccount.bank:id,name',
-                'currentContract',
-            ])
-            ->where('company_id', $companyId)
-            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
-            ->when($positionId, fn ($q) => $q->where('position_id', $positionId))
-            ->when($status, fn ($q) => $q->where('status', $status))
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($inner) use ($search) {
-                    $inner->where('employee_no', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('work_email', 'like', "%{$search}%")
-                        ->orWhere('personal_email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                });
-            })
-            ->latest('id')
+        $paginator = (new EmployeeDirectoryQuery($companyId, $directoryFilters))
+            ->apply(
+                Employee::query()->with([
+                    'branch:id,name',
+                    'department:id,name',
+                    'position:id,title',
+                    'manager:id,name,employee_no',
+                    'user:id,name,email',
+                    'religionRef:id,name',
+                    'genderRef:id,name',
+                    'nationalityRef:id,name,code',
+                    'primaryBankAccount.bank:id,name',
+                    'currentContract',
+                ]),
+            )
             ->paginate($perPage)
             ->withQueryString();
 
@@ -650,7 +641,15 @@ class EmployeeController extends Controller
             );
         }
 
+        $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
+        $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(
+            $employee,
+            $companyId,
+            $directoryFilters,
+        );
+
         return Inertia::render('organization/employee', [
+            'employee_navigation' => $employeeNavigation,
             'employee' => [
                 'id' => $employee->id,
                 'user' => $employee->user_id ? [

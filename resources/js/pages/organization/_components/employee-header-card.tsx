@@ -1,6 +1,7 @@
 import { Briefcase, Building2, Camera, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
 import {
     CommandDialog,
@@ -14,6 +15,7 @@ import type { CountryOption } from '@/features/organization/employees/types';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
+import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 
 type Option = { id: number; name?: string | null; title?: string | null };
 
@@ -35,6 +37,8 @@ export function EmployeeHeaderCard({
     requiredDot,
     onPhotoSelect,
     isUploadingPhoto = false,
+    employeeNavigation = null,
+    onNavigateEmployee,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -53,6 +57,8 @@ export function EmployeeHeaderCard({
     requiredDot: (field: string) => ReactNode;
     onPhotoSelect?: (file: File) => void;
     isUploadingPhoto?: boolean;
+    employeeNavigation?: EmployeeNavigation | null;
+    onNavigateEmployee?: (employeeId: number) => void;
 }) {
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -402,7 +408,13 @@ export function EmployeeHeaderCard({
                             </div>
                         </div>
 
-                        <div className="flex items-start justify-center md:justify-end">
+                        <div className="flex flex-col items-center gap-2 md:items-end">
+                            {employeeNavigation ? (
+                                <EmployeeProfileNavigation
+                                    navigation={employeeNavigation}
+                                    onNavigate={onNavigateEmployee}
+                                />
+                            ) : null}
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
                                 {activeField === 'employee_no' && canUpdate ? (
                                     <Input

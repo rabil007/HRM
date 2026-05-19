@@ -43,9 +43,11 @@ function getAvatarGradient(name: string): string {
 
 export function EmployeeCard({
     employee,
+    showUrl,
     onDelete,
 }: {
     employee: Employee;
+    showUrl: string;
     onDelete?: (employee: Employee) => void;
 }) {
     const imageSrc = employee.image
@@ -67,7 +69,7 @@ export function EmployeeCard({
     return (
         <div
             className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/8 bg-card/50 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-all duration-200 hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 cursor-pointer"
-            onClick={() => router.visit(`/organization/employees/${employee.id}`)}
+            onClick={() => router.visit(showUrl)}
         >
             {/* ── Top: Avatar + Name + Status ── */}
             <div className="flex items-center gap-3 px-4 pt-4 pb-3">
@@ -142,7 +144,7 @@ export function EmployeeCard({
                         size="icon"
                         className="h-7 w-7 rounded-lg hover:bg-primary/10 hover:text-primary text-muted-foreground/50 transition-colors"
                         onClick={(e) => {
- e.stopPropagation(); router.visit(`/organization/employees/${employee.id}`); 
+ e.stopPropagation(); router.visit(showUrl); 
 }}
                         title="View"
                     >

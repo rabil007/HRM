@@ -1,6 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { Filter, Plus, Upload } from 'lucide-react';
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -25,6 +25,7 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
+import { buildEmployeeListQuery, buildEmployeeShowUrl } from './build-employee-show-url';
 import { EmployeeCard } from './components/employee-card';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
@@ -113,6 +114,11 @@ export function EmployeesContent({
         initialFilters.status,
     ].filter(Boolean).length;
 
+    const listQuery = useMemo(
+        () => buildEmployeeListQuery(initialSearch, initialFilters),
+        [initialSearch, initialFilters],
+    );
+
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
     };
@@ -134,7 +140,10 @@ export function EmployeesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentEmployee) return;
+        if (!currentEmployee) {
+return;
+}
+
         router.delete(`/organization/employees/${currentEmployee.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -156,12 +165,29 @@ export function EmployeesContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.branch_id) params.set('branch_id', initialFilters.branch_id);
-        if (initialFilters.department_id) params.set('department_id', initialFilters.department_id);
-        if (initialFilters.position_id) params.set('position_id', initialFilters.position_id);
-        if (initialFilters.status) params.set('status', initialFilters.status);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.branch_id) {
+params.set('branch_id', initialFilters.branch_id);
+}
+
+        if (initialFilters.department_id) {
+params.set('department_id', initialFilters.department_id);
+}
+
+        if (initialFilters.position_id) {
+params.set('position_id', initialFilters.position_id);
+}
+
+        if (initialFilters.status) {
+params.set('status', initialFilters.status);
+}
+
         params.set('format', format);
+
         return `/organization/employees/export?${params.toString()}`;
     };
 
@@ -227,6 +253,7 @@ export function EmployeesContent({
                         <EmployeeCard
                             key={employee.id}
                             employee={employee}
+                            showUrl={buildEmployeeShowUrl(employee.id, listQuery)}
                             onDelete={handleDelete}
                         />
                     ))}
@@ -255,7 +282,9 @@ export function EmployeesContent({
                                         <TableRow
                                             key={employee.id}
                                             className={dataTableBodyRowClass()}
-                                            onClick={() => router.visit(`/organization/employees/${employee.id}`)}
+                                            onClick={() =>
+                                                router.visit(buildEmployeeShowUrl(employee.id, listQuery))
+                                            }
                                         >
                                             <TableCell className={dataTableCellPrimaryClass()}>
                                                 <div>{employee.name}</div>
@@ -337,7 +366,7 @@ export function EmployeesContent({
                                             <TableCell className={dataTableActionsCellClass()}>
                                                 <ListTableCrudActions
                                                     showEdit={false}
-                                                    viewHref={`/organization/employees/${employee.id}`}
+                                                    viewHref={buildEmployeeShowUrl(employee.id, listQuery)}
                                                     onDelete={(e) => {
                                                         e.stopPropagation();
                                                         handleDelete(employee);

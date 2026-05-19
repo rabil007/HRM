@@ -108,6 +108,7 @@ test('authenticated users can view an employee details page', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
+            ->has('employee_navigation')
             ->has('employee')
             ->has('contracts')
             ->has('education_qualifications')
@@ -1149,4 +1150,174 @@ test('employees index respects per_page query parameter', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->where('pagination.per_page', 15)
         );
+});
+
+test('employee show includes navigation within unfiltered directory', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NAV',
+        'name' => 'Navland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NAV',
+        'name' => 'Nav Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Nav Co',
+        'slug' => 'nav-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $first = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV001', 'name' => 'First']);
+    $middle = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV002', 'name' => 'Middle']);
+    $last = Employee::factory()->forCompany($company)->create(['employee_no' => 'NAV003', 'name' => 'Last']);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', $middle))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation.position', 2)
+            ->where('employee_navigation.total', 3)
+            ->where('employee_navigation.previous_id', $last->id)
+            ->where('employee_navigation.next_id', $first->id)
+            ->where('employee_navigation.list_query', []));
+});
+
+test('employee show navigation respects branch filter', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NBF',
+        'name' => 'Branch Filterland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NBF',
+        'name' => 'Branch Filter Currency',
+        'symbol' => 'B$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Branch Filter Co',
+        'slug' => 'branch-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $officeBranch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF',
+        'status' => 'active',
+    ]);
+
+    $otherBranch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Remote',
+        'code' => 'REM',
+        'status' => 'active',
+    ]);
+
+    $onlyOfficeEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'BF001',
+        'branch_id' => $officeBranch->id,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'BF002',
+        'branch_id' => $otherBranch->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', [
+        'employee' => $onlyOfficeEmployee,
+        'branch_id' => $officeBranch->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation.position', 1)
+            ->where('employee_navigation.total', 1)
+            ->where('employee_navigation.previous_id', null)
+            ->where('employee_navigation.next_id', null)
+            ->where('employee_navigation.list_query.branch_id', (string) $officeBranch->id));
+});
+
+test('employee show navigation is hidden when employee is outside filtered set', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NEX',
+        'name' => 'Excluded Navland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NEX',
+        'name' => 'Excluded Nav Currency',
+        'symbol' => 'E$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Excluded Nav Co',
+        'slug' => 'excluded-nav-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $officeBranch = Branch::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'code' => 'OFF2',
+        'status' => 'active',
+    ]);
+
+    $remoteEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EX001',
+        'branch_id' => null,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EX002',
+        'branch_id' => $officeBranch->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get(route('organization.employees.show', [
+        'employee' => $remoteEmployee,
+        'branch_id' => $officeBranch->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee_navigation', null));
 });

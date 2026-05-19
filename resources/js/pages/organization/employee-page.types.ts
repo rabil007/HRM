@@ -222,6 +222,14 @@ export type EmployeeTab =
     | 'sea_service'
     | 'documents';
 
+export type EmployeeNavigation = {
+    position: number;
+    total: number;
+    previous_id: number | null;
+    next_id: number | null;
+    list_query: Record<string, string>;
+};
+
 export type EmployeeProfileTabVisibility = {
     personal: boolean;
     contract: boolean;
@@ -232,6 +240,7 @@ export type EmployeeProfileTabVisibility = {
 };
 
 export type EmployeePageProps = {
+    employee_navigation: EmployeeNavigation | null;
     employee: EmployeeDetails;
     contracts: EmployeeContractDetails[];
     documents: EmployeeDocumentItem[];
