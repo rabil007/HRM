@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type ViewPreference = 'grid' | 'list';
+export type ViewPreference = 'grid' | 'list' | 'employee';
 
 const DEFAULT_VIEW_STORAGE_KEY = 'view:default';
 
@@ -21,6 +21,7 @@ const ORGANIZATION_VIEW_KEYS = [
     'positions:view',
     'users:view',
     'roles:view',
+    'documents:view',
 ] as const;
 
 export function setOrganizationDefaultView(next: ViewPreference): void {
@@ -34,20 +35,23 @@ export function setOrganizationDefaultView(next: ViewPreference): void {
 }
 
 export function useViewPreference(storageKey: string, defaultValue: ViewPreference = 'grid') {
+    const isValid = (v: string | null): v is ViewPreference =>
+        v === 'grid' || v === 'list' || v === 'employee';
+
     const getSnapshot = (): ViewPreference => {
         if (typeof window === 'undefined') {
             return defaultValue;
         }
 
-        const stored = localStorage.getItem(storageKey) as ViewPreference | null;
+        const stored = localStorage.getItem(storageKey);
 
-        if (stored === 'grid' || stored === 'list') {
+        if (isValid(stored)) {
             return stored;
         }
 
-        const globalDefault = localStorage.getItem(DEFAULT_VIEW_STORAGE_KEY) as ViewPreference | null;
+        const globalDefault = localStorage.getItem(DEFAULT_VIEW_STORAGE_KEY);
 
-        if (globalDefault === 'grid' || globalDefault === 'list') {
+        if (isValid(globalDefault)) {
             return globalDefault;
         }
 

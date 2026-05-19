@@ -1,16 +1,19 @@
 import { router, useForm } from '@inertiajs/react';
 import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
+import type { PaginationMeta } from '@/types/pagination';
 import { RoleCard } from './components/role-card';
 import { RoleDeleteDialog } from './components/role-delete-dialog';
 import { RoleFiltersSheet } from './components/role-filters-sheet';
@@ -20,19 +23,38 @@ import type { Company, Role, RoleFormData } from './types';
 
 export function RolesContent({
     roles,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     company,
+    permissions: _permissions,
 }: {
     roles: Role[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { has_permissions: string };
     company: Company | null;
+    permissions: { id: number; name: string }[];
 }) {
+    void _permissions;
+
+    const list = useServerPaginationFilters({
+        url: '/organization/roles',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('roles:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-    const [currentRole, setCurrentRole] = useState<Role | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
-    const emptyFilters: RoleFilters = { has_permissions: '' };
-    const [filters, setFilters] = useState<RoleFilters>(emptyFilters);
+    const [currentRole, setCurrentRole] = useState<Role | null>(null);
+
+    const filters: RoleFilters = {
+        has_permissions: initialFilters.has_permissions,
+    };
+
+    const activeFiltersCount = [initialFilters.has_permissions].filter(Boolean).length;
 
     const form = useForm<RoleFormData>({
         name: '',
@@ -42,9 +64,7 @@ export function RolesContent({
         setCurrentRole(null);
         form.reset();
         form.clearErrors();
-        form.setData({
-            name: '',
-        });
+        form.setData({ name: '' });
         setIsSheetOpen(true);
     };
 
@@ -52,9 +72,7 @@ export function RolesContent({
         setCurrentRole(role);
         form.reset();
         form.clearErrors();
-        form.setData({
-            name: role.name ?? '',
-        });
+        form.setData({ name: role.name ?? '' });
         setIsSheetOpen(true);
     };
 
@@ -64,10 +82,7 @@ export function RolesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentRole) {
-            return;
-        }
-
+        if (!currentRole) return;
         router.delete(`/organization/roles/${currentRole.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -82,60 +97,23 @@ export function RolesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/roles', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
     };
 
-    const filteredRoles = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return roles.filter((r) => {
-            if (filters.has_permissions) {
-                const hasPermissions = (r.permissions ?? []).length > 0;
-
-                if (filters.has_permissions === 'true' && !hasPermissions) {
-                    return false;
-                }
-
-                if (filters.has_permissions === 'false' && hasPermissions) {
-                    return false;
-                }
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return (
-                r.name.toLowerCase().includes(query) ||
-                (r.permissions ?? []).some((p) => p.toLowerCase().includes(query))
-            );
-        });
-    }, [filters.has_permissions, roles, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [filters.has_permissions].filter(Boolean).length;
-    }, [filters.has_permissions]);
+    const handleFiltersChange = (next: RoleFilters) => {
+        list.applyFilters(next);
+    };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.has_permissions) {
-            params.set('has_permissions', filters.has_permissions);
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.has_permissions) params.set('has_permissions', initialFilters.has_permissions);
         params.set('format', format);
-
         return `/organization/roles/export?${params.toString()}`;
     };
 
@@ -154,8 +132,8 @@ export function RolesContent({
 
             <SearchBar
                 placeholder="Search roles by name, slug, company, or permission..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -184,7 +162,7 @@ export function RolesContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredRoles.map((role) => (
+                    {roles.map((role) => (
                         <RoleCard key={role.id} role={role} onEdit={handleEdit} onDelete={handleDelete} />
                     ))}
                 </div>
@@ -200,7 +178,7 @@ export function RolesContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredRoles.map((role) => (
+                                {roles.map((role) => (
                                     <TableRow
                                         key={role.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
@@ -218,10 +196,7 @@ export function RolesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/roles/${role.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/roles/${role.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -231,10 +206,7 @@ export function RolesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(role);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(role); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -244,10 +216,7 @@ export function RolesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(role);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(role); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -262,7 +231,9 @@ export function RolesContent({
                 </Card>
             )}
 
-            {filteredRoles.length === 0 ? <EmptyState title="No roles found." /> : null}
+            {roles.length === 0 ? <EmptyState title="No roles found." /> : null}
+
+            <Pagination {...list.paginationProps} label="roles" />
 
             <RoleFormSheet
                 open={isSheetOpen}
@@ -276,12 +247,11 @@ export function RolesContent({
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
                 value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ has_permissions: '' })}
             />
 
             <RoleDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} role={currentRole} onConfirm={confirmDelete} />
         </Main>
     );
 }
-

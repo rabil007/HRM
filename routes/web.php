@@ -10,7 +10,9 @@ use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeContractController;
 use App\Http\Controllers\Organization\EmployeeController;
+use App\Http\Controllers\Organization\EmployeeDocumentBulkDeleteController;
 use App\Http\Controllers\Organization\EmployeeDocumentController;
+use App\Http\Controllers\Organization\EmployeeDocumentDownloadController;
 use App\Http\Controllers\Organization\EmployeeDocumentsIndexController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeLanguageController;
@@ -90,12 +92,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->middleware('can:employees.update')->name('organization.employees.status');
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');
     Route::get('organization/documents', EmployeeDocumentsIndexController::class)->middleware('can:employees.view')->name('organization.documents');
+    Route::delete('organization/documents/bulk', EmployeeDocumentBulkDeleteController::class)->middleware('can:employees.documents.delete')->name('organization.documents.bulk-delete');
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.store');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.update');
     Route::post('organization/employees/{employee}/documents/{document}/replace', [EmployeeDocumentController::class, 'replace'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.replace');
     Route::delete('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'destroy'])->middleware('can:employees.documents.delete')->name('organization.employees.documents.destroy');
     Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->middleware('can:employees.view')->name('organization.employees.documents.versions');
+    Route::get('organization/employees/{employee}/documents/download', EmployeeDocumentDownloadController::class)->middleware('can:employees.view')->name('organization.employees.documents.download');
 
     Route::post('organization/employees/{employee}/contracts', [EmployeeContractController::class, 'store'])->middleware('can:employees.contracts.manage')->name('organization.employees.contracts.store');
     Route::put('organization/employees/{employee}/contracts/{employeeContract}', [EmployeeContractController::class, 'update'])->middleware('can:employees.contracts.manage')->name('organization.employees.contracts.update');

@@ -9,6 +9,7 @@ use App\Http\Requests\Organization\User\UpdateUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
 use App\Models\User;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,6 +25,8 @@ use Spatie\Permission\PermissionRegistrar;
 
 class UserController extends Controller
 {
+    use ResolvesPerPage;
+
     private function avatarUrl(?string $value): ?string
     {
         if (! $value) {
@@ -40,11 +43,24 @@ class UserController extends Controller
     public function index()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $perPage = $this->resolvePerPage(request());
+        $search = trim((string) request()->query('search', ''));
+        $status = trim((string) request()->query('status', ''));
 
-        $users = User::query()
+        $paginator = User::query()
             ->where('company_id', $companyId)
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
             ->latest('id')
-            ->paginate(20);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $users = $paginator;
 
         $roleRows = DB::table('spatie_model_has_roles')
             ->join('spatie_roles', 'spatie_roles.id', '=', 'spatie_model_has_roles.role_id')
@@ -92,7 +108,12 @@ class UserController extends Controller
             ->get(['id', 'name']);
 
         return Inertia::render('organization/users', [
-            'users' => $users,
+            'users' => $users->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'status' => $status,
+            ],
             'roles' => $roles,
         ]);
     }

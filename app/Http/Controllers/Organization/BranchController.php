@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\Branch\UpdateBranchStatusRequest;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -19,39 +20,76 @@ use Spatie\Activitylog\Models\Activity;
 
 class BranchController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $perPage = $this->resolvePerPage(request());
+        $search = trim((string) request()->query('search', ''));
+        $country = trim((string) request()->query('country', ''));
+        $status = trim((string) request()->query('status', ''));
+        $city = trim((string) request()->query('city', ''));
+        $headquartersOnly = filter_var(request()->query('headquartersOnly', false), FILTER_VALIDATE_BOOL);
+        $hasEmail = filter_var(request()->query('hasEmail', false), FILTER_VALIDATE_BOOL);
+        $hasPhone = filter_var(request()->query('hasPhone', false), FILTER_VALIDATE_BOOL);
 
         $countries = Country::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['code', 'name', 'dial_code']);
 
-        $branches = Branch::query()
+        $paginator = Branch::query()
             ->where('company_id', $companyId)
+            ->when($country, fn ($q) => $q->where('country', $country))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($city, fn ($q) => $q->where('city', 'like', "%{$city}%"))
+            ->when($headquartersOnly, fn ($q) => $q->where('is_headquarters', true))
+            ->when($hasEmail, fn ($q) => $q->whereNotNull('email')->where('email', '!=', ''))
+            ->when($hasPhone, fn ($q) => $q->whereNotNull('phone')->where('phone', '!=', ''))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%")
+                        ->orWhere('country', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (Branch $branch) => [
-                'id' => $branch->id,
-                'company' => [
-                    'id' => $branch->company_id,
-                    'name' => null,
-                ],
-                'name' => $branch->name,
-                'code' => $branch->code,
-                'address' => $branch->address,
-                'city' => $branch->city,
-                'country' => $branch->country,
-                'phone' => $branch->phone,
-                'email' => $branch->email,
-                'is_headquarters' => (bool) $branch->is_headquarters,
-                'status' => $branch->status,
-                'created_at' => $branch->created_at,
-            ]);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $branches = $paginator->through(fn (Branch $branch) => [
+            'id' => $branch->id,
+            'company' => [
+                'id' => $branch->company_id,
+                'name' => null,
+            ],
+            'name' => $branch->name,
+            'code' => $branch->code,
+            'address' => $branch->address,
+            'city' => $branch->city,
+            'country' => $branch->country,
+            'phone' => $branch->phone,
+            'email' => $branch->email,
+            'is_headquarters' => (bool) $branch->is_headquarters,
+            'status' => $branch->status,
+            'created_at' => $branch->created_at,
+        ]);
 
         return Inertia::render('organization/branches', [
-            'branches' => $branches,
+            'branches' => $branches->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'country' => $country,
+                'status' => $status,
+                'city' => $city,
+                'headquartersOnly' => $headquartersOnly,
+                'hasEmail' => $hasEmail,
+                'hasPhone' => $hasPhone,
+            ],
             'countries' => $countries,
         ]);
     }

@@ -1,25 +1,31 @@
 import { Head } from '@inertiajs/react';
 import { BranchesContent } from '@/features/organization/branches';
 import type { Branch, Country } from '@/features/organization/branches/types';
-
-type Pagination<T> = {
-    data: T[];
-    links: unknown;
-    meta: unknown;
-};
+import type { PaginationMeta } from '@/types/pagination';
 
 export default function Branches({
     branches,
+    pagination,
+    search,
+    filters,
     countries,
 }: {
-    branches: Pagination<Branch>;
+    branches: Branch[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { country: string; status: string; city: string; headquartersOnly: boolean; hasEmail: boolean; hasPhone: boolean };
     countries: Country[];
 }) {
     return (
         <>
             <Head title="Branches Management" />
-            <BranchesContent branches={branches.data} countries={countries} />
+            <BranchesContent
+                branches={branches}
+                pagination={pagination}
+                search={search}
+                filters={filters}
+                countries={countries}
+            />
         </>
     );
 }
-

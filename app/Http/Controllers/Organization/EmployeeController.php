@@ -33,6 +33,7 @@ use App\Models\VesselType;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\OnboardingTemplateImportFields;
 use App\Support\OnboardingTemplateTabVisibility;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -45,9 +46,17 @@ use Maatwebsite\Excel\Facades\Excel;
 
 class EmployeeController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $perPage = $this->resolvePerPage(request());
+        $search = trim((string) request()->query('search', ''));
+        $branchId = trim((string) request()->query('branch_id', ''));
+        $departmentId = trim((string) request()->query('department_id', ''));
+        $positionId = trim((string) request()->query('position_id', ''));
+        $status = trim((string) request()->query('status', ''));
 
         $branches = Branch::query()
             ->where('company_id', $companyId)
@@ -94,7 +103,7 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $employees = Employee::query()
+        $paginator = Employee::query()
             ->with([
                 'branch:id,name',
                 'department:id,name',
@@ -108,80 +117,103 @@ class EmployeeController extends Controller
                 'currentContract',
             ])
             ->where('company_id', $companyId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($departmentId, fn ($q) => $q->where('department_id', $departmentId))
+            ->when($positionId, fn ($q) => $q->where('position_id', $positionId))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('employee_no', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('work_email', 'like', "%{$search}%")
+                        ->orWhere('personal_email', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%");
+                });
+            })
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (Employee $employee) => [
-                'id' => $employee->id,
-                'user_id' => $employee->user_id,
-                'branch_id' => $employee->branch_id,
-                'department_id' => $employee->department_id,
-                'position_id' => $employee->position_id,
-                'manager_id' => $employee->manager_id,
-                'employee_no' => $employee->employee_no,
-                'image' => $employee->image,
-                'name' => $employee->name,
-                'branch' => $employee->branch_id ? [
-                    'id' => $employee->branch_id,
-                    'name' => $employee->branch?->name,
-                ] : null,
-                'department' => $employee->department_id ? [
-                    'id' => $employee->department_id,
-                    'name' => $employee->department?->name,
-                ] : null,
-                'position' => $employee->position_id ? [
-                    'id' => $employee->position_id,
-                    'title' => $employee->position?->title,
-                ] : null,
-                'work_email' => $employee->work_email,
-                'personal_email' => $employee->personal_email,
-                'phone' => $employee->phone,
-                'phone_home_country' => $employee->phone_home_country,
-                'nearest_airport' => $employee->nearest_airport,
-                'cv_source' => $employee->cv_source,
-                'emergency_contact' => $employee->emergency_contact,
-                'emergency_phone' => $employee->emergency_phone,
-                'emergency_contact_home_country' => $employee->emergency_contact_home_country,
-                'emergency_phone_home_country' => $employee->emergency_phone_home_country,
-                'date_of_birth' => $employee->date_of_birth,
-                'place_of_birth' => $employee->place_of_birth,
-                'gender_id' => $employee->gender_id,
-                'gender_ref' => $employee->gender_id ? [
-                    'id' => $employee->gender_id,
-                    'name' => $employee->genderRef?->name,
-                ] : null,
-                'religion_id' => $employee->religion_id,
-                'religion_ref' => $employee->religion_id ? [
-                    'id' => $employee->religion_id,
-                    'name' => $employee->religionRef?->name,
-                ] : null,
-                'nationality_id' => $employee->nationality_id,
-                'nationality_ref' => $employee->nationality_id ? [
-                    'id' => $employee->nationality_id,
-                    'name' => $employee->nationalityRef?->name,
-                    'code' => $employee->nationalityRef?->code,
-                ] : null,
-                'marital_status' => $employee->marital_status,
-                'spouse_name' => $employee->spouse_name,
-                'spouse_birthdate' => $employee->spouse_birthdate,
-                'dependent_children_count' => $employee->dependent_children_count,
-                'passport_number' => $employee->passport_number,
-                'emirates_id' => $employee->emirates_id,
-                'bank_id' => $employee->primaryBankAccount?->bank_id,
-                'bank' => $employee->primaryBankAccount?->bank_id ? [
-                    'id' => $employee->primaryBankAccount->bank_id,
-                    'name' => $employee->primaryBankAccount->bank?->name,
-                ] : null,
-                'status' => $employee->status,
-                'iban' => $employee->primaryBankAccount?->iban,
-                'start_date' => $employee->currentContract?->start_date,
-                'contract_type' => $employee->currentContract?->contract_type,
-                'end_date' => $employee->currentContract?->end_date,
-                'labor_contract_id' => $employee->currentContract?->labor_contract_id,
-                'created_at' => $employee->created_at,
-            ]);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $employees = $paginator->through(fn (Employee $employee) => [
+            'id' => $employee->id,
+            'user_id' => $employee->user_id,
+            'branch_id' => $employee->branch_id,
+            'department_id' => $employee->department_id,
+            'position_id' => $employee->position_id,
+            'manager_id' => $employee->manager_id,
+            'employee_no' => $employee->employee_no,
+            'image' => $employee->image,
+            'name' => $employee->name,
+            'branch' => $employee->branch_id ? [
+                'id' => $employee->branch_id,
+                'name' => $employee->branch?->name,
+            ] : null,
+            'department' => $employee->department_id ? [
+                'id' => $employee->department_id,
+                'name' => $employee->department?->name,
+            ] : null,
+            'position' => $employee->position_id ? [
+                'id' => $employee->position_id,
+                'title' => $employee->position?->title,
+            ] : null,
+            'work_email' => $employee->work_email,
+            'personal_email' => $employee->personal_email,
+            'phone' => $employee->phone,
+            'phone_home_country' => $employee->phone_home_country,
+            'nearest_airport' => $employee->nearest_airport,
+            'cv_source' => $employee->cv_source,
+            'emergency_contact' => $employee->emergency_contact,
+            'emergency_phone' => $employee->emergency_phone,
+            'emergency_contact_home_country' => $employee->emergency_contact_home_country,
+            'emergency_phone_home_country' => $employee->emergency_phone_home_country,
+            'date_of_birth' => $employee->date_of_birth,
+            'place_of_birth' => $employee->place_of_birth,
+            'gender_id' => $employee->gender_id,
+            'gender_ref' => $employee->gender_id ? [
+                'id' => $employee->gender_id,
+                'name' => $employee->genderRef?->name,
+            ] : null,
+            'religion_id' => $employee->religion_id,
+            'religion_ref' => $employee->religion_id ? [
+                'id' => $employee->religion_id,
+                'name' => $employee->religionRef?->name,
+            ] : null,
+            'nationality_id' => $employee->nationality_id,
+            'nationality_ref' => $employee->nationality_id ? [
+                'id' => $employee->nationality_id,
+                'name' => $employee->nationalityRef?->name,
+                'code' => $employee->nationalityRef?->code,
+            ] : null,
+            'marital_status' => $employee->marital_status,
+            'spouse_name' => $employee->spouse_name,
+            'spouse_birthdate' => $employee->spouse_birthdate,
+            'dependent_children_count' => $employee->dependent_children_count,
+            'passport_number' => $employee->passport_number,
+            'emirates_id' => $employee->emirates_id,
+            'bank_id' => $employee->primaryBankAccount?->bank_id,
+            'bank' => $employee->primaryBankAccount?->bank_id ? [
+                'id' => $employee->primaryBankAccount->bank_id,
+                'name' => $employee->primaryBankAccount->bank?->name,
+            ] : null,
+            'status' => $employee->status,
+            'iban' => $employee->primaryBankAccount?->iban,
+            'start_date' => $employee->currentContract?->start_date,
+            'contract_type' => $employee->currentContract?->contract_type,
+            'end_date' => $employee->currentContract?->end_date,
+            'labor_contract_id' => $employee->currentContract?->labor_contract_id,
+            'created_at' => $employee->created_at,
+        ]);
 
         return Inertia::render('organization/employees', [
-            'employees' => $employees,
+            'employees' => $employees->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'branch_id' => $branchId,
+                'department_id' => $departmentId,
+                'position_id' => $positionId,
+                'status' => $status,
+            ],
             'branches' => $branches,
             'departments' => $departments,
             'positions' => $positions,

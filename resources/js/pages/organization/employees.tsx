@@ -12,15 +12,13 @@ import type {
     ReligionOption,
     UserOption,
 } from '@/features/organization/employees/types';
-
-type Pagination<T> = {
-    data: T[];
-    links: unknown;
-    meta: unknown;
-};
+import type { PaginationMeta } from '@/types/pagination';
 
 export default function Employees({
     employees,
+    pagination,
+    search,
+    filters,
     branches,
     departments,
     positions,
@@ -31,7 +29,10 @@ export default function Employees({
     genders,
     banks,
 }: {
-    employees: Pagination<Employee>;
+    employees: Employee[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { branch_id: string; department_id: string; position_id: string; status: string };
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
@@ -46,7 +47,10 @@ export default function Employees({
         <>
             <Head title="Employees" />
             <EmployeesContent
-                employees={employees.data}
+                employees={employees}
+                pagination={pagination}
+                search={search}
+                filters={filters}
                 branches={branches}
                 departments={departments}
                 positions={positions}
@@ -60,4 +64,3 @@ export default function Employees({
         </>
     );
 }
-

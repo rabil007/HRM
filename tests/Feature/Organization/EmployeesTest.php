@@ -1048,3 +1048,41 @@ test('employee import assigns onboarding_template_id to imported employees', fun
         'onboarding_template_id' => $template->id,
     ]);
 });
+
+test('employees index respects per_page query parameter', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TPG',
+        'name' => 'Pageland',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TPG',
+        'name' => 'Page Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Pager Co',
+        'slug' => 'pager-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get('/organization/employees?per_page=15')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('pagination.per_page', 15)
+        );
+});

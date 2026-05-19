@@ -3,28 +3,24 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
-use App\Models\Branch;
-use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\EmployeeDocument;
+use App\Support\Pagination\ResolvesPerPage;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
 class EmployeeDocumentsIndexController extends Controller
 {
+    use ResolvesPerPage;
+
     public function __invoke(Request $request)
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $status = $request->query('status');
+        $perPage = $this->resolvePerPage($request, default: 25);
         $search = trim((string) $request->query('search', ''));
         $documentType = trim((string) $request->query('document_type', ''));
-        $branchId = trim((string) $request->query('branch_id', ''));
-        $departmentId = trim((string) $request->query('department_id', ''));
-        $expiryFrom = trim((string) $request->query('expiry_from', ''));
-        $expiryTo = trim((string) $request->query('expiry_to', ''));
-        $uploadedFrom = trim((string) $request->query('uploaded_from', ''));
-        $uploadedTo = trim((string) $request->query('uploaded_to', ''));
+        $expiryWithin = (int) $request->query('expiry_within', 0);
 
         $query = EmployeeDocument::query()
             ->where('employee_documents.company_id', $companyId)
@@ -49,10 +45,7 @@ class EmployeeDocumentsIndexController extends Controller
                 'document_types.title as document_type_title',
                 'employees.name',
                 'employees.employee_no',
-                'employees.branch_id',
-                'employees.department_id',
             ])
-            ->when($status, fn ($q) => $q->where('employee_documents.status', $status))
             ->when($documentType, function ($q) use ($documentType) {
                 $q->where(function ($inner) use ($documentType) {
                     if (ctype_digit($documentType)) {
@@ -62,27 +55,24 @@ class EmployeeDocumentsIndexController extends Controller
                     }
                 });
             })
-            ->when($branchId, fn ($q) => $q->where('employees.branch_id', $branchId))
-            ->when($departmentId, fn ($q) => $q->where('employees.department_id', $departmentId))
-            ->when($expiryFrom, fn ($q) => $q->whereDate('employee_documents.expiry_date', '>=', $expiryFrom))
-            ->when($expiryTo, fn ($q) => $q->whereDate('employee_documents.expiry_date', '<=', $expiryTo))
-            ->when($uploadedFrom, fn ($q) => $q->whereDate('employee_documents.created_at', '>=', $uploadedFrom))
-            ->when($uploadedTo, fn ($q) => $q->whereDate('employee_documents.created_at', '<=', $uploadedTo))
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('employees.name', 'like', "%{$search}%")
-                        ->orWhere('employees.employee_no', 'like', "%{$search}%")
-                        ->orWhere('employee_documents.document_type', 'like', "%{$search}%")
-                        ->orWhere('document_types.title', 'like', "%{$search}%")
-                        ->orWhere('employee_documents.title', 'like', "%{$search}%")
-                        ->orWhere('employee_documents.document_number', 'like', "%{$search}%");
+                        ->orWhere('employees.employee_no', 'like', "%{$search}%");
                 });
+            })
+            ->when($expiryWithin > 0, function ($q) use ($expiryWithin) {
+                $q->whereNotNull('employee_documents.expiry_date')
+                    ->whereBetween('employee_documents.expiry_date', [
+                        Carbon::today(),
+                        Carbon::today()->addDays($expiryWithin),
+                    ]);
             })
             ->orderByRaw('CASE WHEN employee_documents.expiry_date IS NULL THEN 1 ELSE 0 END')
             ->orderBy('employee_documents.expiry_date')
             ->orderByDesc('employee_documents.id');
 
-        $paginator = $query->paginate(25)->withQueryString();
+        $paginator = $query->paginate($perPage)->withQueryString();
 
         $documents = collect($paginator->items())->map(fn ($doc) => [
             'id' => $doc->id,
@@ -116,39 +106,18 @@ class EmployeeDocumentsIndexController extends Controller
 
         return Inertia::render('organization/documents', [
             'documents' => $documents,
-            'pagination' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-                'from' => $paginator->firstItem(),
-                'to' => $paginator->lastItem(),
-            ],
+            'pagination' => $this->paginationMeta($paginator),
             'counts' => $counts,
-            'active_status' => $status,
             'search' => $search,
             'filters' => [
                 'document_type' => $documentType,
-                'branch_id' => $branchId,
-                'department_id' => $departmentId,
-                'expiry_from' => $expiryFrom,
-                'expiry_to' => $expiryTo,
-                'uploaded_from' => $uploadedFrom,
-                'uploaded_to' => $uploadedTo,
+                'expiry_within' => $expiryWithin ?: '',
             ],
             'filter_options' => [
                 'document_types' => DocumentType::query()
                     ->where('is_active', true)
                     ->orderBy('title')
                     ->get(['id', 'title']),
-                'branches' => Branch::query()
-                    ->where('company_id', $companyId)
-                    ->orderBy('name')
-                    ->get(['id', 'name']),
-                'departments' => Department::query()
-                    ->where('company_id', $companyId)
-                    ->orderBy('name')
-                    ->get(['id', 'name']),
             ],
         ]);
     }

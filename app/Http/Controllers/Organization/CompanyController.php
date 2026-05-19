@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\Company\UpdateCompanyStatusRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
@@ -25,10 +26,18 @@ use Spatie\Permission\PermissionRegistrar;
 
 class CompanyController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index()
     {
         /** @var FilesystemAdapter $publicDisk */
         $publicDisk = Storage::disk('public');
+
+        $perPage = $this->resolvePerPage(request(), default: 12, allowed: [10, 12, 15, 20, 25, 30, 50, 100]);
+        $search = trim((string) request()->query('search', ''));
+        $industry = trim((string) request()->query('industry', ''));
+        $country = trim((string) request()->query('country', ''));
+        $currency = trim((string) request()->query('currency', ''));
 
         $countries = Country::query()
             ->where('is_active', true)
@@ -40,44 +49,63 @@ class CompanyController extends Controller
             ->orderBy('code')
             ->get(['id', 'code', 'name', 'symbol']);
 
-        $companies = Company::query()
+        $paginator = Company::query()
             ->with(['currency:id,code', 'country:id,code,name'])
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('industry', 'like', "%{$search}%")
+                        ->orWhere('city', 'like', "%{$search}%");
+                });
+            })
+            ->when($industry, fn ($q) => $q->where('industry', 'like', "%{$industry}%"))
+            ->when($country, fn ($q) => $q->whereHas('country', fn ($cq) => $cq->where('code', $country)))
+            ->when($currency, fn ($q) => $q->whereHas('currency', fn ($cq) => $cq->where('code', $currency)))
             ->latest('id')
-            ->paginate(12)
-            ->through(fn (Company $company) => [
-                'id' => $company->id,
-                'name' => $company->name,
-                'slug' => $company->slug,
-                'logo_url' => $company->logo ? $publicDisk->url($company->logo) : null,
-                'industry' => $company->industry,
-                'city' => $company->city,
-                'country' => [
-                    'id' => $company->country_id,
-                    'code' => $company->country?->code,
-                    'name' => $company->country?->name,
-                ],
-                'company_size' => $company->company_size,
-                'registration_number' => $company->registration_number,
-                'tax_id' => $company->tax_id,
-                'address' => $company->address,
-                'phone' => $company->phone,
-                'email' => $company->email,
-                'website' => $company->website,
-                'currency' => [
-                    'id' => $company->currency_id,
-                    'code' => $company->currency?->code,
-                ],
-                'timezone' => $company->timezone,
-                'payroll_cycle' => $company->payroll_cycle,
-                'working_days' => $company->working_days,
-                'wps_agent_code' => $company->wps_agent_code,
-                'wps_mol_uid' => $company->wps_mol_uid,
-                'status' => $company->status,
-                'created_at' => $company->created_at,
-            ]);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $companies = $paginator->through(fn (Company $company) => [
+            'id' => $company->id,
+            'name' => $company->name,
+            'slug' => $company->slug,
+            'logo_url' => $company->logo ? $publicDisk->url($company->logo) : null,
+            'industry' => $company->industry,
+            'city' => $company->city,
+            'country' => [
+                'id' => $company->country_id,
+                'code' => $company->country?->code,
+                'name' => $company->country?->name,
+            ],
+            'company_size' => $company->company_size,
+            'registration_number' => $company->registration_number,
+            'tax_id' => $company->tax_id,
+            'address' => $company->address,
+            'phone' => $company->phone,
+            'email' => $company->email,
+            'website' => $company->website,
+            'currency' => [
+                'id' => $company->currency_id,
+                'code' => $company->currency?->code,
+            ],
+            'timezone' => $company->timezone,
+            'payroll_cycle' => $company->payroll_cycle,
+            'working_days' => $company->working_days,
+            'wps_agent_code' => $company->wps_agent_code,
+            'wps_mol_uid' => $company->wps_mol_uid,
+            'status' => $company->status,
+            'created_at' => $company->created_at,
+        ]);
 
         return Inertia::render('organization/companies', [
-            'companies' => $companies,
+            'companies' => $companies->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'industry' => $industry,
+                'country' => $country,
+                'currency' => $currency,
+            ],
             'countries' => $countries,
             'currencies' => $currencies,
         ]);

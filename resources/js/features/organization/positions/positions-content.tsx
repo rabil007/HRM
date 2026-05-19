@@ -1,18 +1,21 @@
 import { router, useForm } from '@inertiajs/react';
 import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { PositionCard } from './components/position-card';
 import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
@@ -20,26 +23,42 @@ import type { PositionFilters } from './components/position-filters-sheet';
 import { PositionFormSheet } from './components/position-form-sheet';
 import type { DepartmentOption, Position, PositionFormData } from './types';
 
-const emptyFilters: PositionFilters = {
-    department_id: '',
-    status: '',
-    grade: '',
-};
-
 export function PositionsContent({
     positions,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     departments,
 }: {
     positions: Position[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { department_id: string; status: string; grade: string };
     departments: DepartmentOption[];
 }) {
+    const list = useServerPaginationFilters({
+        url: '/organization/positions',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('positions:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentPosition, setCurrentPosition] = useState<Position | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState<PositionFilters>(emptyFilters);
+
+    const filters: PositionFilters = {
+        department_id: initialFilters.department_id,
+        status: initialFilters.status,
+        grade: initialFilters.grade,
+    };
+
+    const activeFiltersCount = [
+        initialFilters.department_id,
+        initialFilters.status,
+        initialFilters.grade.trim(),
+    ].filter(Boolean).length;
 
     const form = useForm<PositionFormData>({
         department_id: '',
@@ -54,14 +73,7 @@ export function PositionsContent({
         setCurrentPosition(null);
         form.reset();
         form.clearErrors();
-        form.setData({
-            department_id: '',
-            title: '',
-            grade: '',
-            min_salary: '',
-            max_salary: '',
-            status: 'active',
-        });
+        form.setData({ department_id: '', title: '', grade: '', min_salary: '', max_salary: '', status: 'active' });
         setIsSheetOpen(true);
     };
 
@@ -86,10 +98,7 @@ export function PositionsContent({
     };
 
     const confirmDelete = () => {
-        if (!currentPosition) {
-            return;
-        }
-
+        if (!currentPosition) return;
         router.delete(`/organization/positions/${currentPosition.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -104,9 +113,7 @@ export function PositionsContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -117,69 +124,25 @@ export function PositionsContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/positions', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
     };
 
-    const filteredPositions = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return positions.filter((p) => {
-            if (filters.department_id && String(p.department?.id ?? '') !== filters.department_id) {
-                return false;
-            }
-
-            if (filters.status && (p.status ?? '') !== filters.status) {
-                return false;
-            }
-
-            if (filters.grade.trim() && !(p.grade ?? '').toLowerCase().includes(filters.grade.trim().toLowerCase())) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return (
-                p.title.toLowerCase().includes(query) ||
-                (p.grade ?? '').toLowerCase().includes(query) ||
-                (p.department?.name ?? '').toLowerCase().includes(query)
-            );
-        });
-    }, [positions, filters, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [filters.department_id, filters.status, filters.grade.trim()].filter(Boolean).length;
-    }, [filters]);
+    const handleFiltersChange = (next: PositionFilters) => {
+        list.applyFilters(next);
+    };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.department_id) {
-            params.set('department_id', filters.department_id);
-        }
-
-        if (filters.status) {
-            params.set('status', filters.status);
-        }
-
-        if (filters.grade.trim()) {
-            params.set('grade', filters.grade.trim());
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.department_id) params.set('department_id', initialFilters.department_id);
+        if (initialFilters.status) params.set('status', initialFilters.status);
+        if (initialFilters.grade) params.set('grade', initialFilters.grade);
         params.set('format', format);
-
         return `/organization/positions/export?${params.toString()}`;
     };
 
@@ -198,8 +161,8 @@ export function PositionsContent({
 
             <SearchBar
                 placeholder="Search positions by title, grade, company, or department..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -217,7 +180,6 @@ export function PositionsContent({
                                 </span>
                             ) : null}
                         </Button>
-
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
@@ -229,7 +191,7 @@ export function PositionsContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredPositions.map((position) => (
+                    {positions.map((position) => (
                         <PositionCard
                             key={position.id}
                             position={position}
@@ -255,7 +217,7 @@ export function PositionsContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredPositions.map((position) => (
+                                {positions.map((position) => (
                                     <TableRow
                                         key={position.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
@@ -284,10 +246,7 @@ export function PositionsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/positions/${position.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/positions/${position.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -297,10 +256,7 @@ export function PositionsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(position);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(position); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -310,10 +266,7 @@ export function PositionsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(position);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(position); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -328,7 +281,9 @@ export function PositionsContent({
                 </Card>
             )}
 
-            {filteredPositions.length === 0 ? <EmptyState title="No positions found." /> : null}
+            {positions.length === 0 ? <EmptyState title="No positions found." /> : null}
+
+            <Pagination {...list.paginationProps} label="positions" />
 
             <PositionFormSheet
                 open={isSheetOpen}
@@ -344,8 +299,8 @@ export function PositionsContent({
                 onOpenChange={setIsFiltersOpen}
                 departments={departments}
                 value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ department_id: '', status: '', grade: '' })}
             />
 
             <PositionDeleteDialog
@@ -357,4 +312,3 @@ export function PositionsContent({
         </Main>
     );
 }
-

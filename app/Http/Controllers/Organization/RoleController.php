@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Exports\RolesExport;
 use App\Http\Controllers\Controller;
 use App\Models\Company;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -15,20 +16,30 @@ use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $perPage = $this->resolvePerPage(request());
+        $search = trim((string) request()->query('search', ''));
+        $hasPermissions = trim((string) request()->query('has_permissions', ''));
 
-        $roles = Role::query()
+        $paginator = Role::query()
             ->where('company_id', $companyId)
+            ->when($search, fn ($q) => $q->where('name', 'like', "%{$search}%"))
+            ->when($hasPermissions === 'true', fn ($q) => $q->has('permissions'))
+            ->when($hasPermissions === 'false', fn ($q) => $q->doesntHave('permissions'))
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (Role $role) => [
-                'id' => $role->id,
-                'name' => $role->name,
-                'permissions' => $role->permissions()->pluck('name')->all(),
-                'created_at' => $role->created_at,
-            ]);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $roles = $paginator->through(fn (Role $role) => [
+            'id' => $role->id,
+            'name' => $role->name,
+            'permissions' => $role->permissions()->pluck('name')->all(),
+            'created_at' => $role->created_at,
+        ]);
 
         $permissions = Permission::query()
             ->where('guard_name', 'web')
@@ -38,7 +49,12 @@ class RoleController extends Controller
         $company = Company::query()->whereKey($companyId)->first(['id', 'name']);
 
         return Inertia::render('organization/roles', [
-            'roles' => $roles,
+            'roles' => $roles->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'has_permissions' => $hasPermissions,
+            ],
             'company' => $company,
             'permissions' => $permissions,
         ]);

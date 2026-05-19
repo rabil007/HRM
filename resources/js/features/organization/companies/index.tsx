@@ -1,55 +1,69 @@
 import { router, useForm } from '@inertiajs/react';
-import {
-    Edit2,
-    Eye,
-    Filter,
-    Plus,
-    Trash2,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { CompanyCard } from './components/company-card';
 import { CompanyDeleteDialog } from './components/company-delete-dialog';
 import { CompanyFiltersSheet } from './components/company-filters-sheet';
+import type { CompanyFilters } from './components/company-filters-sheet';
 import { CompanyFormSheet } from './components/company-form-sheet';
 import type { Company, CompanyFormData, Country, Currency } from './types';
 
-const emptyFilters = {
-    industry: '',
-    country: '',
-    currency: '',
-    hasLogo: false,
-    hasEmail: false,
-    hasWebsite: false,
-};
-
 export function CompaniesContent({
     companies,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     countries,
     currencies,
 }: {
     companies: Company[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { industry: string; country: string; currency: string };
     countries: Country[];
     currencies: Currency[];
 }) {
+    const list = useServerPaginationFilters({
+        url: '/organization/companies',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('companies:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentCompany, setCurrentCompany] = useState<Company | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState(emptyFilters);
+
+    const filters: CompanyFilters = {
+        industry: initialFilters.industry,
+        country: initialFilters.country,
+        currency: initialFilters.currency,
+        hasLogo: false,
+        hasEmail: false,
+        hasWebsite: false,
+    };
+
+    const activeFiltersCount = [
+        initialFilters.industry,
+        initialFilters.country,
+        initialFilters.currency,
+    ].filter(Boolean).length;
 
     const form = useForm<CompanyFormData>({
         logo: null as File | null,
@@ -141,10 +155,7 @@ export function CompaniesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentCompany) {
-            return;
-        }
-
+        if (!currentCompany) return;
         router.delete(`/organization/companies/${currentCompany.id}`, {
             onFinish: () => {
                 setIsDeleteDialogOpen(false);
@@ -159,95 +170,22 @@ export function CompaniesContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
 
-    const filteredCompanies = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-        const industry = filters.industry.trim().toLowerCase();
-        const country = filters.country.trim().toLowerCase();
-        const currency = filters.currency.trim().toLowerCase();
-
-        return companies.filter((c) => {
-            const location = `${c.city ?? ''} ${c.country.code ?? ''}`.trim();
-            const matchesSearch =
-                !query ||
-                c.name.toLowerCase().includes(query) ||
-                (c.industry ?? '').toLowerCase().includes(query) ||
-                location.toLowerCase().includes(query);
-
-            if (!matchesSearch) {
-                return false;
-            }
-
-            if (industry && !(c.industry ?? '').toLowerCase().includes(industry)) {
-                return false;
-            }
-
-            if (
-                country &&
-                !(`${c.country.code ?? ''} ${c.country.name ?? ''}`.trim().toLowerCase().includes(country))
-            ) {
-                return false;
-            }
-
-            if (currency && (c.currency.code ?? '').toLowerCase() !== currency) {
-                return false;
-            }
-
-            if (filters.hasLogo && !c.logo_url) {
-                return false;
-            }
-
-            if (filters.hasEmail && !c.email) {
-                return false;
-            }
-
-            if (filters.hasWebsite && !c.website) {
-                return false;
-            }
-
-            return true;
-        });
-    }, [companies, searchQuery, filters]);
+    const handleFiltersChange = (next: CompanyFilters) => {
+        list.applyFilters({ industry: next.industry, country: next.country, currency: next.currency });
+    };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.industry.trim()) {
-            params.set('industry', filters.industry.trim());
-        }
-
-        if (filters.country.trim()) {
-            params.set('country', filters.country.trim());
-        }
-
-        if (filters.currency.trim()) {
-            params.set('currency', filters.currency.trim());
-        }
-
-        if (filters.hasLogo) {
-            params.set('hasLogo', '1');
-        }
-
-        if (filters.hasEmail) {
-            params.set('hasEmail', '1');
-        }
-
-        if (filters.hasWebsite) {
-            params.set('hasWebsite', '1');
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.industry) params.set('industry', initialFilters.industry);
+        if (initialFilters.country) params.set('country', initialFilters.country);
+        if (initialFilters.currency) params.set('currency', initialFilters.currency);
         params.set('format', format);
-
         return `/organization/companies/export?${params.toString()}`;
     };
 
@@ -257,10 +195,8 @@ export function CompaniesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/companies', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
@@ -282,8 +218,8 @@ export function CompaniesContent({
 
             <SearchBar
                 placeholder="Search companies by name, industry, or location..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -295,6 +231,11 @@ export function CompaniesContent({
                         >
                             <Filter className="mr-2 h-4 w-4" />
                             Filters
+                            {activeFiltersCount ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFiltersCount}
+                                </span>
+                            ) : null}
                         </Button>
 
                         <ExportMenu
@@ -308,7 +249,7 @@ export function CompaniesContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredCompanies.map((company) => (
+                    {companies.map((company) => (
                         <CompanyCard
                             key={company.id}
                             company={company}
@@ -333,29 +274,20 @@ export function CompaniesContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredCompanies.map((company) => (
+                                {companies.map((company) => (
                                     <TableRow
                                         key={company.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
                                         onClick={() => router.visit(`/organization/companies/${company.id}`)}
                                     >
-                                        <TableCell className="pl-4 font-semibold">
-                                            {company.name}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground/80">
-                                            {company.industry ?? '—'}
-                                        </TableCell>
+                                        <TableCell className="pl-4 font-semibold">{company.name}</TableCell>
+                                        <TableCell className="text-muted-foreground/80">{company.industry ?? '—'}</TableCell>
                                         <TableCell className="text-muted-foreground/80">
                                             {[company.city, company.country.name].filter(Boolean).join(', ') || '—'}
                                         </TableCell>
+                                        <TableCell className="text-muted-foreground/80">{company.currency.code ?? '—'}</TableCell>
                                         <TableCell className="text-muted-foreground/80">
-                                            {company.currency.code ?? '—'}
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground/80">
-                                            <div
-                                                className="flex items-center gap-3"
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
+                                            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
                                                 <Switch
                                                     checked={company.status === 'active'}
                                                     onCheckedChange={(checked) => toggleStatus(company, checked)}
@@ -372,10 +304,7 @@ export function CompaniesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/companies/${company.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/companies/${company.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -385,10 +314,7 @@ export function CompaniesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(company);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(company); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -398,10 +324,7 @@ export function CompaniesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteClick(company);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteClick(company); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -416,9 +339,9 @@ export function CompaniesContent({
                 </Card>
             )}
 
-            {filteredCompanies.length === 0 ? (
-                <EmptyState title="No companies found." />
-            ) : null}
+            {companies.length === 0 ? <EmptyState title="No companies found." /> : null}
+
+            <Pagination {...list.paginationProps} label="companies" />
 
             <CompanyFormSheet
                 open={isSheetOpen}
@@ -436,8 +359,8 @@ export function CompaniesContent({
                 countries={countries}
                 currencies={currencies}
                 value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ industry: '', country: '', currency: '', hasLogo: false, hasEmail: false, hasWebsite: false })}
             />
 
             <CompanyDeleteDialog

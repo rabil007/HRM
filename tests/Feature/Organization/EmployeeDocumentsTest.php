@@ -300,10 +300,10 @@ test('document overview supports filters and pagination props', function () {
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?status=expired&document_type='.$visaType->id)
+    $this->get('/organization/documents?document_type='.$visaType->id)
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents')
-            ->where('active_status', 'expired')
+            ->where('filters.document_type', (string) $visaType->id)
             ->has('documents', 1)
             ->has('pagination')
             ->has('filter_options.document_types')

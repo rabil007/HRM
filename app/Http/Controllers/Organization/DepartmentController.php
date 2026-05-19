@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Position;
 use App\Models\User;
+use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -21,9 +22,18 @@ use Spatie\Activitylog\Models\Activity;
 
 class DepartmentController extends Controller
 {
+    use ResolvesPerPage;
+
     public function index()
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+        $perPage = $this->resolvePerPage(request());
+        $search = trim((string) request()->query('search', ''));
+        $branchId = trim((string) request()->query('branch_id', ''));
+        $parentId = trim((string) request()->query('parent_id', ''));
+        $managerId = trim((string) request()->query('manager_id', ''));
+        $status = trim((string) request()->query('status', ''));
+        $code = trim((string) request()->query('code', ''));
 
         $branches = Branch::query()
             ->where('company_id', $companyId)
@@ -39,41 +49,63 @@ class DepartmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $departments = Department::query()
+        $paginator = Department::query()
             ->with([
                 'branch:id,name',
                 'parent:id,name',
                 'manager:id,name',
             ])
             ->where('company_id', $companyId)
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($parentId, fn ($q) => $q->where('parent_id', $parentId))
+            ->when($managerId, fn ($q) => $q->where('manager_id', $managerId))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($code, fn ($q) => $q->where('code', 'like', "%{$code}%"))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
+                });
+            })
             ->latest('id')
-            ->paginate(20)
-            ->through(fn (Department $department) => [
-                'id' => $department->id,
-                'company' => [
-                    'id' => $department->company_id,
-                    'name' => null,
-                ],
-                'branch' => $department->branch_id ? [
-                    'id' => $department->branch_id,
-                    'name' => $department->branch?->name,
-                ] : null,
-                'parent' => $department->parent_id ? [
-                    'id' => $department->parent_id,
-                    'name' => $department->parent?->name,
-                ] : null,
-                'manager' => $department->manager_id ? [
-                    'id' => $department->manager_id,
-                    'name' => $department->manager?->name,
-                ] : null,
-                'name' => $department->name,
-                'code' => $department->code,
-                'status' => $department->status,
-                'created_at' => $department->created_at,
-            ]);
+            ->paginate($perPage)
+            ->withQueryString();
+
+        $departments = $paginator->through(fn (Department $department) => [
+            'id' => $department->id,
+            'company' => [
+                'id' => $department->company_id,
+                'name' => null,
+            ],
+            'branch' => $department->branch_id ? [
+                'id' => $department->branch_id,
+                'name' => $department->branch?->name,
+            ] : null,
+            'parent' => $department->parent_id ? [
+                'id' => $department->parent_id,
+                'name' => $department->parent?->name,
+            ] : null,
+            'manager' => $department->manager_id ? [
+                'id' => $department->manager_id,
+                'name' => $department->manager?->name,
+            ] : null,
+            'name' => $department->name,
+            'code' => $department->code,
+            'status' => $department->status,
+            'created_at' => $department->created_at,
+        ]);
 
         return Inertia::render('organization/departments', [
-            'departments' => $departments,
+            'departments' => $departments->items(),
+            'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'branch_id' => $branchId,
+                'parent_id' => $parentId,
+                'manager_id' => $managerId,
+                'status' => $status,
+                'code' => $code,
+            ],
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,

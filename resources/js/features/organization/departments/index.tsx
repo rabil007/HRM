@@ -1,18 +1,21 @@
 import { router, useForm } from '@inertiajs/react';
 import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { DepartmentCard } from './components/department-card';
 import { DepartmentDeleteDialog } from './components/department-delete-dialog';
 import { DepartmentFiltersSheet } from './components/department-filters-sheet';
@@ -20,32 +23,50 @@ import type { DepartmentFilters } from './components/department-filters-sheet';
 import { DepartmentFormSheet } from './components/department-form-sheet';
 import type { Branch, Department, DepartmentFormData, DepartmentParentOption, Manager } from './types';
 
-const emptyFilters: DepartmentFilters = {
-    branch_id: '',
-    parent_id: '',
-    manager_id: '',
-    status: '',
-    code: '',
-};
-
 export function DepartmentsContent({
     departments,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     branches,
     parents,
     managers,
 }: {
     departments: Department[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
 }) {
+    const list = useServerPaginationFilters({
+        url: '/organization/departments',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('departments:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState<DepartmentFilters>(emptyFilters);
+
+    const filters: DepartmentFilters = {
+        branch_id: initialFilters.branch_id,
+        parent_id: initialFilters.parent_id,
+        manager_id: initialFilters.manager_id,
+        status: initialFilters.status,
+        code: initialFilters.code,
+    };
+
+    const activeFiltersCount = [
+        initialFilters.branch_id,
+        initialFilters.parent_id,
+        initialFilters.manager_id,
+        initialFilters.status,
+        initialFilters.code.trim(),
+    ].filter(Boolean).length;
 
     const form = useForm<DepartmentFormData>({
         branch_id: '',
@@ -60,14 +81,7 @@ export function DepartmentsContent({
         setCurrentDepartment(null);
         form.reset();
         form.clearErrors();
-        form.setData({
-            branch_id: '',
-            parent_id: '',
-            manager_id: '',
-            name: '',
-            code: '',
-            status: 'active',
-        });
+        form.setData({ branch_id: '', parent_id: '', manager_id: '', name: '', code: '', status: 'active' });
         setIsSheetOpen(true);
     };
 
@@ -92,10 +106,7 @@ export function DepartmentsContent({
     };
 
     const confirmDelete = () => {
-        if (!currentDepartment) {
-            return;
-        }
-
+        if (!currentDepartment) return;
         router.delete(`/organization/departments/${currentDepartment.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -110,9 +121,7 @@ export function DepartmentsContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -123,93 +132,27 @@ export function DepartmentsContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/departments', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
     };
 
-    const filteredDepartments = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return departments.filter((d) => {
-            if (filters.branch_id && String(d.branch?.id ?? '') !== filters.branch_id) {
-                return false;
-            }
-
-            if (filters.parent_id && String(d.parent?.id ?? '') !== filters.parent_id) {
-                return false;
-            }
-
-            if (filters.manager_id && String(d.manager?.id ?? '') !== filters.manager_id) {
-                return false;
-            }
-
-            if (filters.status && (d.status ?? '') !== filters.status) {
-                return false;
-            }
-
-            if (filters.code.trim() && !(d.code ?? '').toLowerCase().includes(filters.code.trim().toLowerCase())) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return (
-                d.name.toLowerCase().includes(query) ||
-                (d.code ?? '').toLowerCase().includes(query) ||
-                (d.branch?.name ?? '').toLowerCase().includes(query) ||
-                (d.parent?.name ?? '').toLowerCase().includes(query) ||
-                (d.manager?.name ?? '').toLowerCase().includes(query)
-            );
-        });
-    }, [departments, filters, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [
-            filters.branch_id,
-            filters.parent_id,
-            filters.manager_id,
-            filters.status,
-            filters.code.trim(),
-        ].filter(Boolean).length;
-    }, [filters]);
+    const handleFiltersChange = (next: DepartmentFilters) => {
+        list.applyFilters(next);
+    };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.branch_id) {
-            params.set('branch_id', filters.branch_id);
-        }
-
-        if (filters.parent_id) {
-            params.set('parent_id', filters.parent_id);
-        }
-
-        if (filters.manager_id) {
-            params.set('manager_id', filters.manager_id);
-        }
-
-        if (filters.status) {
-            params.set('status', filters.status);
-        }
-
-        if (filters.code.trim()) {
-            params.set('code', filters.code.trim());
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.branch_id) params.set('branch_id', initialFilters.branch_id);
+        if (initialFilters.parent_id) params.set('parent_id', initialFilters.parent_id);
+        if (initialFilters.manager_id) params.set('manager_id', initialFilters.manager_id);
+        if (initialFilters.status) params.set('status', initialFilters.status);
+        if (initialFilters.code) params.set('code', initialFilters.code);
         params.set('format', format);
-
         return `/organization/departments/export?${params.toString()}`;
     };
 
@@ -228,8 +171,8 @@ export function DepartmentsContent({
 
             <SearchBar
                 placeholder="Search departments by name, code, company, branch, or manager..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -247,7 +190,6 @@ export function DepartmentsContent({
                                 </span>
                             ) : null}
                         </Button>
-
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
@@ -259,7 +201,7 @@ export function DepartmentsContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredDepartments.map((department) => (
+                    {departments.map((department) => (
                         <DepartmentCard
                             key={department.id}
                             department={department}
@@ -285,7 +227,7 @@ export function DepartmentsContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredDepartments.map((department) => (
+                                {departments.map((department) => (
                                     <TableRow
                                         key={department.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
@@ -314,10 +256,7 @@ export function DepartmentsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/departments/${department.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/departments/${department.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -327,10 +266,7 @@ export function DepartmentsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(department);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(department); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -340,10 +276,7 @@ export function DepartmentsContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(department);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(department); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -358,7 +291,9 @@ export function DepartmentsContent({
                 </Card>
             )}
 
-            {filteredDepartments.length === 0 ? <EmptyState title="No departments found." /> : null}
+            {departments.length === 0 ? <EmptyState title="No departments found." /> : null}
+
+            <Pagination {...list.paginationProps} label="departments" />
 
             <DepartmentFormSheet
                 open={isSheetOpen}
@@ -378,8 +313,8 @@ export function DepartmentsContent({
                 parents={parents}
                 managers={managers}
                 value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ branch_id: '', parent_id: '', manager_id: '', status: '', code: '' })}
             />
 
             <DepartmentDeleteDialog
@@ -391,4 +326,3 @@ export function DepartmentsContent({
         </Main>
     );
 }
-

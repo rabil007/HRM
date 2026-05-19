@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Pin } from 'lucide-react';
+import { LayoutGrid, List, Pin, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { setOrganizationDefaultView } from '@/hooks/use-view-preference';
 import type { ViewPreference } from '@/hooks/use-view-preference';
@@ -9,12 +9,16 @@ export function ViewToggle({
     onChange,
     gridLabel = 'Grid view',
     listLabel = 'List view',
+    employeeLabel = 'By employee',
+    showEmployeeView = false,
     defaultLabel = 'Set as default',
 }: {
     value: ViewPreference;
     onChange: (next: ViewPreference) => void;
     gridLabel?: string;
     listLabel?: string;
+    employeeLabel?: string;
+    showEmployeeView?: boolean;
     defaultLabel?: string;
 }) {
     return (
@@ -37,6 +41,17 @@ export function ViewToggle({
             >
                 <List className="h-4 w-4" />
             </Button>
+            {showEmployeeView ? (
+                <Button
+                    type="button"
+                    variant={value === 'employee' ? 'default' : 'ghost'}
+                    className={value === 'employee' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                    onClick={() => onChange('employee')}
+                    title={employeeLabel}
+                >
+                    <Users className="h-4 w-4" />
+                </Button>
+            ) : null}
             <div className="mx-1 h-6 w-px bg-border/60" />
             <Button
                 type="button"
@@ -44,8 +59,10 @@ export function ViewToggle({
                 size="icon"
                 className="h-11 w-11 rounded-lg hover:bg-accent"
                 onClick={() => {
-                    setOrganizationDefaultView(value);
-                    toast.success(`Default view set to ${value === 'list' ? 'List' : 'Grid'}.`);
+                    if (value !== 'employee') {
+                        setOrganizationDefaultView(value);
+                        toast.success(`Default view set to ${value === 'list' ? 'List' : 'Grid'}.`);
+                    }
                 }}
                 title={defaultLabel}
             >

@@ -98,6 +98,21 @@ class EmployeesImport
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     ];
 
+    private const IMPORT_DATE_FIELDS = [
+        'date_of_birth',
+        'spouse_birthdate',
+        'start_date',
+        'end_date',
+    ];
+
+    private const IMPORT_NUMERIC_FIELDS = [
+        'dependent_children_count',
+        'basic_salary',
+        'housing_allowance',
+        'transport_allowance',
+        'other_allowances',
+    ];
+
     public const TEMPLATE_HEADERS = [
         'employee_no',
         'name',
@@ -586,12 +601,24 @@ class EmployeesImport
             $header = $mapping[$field] ?? null;
             $value = $header !== null ? ($row[$header] ?? null) : null;
 
-            if (is_string($value)) {
-                $value = trim($value);
+            if (in_array($field, self::IMPORT_DATE_FIELDS, true)) {
+                if (is_string($value)) {
+                    $value = trim($value);
 
-                if ($value === '') {
-                    $value = null;
+                    if ($value === '') {
+                        $value = null;
+                    }
                 }
+            } elseif (in_array($field, self::IMPORT_NUMERIC_FIELDS, true)) {
+                if (is_string($value)) {
+                    $value = trim($value);
+
+                    if ($value === '') {
+                        $value = null;
+                    }
+                }
+            } else {
+                $value = self::coerceStringCell($value);
             }
 
             $shaped[$field] = $value;
@@ -831,5 +858,46 @@ class EmployeesImport
         $value = preg_replace('/[^a-z0-9]+/', '', $value) ?? $value;
 
         return $value;
+    }
+
+    private static function coerceStringCell(mixed $value): ?string
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (is_bool($value)) {
+            return null;
+        }
+
+        if (is_string($value)) {
+            $trimmed = trim($value);
+
+            return $trimmed === '' ? null : $trimmed;
+        }
+
+        if (is_int($value)) {
+            return (string) $value;
+        }
+
+        if (is_float($value)) {
+            if (! is_finite($value)) {
+                return null;
+            }
+
+            $nearest = round($value, 0, PHP_ROUND_HALF_UP);
+
+            if (abs($value - $nearest) < 1e-9 && abs($nearest) <= (float) PHP_INT_MAX) {
+                return (string) (int) $nearest;
+            }
+
+            $formatted = rtrim(rtrim(sprintf('%.12F', $value), '0'), '.');
+
+            return $formatted === '' ? null : $formatted;
+        }
+
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 }

@@ -1,18 +1,21 @@
 import { router, useForm } from '@inertiajs/react';
 import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { BranchCard } from './components/branch-card';
 import { BranchDeleteDialog } from './components/branch-delete-dialog';
 import { BranchFiltersSheet } from './components/branch-filters-sheet';
@@ -22,25 +25,46 @@ import type { Branch, BranchFormData, Country } from './types';
 
 export function BranchesContent({
     branches,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     countries,
 }: {
     branches: Branch[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { country: string; status: string; city: string; headquartersOnly: boolean; hasEmail: boolean; hasPhone: boolean };
     countries: Country[];
 }) {
+    const list = useServerPaginationFilters({
+        url: '/organization/branches',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('branches:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentBranch, setCurrentBranch] = useState<Branch | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState<BranchFilters>({
-        country: '',
-        status: '',
-        headquartersOnly: false,
-        hasEmail: false,
-        hasPhone: false,
-        city: '',
-    });
+
+    const filters: BranchFilters = {
+        country: initialFilters.country,
+        status: initialFilters.status,
+        city: initialFilters.city,
+        headquartersOnly: initialFilters.headquartersOnly,
+        hasEmail: initialFilters.hasEmail,
+        hasPhone: initialFilters.hasPhone,
+    };
+
+    const activeFiltersCount = [
+        initialFilters.country,
+        initialFilters.status,
+        initialFilters.city,
+        initialFilters.headquartersOnly ? '1' : '',
+        initialFilters.hasEmail ? '1' : '',
+        initialFilters.hasPhone ? '1' : '',
+    ].filter(Boolean).length;
 
     const form = useForm<BranchFormData>({
         name: '',
@@ -96,10 +120,7 @@ export function BranchesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentBranch) {
-            return;
-        }
-
+        if (!currentBranch) return;
         router.delete(`/organization/branches/${currentBranch.id}`, {
             onFinish: () => {
                 setIsDeleteDialogOpen(false);
@@ -114,114 +135,17 @@ export function BranchesContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
 
-    const filteredBranches = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return branches
-            .filter((b) => {
-                if (filters.country && (b.country ?? '') !== filters.country) {
-                    return false;
-                }
-
-                if (filters.status && (b.status ?? '') !== filters.status) {
-                    return false;
-                }
-
-                if (filters.headquartersOnly && b.is_headquarters !== true) {
-                    return false;
-                }
-
-                if (filters.hasEmail && !(b.email ?? '').trim()) {
-                    return false;
-                }
-
-                if (filters.hasPhone && !(b.phone ?? '').trim()) {
-                    return false;
-                }
-
-                if (filters.city && !(b.city ?? '').toLowerCase().includes(filters.city.trim().toLowerCase())) {
-                    return false;
-                }
-
-                return true;
-            })
-            .filter((b) => {
-                if (!query) {
-                    return true;
-                }
-
-                return (
-                    b.name.toLowerCase().includes(query) ||
-                    (b.code ?? '').toLowerCase().includes(query) ||
-                    (`${b.city ?? ''} ${b.country ?? ''}`.trim().toLowerCase().includes(query)) ||
-                    (b.email ?? '').toLowerCase().includes(query)
-                );
-            });
-    }, [branches, filters, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [
-            filters.country,
-            filters.status,
-            filters.city.trim(),
-            filters.headquartersOnly ? '1' : '',
-            filters.hasEmail ? '1' : '',
-            filters.hasPhone ? '1' : '',
-        ].filter(Boolean).length;
-    }, [filters]);
-
-    const resetFilters = () => {
-        setFilters({
-            country: '',
-            status: '',
-            headquartersOnly: false,
-            hasEmail: false,
-            hasPhone: false,
-            city: '',
-        });
+    const handleFiltersChange = (next: BranchFilters) => {
+        list.applyFilters(next);
     };
 
-    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
-        const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.country) {
-            params.set('country', filters.country);
-        }
-
-        if (filters.status) {
-            params.set('status', filters.status);
-        }
-
-        if (filters.city.trim()) {
-            params.set('city', filters.city.trim());
-        }
-
-        if (filters.headquartersOnly) {
-            params.set('headquartersOnly', '1');
-        }
-
-        if (filters.hasEmail) {
-            params.set('hasEmail', '1');
-        }
-
-        if (filters.hasPhone) {
-            params.set('hasPhone', '1');
-        }
-
-        params.set('format', format);
-
-        return `/organization/branches/export?${params.toString()}`;
+    const resetFilters = () => {
+        handleFiltersChange({ country: '', status: '', city: '', headquartersOnly: false, hasEmail: false, hasPhone: false });
     };
 
     const submit = () => {
@@ -230,14 +154,25 @@ export function BranchesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/branches', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
+    };
+
+    const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
+        const params = new URLSearchParams();
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.country) params.set('country', initialFilters.country);
+        if (initialFilters.status) params.set('status', initialFilters.status);
+        if (initialFilters.city) params.set('city', initialFilters.city);
+        if (initialFilters.headquartersOnly) params.set('headquartersOnly', '1');
+        if (initialFilters.hasEmail) params.set('hasEmail', '1');
+        if (initialFilters.hasPhone) params.set('hasPhone', '1');
+        params.set('format', format);
+        return `/organization/branches/export?${params.toString()}`;
     };
 
     return (
@@ -255,8 +190,8 @@ export function BranchesContent({
 
             <SearchBar
                 placeholder="Search branches by name, code, company, or location..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -286,7 +221,7 @@ export function BranchesContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredBranches.map((branch) => (
+                    {branches.map((branch) => (
                         <BranchCard
                             key={branch.id}
                             branch={branch}
@@ -313,7 +248,7 @@ export function BranchesContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredBranches.map((branch) => (
+                                {branches.map((branch) => (
                                     <TableRow
                                         key={branch.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
@@ -345,10 +280,7 @@ export function BranchesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/branches/${branch.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/branches/${branch.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -358,10 +290,7 @@ export function BranchesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(branch);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(branch); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -371,10 +300,7 @@ export function BranchesContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDeleteClick(branch);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteClick(branch); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -389,9 +315,9 @@ export function BranchesContent({
                 </Card>
             )}
 
-            {filteredBranches.length === 0 ? (
-                <EmptyState title="No branches found." />
-            ) : null}
+            {branches.length === 0 ? <EmptyState title="No branches found." /> : null}
+
+            <Pagination {...list.paginationProps} label="branches" />
 
             <BranchFormSheet
                 open={isSheetOpen}
@@ -414,10 +340,9 @@ export function BranchesContent({
                 onOpenChange={setIsFiltersOpen}
                 countries={countries}
                 value={filters}
-                onChange={setFilters}
+                onChange={handleFiltersChange}
                 onReset={resetFilters}
             />
         </Main>
     );
 }
-

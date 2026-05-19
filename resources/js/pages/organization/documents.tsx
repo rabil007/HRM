@@ -1,14 +1,26 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Download, ExternalLink, Eye, FileText, History, Trash2 } from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
+import EmployeeDocumentBulkDelete from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentBulkDeleteController';
+import EmployeeDocumentDownload from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentDownloadController';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ViewToggle } from '@/components/view-toggle';
+import { DocumentCard } from '@/features/organization/employee-documents/document-card';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
-import { DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from '@/features/organization/employee-documents/status';
+import { DocumentVersionsSheet } from '@/features/organization/employee-documents/document-versions-sheet';
+import { DOCUMENT_STATUS_CLASSES, DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from '@/features/organization/employee-documents/status';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import type { PaginationMeta } from '@/types/pagination';
+import { useViewPreference } from '@/hooks/use-view-preference';
+import { formatBytes } from '@/lib/utils';
 
 type DocumentRow = {
     id: number;
@@ -31,85 +43,120 @@ type DocumentRow = {
     created_at: string;
 };
 
-type Pagination = {
-    current_page: number;
-    last_page: number;
-    per_page: number;
-    total: number;
-    from: number | null;
-    to: number | null;
-};
-
 type Props = {
     documents: DocumentRow[];
-    pagination: Pagination;
+    pagination: PaginationMeta;
     counts: Record<string, number>;
-    active_status: string | null;
     search: string;
     filters: {
         document_type: string;
-        branch_id: string;
-        department_id: string;
-        expiry_from: string;
-        expiry_to: string;
-        uploaded_from: string;
-        uploaded_to: string;
+        expiry_within: string;
     };
     filter_options: {
         document_types: { id: number; title: string }[];
-        branches: { id: number; name: string }[];
-        departments: { id: number; name: string }[];
     };
 };
 
-const FILTER_TABS = [
-    { key: null, label: 'All' },
-    { key: 'expired', label: 'Expired' },
-    { key: 'expiring_soon', label: 'Expiring Soon' },
-    { key: 'valid', label: 'Valid' },
-];
-
-function navigate(params: Record<string, string | number | null>) {
-    const clean: Record<string, string> = {};
-    Object.entries(params).forEach(([k, v]) => {
-        if (v !== null && v !== '' && v !== undefined) {
-            clean[k] = String(v);
-        }
-    });
-    router.get('/organization/documents', clean, { preserveScroll: true });
-}
-
-export default function Documents({ documents, pagination, counts, active_status, search, filters, filter_options }: Props) {
-    const [searchInput, setSearchInput] = useState(search);
+export default function Documents({
+    documents,
+    pagination,
+    counts,
+    search,
+    filters,
+    filter_options,
+}: Props) {
     const [previewDoc, setPreviewDoc] = useState<DocumentRow | null>(null);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [versionsDoc, setVersionsDoc] = useState<DocumentRow | null>(null);
+    const [view, setView] = useViewPreference('documents:view', 'list');
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [bulkDeleting, setBulkDeleting] = useState(false);
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
-    const queryState = useMemo(() => ({
-        status: active_status,
-        search,
-        ...filters,
-    }), [active_status, filters, search]);
+    const docIds = useMemo(() => (documents ?? []).map((d) => d.id), [documents]);
+    const allSelected = docIds.length > 0 && docIds.every((id) => selectedIds.has(id));
+    const someSelected = !allSelected && docIds.some((id) => selectedIds.has(id));
 
-    useEffect(() => {
-        if (searchInput === search) {
-            return;
-        }
+    const toggleAll = useCallback(() => {
+        setSelectedIds((prev) => {
+            if (allSelected) {
+                const next = new Set(prev);
+                docIds.forEach((id) => next.delete(id));
 
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-        }
-
-        debounceRef.current = setTimeout(() => {
-            navigate({ ...queryState, search: searchInput, page: null });
-        }, 400);
-
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
+                return next;
             }
-        };
-    }, [queryState, search, searchInput]);
+
+            return new Set([...prev, ...docIds]);
+        });
+    }, [allSelected, docIds]);
+
+    const toggleOne = useCallback((id: number) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+
+            if (next.has(id)) {
+ next.delete(id); 
+} else {
+ next.add(id); 
+}
+
+            return next;
+        });
+    }, []);
+
+    const handleBulkDelete = useCallback(() => {
+        if (selectedIds.size === 0 || bulkDeleting) {
+return;
+}
+
+        if (!window.confirm(`Delete ${selectedIds.size} document(s)? This cannot be undone.`)) {
+return;
+}
+
+        setBulkDeleting(true);
+        router.delete(EmployeeDocumentBulkDelete.url(), {
+            data: { ids: Array.from(selectedIds) },
+            preserveScroll: true,
+            onSuccess: () => setSelectedIds(new Set()),
+            onFinish: () => setBulkDeleting(false),
+        });
+    }, [bulkDeleting, selectedIds]);
+
+    const list = useServerPaginationFilters({
+        url: '/organization/documents',
+        search,
+        filters: {
+            document_type: filters.document_type,
+            expiry_within: filters.expiry_within,
+        },
+        pagination,
+    });
+
+    const employeeGroups = useMemo(() => {
+        const map = new Map<number, { employee_id: number; employee_name: string; employee_no: string; docs: DocumentRow[] }>();
+
+        for (const doc of (documents ?? [])) {
+            const existing = map.get(doc.employee_id);
+
+            if (existing) {
+                existing.docs.push(doc);
+            } else {
+                map.set(doc.employee_id, {
+                    employee_id: doc.employee_id,
+                    employee_name: doc.employee_name,
+                    employee_no: doc.employee_no,
+                    docs: [doc],
+                });
+            }
+        }
+
+        return Array.from(map.values());
+    }, [documents]);
+
+    const expiryChips = [
+        { label: 'Expiring in 30 days', value: '30' },
+        { label: '60 days', value: '60' },
+        { label: '90 days', value: '90' },
+    ];
 
     return (
         <Main>
@@ -120,7 +167,7 @@ export default function Documents({ documents, pagination, counts, active_status
                 description="All employee documents across your organisation."
             />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-2">
+            <div className="grid grid-cols-2 gap-4 mb-2 sm:grid-cols-4">
                 {[
                     { label: 'Total', value: total, className: 'text-foreground' },
                     { label: 'Valid', value: counts.valid ?? 0, className: 'text-emerald-500' },
@@ -136,245 +183,301 @@ export default function Documents({ documents, pagination, counts, active_status
                 ))}
             </div>
 
-            <SearchBar
-                placeholder="Search employee, type, number…"
-                value={searchInput}
-                onChange={setSearchInput}
-                right={
-                    <div className="flex gap-1 bg-muted/40 rounded-lg p-1 border border-border">
-                        {FILTER_TABS.map((t) => (
-                            <button
-                                key={String(t.key)}
-                                type="button"
-                                onClick={() => navigate({ ...queryState, status: t.key, page: null })}
-                                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap ${
-                                    active_status === t.key
-                                        ? 'bg-background text-foreground shadow-sm border border-border'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                }`}
-                            >
-                                {t.label}
-                                {t.key && counts[t.key] ? (
-                                    <span className="ml-1.5 tabular-nums opacity-60">{counts[t.key]}</span>
-                                ) : null}
-                            </button>
-                        ))}
+            <div className="mb-6 rounded-xl border border-border/50 bg-card/30 p-3 shadow-sm">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
+                    <div className="flex min-w-0 flex-1 flex-col gap-1">
+                        <span className="text-xs font-medium text-muted-foreground">Search</span>
+                        <SearchBar
+                            className="mb-0 flex-1 [&>div]:w-full"
+                            inputClassName="h-10 rounded-lg py-2 text-sm"
+                            placeholder="Search by employee name or number…"
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                        />
                     </div>
-                }
-            />
+                    <label className="flex w-full shrink-0 flex-col gap-1 sm:w-56">
+                        <span className="text-xs font-medium text-muted-foreground">Document type</span>
+                        <select
+                            value={filters.document_type}
+                            onChange={(e) =>
+                                list.applyFilters({ document_type: e.target.value })
+                            }
+                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                        >
+                            <option value="">All document types</option>
+                            {(filter_options?.document_types ?? []).map((type) => (
+                                <option key={type.id} value={String(type.id)}>
+                                    {type.title}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+                    <div className="flex shrink-0 flex-col gap-1">
+                        <span className="text-xs font-medium text-muted-foreground">View</span>
+                        <ViewToggle value={view} onChange={setView} showEmployeeView employeeLabel="By employee" />
+                    </div>
+                </div>
+            </div>
 
-            <Card className="glass-card">
-                <CardContent className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-8">
-                    <select
-                        value={filters.document_type}
-                        onChange={(e) => navigate({ ...queryState, document_type: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+            <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-medium text-muted-foreground">Expiry:</span>
+                {expiryChips.map((chip) => (
+                    <button
+                        key={chip.value}
+                        type="button"
+                        onClick={() => list.visit({
+                            expiry_within: filters.expiry_within === chip.value ? '' : chip.value,
+                            page: null,
+                        })}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                            filters.expiry_within === chip.value
+                                ? 'border-amber-500/60 bg-amber-500/15 text-amber-400'
+                                : 'border-border/60 bg-muted/30 text-muted-foreground hover:border-amber-500/40 hover:text-amber-400'
+                        }`}
                     >
-                        <option value="">All document types</option>
-                        {filter_options.document_types.map((type) => (
-                            <option key={type.id} value={String(type.id)}>{type.title}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filters.branch_id}
-                        onChange={(e) => navigate({ ...queryState, branch_id: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                    >
-                        <option value="">All branches</option>
-                        {filter_options.branches.map((branch) => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                        ))}
-                    </select>
-                    <select
-                        value={filters.department_id}
-                        onChange={(e) => navigate({ ...queryState, department_id: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                    >
-                        <option value="">All departments</option>
-                        {filter_options.departments.map((department) => (
-                            <option key={department.id} value={department.id}>{department.name}</option>
-                        ))}
-                    </select>
-                    <input
-                        type="date"
-                        value={filters.expiry_from}
-                        onChange={(e) => navigate({ ...queryState, expiry_from: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                        aria-label="Expiry from"
-                    />
-                    <input
-                        type="date"
-                        value={filters.expiry_to}
-                        onChange={(e) => navigate({ ...queryState, expiry_to: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                        aria-label="Expiry to"
-                    />
-                    <input
-                        type="date"
-                        value={filters.uploaded_from}
-                        onChange={(e) => navigate({ ...queryState, uploaded_from: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                        aria-label="Uploaded from"
-                    />
-                    <input
-                        type="date"
-                        value={filters.uploaded_to}
-                        onChange={(e) => navigate({ ...queryState, uploaded_to: e.target.value, page: null })}
-                        className="h-9 rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
-                        aria-label="Uploaded to"
-                    />
+                        {chip.label}
+                    </button>
+                ))}
+                {filters.expiry_within ? (
                     <button
                         type="button"
-                        onClick={() => navigate({ status: active_status, search, page: null })}
-                        className="h-9 rounded-md border border-border px-3 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                        onClick={() => list.visit({ expiry_within: '', page: null })}
+                        className="ml-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
                     >
-                        Clear filters
+                        Clear
                     </button>
-                </CardContent>
-            </Card>
+                ) : null}
+            </div>
 
-            <Card className="glass-card w-full overflow-hidden">
-                <CardContent className="w-full p-0 min-h-[360px]">
-                    <Table className="min-w-[900px]">
-                        <TableHeader>
-                            <TableRow className="border-border/60">
-                                <TableHead className="pl-4">Employee</TableHead>
-                                <TableHead>Type</TableHead>
-                                <TableHead>Title</TableHead>
-                                <TableHead>Number</TableHead>
-                                <TableHead>Issue Date</TableHead>
-                                <TableHead>Expiry Date</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead className="pr-4 text-right">File</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {documents.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={8} className="py-16 text-center">
-                                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                                            <FileText className="h-8 w-8 opacity-30" />
-                                            <p className="text-sm">No documents found.</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                documents.map((doc) => (
-                                    <TableRow key={doc.id} className="border-border/40 hover:bg-accent/40">
-                                        <TableCell className="pl-4">
-                                            <Link
-                                                href={`/organization/employees/${doc.employee_id}#documents`}
-                                                className="font-semibold text-foreground hover:text-primary transition-colors"
-                                            >
-                                                {doc.employee_name}
-                                            </Link>
-                                            <div className="text-xs text-muted-foreground/70">{doc.employee_no}</div>
-                                        </TableCell>
-                                        <TableCell className="text-muted-foreground/80 text-xs">{doc.document_type_label ?? doc.document_type ?? '—'}</TableCell>
-                                        <TableCell className="text-muted-foreground/80">{doc.title ?? '—'}</TableCell>
-                                        <TableCell className="font-mono text-xs text-muted-foreground/80">{doc.document_number ?? '—'}</TableCell>
-                                        <TableCell className="text-xs text-muted-foreground/80">{doc.issue_date ?? '—'}</TableCell>
-                                        <TableCell className={`text-xs font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : 'text-muted-foreground/80'}`}>
-                                            {doc.expiry_date ?? '—'}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={DOCUMENT_STATUS_VARIANTS[doc.status ?? ''] ?? 'outline'}>
-                                                {documentStatusLabel(doc.status)}
-                                            </Badge>
-                                        </TableCell>
-                                        <TableCell className="pr-4 text-right">
-                                            <div className="flex justify-end gap-3">
-                                                {doc.can_preview ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPreviewDoc(doc)}
-                                                        className="text-xs font-medium text-primary hover:underline"
-                                                    >
-                                                        Preview
-                                                    </button>
-                                                ) : null}
-                                                <a
-                                                    href={doc.file_url}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="text-xs font-medium text-muted-foreground hover:text-primary hover:underline"
+            {view === 'employee' ? (
+                <>
+                    {employeeGroups.length === 0 ? (
+                        <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 text-muted-foreground">
+                            <FileText className="h-10 w-10 opacity-20" />
+                            <p className="text-sm">No documents found.</p>
+                        </div>
+                    ) : (
+                        <div className="space-y-6">
+                            {employeeGroups.map((group) => {
+                                const expired = group.docs.filter((d) => d.status === 'expired').length;
+                                const expiring = group.docs.filter((d) => d.status === 'expiring_soon').length;
+
+                                return (
+                                    <div key={group.employee_id}>
+                                        <div className="mb-3 flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary uppercase">
+                                                {(group.employee_name ?? '?').charAt(0)}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <Link
+                                                    href={`/organization/employees/${group.employee_id}#documents`}
+                                                    className="font-semibold text-foreground hover:text-primary transition-colors"
                                                 >
-                                                    View
+                                                    {group.employee_name}
+                                                </Link>
+                                                <p className="text-xs text-muted-foreground/60">{group.employee_no}</p>
+                                            </div>
+                                            <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground/70">
+                                                <span className="tabular-nums">{group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}</span>
+                                                {expired > 0 ? <span className="text-red-400">{expired} expired</span> : null}
+                                                {expiring > 0 ? <span className="text-amber-400">{expiring} expiring</span> : null}
+                                                <a
+                                                    href={EmployeeDocumentDownload.url(group.employee_id)}
+                                                    className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
+                                                    title="Download all as ZIP"
+                                                >
+                                                    <Download className="h-3 w-3" />
+                                                    ZIP
                                                 </a>
+                                            </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 pl-12">
+                                            {group.docs.map((doc) => (
+                                                <DocumentCard key={doc.id} doc={doc} onPreview={setPreviewDoc} onViewHistory={setVersionsDoc} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <Pagination {...list.paginationProps} label="documents" />
+                </>
+            ) : view === 'grid' ? (
+                <>
+                    {(documents ?? []).length === 0 ? (
+                        <div className="flex min-h-[360px] flex-col items-center justify-center gap-3 text-muted-foreground">
+                            <FileText className="h-10 w-10 opacity-20" />
+                            <p className="text-sm">No documents found.</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+                            {(documents ?? []).map((doc) => (
+                                <DocumentCard key={doc.id} doc={doc} onPreview={setPreviewDoc} onViewHistory={setVersionsDoc} />
+                            ))}
+                        </div>
+                    )}
+                    <Pagination {...list.paginationProps} label="documents" />
+                </>
+            ) : (
+                <>
+                {selectedIds.size > 0 && (
+                    <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+                        <span className="text-sm font-medium text-foreground">
+                            {selectedIds.size} selected
+                        </span>
+                        <div className="ml-auto flex items-center gap-2">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                                onClick={() => setSelectedIds(new Set())}
+                            >
+                                Clear
+                            </Button>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="h-8 gap-1.5 rounded-lg text-xs"
+                                onClick={handleBulkDelete}
+                                disabled={bulkDeleting}
+                            >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+                <Card className="glass-card w-full overflow-hidden">
+                    <CardContent className="w-full p-0 min-h-[360px]">
+                        <Table className="min-w-[900px]">
+                            <TableHeader>
+                                <TableRow className="border-border/60">
+                                    <TableHead className="w-10 pl-4">
+                                        <Checkbox
+                                            checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                                            onCheckedChange={toggleAll}
+                                            aria-label="Select all"
+                                        />
+                                    </TableHead>
+                                    <TableHead>Employee</TableHead>
+                                    <TableHead>Type</TableHead>
+                                    <TableHead>Title</TableHead>
+                                    <TableHead>Number</TableHead>
+                                    <TableHead>Issue Date</TableHead>
+                                    <TableHead>Expiry Date</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead className="text-right">Size</TableHead>
+                                    <TableHead className="pr-4 text-right">Actions</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {(documents ?? []).length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={10} className="py-16 text-center">
+                                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                                <FileText className="h-8 w-8 opacity-30" />
+                                                <p className="text-sm">No documents found.</p>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
+                                ) : (
+                                    (documents ?? []).map((doc) => (
+                                        <TableRow
+                                            key={doc.id}
+                                            className={`border-border/40 cursor-pointer hover:bg-accent/40 ${selectedIds.has(doc.id) ? 'bg-primary/5' : ''}`}
+                                            onClick={() => window.open(`/organization/employees/${doc.employee_id}#documents`, '_self')}
+                                        >
+                                            <TableCell className="w-10 pl-4" onClick={(e) => e.stopPropagation()}>
+                                                <Checkbox
+                                                    checked={selectedIds.has(doc.id)}
+                                                    onCheckedChange={() => toggleOne(doc.id)}
+                                                    aria-label={`Select ${doc.employee_name}`}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="pl-2">
+                                                <div className="font-semibold text-foreground">{doc.employee_name}</div>
+                                                <div className="text-xs text-muted-foreground/70">{doc.employee_no}</div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">
+                                                <div className="text-sm">{doc.document_type_label ?? doc.document_type ?? '—'}</div>
+                                            </TableCell>
+                                            <TableCell className="text-muted-foreground/80">{doc.title ?? '—'}</TableCell>
+                                            <TableCell className="font-mono text-xs text-muted-foreground/80">{doc.document_number ?? '—'}</TableCell>
+                                            <TableCell className="text-xs text-muted-foreground/80">{doc.issue_date ?? '—'}</TableCell>
+                                            <TableCell className={`text-xs font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : 'text-muted-foreground/80'}`}>
+                                                {doc.expiry_date ?? '—'}
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={DOCUMENT_STATUS_VARIANTS[doc.status ?? ''] ?? 'outline'} className={`text-[10px] uppercase font-bold tracking-wider border ${DOCUMENT_STATUS_CLASSES[doc.status ?? ''] ?? ''}`}>
+                                                    {documentStatusLabel(doc.status)}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell className="text-right font-mono text-xs text-muted-foreground/60 tabular-nums">
+                                                {formatBytes(doc.size_bytes)}
+                                            </TableCell>
+                                            <TableCell className="pr-4" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    {doc.can_preview ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-xl hover:bg-accent"
+                                                            onClick={() => setPreviewDoc(doc)}
+                                                            title="Preview"
+                                                        >
+                                                            <Eye className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : null}
+                                                    <Button
+                                                        asChild
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-9 w-9 rounded-xl hover:bg-accent"
+                                                        title="View file"
+                                                    >
+                                                        <a href={doc.file_url} target="_blank" rel="noreferrer">
+                                                            <ExternalLink className="h-4 w-4" />
+                                                        </a>
+                                                    </Button>
+                                                    {(doc.current_version ?? 1) > 1 ? (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-9 w-9 rounded-xl hover:bg-accent"
+                                                            onClick={() => setVersionsDoc(doc)}
+                                                            title={`Version history (v${doc.current_version})`}
+                                                        >
+                                                            <History className="h-4 w-4" />
+                                                        </Button>
+                                                    ) : null}
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
 
-                        {pagination.last_page > 1 && (
-                            <TableFooter>
-                                <TableRow>
-                                    <TableCell colSpan={8}>
-                                        <div className="flex items-center justify-between px-2 py-1">
-                                            <p className="text-xs text-muted-foreground">
-                                                Showing {pagination.from ?? 0}–{pagination.to ?? 0} of {pagination.total} documents
-                                            </p>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    type="button"
-                                                    disabled={pagination.current_page === 1}
-                                                    onClick={() => navigate({ ...queryState, page: pagination.current_page - 1 })}
-                                                    className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    <ChevronLeft className="h-3.5 w-3.5" />
-                                                </button>
-
-                                                {Array.from({ length: pagination.last_page }, (_, i) => i + 1)
-                                                    .filter(p => p === 1 || p === pagination.last_page || Math.abs(p - pagination.current_page) <= 2)
-                                                    .reduce<(number | '...')[]>((acc, p, idx, arr) => {
-                                                        if (idx > 0 && (p as number) - (arr[idx - 1] as number) > 1) {
-acc.push('...');
-}
-
-                                                        acc.push(p);
-
-                                                        return acc;
-                                                    }, [])
-                                                    .map((p, i) =>
-                                                        p === '...' ? (
-                                                            <span key={`ellipsis-${i}`} className="px-1 text-xs text-muted-foreground">…</span>
-                                                        ) : (
-                                                            <button
-                                                                key={p}
-                                                                type="button"
-                                                                onClick={() => navigate({ ...queryState, page: p as number })}
-                                                                className={`h-7 min-w-7 px-2 rounded-md border text-xs font-medium transition-colors ${
-                                                                    p === pagination.current_page
-                                                                        ? 'border-primary bg-primary text-primary-foreground'
-                                                                        : 'border-border text-muted-foreground hover:text-foreground hover:bg-muted'
-                                                                }`}
-                                                            >
-                                                                {p}
-                                                            </button>
-                                                        )
-                                                    )}
-
-                                                <button
-                                                    type="button"
-                                                    disabled={pagination.current_page === pagination.last_page}
-                                                    onClick={() => navigate({ ...queryState, page: pagination.current_page + 1 })}
-                                                    className="h-7 w-7 flex items-center justify-center rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                                                >
-                                                    <ChevronRight className="h-3.5 w-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            </TableFooter>
-                        )}
-                    </Table>
-                </CardContent>
-            </Card>
+                        </Table>
+                    </CardContent>
+                </Card>
+                <Pagination {...list.paginationProps} label="documents" />
+                </>
+            )}
 
             <DocumentPreviewDialog document={previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} />
+            <DocumentVersionsSheet
+                open={!!versionsDoc}
+                onOpenChange={(open) => !open && setVersionsDoc(null)}
+                employeeId={versionsDoc?.employee_id ?? null}
+                documentId={versionsDoc?.id ?? null}
+                documentTitle={versionsDoc?.title ?? versionsDoc?.document_type_label ?? null}
+            />
         </Main>
     );
 }

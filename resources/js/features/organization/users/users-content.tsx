@@ -1,18 +1,21 @@
 import { router, useForm } from '@inertiajs/react';
 import { Edit2, Eye, Filter, Plus, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { UserCard } from './components/user-card';
 import { UserDeleteDialog } from './components/user-delete-dialog';
 import { UserFiltersSheet } from './components/user-filters-sheet';
@@ -20,24 +23,36 @@ import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
 import type { User, UserFormData } from './types';
 
-const emptyFilters: UserFilters = {
-    status: '',
-};
-
 export function UsersContent({
     users,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     roles,
 }: {
     users: User[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { status: string };
     roles: { id: number; name: string }[];
 }) {
+    const list = useServerPaginationFilters({
+        url: '/organization/users',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('users:view', 'grid');
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState<UserFilters>(emptyFilters);
+
+    const filters: UserFilters = {
+        status: initialFilters.status,
+    };
+
+    const activeFiltersCount = [initialFilters.status].filter(Boolean).length;
 
     const form = useForm<UserFormData>({
         name: '',
@@ -52,14 +67,7 @@ export function UsersContent({
         setCurrentUser(null);
         form.reset();
         form.clearErrors();
-        form.setData({
-            name: '',
-            email: '',
-            password: '',
-            avatar: null,
-            role_id: '',
-            status: 'active',
-        });
+        form.setData({ name: '', email: '', password: '', avatar: null, role_id: '', status: 'active' });
         setIsSheetOpen(true);
     };
 
@@ -84,10 +92,7 @@ export function UsersContent({
     };
 
     const confirmDelete = () => {
-        if (!currentUser) {
-            return;
-        }
-
+        if (!currentUser) return;
         router.delete(`/organization/users/${currentUser.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -102,9 +107,7 @@ export function UsersContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
@@ -116,10 +119,8 @@ export function UsersContent({
                 forceFormData: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
-
             return;
         }
-
         form.post('/organization/users', {
             preserveScroll: true,
             forceFormData: true,
@@ -127,44 +128,15 @@ export function UsersContent({
         });
     };
 
-    const filteredUsers = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return users.filter((u) => {
-            if (filters.status && (u.status ?? '') !== filters.status) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return (
-                u.name.toLowerCase().includes(query) ||
-                u.email.toLowerCase().includes(query) ||
-                (u.company?.name ?? '').toLowerCase().includes(query) ||
-                (u.role?.name ?? '').toLowerCase().includes(query)
-            );
-        });
-    }, [users, filters, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [filters.status].filter(Boolean).length;
-    }, [filters]);
+    const handleFiltersChange = (next: UserFilters) => {
+        list.applyFilters(next);
+    };
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.status) {
-            params.set('status', filters.status);
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.status) params.set('status', initialFilters.status);
         params.set('format', format);
-
         return `/organization/users/export?${params.toString()}`;
     };
 
@@ -183,8 +155,8 @@ export function UsersContent({
 
             <SearchBar
                 placeholder="Search users by name, email, company, or role..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -202,7 +174,6 @@ export function UsersContent({
                                 </span>
                             ) : null}
                         </Button>
-
                         <ExportMenu
                             getUrl={getExportUrl}
                             buttonVariant="secondary"
@@ -214,7 +185,7 @@ export function UsersContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                    {filteredUsers.map((u) => (
+                    {users.map((u) => (
                         <UserCard key={u.id} user={u} onEdit={handleEdit} onDelete={handleDelete} onToggleStatus={toggleStatus} />
                     ))}
                 </div>
@@ -232,7 +203,7 @@ export function UsersContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredUsers.map((u) => (
+                                {users.map((u) => (
                                     <TableRow
                                         key={u.id}
                                         className="border-border/40 cursor-pointer hover:bg-accent/40"
@@ -256,10 +227,7 @@ export function UsersContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        router.visit(`/organization/users/${u.id}`);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); router.visit(`/organization/users/${u.id}`); }}
                                                     title="View"
                                                 >
                                                     <Eye className="h-4 w-4" />
@@ -269,10 +237,7 @@ export function UsersContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-accent"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleEdit(u);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleEdit(u); }}
                                                     title="Edit"
                                                 >
                                                     <Edit2 className="h-4 w-4" />
@@ -282,10 +247,7 @@ export function UsersContent({
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-9 w-9 rounded-xl hover:bg-destructive/10 text-destructive hover:text-destructive"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(u);
-                                                    }}
+                                                    onClick={(e) => { e.stopPropagation(); handleDelete(u); }}
                                                     title="Delete"
                                                 >
                                                     <Trash2 className="h-4 w-4" />
@@ -300,7 +262,9 @@ export function UsersContent({
                 </Card>
             )}
 
-            {filteredUsers.length === 0 ? <EmptyState title="No users found." /> : null}
+            {users.length === 0 ? <EmptyState title="No users found." /> : null}
+
+            <Pagination {...list.paginationProps} label="users" />
 
             <UserFormSheet
                 open={isSheetOpen}
@@ -315,12 +279,11 @@ export function UsersContent({
                 open={isFiltersOpen}
                 onOpenChange={setIsFiltersOpen}
                 value={filters}
-                onChange={setFilters}
-                onReset={() => setFilters(emptyFilters)}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ status: '' })}
             />
 
             <UserDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} user={currentUser} onConfirm={confirmDelete} />
         </Main>
     );
 }
-

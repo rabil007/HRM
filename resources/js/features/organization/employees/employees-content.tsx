@@ -1,18 +1,21 @@
 import { router, usePage } from '@inertiajs/react';
 import { Eye, Filter, Plus, Trash2, Upload } from 'lucide-react';
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { ExportMenu } from '@/components/export-menu';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { toast } from '@/lib/toast';
+import type { PaginationMeta } from '@/types/pagination';
 import { EmployeeCard } from './components/employee-card';
 import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
@@ -40,15 +43,11 @@ const EmployeeDeleteDialog = lazy(() =>
     })),
 );
 
-const emptyFilters: EmployeeFilters = {
-    branch_id: '',
-    department_id: '',
-    position_id: '',
-    status: '',
-};
-
 export function EmployeesContent({
     employees,
+    pagination,
+    search: initialSearch,
+    filters: initialFilters,
     branches,
     departments,
     positions,
@@ -60,6 +59,9 @@ export function EmployeesContent({
     banks: _banks,
 }: {
     employees: Employee[];
+    pagination: PaginationMeta;
+    search: string;
+    filters: { branch_id: string; department_id: string; position_id: string; status: string };
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
@@ -77,12 +79,30 @@ export function EmployeesContent({
     void _genders;
     void _banks;
 
+    const list = useServerPaginationFilters({
+        url: '/organization/employees',
+        search: initialSearch,
+        filters: initialFilters,
+        pagination,
+    });
     const [view, setView] = useViewPreference('employees:view', 'grid');
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState<EmployeeFilters>(emptyFilters);
+
+    const filters: EmployeeFilters = {
+        branch_id: initialFilters.branch_id,
+        department_id: initialFilters.department_id,
+        position_id: initialFilters.position_id,
+        status: initialFilters.status,
+    };
+
+    const activeFiltersCount = [
+        initialFilters.branch_id,
+        initialFilters.department_id,
+        initialFilters.position_id,
+        initialFilters.status,
+    ].filter(Boolean).length;
 
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
@@ -90,6 +110,10 @@ export function EmployeesContent({
 
     const permissions = auth?.permissions ?? [];
     const canImport = permissions.includes('employees.import');
+
+    const handleFiltersChange = (next: EmployeeFilters) => {
+        list.applyFilters(next);
+    };
 
     const handleAdd = () => {
         router.visit('/organization/employees/create');
@@ -101,10 +125,7 @@ export function EmployeesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentEmployee) {
-            return;
-        }
-
+        if (!currentEmployee) return;
         router.delete(`/organization/employees/${currentEmployee.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -119,78 +140,19 @@ export function EmployeesContent({
             { status: enabled ? 'active' : 'inactive' },
             {
                 preserveScroll: true,
-                onError: () => {
-                    toast.error('Failed to update status. Please try again.');
-                },
+                onError: () => toast.error('Failed to update status. Please try again.'),
             },
         );
     };
 
-    const filteredEmployees = useMemo(() => {
-        const query = searchQuery.trim().toLowerCase();
-
-        return employees.filter((e) => {
-            if (filters.branch_id && String(e.branch?.id ?? '') !== filters.branch_id) {
-                return false;
-            }
-
-            if (filters.department_id && String(e.department?.id ?? '') !== filters.department_id) {
-                return false;
-            }
-
-            if (filters.position_id && String(e.position?.id ?? '') !== filters.position_id) {
-                return false;
-            }
-
-            if (filters.status && (e.status ?? '') !== filters.status) {
-                return false;
-            }
-
-            if (!query) {
-                return true;
-            }
-
-            return (
-                e.name.toLowerCase().includes(query) ||
-                e.employee_no.toLowerCase().includes(query) ||
-                (e.work_email ?? '').toLowerCase().includes(query) ||
-                (e.phone ?? '').toLowerCase().includes(query) ||
-                (e.branch?.name ?? '').toLowerCase().includes(query) ||
-                (e.department?.name ?? '').toLowerCase().includes(query) ||
-                (e.position?.title ?? '').toLowerCase().includes(query)
-            );
-        });
-    }, [employees, filters, searchQuery]);
-
-    const activeFiltersCount = useMemo(() => {
-        return [filters.branch_id, filters.department_id, filters.position_id, filters.status].filter(Boolean).length;
-    }, [filters]);
-
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-
-        if (searchQuery.trim()) {
-            params.set('search', searchQuery.trim());
-        }
-
-        if (filters.branch_id) {
-            params.set('branch_id', filters.branch_id);
-        }
-
-        if (filters.department_id) {
-            params.set('department_id', filters.department_id);
-        }
-
-        if (filters.position_id) {
-            params.set('position_id', filters.position_id);
-        }
-
-        if (filters.status) {
-            params.set('status', filters.status);
-        }
-
+        if (initialSearch) params.set('search', initialSearch);
+        if (initialFilters.branch_id) params.set('branch_id', initialFilters.branch_id);
+        if (initialFilters.department_id) params.set('department_id', initialFilters.department_id);
+        if (initialFilters.position_id) params.set('position_id', initialFilters.position_id);
+        if (initialFilters.status) params.set('status', initialFilters.status);
         params.set('format', format);
-
         return `/organization/employees/export?${params.toString()}`;
     };
 
@@ -209,8 +171,8 @@ export function EmployeesContent({
 
             <SearchBar
                 placeholder="Search employees by name, employee no, email, phone, or assignment..."
-                value={searchQuery}
-                onChange={setSearchQuery}
+                value={list.searchInput}
+                onChange={list.onSearchChange}
                 right={
                     <>
                         <ViewToggle value={view} onChange={setView} />
@@ -252,7 +214,7 @@ export function EmployeesContent({
 
             {view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 p-1">
-                    {filteredEmployees.map((employee) => (
+                    {employees.map((employee) => (
                         <EmployeeCard
                             key={employee.id}
                             employee={employee}
@@ -279,7 +241,7 @@ export function EmployeesContent({
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {filteredEmployees.map((employee) => {
+                                {employees.map((employee) => {
                                     const canToggle = employee.status === 'active' || employee.status === 'inactive';
 
                                     return (
@@ -404,15 +366,17 @@ export function EmployeesContent({
                 </Card>
             )}
 
-            {filteredEmployees.length === 0 ? <EmptyState title="No employees found." /> : null}
+            {employees.length === 0 ? <EmptyState title="No employees found." /> : null}
+
+            <Pagination {...list.paginationProps} label="employees" />
 
             <Suspense fallback={null}>
                 <EmployeeFiltersSheet
                     open={isFiltersOpen}
                     onOpenChange={setIsFiltersOpen}
                     value={filters}
-                    onChange={setFilters}
-                    onReset={() => setFilters(emptyFilters)}
+                    onChange={handleFiltersChange}
+                    onReset={() => handleFiltersChange({ branch_id: '', department_id: '', position_id: '', status: '' })}
                     branches={branches}
                     departments={departments}
                     positions={positions}
@@ -428,4 +392,3 @@ export function EmployeesContent({
         </Main>
     );
 }
-
