@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Cake, Eye, Mail, Phone, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Employee } from '../types';
 
@@ -50,20 +51,6 @@ function getAvatarGradient(name: string): string {
     return gradients[hash % gradients.length];
 }
 
-function formatBirthday(dateStr: string | null | undefined): string | null {
-    if (!dateStr) {
-        return null;
-    }
-
-    const date = new Date(dateStr);
-
-    if (isNaN(date.getTime())) {
-        return null;
-    }
-
-    return date.toLocaleDateString('en-US', { day: 'numeric', month: 'long' });
-}
-
 export function EmployeeCard({
     employee,
     showUrl,
@@ -91,7 +78,8 @@ export function EmployeeCard({
     const avatarGradient = getAvatarGradient(employee.name);
     const statusCfg = STATUS_CONFIG[employee.status] ?? STATUS_CONFIG.inactive;
     const positionColor = POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
-    const birthday = formatBirthday(employee.date_of_birth);
+    const birthdayDisplay = formatDisplayDate(employee.date_of_birth);
+    const birthday = birthdayDisplay !== '—' ? birthdayDisplay : null;
 
     return (
         <div

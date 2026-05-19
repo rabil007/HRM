@@ -1,5 +1,12 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Download, FileText, Trash2 } from 'lucide-react';
+import {
+    Download,
+    ExternalLink,
+    Eye,
+    FileText,
+    Layers2,
+    Trash2,
+} from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import EmployeeDocumentBulkDelete from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentBulkDeleteController';
 import EmployeeDocumentDownload from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentDownloadController';
@@ -22,14 +29,24 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    TableBody,
+    TableCell,
+    TableHeader,
+    TableRow,
+} from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { DocumentCard } from '@/features/organization/employee-documents/document-card';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
 import { DocumentVersionsSheet } from '@/features/organization/employee-documents/document-versions-sheet';
-import { DOCUMENT_STATUS_CLASSES, DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from '@/features/organization/employee-documents/status';
+import {
+    DOCUMENT_STATUS_CLASSES,
+    DOCUMENT_STATUS_VARIANTS,
+    documentStatusLabel,
+} from '@/features/organization/employee-documents/status';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -83,9 +100,14 @@ export default function Documents({
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
 
-    const docIds = useMemo(() => (documents ?? []).map((d) => d.id), [documents]);
-    const allSelected = docIds.length > 0 && docIds.every((id) => selectedIds.has(id));
-    const someSelected = !allSelected && docIds.some((id) => selectedIds.has(id));
+    const docIds = useMemo(
+        () => (documents ?? []).map((d) => d.id),
+        [documents],
+    );
+    const allSelected =
+        docIds.length > 0 && docIds.every((id) => selectedIds.has(id));
+    const someSelected =
+        !allSelected && docIds.some((id) => selectedIds.has(id));
 
     const toggleAll = useCallback(() => {
         setSelectedIds((prev) => {
@@ -105,10 +127,10 @@ export default function Documents({
             const next = new Set(prev);
 
             if (next.has(id)) {
- next.delete(id); 
-} else {
- next.add(id); 
-}
+                next.delete(id);
+            } else {
+                next.add(id);
+            }
 
             return next;
         });
@@ -116,12 +138,16 @@ export default function Documents({
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0 || bulkDeleting) {
-return;
-}
+            return;
+        }
 
-        if (!window.confirm(`Delete ${selectedIds.size} document(s)? This cannot be undone.`)) {
-return;
-}
+        if (
+            !window.confirm(
+                `Delete ${selectedIds.size} document(s)? This cannot be undone.`,
+            )
+        ) {
+            return;
+        }
 
         setBulkDeleting(true);
         router.delete(EmployeeDocumentBulkDelete.url(), {
@@ -143,9 +169,17 @@ return;
     });
 
     const employeeGroups = useMemo(() => {
-        const map = new Map<number, { employee_id: number; employee_name: string; employee_no: string; docs: DocumentRow[] }>();
+        const map = new Map<
+            number,
+            {
+                employee_id: number;
+                employee_name: string;
+                employee_no: string;
+                docs: DocumentRow[];
+            }
+        >();
 
-        for (const doc of (documents ?? [])) {
+        for (const doc of documents ?? []) {
             const existing = map.get(doc.employee_id);
 
             if (existing) {
@@ -178,17 +212,39 @@ return;
                 description="All employee documents across your organisation."
             />
 
-            <div className="grid grid-cols-2 gap-4 mb-2 sm:grid-cols-4">
+            <div className="mb-2 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 {[
-                    { label: 'Total', value: total, className: 'text-foreground' },
-                    { label: 'Valid', value: counts.valid ?? 0, className: 'text-emerald-500' },
-                    { label: 'Expiring Soon', value: counts.expiring_soon ?? 0, className: 'text-amber-500' },
-                    { label: 'Expired', value: counts.expired ?? 0, className: 'text-red-500' },
+                    {
+                        label: 'Total',
+                        value: total,
+                        className: 'text-foreground',
+                    },
+                    {
+                        label: 'Valid',
+                        value: counts.valid ?? 0,
+                        className: 'text-emerald-500',
+                    },
+                    {
+                        label: 'Expiring Soon',
+                        value: counts.expiring_soon ?? 0,
+                        className: 'text-amber-500',
+                    },
+                    {
+                        label: 'Expired',
+                        value: counts.expired ?? 0,
+                        className: 'text-red-500',
+                    },
                 ].map((s) => (
                     <Card key={s.label} className="glass-card">
                         <CardContent className="p-4">
-                            <div className={`text-2xl font-bold tabular-nums ${s.className}`}>{s.value}</div>
-                            <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
+                            <div
+                                className={`text-2xl font-bold tabular-nums ${s.className}`}
+                            >
+                                {s.value}
+                            </div>
+                            <div className="mt-0.5 text-xs text-muted-foreground">
+                                {s.label}
+                            </div>
                         </CardContent>
                     </Card>
                 ))}
@@ -196,8 +252,7 @@ return;
 
             <div className="mb-6 rounded-xl border border-border/50 bg-card/30 p-3 shadow-sm">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:gap-4">
-                    <div className="flex min-w-0 flex-1 flex-col gap-1">
-                        <span className="text-xs font-medium text-muted-foreground">Search</span>
+                    <div className="min-w-0 flex-1">
                         <SearchBar
                             className="mb-0 flex-1 [&>div]:w-full"
                             inputClassName="h-10 rounded-lg py-2 text-sm"
@@ -206,39 +261,58 @@ return;
                             onChange={list.onSearchChange}
                         />
                     </div>
-                    <div className="flex w-full shrink-0 flex-col gap-1 sm:w-56">
-                        <span className="text-xs font-medium text-muted-foreground">Document type</span>
+                    <div className="w-full shrink-0 sm:w-56">
                         <AppSelect
                             value={filters.document_type}
-                            onValueChange={(v) => list.applyFilters({ document_type: v })}
+                            onValueChange={(v) =>
+                                list.applyFilters({ document_type: v })
+                            }
                             variant="card"
                             placeholder="All document types"
                         >
-                            <AppSelectItem value="">All document types</AppSelectItem>
-                            {(filter_options?.document_types ?? []).map((type) => (
-                                <AppSelectItem key={type.id} value={String(type.id)}>
-                                    {type.title}
-                                </AppSelectItem>
-                            ))}
+                            <AppSelectItem value="">
+                                All document types
+                            </AppSelectItem>
+                            {(filter_options?.document_types ?? []).map(
+                                (type) => (
+                                    <AppSelectItem
+                                        key={type.id}
+                                        value={String(type.id)}
+                                    >
+                                        {type.title}
+                                    </AppSelectItem>
+                                ),
+                            )}
                         </AppSelect>
                     </div>
-                    <div className="flex shrink-0 flex-col gap-1">
-                        <span className="text-xs font-medium text-muted-foreground">View</span>
-                        <ViewToggle value={view} onChange={setView} showEmployeeView employeeLabel="By employee" />
+                    <div className="shrink-0">
+                        <ViewToggle
+                            value={view}
+                            onChange={setView}
+                            showEmployeeView
+                            employeeLabel="By employee"
+                        />
                     </div>
                 </div>
             </div>
 
             <div className="mb-4 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-medium text-muted-foreground">Expiry:</span>
+                <span className="text-xs font-medium text-muted-foreground">
+                    Expiry:
+                </span>
                 {expiryChips.map((chip) => (
                     <button
                         key={chip.value}
                         type="button"
-                        onClick={() => list.visit({
-                            expiry_within: filters.expiry_within === chip.value ? '' : chip.value,
-                            page: null,
-                        })}
+                        onClick={() =>
+                            list.visit({
+                                expiry_within:
+                                    filters.expiry_within === chip.value
+                                        ? ''
+                                        : chip.value,
+                                page: null,
+                            })
+                        }
                         className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                             filters.expiry_within === chip.value
                                 ? 'border-amber-500/60 bg-amber-500/15 text-amber-400'
@@ -251,8 +325,10 @@ return;
                 {filters.expiry_within ? (
                     <button
                         type="button"
-                        onClick={() => list.visit({ expiry_within: '', page: null })}
-                        className="ml-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                        onClick={() =>
+                            list.visit({ expiry_within: '', page: null })
+                        }
+                        className="ml-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
                     >
                         Clear
                     </button>
@@ -269,30 +345,53 @@ return;
                     ) : (
                         <div className="space-y-6">
                             {employeeGroups.map((group) => {
-                                const expired = group.docs.filter((d) => d.status === 'expired').length;
-                                const expiring = group.docs.filter((d) => d.status === 'expiring_soon').length;
+                                const expired = group.docs.filter(
+                                    (d) => d.status === 'expired',
+                                ).length;
+                                const expiring = group.docs.filter(
+                                    (d) => d.status === 'expiring_soon',
+                                ).length;
 
                                 return (
                                     <div key={group.employee_id}>
                                         <div className="mb-3 flex items-center gap-3">
                                             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary uppercase">
-                                                {(group.employee_name ?? '?').charAt(0)}
+                                                {(
+                                                    group.employee_name ?? '?'
+                                                ).charAt(0)}
                                             </div>
                                             <div className="min-w-0">
                                                 <Link
                                                     href={`/organization/employees/${group.employee_id}#documents`}
-                                                    className="font-semibold text-foreground hover:text-primary transition-colors"
+                                                    className="font-semibold text-foreground transition-colors hover:text-primary"
                                                 >
                                                     {group.employee_name}
                                                 </Link>
-                                                <p className="text-xs text-muted-foreground/60">{group.employee_no}</p>
+                                                <p className="text-xs text-muted-foreground/60">
+                                                    {group.employee_no}
+                                                </p>
                                             </div>
                                             <div className="ml-auto flex items-center gap-3 text-xs text-muted-foreground/70">
-                                                <span className="tabular-nums">{group.docs.length} doc{group.docs.length !== 1 ? 's' : ''}</span>
-                                                {expired > 0 ? <span className="text-red-400">{expired} expired</span> : null}
-                                                {expiring > 0 ? <span className="text-amber-400">{expiring} expiring</span> : null}
+                                                <span className="tabular-nums">
+                                                    {group.docs.length} doc
+                                                    {group.docs.length !== 1
+                                                        ? 's'
+                                                        : ''}
+                                                </span>
+                                                {expired > 0 ? (
+                                                    <span className="text-red-400">
+                                                        {expired} expired
+                                                    </span>
+                                                ) : null}
+                                                {expiring > 0 ? (
+                                                    <span className="text-amber-400">
+                                                        {expiring} expiring
+                                                    </span>
+                                                ) : null}
                                                 <a
-                                                    href={EmployeeDocumentDownload.url(group.employee_id)}
+                                                    href={EmployeeDocumentDownload.url(
+                                                        group.employee_id,
+                                                    )}
                                                     className="flex items-center gap-1 rounded-lg border border-border/50 bg-muted/30 px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-primary"
                                                     title="Download all as ZIP"
                                                 >
@@ -301,9 +400,16 @@ return;
                                                 </a>
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 pl-12">
+                                        <div className="grid grid-cols-1 gap-3 pl-12 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                                             {group.docs.map((doc) => (
-                                                <DocumentCard key={doc.id} doc={doc} onPreview={setPreviewDoc} onViewHistory={setVersionsDoc} />
+                                                <DocumentCard
+                                                    key={doc.id}
+                                                    doc={doc}
+                                                    onPreview={setPreviewDoc}
+                                                    onViewHistory={
+                                                        setVersionsDoc
+                                                    }
+                                                />
                                             ))}
                                         </div>
                                     </div>
@@ -323,7 +429,12 @@ return;
                     ) : (
                         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                             {(documents ?? []).map((doc) => (
-                                <DocumentCard key={doc.id} doc={doc} onPreview={setPreviewDoc} onViewHistory={setVersionsDoc} />
+                                <DocumentCard
+                                    key={doc.id}
+                                    doc={doc}
+                                    onPreview={setPreviewDoc}
+                                    onViewHistory={setVersionsDoc}
+                                />
                             ))}
                         </div>
                     )}
@@ -331,142 +442,219 @@ return;
                 </>
             ) : (
                 <>
-                {selectedIds.size > 0 && (
-                    <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
-                        <span className="text-sm font-medium text-foreground">
-                            {selectedIds.size} selected
-                        </span>
-                        <div className="ml-auto flex items-center gap-2">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
-                                onClick={() => setSelectedIds(new Set())}
-                            >
-                                Clear
-                            </Button>
-                            <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                className="h-8 gap-1.5 rounded-lg text-xs"
-                                onClick={handleBulkDelete}
-                                disabled={bulkDeleting}
-                            >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                {bulkDeleting ? 'Deleting…' : `Delete ${selectedIds.size}`}
-                            </Button>
+                    {selectedIds.size > 0 && (
+                        <div className="mb-3 flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5">
+                            <span className="text-sm font-medium text-foreground">
+                                {selectedIds.size} selected
+                            </span>
+                            <div className="ml-auto flex items-center gap-2">
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 gap-1.5 rounded-lg text-xs text-muted-foreground hover:text-foreground"
+                                    onClick={() => setSelectedIds(new Set())}
+                                >
+                                    Clear
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    className="h-8 gap-1.5 rounded-lg text-xs"
+                                    onClick={handleBulkDelete}
+                                    disabled={bulkDeleting}
+                                >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    {bulkDeleting
+                                        ? 'Deleting…'
+                                        : `Delete ${selectedIds.size}`}
+                                </Button>
+                            </div>
                         </div>
-                    </div>
-                )}
-                <OrganizationDataTable minWidth="min-w-[900px]">
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead className="w-10 pl-5">
-                                <Checkbox
-                                    checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                                    onCheckedChange={toggleAll}
-                                    aria-label="Select all"
-                                />
-                            </DataTableHead>
-                            <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Type</DataTableHead>
-                            <DataTableHead>Title</DataTableHead>
-                            <DataTableHead>Number</DataTableHead>
-                            <DataTableHead>Issue Date</DataTableHead>
-                            <DataTableHead>Expiry Date</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Size</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                            <TableBody>
-                                {(documents ?? []).length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={10} className="py-16 text-center">
-                                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
-                                                <FileText className="h-8 w-8 opacity-30" />
-                                                <p className="text-sm">No documents found.</p>
+                    )}
+                    <OrganizationDataTable minWidth="min-w-[900px]">
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead className="w-10 pl-5">
+                                    <Checkbox
+                                        checked={
+                                            allSelected
+                                                ? true
+                                                : someSelected
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={toggleAll}
+                                        aria-label="Select all"
+                                    />
+                                </DataTableHead>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Type</DataTableHead>
+                                <DataTableHead>Title</DataTableHead>
+                                <DataTableHead>Number</DataTableHead>
+                                <DataTableHead>Issue Date</DataTableHead>
+                                <DataTableHead>Expiry Date</DataTableHead>
+                                <DataTableHead>Status</DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Size
+                                </DataTableHead>
+                                <DataTableHead className="text-right">
+                                    Actions
+                                </DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {(documents ?? []).length === 0 ? (
+                                <TableRow>
+                                    <TableCell
+                                        colSpan={10}
+                                        className="py-16 text-center"
+                                    >
+                                        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                            <FileText className="h-8 w-8 opacity-30" />
+                                            <p className="text-sm">
+                                                No documents found.
+                                            </p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                (documents ?? []).map((doc) => (
+                                    <TableRow
+                                        key={doc.id}
+                                        className={`${dataTableBodyRowClass()} ${selectedIds.has(doc.id) ? 'bg-primary/5' : ''}`}
+                                        onClick={() =>
+                                            window.open(
+                                                `/organization/employees/${doc.employee_id}#documents`,
+                                                '_self',
+                                            )
+                                        }
+                                    >
+                                        <TableCell
+                                            className={`w-10 ${dataTableCellClass()}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            <Checkbox
+                                                checked={selectedIds.has(
+                                                    doc.id,
+                                                )}
+                                                onCheckedChange={() =>
+                                                    toggleOne(doc.id)
+                                                }
+                                                aria-label={`Select ${doc.employee_name}`}
+                                            />
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellPrimaryClass()}
+                                        >
+                                            <div>{doc.employee_name}</div>
+                                            <div className="text-xs text-muted-foreground/70">
+                                                {doc.employee_no}
                                             </div>
                                         </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    (documents ?? []).map((doc) => (
-                                        <TableRow
-                                            key={doc.id}
-                                            className={`${dataTableBodyRowClass()} ${selectedIds.has(doc.id) ? 'bg-primary/5' : ''}`}
-                                            onClick={() => window.open(`/organization/employees/${doc.employee_id}#documents`, '_self')}
+                                        <TableCell
+                                            className={dataTableCellClass()}
                                         >
-                                            <TableCell className={`w-10 ${dataTableCellClass()}`} onClick={(e) => e.stopPropagation()}>
-                                                <Checkbox
-                                                    checked={selectedIds.has(doc.id)}
-                                                    onCheckedChange={() => toggleOne(doc.id)}
-                                                    aria-label={`Select ${doc.employee_name}`}
-                                                />
-                                            </TableCell>
-                                            <TableCell className={dataTableCellPrimaryClass()}>
-                                                <div>{doc.employee_name}</div>
-                                                <div className="text-xs text-muted-foreground/70">{doc.employee_no}</div>
-                                            </TableCell>
-                                            <TableCell className={dataTableCellClass()}>
-                                                {doc.document_type_label ?? doc.document_type ?? '—'}
-                                            </TableCell>
-                                            <TableCell className={dataTableCellClass()}>{doc.title ?? '—'}</TableCell>
-                                            <TableCell className={`font-mono text-xs ${dataTableCellClass()}`}>{doc.document_number ?? '—'}</TableCell>
-                                            <TableCell className={dataTableCellClass()}>{doc.issue_date ?? '—'}</TableCell>
-                                            <TableCell
-                                                className={`${dataTableCellClass()} font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : ''}`}
+                                            {doc.document_type_label ??
+                                                doc.document_type ??
+                                                '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {doc.title ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={`font-mono text-xs ${dataTableCellClass()}`}
+                                        >
+                                            {doc.document_number ?? '—'}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            {formatDisplayDate(doc.issue_date)}
+                                        </TableCell>
+                                        <TableCell
+                                            className={`${dataTableCellClass()} font-medium ${doc.status === 'expired' ? 'text-red-400' : doc.status === 'expiring_soon' ? 'text-amber-400' : ''}`}
+                                        >
+                                            {formatDisplayDate(doc.expiry_date)}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableCellClass()}
+                                        >
+                                            <Badge
+                                                variant={
+                                                    DOCUMENT_STATUS_VARIANTS[
+                                                        doc.status ?? ''
+                                                    ] ?? 'outline'
+                                                }
+                                                className={`border text-[10px] font-bold tracking-wider uppercase ${DOCUMENT_STATUS_CLASSES[doc.status ?? ''] ?? ''}`}
                                             >
-                                                {doc.expiry_date ?? '—'}
-                                            </TableCell>
-                                            <TableCell className={dataTableCellClass()}>
-                                                <Badge variant={DOCUMENT_STATUS_VARIANTS[doc.status ?? ''] ?? 'outline'} className={`text-[10px] uppercase font-bold tracking-wider border ${DOCUMENT_STATUS_CLASSES[doc.status ?? ''] ?? ''}`}>
-                                                    {documentStatusLabel(doc.status)}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className={`${dataTableCellClass()} text-right font-mono text-xs tabular-nums`}>
-                                                {formatBytes(doc.size_bytes)}
-                                            </TableCell>
-                                            <TableCell className={dataTableActionsCellClass()}>
-                                                <TableRowActions
-                                                    actions={[
-                                                        {
-                                                            label: 'Preview',
-                                                            variant: 'primary',
-                                                            onClick: () => setPreviewDoc(doc),
-                                                            hidden: !doc.can_preview,
-                                                        },
-                                                        {
-                                                            label: 'View',
-                                                            href: doc.file_url,
-                                                            target: '_blank',
-                                                            rel: 'noreferrer',
-                                                        },
-                                                        {
-                                                            label: 'Versions',
-                                                            onClick: () => setVersionsDoc(doc),
-                                                            hidden: (doc.current_version ?? 1) <= 1,
-                                                        },
-                                                    ]}
-                                                />
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                </OrganizationDataTable>
-                <Pagination {...list.paginationProps} label="documents" />
+                                                {documentStatusLabel(
+                                                    doc.status,
+                                                )}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell
+                                            className={`${dataTableCellClass()} text-right font-mono text-xs tabular-nums`}
+                                        >
+                                            {formatBytes(doc.size_bytes)}
+                                        </TableCell>
+                                        <TableCell
+                                            className={dataTableActionsCellClass()}
+                                        >
+                                            <TableRowActions
+                                                actions={[
+                                                    {
+                                                        label: 'Preview',
+                                                        icon: Eye,
+                                                        onClick: () =>
+                                                            setPreviewDoc(doc),
+                                                        hidden: !doc.can_preview,
+                                                    },
+                                                    {
+                                                        label: 'Open file',
+                                                        icon: ExternalLink,
+                                                        href: doc.file_url,
+                                                        target: '_blank',
+                                                        rel: 'noreferrer',
+                                                    },
+                                                    {
+                                                        label: 'Versions',
+                                                        icon: Layers2,
+                                                        onClick: () =>
+                                                            setVersionsDoc(doc),
+                                                        hidden:
+                                                            (doc.current_version ??
+                                                                1) <= 1,
+                                                    },
+                                                ]}
+                                            />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </OrganizationDataTable>
+                    <Pagination {...list.paginationProps} label="documents" />
                 </>
             )}
 
-            <DocumentPreviewDialog document={previewDoc} onOpenChange={(open) => !open && setPreviewDoc(null)} />
+            <DocumentPreviewDialog
+                document={previewDoc}
+                onOpenChange={(open) => !open && setPreviewDoc(null)}
+            />
             <DocumentVersionsSheet
                 open={!!versionsDoc}
                 onOpenChange={(open) => !open && setVersionsDoc(null)}
                 employeeId={versionsDoc?.employee_id ?? null}
                 documentId={versionsDoc?.id ?? null}
-                documentTitle={versionsDoc?.title ?? versionsDoc?.document_type_label ?? null}
+                documentTitle={
+                    versionsDoc?.title ??
+                    versionsDoc?.document_type_label ??
+                    null
+                }
             />
         </Main>
     );

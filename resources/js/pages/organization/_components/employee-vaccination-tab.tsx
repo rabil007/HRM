@@ -43,6 +43,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { VaccinationImportDialog } from '@/pages/organization/_components/vaccination-import-dialog';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
 
@@ -153,12 +154,7 @@ export function EmployeeVaccinationTab({
                                     {formatIsoDateDisplay(row.booster_dose_date)}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
-                                    {new Date(row.created_at).toLocaleString(undefined, {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
                                     <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>

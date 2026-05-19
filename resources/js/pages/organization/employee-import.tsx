@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
 type Mapping = Record<string, string | null>;
@@ -597,7 +598,7 @@ toast.error('Please select an onboarding template first.');
                                                             <td className="px-3 py-2 font-medium text-foreground">{stringy(row.employee_no) || '—'}</td>
                                                             <td className="px-3 py-2 text-muted-foreground">{stringy(row.name) || '—'}</td>
                                                             <td className="px-3 py-2 text-muted-foreground">{stringy(row.contract_type) || '—'}</td>
-                                                            <td className="px-3 py-2 text-muted-foreground">{stringy(row.start_date) || '—'}</td>
+                                                            <td className="px-3 py-2 text-muted-foreground">{formatDisplayDate(stringy(row.start_date) || null)}</td>
                                                             <td className="px-3 py-2">
                                                                 {rowErrors ? (
                                                                     <Tooltip>

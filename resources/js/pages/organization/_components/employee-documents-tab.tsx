@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
 import { DOCUMENT_STATUS_CLASSES, documentStatusLabel } from '@/features/organization/employee-documents/status';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -225,8 +226,8 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
                                     </td>
                                     <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-zinc-100')}>{doc.title || '—'}</td>
                                     <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-zinc-400')}>{doc.document_number || '—'}</td>
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{doc.issue_date || '—'}</td>
-                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{doc.expiry_date || '—'}</td>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{formatDisplayDate(doc.issue_date)}</td>
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>{formatDisplayDate(doc.expiry_date)}</td>
                                     <td className={employeeRecordsTableTdClass()}>
                                         <span className={`inline-flex rounded-md border px-2 py-0.5 text-xs font-medium capitalize ${statusColor}`}>
                                             {documentStatusLabel(doc.status)}

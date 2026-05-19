@@ -8,6 +8,7 @@ import {
     update,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { formatDisplayDate } from '@/lib/format-date';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import {
     AlertDialog,
@@ -131,7 +132,7 @@ export function EmployeeEducationTab({
                                         'font-mono text-xs text-zinc-400',
                                     )}
                                 >
-                                    {row.issue_date ?? '—'}
+                                    {formatDisplayDate(row.issue_date)}
                                 </td>
                                 <td
                                     className={cn(

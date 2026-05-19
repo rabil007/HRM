@@ -1,8 +1,11 @@
+import type { LucideIcon } from 'lucide-react';
 import type { MouseEvent, ReactElement } from 'react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type TableRowActionItem = {
     label: string;
+    icon: LucideIcon;
     onClick?: (event: MouseEvent<HTMLButtonElement>) => void;
     href?: string;
     target?: string;
@@ -11,11 +14,13 @@ export type TableRowActionItem = {
     hidden?: boolean;
 };
 
-const actionVariantClass: Record<NonNullable<TableRowActionItem['variant']>, string> = {
-    default: 'text-xs text-zinc-400 transition-colors hover:text-zinc-200',
-    primary: 'text-xs font-semibold text-primary transition-colors hover:underline',
-    danger: 'text-xs text-red-400/60 transition-colors hover:text-red-400',
-};
+function ghostIconClass(variant?: TableRowActionItem['variant']): string {
+    if (variant === 'danger') {
+        return 'size-8 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400';
+    }
+
+    return 'size-8 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-zinc-100';
+}
 
 type TableRowActionsProps = {
     actions: TableRowActionItem[];
@@ -31,13 +36,13 @@ export function TableRowActions({
     const visible = actions.filter((action) => !action.hidden);
 
     if (visible.length === 0) {
-        return <span className="text-xs text-zinc-600">—</span>;
+        return <span className="text-xs text-muted-foreground">—</span>;
     }
 
     return (
         <div
             className={cn(
-                'flex flex-wrap items-center gap-2',
+                'inline-flex shrink-0 flex-nowrap items-center gap-0.5',
                 align === 'end' ? 'justify-end' : 'justify-start',
                 className,
             )}
@@ -45,31 +50,44 @@ export function TableRowActions({
             role="presentation"
         >
             {visible.map((action) => {
-                const classNameForAction = actionVariantClass[action.variant ?? 'default'];
+                const Icon = action.icon;
+                const iconTint = ghostIconClass(action.variant);
 
                 if (action.href) {
                     return (
-                        <a
+                        <Button
                             key={action.label}
-                            href={action.href}
-                            target={action.target}
-                            rel={action.rel}
-                            className={classNameForAction}
+                            variant="ghost"
+                            size="icon"
+                            className={iconTint}
+                            asChild
                         >
-                            {action.label}
-                        </a>
+                            <a
+                                href={action.href}
+                                target={action.target ?? undefined}
+                                rel={action.rel}
+                                title={action.label}
+                                aria-label={action.label}
+                            >
+                                <Icon className="size-4" />
+                            </a>
+                        </Button>
                     );
                 }
 
                 return (
-                    <button
+                    <Button
                         key={action.label}
                         type="button"
-                        className={classNameForAction}
+                        variant="ghost"
+                        size="icon"
+                        className={iconTint}
+                        title={action.label}
+                        aria-label={action.label}
                         onClick={action.onClick}
                     >
-                        {action.label}
-                    </button>
+                        <Icon className="size-4" />
+                    </Button>
                 );
             })}
         </div>

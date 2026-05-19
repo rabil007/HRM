@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
@@ -587,7 +588,7 @@ export function EmployeeHeaderCard({
                                     onClick={() => beginEdit('date_of_birth')}
                                     disabled={!canUpdate}
                                 >
-                                    {form.data.date_of_birth || employee.date_of_birth || '—'}
+                                    {formatDisplayDate(form.data.date_of_birth || employee.date_of_birth)}
                                 </button>
                             )}
                         </div>

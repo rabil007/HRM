@@ -41,6 +41,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
@@ -163,12 +164,7 @@ export function EmployeeWorkExperienceTab({
                                     {row.responsibility?.trim() ? row.responsibility : '—'}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
-                                    {new Date(row.created_at).toLocaleString(undefined, {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
                                     <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>

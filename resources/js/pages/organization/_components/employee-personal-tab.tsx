@@ -5,6 +5,7 @@ import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { Input } from '@/components/ui/input';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
@@ -395,10 +396,9 @@ export function EmployeePersonalTab({
                                         autoFocus
                                     />
                                 ),
-                                value:
-                                    form.data.spouse_birthdate ||
-                                    employee.spouse_birthdate ||
-                                    '—',
+                                value: formatDisplayDate(
+                                    form.data.spouse_birthdate || employee.spouse_birthdate,
+                                ),
                             },
                             {
                                 key: 'dependent_children_count',

@@ -5,6 +5,7 @@ import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Orga
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 
 type DocumentVersion = {
@@ -122,7 +123,7 @@ export function DocumentVersionsSheet({ open, onOpenChange, employeeId, document
 
                                     <div className="flex items-center justify-between text-[10px] text-muted-foreground/60">
                                         <span>{mimeLabel(v.mime_type)}</span>
-                                        <span>{v.created_at ? new Date(v.created_at).toLocaleDateString() : '—'}</span>
+                                        <span>{formatDisplayDate(v.created_at)}</span>
                                     </div>
 
                                     {v.replaced_by ? (

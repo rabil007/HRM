@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
 type Mapping = Record<string, string | null>;
@@ -580,7 +581,7 @@ function PreviewStep({
                                                 {stringy(row.contract_type) || '—'}
                                             </td>
                                             <td className="text-muted-foreground/80 px-3 py-2">
-                                                {stringy(row.start_date) || '—'}
+                                                {formatDisplayDate(stringy(row.start_date) || null)}
                                             </td>
                                             <td className="px-3 py-2">
                                                 {rowErrors ? (

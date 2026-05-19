@@ -25,6 +25,7 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { buildEmployeeListQuery, buildEmployeeShowUrl } from './build-employee-show-url';
@@ -371,7 +372,7 @@ params.set('status', initialFilters.status);
                                                         : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">
-                                                    {employee.date_of_birth ?? '—'}
+                                                    {formatDisplayDate(employee.date_of_birth)}
                                                     {employee.place_of_birth ? ` • ${employee.place_of_birth}` : ''}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground/70">
@@ -398,7 +399,7 @@ params.set('status', initialFilters.status);
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.spouse_name ?? '—'}</div>
-                                                <div className="text-xs text-muted-foreground/70">{employee.spouse_birthdate ?? '—'}</div>
+                                                <div className="text-xs text-muted-foreground/70">{formatDisplayDate(employee.spouse_birthdate)}</div>
                                                 <div className="text-xs text-muted-foreground/70">
                                                     {employee.dependent_children_count === null || employee.dependent_children_count === undefined
                                                         ? '—'

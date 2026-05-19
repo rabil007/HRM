@@ -10,6 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import type { PaginationMeta } from '@/types/pagination';
 
 type AuditLog = {
@@ -26,16 +27,6 @@ type AuditLog = {
     ip: string | null;
     created_at: string;
 };
-
-function formatDate(value: string): string {
-    const dt = new Date(value);
-
-    if (Number.isNaN(dt.getTime())) {
-return value;
-}
-
-    return dt.toLocaleString();
-}
 
 function eventBadgeVariant(event: string): 'default' | 'secondary' | 'destructive' | 'outline' {
     if (event === 'deleted') {
@@ -62,30 +53,6 @@ const HIDDEN_KEYS = new Set(['id', 'company_id', 'created_at', 'updated_at', 'de
 
 function titleCaseKey(key: string): string {
     return key.replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function formatValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') {
-return '—';
-}
-
-    if (typeof value === 'boolean') {
-return value ? 'Yes' : 'No';
-}
-
-    if (typeof value === 'number') {
-return String(value);
-}
-
-    if (typeof value === 'string') {
-return value;
-}
-
-    try {
- return JSON.stringify(value); 
-} catch {
- return String(value); 
-}
 }
 
 function buildSummary(log: AuditLog): string {
@@ -299,7 +266,7 @@ export default function ActivityLogs({
                                                                 ) : 'System'}
                                                             </div>
                                                             <div className="flex items-center gap-2 text-xs text-muted-foreground/80">
-                                                                <span>{formatDate(log.created_at)}</span>
+                                                                <span>{formatDisplayDate(log.created_at)}</span>
                                                                 <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                                                             </div>
                                                         </div>
@@ -319,9 +286,9 @@ export default function ActivityLogs({
                                                                         >
                                                                             <span className="font-medium">{titleCaseKey(k)}</span>
                                                                             <span className="flex items-center gap-2 text-muted-foreground">
-                                                                                <span className="max-w-[160px] truncate">{formatValue(log.old_values?.[k])}</span>
+                                                                                <span className="max-w-[160px] truncate">{formatDisplayValue(log.old_values?.[k])}</span>
                                                                                 <ArrowRight className="h-3.5 w-3.5" />
-                                                                                <span className="max-w-[160px] truncate text-foreground">{formatValue(log.new_values?.[k])}</span>
+                                                                                <span className="max-w-[160px] truncate text-foreground">{formatDisplayValue(log.new_values?.[k])}</span>
                                                                             </span>
                                                                         </div>
                                                                     ))}

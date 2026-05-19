@@ -8,6 +8,7 @@ import {
     update as updateLanguage,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeLanguageController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
+import { formatDisplayDate } from '@/lib/format-date';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -160,12 +161,7 @@ export function EmployeeLanguagesTab({
                                     )}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
-                                    {new Date(row.created_at).toLocaleString(undefined, {
-                                        month: 'short',
-                                        day: 'numeric',
-                                        hour: 'numeric',
-                                        minute: '2-digit',
-                                    })}
+                                    {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
                                     <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>

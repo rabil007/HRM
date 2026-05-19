@@ -2,6 +2,7 @@ import { Head, useForm } from '@inertiajs/react';
 import { Activity } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -29,44 +30,10 @@ const HIDDEN_ACTIVITY_KEYS = new Set([
     'password',
 ]);
 
-function formatActivityDate(value: string): string {
-    const dt = new Date(value);
-
-    if (Number.isNaN(dt.getTime())) {
-        return value;
-    }
-
-    return dt.toLocaleString();
-}
-
 function titleCaseKey(key: string): string {
     return key
         .replace(/_/g, ' ')
         .replace(/\b\w/g, (m) => m.toUpperCase());
-}
-
-function formatValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') {
-        return '—';
-    }
-
-    if (typeof value === 'boolean') {
-        return value ? 'Yes' : 'No';
-    }
-
-    if (typeof value === 'number') {
-        return String(value);
-    }
-
-    if (typeof value === 'string') {
-        return value;
-    }
-
-    try {
-        return JSON.stringify(value);
-    } catch {
-        return String(value);
-    }
 }
 
 function changedKeys(oldValues: Record<string, unknown> | null, newValues: Record<string, unknown> | null): string[] {
@@ -221,11 +188,11 @@ export default function UserDetails({
                                                                 >
                                                                     {titleCaseKey(k)}:{' '}
                                                                     <span className="text-muted-foreground/70">
-                                                                        {formatValue(a.old_values?.[k])}
+                                                                        {formatDisplayValue(a.old_values?.[k])}
                                                                     </span>{' '}
                                                                     →{' '}
                                                                     <span className="text-foreground/90">
-                                                                        {formatValue(a.new_values?.[k])}
+                                                                        {formatDisplayValue(a.new_values?.[k])}
                                                                     </span>
                                                                 </span>
                                                             ))}
@@ -248,7 +215,7 @@ export default function UserDetails({
                                                 </div>
 
                                                 <div className="shrink-0 text-xs text-muted-foreground/70">
-                                                    {formatActivityDate(a.created_at)}
+                                                    {formatDisplayDate(a.created_at)}
                                                 </div>
                                             </div>
                                         </div>

@@ -3,6 +3,7 @@ import { Eye, ExternalLink, FileImage, FileText, FileType, History } from 'lucid
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 import { DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from './status';
 
@@ -96,12 +97,12 @@ export function DocumentCard({
                 <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 dark:bg-white/3">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">Issue date</p>
-                        <p className="mt-0.5 font-medium text-foreground/80">{doc.issue_date ?? '—'}</p>
+                        <p className="mt-0.5 font-medium text-foreground/80">{formatDisplayDate(doc.issue_date)}</p>
                     </div>
                     <div className="rounded-lg border border-border/40 bg-muted/20 px-3 py-2 dark:bg-white/3">
                         <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground/60">Expiry</p>
                         <p className={`mt-0.5 font-semibold ${expiryColor(doc.status)}`}>
-                            {doc.expiry_date ?? '—'}
+                            {formatDisplayDate(doc.expiry_date)}
                         </p>
                     </div>
                 </div>
