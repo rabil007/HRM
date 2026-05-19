@@ -183,6 +183,9 @@ continue;
     };
 
     const rawStages = normalizeStages(template.tasks);
+    const templateIncludesEmployeeRank = rawStages.some((stage) =>
+        stage.employee_fields.some((field) => field.key === 'rank_id'),
+    );
     const stagesWithContent = rawStages.filter(stageHasCollectableContent);
     const stages = stagesWithContent.length > 0 ? stagesWithContent : [emptyPlaceholderStage];
     const [currentStageIdx, setCurrentStageIdx] = useState(0);
@@ -458,7 +461,7 @@ missingFields.push(labelFromKey(key));
                         </div>
                         <div>
                             <span className="text-sm font-semibold text-foreground">New Employee</span>
-                            {options.ranks.length > 0 ? (
+                            {options.ranks.length > 0 && templateIncludesEmployeeRank ? (
                                 <AppSelect
                                     value={form.data.rank_id}
                                     onValueChange={(v) => form.setData('rank_id', v)}
