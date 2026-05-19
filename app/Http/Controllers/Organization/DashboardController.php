@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeDocument;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -12,6 +13,11 @@ class DashboardController extends Controller
     public function __invoke(): Response
     {
         $companyId = (int) request()->attributes->get('current_company_id');
+
+        Log::info('Dashboard visited', [
+            'company_id' => $companyId,
+            'user_id' => request()->user()?->id,
+        ]);
 
         $counts = EmployeeDocument::query()
             ->where('company_id', $companyId)
