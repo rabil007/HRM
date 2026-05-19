@@ -1,7 +1,7 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Label } from '@/components/ui/label';
-import type { BranchOption, DepartmentOption, PositionOption } from '../types';
+import type { BranchOption, PositionOption } from '../types';
 
 export type EmployeeFilters = {
     branch_id: string;
@@ -17,7 +17,6 @@ export function EmployeeFiltersSheet({
     onChange,
     onReset,
     branches,
-    departments,
     positions,
 }: {
     open: boolean;
@@ -26,16 +25,11 @@ export function EmployeeFiltersSheet({
     onChange: (next: EmployeeFilters) => void;
     onReset: () => void;
     branches: BranchOption[];
-    departments: DepartmentOption[];
     positions: PositionOption[];
 }) {
-    const filteredPositions = value.department_id
-        ? positions.filter((p) => String(p.department_id ?? '') === value.department_id)
-        : positions;
-
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Branch
@@ -57,31 +51,6 @@ export function EmployeeFiltersSheet({
 
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Department
-                    </Label>
-                    <AppSelect
-                        value={value.department_id}
-                        onValueChange={(v) =>
-                            onChange({
-                                ...value,
-                                department_id: v,
-                                position_id: value.position_id && v ? value.position_id : '',
-                            })
-                        }
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {departments.map((d) => (
-                            <AppSelectItem key={d.id} value={String(d.id)}>
-                                {d.name ?? `#${d.id}`}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
-                </div>
-
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Position
                     </Label>
                     <AppSelect
@@ -91,7 +60,7 @@ export function EmployeeFiltersSheet({
                         placeholder="All"
                     >
                         <AppSelectItem value="">All</AppSelectItem>
-                        {filteredPositions.map((p) => (
+                        {positions.map((p) => (
                             <AppSelectItem key={p.id} value={String(p.id)}>
                                 {p.title ?? `#${p.id}`}
                             </AppSelectItem>

@@ -31,6 +31,7 @@ use App\Models\Religion;
 use App\Models\User;
 use App\Models\VesselType;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\ResolveEmployeeNavigation;
@@ -214,6 +215,8 @@ class EmployeeController extends Controller
             'religions' => $religions,
             'genders' => $genders,
             'banks' => $banks,
+            'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
+            'department_tree_selected_id' => $departmentId !== '' ? (int) $departmentId : null,
         ]);
     }
 
