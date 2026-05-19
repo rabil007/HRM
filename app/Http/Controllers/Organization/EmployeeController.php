@@ -636,6 +636,7 @@ class EmployeeController extends Controller
         ];
 
         $enabledProfileFields = null;
+        $tasks = null;
 
         if ($employee->onboarding_template_id) {
             $tasks = is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null;
@@ -661,6 +662,20 @@ class EmployeeController extends Controller
         }
 
         $employeeTabsPayload['profile_fields'] = $enabledProfileFields;
+
+        $profileFieldsDebug = null;
+        if (request()->boolean('debug_fields') || request()->query('debug_fields') === '1') {
+            $profileFieldsDebug = [
+                'marker' => 'profile-fields-debug-v1',
+                'employee_id' => $employee->id,
+                'onboarding_template_id' => $employee->onboarding_template_id,
+                'onboarding_template_name' => $employee->onboardingTemplate?->name,
+                'profile_fields' => $enabledProfileFields,
+                'employee_tabs' => $employeeTabsPayload,
+                'tasks_has_stages' => is_array($tasks) && isset($tasks['stages']),
+                'tasks_version' => is_array($tasks) ? ($tasks['version'] ?? null) : null,
+            ];
+        }
 
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
         $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(
@@ -798,6 +813,7 @@ class EmployeeController extends Controller
             'vessel_types' => $vesselTypes,
             'clients' => $clients,
             'employee_tabs' => $employeeTabsPayload,
+            'profile_fields_debug' => $profileFieldsDebug,
         ]);
     }
 

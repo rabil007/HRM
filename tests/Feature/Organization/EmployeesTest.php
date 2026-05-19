@@ -179,6 +179,92 @@ test('employee profile includes onboarding template when assigned', function () 
         );
 });
 
+test('employee profile profile_fields excludes unchecked template fields such as rank', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'OFF',
+        'name' => 'Office Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'OFF',
+        'name' => 'Office Currency',
+        'symbol' => 'O',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Office Co',
+        'slug' => 'office-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $officeTasks = [
+        'version' => 2,
+        'stages' => [
+            [
+                'key' => 'profile_info',
+                'label' => 'Profile Information',
+                'employee_fields' => [
+                    ['key' => 'employee_no', 'required' => true],
+                    ['key' => 'name', 'required' => true],
+                    ['key' => 'work_email', 'required' => true],
+                    ['key' => 'phone', 'required' => true],
+                    ['key' => 'nationality_id', 'required' => true],
+                    ['key' => 'religion_id', 'required' => true],
+                    ['key' => 'marital_status', 'required' => true],
+                    ['key' => 'image', 'required' => true],
+                    ['key' => 'date_of_birth', 'required' => true],
+                    ['key' => 'passport_number', 'required' => true],
+                    ['key' => 'emirates_id', 'required' => true],
+                    ['key' => 'labor_card_number', 'required' => true],
+                    ['key' => 'department_id', 'required' => true],
+                    ['key' => 'position_id', 'required' => true],
+                ],
+                'bank_account_fields' => [],
+                'contract_fields' => [],
+                'documents' => [],
+            ],
+        ],
+    ];
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office',
+        'is_default' => true,
+        'tasks' => $officeTasks,
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'onboarding_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->get("/organization/employees/{$employee->id}");
+
+    $response->assertOk()->assertInertia(fn (Assert $page) => $page
+        ->component('organization/employee')
+        ->has('employee_tabs.profile_fields'));
+
+    $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
+
+    expect($profileFields)->toBeArray()
+        ->and($profileFields)->toContain('work_email', 'religion_id')
+        ->and($profileFields)->not->toContain('rank_id', 'place_of_birth', 'gender_id');
+});
+
 test('employee profile includes image and can be updated with a photo', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

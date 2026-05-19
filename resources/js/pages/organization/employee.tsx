@@ -20,6 +20,7 @@ import { EmployeeContractTab } from '@/pages/organization/_components/employee-c
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/employee-documents-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { EmployeeProfileFieldsDebug } from '@/pages/organization/_components/employee-profile-fields-debug';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
@@ -81,12 +82,21 @@ export default function EmployeeDetails({
     vessel_types,
     clients,
     employee_tabs,
+    profile_fields_debug = null,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
     };
 
     const canUpdate = (auth?.permissions ?? []).includes('employees.update');
+
+    const showProfileFieldsDebug = useMemo(() => {
+        if (typeof window === 'undefined') {
+            return false;
+        }
+
+        return new URLSearchParams(window.location.search).get('debug_fields') === '1';
+    }, []);
 
     void branches;
     void departments;
@@ -376,6 +386,14 @@ export default function EmployeeDetails({
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+
+                        {showProfileFieldsDebug ? (
+                            <EmployeeProfileFieldsDebug
+                                profileFields={employee_tabs.profile_fields}
+                                serverDebug={profile_fields_debug}
+                                clientMarker="profile-fields-debug-v1"
+                            />
+                        ) : null}
 
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
