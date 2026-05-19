@@ -21,9 +21,12 @@ export function FiltersSheet({
 }) {
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="right" className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0">
-                <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                    <SheetTitle className="text-xl font-bold tracking-tight text-white">{title}</SheetTitle>
+            <SheetContent
+                side="right"
+                className="flex w-full flex-col rounded-none border-border/60 p-0 glass-card sm:max-w-md"
+            >
+                <SheetHeader className="border-b border-border/60 p-8 pb-6">
+                    <SheetTitle className="text-xl font-bold tracking-tight">{title}</SheetTitle>
                 </SheetHeader>
 
                 <div className="p-8 space-y-6">
