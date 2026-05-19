@@ -14,7 +14,6 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { logTemplateFieldsDebug } from '@/lib/template-fields-debug';
 import { toast } from '@/lib/toast';
 import { seaServiceFieldOptions, vaccinationFieldOptions } from '@/pages/onboarding/template-form';
 
@@ -39,7 +38,6 @@ type TemplateOption = {
 };
 
 type Props = {
-    template_fields_debug?: boolean;
     template: OnboardingTemplate;
     allTemplates: TemplateOption[];
     selectedRankId: number | null;
@@ -57,13 +55,7 @@ type Props = {
     };
 };
 
-export default function EmployeeCreate({
-    template_fields_debug = false,
-    template,
-    allTemplates,
-    selectedRankId,
-    options,
-}: Props) {
+export default function EmployeeCreate({ template, allTemplates, selectedRankId, options }: Props) {
     const buildCreateUrl = (params: { templateId?: number }) => {
         const search = new URLSearchParams();
 
@@ -194,32 +186,6 @@ continue;
     const templateIncludesEmployeeRank = rawStages.some((stage) =>
         stage.employee_fields.some((field) => field.key === 'rank_id'),
     );
-
-    useEffect(() => {
-        const employeeFieldKeys = rawStages.flatMap((stage) =>
-            stage.employee_fields.map((field) => field.key),
-        );
-
-        logTemplateFieldsDebug(template_fields_debug, 'employee.create.page', {
-            template_id: template.id,
-            template_name: template.name,
-            employee_field_keys: [...new Set(employeeFieldKeys)],
-            includes_rank_id: templateIncludesEmployeeRank,
-            ranks_count: options.ranks.length,
-            header_rank_select_should_show:
-                options.ranks.length > 0 && templateIncludesEmployeeRank,
-            selected_rank_id: selectedRankId,
-        });
-    }, [
-        template_fields_debug,
-        template.id,
-        template.name,
-        templateIncludesEmployeeRank,
-        options.ranks.length,
-        selectedRankId,
-        rawStages,
-    ]);
-
     const stagesWithContent = rawStages.filter(stageHasCollectableContent);
     const stages = stagesWithContent.length > 0 ? stagesWithContent : [emptyPlaceholderStage];
     const [currentStageIdx, setCurrentStageIdx] = useState(0);

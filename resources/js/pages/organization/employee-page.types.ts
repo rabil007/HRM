@@ -243,8 +243,6 @@ export type EmployeeProfileTabVisibility = {
 };
 
 export type EmployeePageProps = {
-    /** When true (TEMPLATE_FIELDS_DEBUG=1), logs template field visibility to console and Laravel log */
-    template_fields_debug?: boolean;
     employee_navigation: EmployeeNavigation | null;
     employee: EmployeeDetails;
     contracts: EmployeeContractDetails[];

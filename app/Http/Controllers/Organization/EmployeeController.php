@@ -37,7 +37,6 @@ use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\OnboardingTemplateImportFields;
 use App\Support\OnboardingTemplateTabVisibility;
 use App\Support\Pagination\ResolvesPerPage;
-use App\Support\TemplateFieldsDebugLog;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -302,23 +301,7 @@ class EmployeeController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $createEmployeeFieldKeys = self::extractEmployeeFieldKeysFromTasks(
-            is_array($template->tasks) ? $template->tasks : null,
-        );
-
-        TemplateFieldsDebugLog::write('employee.create', [
-            'template_id' => $template->id,
-            'template_name' => $template->name,
-            'query_rank_id' => $rankId > 0 ? $rankId : null,
-            'employee_field_keys' => $createEmployeeFieldKeys,
-            'includes_rank_id' => in_array('rank_id', $createEmployeeFieldKeys, true),
-            'ranks_count' => $ranks->count(),
-            'header_rank_select_should_show' => $ranks->isNotEmpty()
-                && in_array('rank_id', $createEmployeeFieldKeys, true),
-        ]);
-
         return Inertia::render('organization/employee-create', [
-            'template_fields_debug' => TemplateFieldsDebugLog::enabled(),
             'template' => [
                 'id' => $template->id,
                 'name' => $template->name,
@@ -679,19 +662,6 @@ class EmployeeController extends Controller
 
         $employeeTabsPayload['profile_fields'] = $enabledProfileFields;
 
-        TemplateFieldsDebugLog::write('employee.show', [
-            'employee_id' => $employee->id,
-            'onboarding_template_id' => $employee->onboarding_template_id,
-            'template_name' => $employee->onboardingTemplate?->name,
-            'profile_fields' => $enabledProfileFields,
-            'profile_fields_is_null' => $enabledProfileFields === null,
-            'includes_rank_id' => is_array($enabledProfileFields)
-                && in_array('rank_id', $enabledProfileFields, true),
-            'rank_field_should_show_in_details' => $enabledProfileFields === null
-                || (is_array($enabledProfileFields) && in_array('rank_id', $enabledProfileFields, true)),
-            'employee_tabs' => $employeeTabsPayload,
-        ]);
-
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
         $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(
             $employee,
@@ -700,7 +670,6 @@ class EmployeeController extends Controller
         );
 
         return Inertia::render('organization/employee', [
-            'template_fields_debug' => TemplateFieldsDebugLog::enabled(),
             'employee_navigation' => $employeeNavigation,
             'employee' => [
                 'id' => $employee->id,
@@ -1419,34 +1388,5 @@ class EmployeeController extends Controller
         return OnboardingTemplate::query()
             ->where('company_id', $companyId)
             ->find($templateId);
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $tasks
-     * @return list<string>
-     */
-    private static function extractEmployeeFieldKeysFromTasks(?array $tasks): array
-    {
-        if (! is_array($tasks) || ! isset($tasks['stages']) || ! is_array($tasks['stages'])) {
-            return [];
-        }
-
-        $keys = [];
-
-        foreach ($tasks['stages'] as $stage) {
-            if (! is_array($stage['employee_fields'] ?? null)) {
-                continue;
-            }
-
-            foreach ($stage['employee_fields'] as $field) {
-                $key = is_array($field) ? ($field['key'] ?? '') : (string) $field;
-
-                if ($key !== '') {
-                    $keys[] = $key;
-                }
-            }
-        }
-
-        return array_values(array_unique($keys));
     }
 }
