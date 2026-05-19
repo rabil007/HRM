@@ -344,7 +344,10 @@ export function EmployeeHeaderCard({
                                     {
                                         field: 'manager_id',
                                         label: 'Manager',
-                                        current: employee.manager?.name ?? '—',
+                                        current:
+                                            managers.find((m) => String(m.id) === String(form.data.manager_id || employee.manager?.id || ''))?.name ??
+                                            employee.manager?.name ??
+                                            '—',
                                         items: managers.map((m) => ({
                                             id: m.id,
                                             label: m.name || `#${m.id}`,
