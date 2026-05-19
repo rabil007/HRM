@@ -242,17 +242,6 @@ export type EmployeeProfileTabVisibility = {
     profile_fields: string[] | null;
 };
 
-export type ProfileFieldsDebugPayload = {
-    marker: string;
-    employee_id: number;
-    onboarding_template_id: number | null;
-    onboarding_template_name: string | null;
-    profile_fields: string[] | null;
-    employee_tabs: EmployeeProfileTabVisibility;
-    tasks_has_stages: boolean;
-    tasks_version: number | null;
-};
-
 export type EmployeePageProps = {
     employee_navigation: EmployeeNavigation | null;
     employee: EmployeeDetails;
@@ -288,5 +277,4 @@ export type EmployeePageProps = {
     vessel_types: VesselTypeOption[];
     clients: ClientOption[];
     employee_tabs: EmployeeProfileTabVisibility;
-    profile_fields_debug?: ProfileFieldsDebugPayload | null;
 };
