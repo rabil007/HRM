@@ -178,12 +178,13 @@ export function EmployeeHeaderCard({
     }, [employee.status]);
 
     return (
-        <div className="relative overflow-hidden rounded-4xl border border-white/10 bg-card/80 p-6 shadow-2xl shadow-black/20 backdrop-blur-xl md:p-7">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(99,102,241,0.18),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(16,185,129,0.12),transparent_28%)]" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/30 to-transparent" />
+        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-zinc-950 p-6 shadow-[0_24px_48px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_-5%_-10%,rgba(99,102,241,0.22),transparent_55%),radial-gradient(ellipse_55%_55%_at_110%_110%,rgba(16,185,129,0.13),transparent_55%)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-indigo-500/[0.06] to-transparent" />
 
             <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
-                <div className="mx-auto shrink-0 md:mx-0">
+                <div className="relative mx-auto shrink-0 md:mx-0">
                     <input
                         ref={photoInputRef}
                         type="file"
@@ -196,10 +197,12 @@ export function EmployeeHeaderCard({
                             event.target.value = '';
                         }}
                     />
+                    {/* Glow halo behind avatar */}
+                    <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-indigo-500/30 via-violet-500/10 to-emerald-500/20 opacity-60 blur-xl" />
                     <button
                         type="button"
                         className={cn(
-                            'group relative h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/10 bg-black/20 shadow-2xl shadow-black/30 ring-1 ring-white/5 md:h-32 md:w-32 lg:h-36 lg:w-36',
+                            'group relative h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/[0.12] bg-zinc-900 shadow-2xl shadow-black/50 ring-1 ring-white/[0.06] md:h-32 md:w-32 lg:h-36 lg:w-36',
                             canUpdate ? 'cursor-pointer' : 'cursor-default',
                         )}
                         onClick={() => {
@@ -217,18 +220,18 @@ export function EmployeeHeaderCard({
                                 className="h-full w-full object-cover"
                             />
                         ) : (
-                            <div className="flex h-full w-full select-none items-center justify-center bg-linear-to-br from-primary/25 via-white/10 to-emerald-500/15 text-3xl font-bold leading-none text-white md:text-4xl">
+                            <div className="flex h-full w-full select-none items-center justify-center bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-emerald-500/20 text-3xl font-black leading-none text-white md:text-4xl lg:text-5xl">
                                 {initials}
                             </div>
                         )}
                         {canUpdate ? (
-                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/55 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
                                 {isUploadingPhoto ? (
                                     <Loader2 className="h-6 w-6 animate-spin text-white" />
                                 ) : (
                                     <>
                                         <Camera className="h-5 w-5 text-white" />
-                                        <span className="text-[10px] font-semibold uppercase tracking-wider text-white/90">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-white/90">
                                             {displayImageSrc ? 'Change' : 'Upload'}
                                         </span>
                                     </>
@@ -236,13 +239,18 @@ export function EmployeeHeaderCard({
                             </div>
                         ) : null}
                     </button>
+                    {/* Live status dot */}
+                    <div className={cn(
+                        'absolute -bottom-1.5 -right-1.5 h-5 w-5 rounded-full border-[3px] border-zinc-950 shadow-lg',
+                        statusBadge.dot,
+                    )} />
                 </div>
 
                 <div className="min-w-0 flex-1 text-center md:text-left">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
                         <div className="min-w-0 space-y-3">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-zinc-400">
-                                <UserRound className="h-3 w-3" />
+                            <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/25 bg-indigo-400/[0.08] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">
+                                <UserRound className="h-2.5 w-2.5" />
                                 Employee profile
                             </div>
 
@@ -283,22 +291,22 @@ export function EmployeeHeaderCard({
                                 ) : null}
                             </div>
 
-                            <div className="flex flex-wrap justify-center gap-2 text-xs text-zinc-400 md:justify-start">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
-                                    <Mail className="h-3.5 w-3.5" />
+                            <div className="flex flex-wrap justify-center gap-1.5 text-xs text-zinc-400 md:justify-start">
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
+                                    <Mail className="h-3 w-3 text-indigo-400" />
                                     {form.data.work_email || employee.work_email || 'No work email'}
                                 </div>
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
-                                    <Phone className="h-3.5 w-3.5" />
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
+                                    <Phone className="h-3 w-3 text-indigo-400" />
                                     {displayPhone}
                                 </div>
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/5 bg-black/10 px-3 py-1.5">
-                                    <MapPin className="h-3.5 w-3.5" />
+                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
+                                    <MapPin className="h-3 w-3 text-indigo-400" />
                                     {employee.branch?.name || 'No branch'}
                                 </div>
                             </div>
 
-                            <div className="mx-auto grid max-w-xl grid-cols-1 gap-2 text-xs md:mx-0 md:max-w-none md:grid-cols-2">
+                            <div className="mx-auto grid max-w-xl grid-cols-2 gap-1.5 text-xs md:mx-0 md:max-w-none md:grid-cols-4">
                                 {[
                                     {
                                         field: 'branch_id',
@@ -348,19 +356,19 @@ export function EmployeeHeaderCard({
                                         description: 'Search employees...',
                                     },
                                 ].map((item) => (
-                                    <div
-                                        key={item.field}
-                                        className="flex min-w-0 items-center justify-between gap-3 rounded-2xl border border-white/10 bg-black/10 px-3 py-2.5 shadow-inner shadow-black/10"
-                                    >
-                                        <div className="text-zinc-500">{item.label}</div>
-                                        <button
-                                            type="button"
-                                            className="min-w-0 truncate text-right font-semibold text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                            onClick={() => beginEdit(item.field)}
-                                            disabled={!canUpdate}
-                                        >
-                                            {item.current || '—'}
-                                        </button>
+                                     <div
+                                         key={item.field}
+                                         className="group flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]"
+                                     >
+                                         <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">{item.label}</div>
+                                         <button
+                                             type="button"
+                                             className="min-w-0 truncate text-left text-xs font-semibold text-zinc-300 hover:text-white disabled:cursor-default disabled:hover:text-zinc-300"
+                                             onClick={() => beginEdit(item.field)}
+                                             disabled={!canUpdate}
+                                         >
+                                             {item.current || '—'}
+                                         </button>
 
                                         <CommandDialog
                                             open={activeField === item.field && canUpdate}
@@ -427,7 +435,7 @@ export function EmployeeHeaderCard({
                                 ) : (
                                     <button
                                         type="button"
-                                        className="flex items-center gap-2 rounded-full border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] font-bold tracking-wide text-zinc-400 hover:text-zinc-200 disabled:cursor-default disabled:hover:text-zinc-400"
+                                        className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold tracking-widest text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-200 disabled:cursor-default disabled:hover:text-zinc-400"
                                         onClick={() => beginEdit('employee_no')}
                                         disabled={!canUpdate}
                                     >
@@ -436,10 +444,10 @@ export function EmployeeHeaderCard({
                                 )}
 
                                 <div
-                                    className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${statusBadge.container}`}
+                                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${statusBadge.container}`}
                                 >
-                                    <div className={`h-2 w-2 animate-pulse rounded-full ${statusBadge.dot}`} />
-                                    {employee.status}
+                                    <div className={`h-1.5 w-1.5 animate-pulse rounded-full ${statusBadge.dot}`} />
+                                    {employee.status?.replace('_', ' ')}
                                 </div>
                             </div>
                         </div>
