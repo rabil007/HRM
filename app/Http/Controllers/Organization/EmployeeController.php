@@ -635,11 +635,42 @@ class EmployeeController extends Controller
             'vaccination' => true,
         ];
 
+        // #region agent log
+        $debugLogPath = base_path('.cursor/debug-4512e9.log');
+        $debugTemplate = $employee->onboardingTemplate;
+        $debugTasks = $debugTemplate?->tasks;
+        file_put_contents($debugLogPath, json_encode([
+            'sessionId' => '4512e9', 'hypothesisId' => 'A-B-C-D',
+            'location' => 'EmployeeController.php:show/tabs',
+            'message' => 'template tabs input',
+            'data' => [
+                'employee_id' => $employee->id,
+                'onboarding_template_id' => $employee->onboarding_template_id,
+                'template_loaded' => $debugTemplate !== null,
+                'tasks_is_array' => is_array($debugTasks),
+                'tasks_version' => is_array($debugTasks) ? ($debugTasks['version'] ?? 'missing') : null,
+                'stages_count' => is_array($debugTasks) && isset($debugTasks['stages']) ? count($debugTasks['stages']) : null,
+                'stage_keys_sample' => is_array($debugTasks) && isset($debugTasks['stages'][0]) ? array_keys($debugTasks['stages'][0]) : null,
+            ],
+            'timestamp' => round(microtime(true) * 1000),
+        ])."\n", FILE_APPEND);
+        // #endregion
+
         if ($employee->onboarding_template_id) {
             $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks(
                 is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null,
             );
         }
+
+        // #region agent log
+        file_put_contents($debugLogPath, json_encode([
+            'sessionId' => '4512e9', 'hypothesisId' => 'A-B-C-D',
+            'location' => 'EmployeeController.php:show/tabs-result',
+            'message' => 'final employeeTabsPayload',
+            'data' => $employeeTabsPayload,
+            'timestamp' => round(microtime(true) * 1000),
+        ])."\n", FILE_APPEND);
+        // #endregion
 
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
         $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(
