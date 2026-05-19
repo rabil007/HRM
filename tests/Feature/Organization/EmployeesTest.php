@@ -125,6 +125,59 @@ test('authenticated users can view an employee details page', function () {
         );
 });
 
+test('employee profile includes onboarding template when assigned', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TPL',
+        'name' => 'Template Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TPL',
+        'name' => 'Template Currency',
+        'symbol' => 'T',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Template Co',
+        'slug' => 'template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Office Staff Template',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'onboarding_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('employee.onboarding_template.id', $template->id)
+            ->where('employee.onboarding_template.name', 'Office Staff Template')
+        );
+});
+
 test('employee profile includes image and can be updated with a photo', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

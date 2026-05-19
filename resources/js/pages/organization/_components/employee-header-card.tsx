@@ -1,4 +1,4 @@
-import { Briefcase, Building2, Camera, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
+import { Briefcase, Building2, Camera, ClipboardList, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -454,6 +454,15 @@ export function EmployeeHeaderCard({
                                     {employee.status?.replace('_', ' ')}
                                 </div>
                             </div>
+                            {employee.onboarding_template?.name ? (
+                                <Badge
+                                    title={`Onboarding template: ${employee.onboarding_template.name}`}
+                                    className="flex max-w-[11rem] items-center gap-1.5 rounded-full border-violet-500/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-300"
+                                >
+                                    <ClipboardList className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{employee.onboarding_template.name}</span>
+                                </Badge>
+                            ) : null}
                         </div>
                     </div>
                 </div>

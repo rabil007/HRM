@@ -65,6 +65,7 @@ export type EmployeeDetails = {
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
+    onboarding_template?: { id: number; name: string | null } | null;
     address?: string | null;
     image?: string | null;
     created_at: string;

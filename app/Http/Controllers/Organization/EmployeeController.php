@@ -389,7 +389,7 @@ class EmployeeController extends Controller
             'bankAccounts.bank:id,name',
             'primaryBankAccount.bank:id,name',
             'currentContract',
-            'onboardingTemplate:id,tasks',
+            'onboardingTemplate:id,name,tasks',
         ]);
 
         $contracts = EmployeeContract::query()
@@ -738,6 +738,10 @@ class EmployeeController extends Controller
                 'status' => $employee->status,
                 'termination_date' => $employee->termination_date,
                 'termination_reason' => $employee->termination_reason,
+                'onboarding_template' => $employee->onboarding_template_id ? [
+                    'id' => $employee->onboarding_template_id,
+                    'name' => $employee->onboardingTemplate?->name,
+                ] : null,
                 'created_at' => $employee->created_at,
                 'updated_at' => $employee->updated_at,
             ],
