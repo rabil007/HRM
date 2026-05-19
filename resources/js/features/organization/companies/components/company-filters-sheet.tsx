@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -46,42 +47,42 @@ export function CompanyFiltersSheet({
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="filter-country" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Country
                     </Label>
-                    <select
-                        id="filter-country"
+                    <AppSelect
                         value={value.country}
-                        onChange={(e) => onChange({ ...value, country: e.target.value })}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                        onValueChange={(v) => onChange({ ...value, country: v })}
+                        variant="dark"
+                        placeholder="All"
                     >
-                        <option value="">All</option>
+                        <AppSelectItem value="">All</AppSelectItem>
                         {countries.map((country) => (
-                            <option key={country.id} value={country.code}>
+                            <AppSelectItem key={country.id} value={country.code}>
                                 {country.code} {country.name}
-                            </option>
+                            </AppSelectItem>
                         ))}
-                    </select>
+                    </AppSelect>
                 </div>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-currency" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Currency
                 </Label>
-                <select
-                    id="filter-currency"
+                <AppSelect
                     value={value.currency}
-                    onChange={(e) => onChange({ ...value, currency: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, currency: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {currencies.map((currency) => (
-                        <option key={currency.id} value={currency.code}>
+                        <AppSelectItem key={currency.id} value={currency.code}>
                             {currency.code} {currency.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="space-y-3">
@@ -108,4 +109,3 @@ export function CompanyFiltersSheet({
         </FiltersSheet>
     );
 }
-

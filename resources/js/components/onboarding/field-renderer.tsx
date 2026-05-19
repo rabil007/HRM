@@ -1,5 +1,6 @@
 import { UserPlus } from 'lucide-react';
 import React from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -112,20 +113,19 @@ export function FieldRenderer({
             <Label htmlFor={id} className="text-xs font-medium text-foreground">
                 {label} {isRequired && <span className="text-destructive">*</span>}
             </Label>
-            <select
-                id={id}
+            <AppSelect
                 value={String(value ?? '')}
-                onChange={(e) => onChange(e.target.value)}
-                className={selectClass}
-                required={isRequired}
+                onValueChange={(v) => onChange(v)}
+                variant="card"
+                placeholder={placeholder}
             >
-                <option value="">{placeholder}</option>
+                <AppSelectItem value="">{placeholder}</AppSelectItem>
                 {opts.map((o) => (
-                    <option key={o.id} value={String(o.id)}>
+                    <AppSelectItem key={o.id} value={String(o.id)}>
                         {o.title || o.name}
-                    </option>
+                    </AppSelectItem>
                 ))}
-            </select>
+            </AppSelect>
             {error && <p className="text-[10px] text-destructive">{error}</p>}
         </div>
     );
@@ -174,20 +174,19 @@ export function FieldRenderer({
                 <Label htmlFor={id} className="text-xs font-medium text-foreground">
                     {label} {isRequired && <span className="text-destructive">*</span>}
                 </Label>
-                <select
-                    id={id}
+                <AppSelect
                     value={String(value ?? '')}
-                    onChange={(e) => onChange(e.target.value)}
-                    className={selectClass}
-                    required={isRequired}
+                    onValueChange={(v) => onChange(v)}
+                    variant="card"
+                    placeholder="Select Nationality"
                 >
-                    <option value="">Select Nationality</option>
+                    <AppSelectItem value="">Select Nationality</AppSelectItem>
                     {options.countries.map((o) => (
-                        <option key={o.id} value={String(o.id)}>
+                        <AppSelectItem key={o.id} value={String(o.id)}>
                             {o.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
                 {error && <p className="text-[10px] text-destructive">{error}</p>}
             </div>
         );
@@ -199,18 +198,17 @@ export function FieldRenderer({
                 <Label htmlFor={id} className="text-xs font-medium text-foreground">
                     {label} {isRequired && <span className="text-destructive">*</span>}
                 </Label>
-                <select
-                    id={id}
+                <AppSelect
                     value={String(value ?? '')}
-                    onChange={(e) => onChange(e.target.value)}
-                    className={selectClass}
-                    required={isRequired}
+                    onValueChange={(v) => onChange(v)}
+                    variant="card"
+                    placeholder="Limited"
                 >
-                    <option value="limited">Limited</option>
-                    <option value="unlimited">Unlimited</option>
-                    <option value="part_time">Part Time</option>
-                    <option value="contract">Contract</option>
-                </select>
+                    <AppSelectItem value="limited">Limited</AppSelectItem>
+                    <AppSelectItem value="unlimited">Unlimited</AppSelectItem>
+                    <AppSelectItem value="part_time">Part Time</AppSelectItem>
+                    <AppSelectItem value="contract">Contract</AppSelectItem>
+                </AppSelect>
                 {error && <p className="text-[10px] text-destructive">{error}</p>}
             </div>
         );
@@ -222,19 +220,18 @@ export function FieldRenderer({
                 <Label htmlFor={id} className="text-xs font-medium text-foreground">
                     {label} {isRequired && <span className="text-destructive">*</span>}
                 </Label>
-                <select
-                    id={id}
+                <AppSelect
                     value={String(value ?? '')}
-                    onChange={(e) => onChange(e.target.value)}
-                    className={selectClass}
-                    required={isRequired}
+                    onValueChange={(v) => onChange(v)}
+                    variant="card"
+                    placeholder="Select Status"
                 >
-                    <option value="">Select Status</option>
-                    <option value="single">Single</option>
-                    <option value="married">Married</option>
-                    <option value="divorced">Divorced</option>
-                    <option value="widowed">Widowed</option>
-                </select>
+                    <AppSelectItem value="">Select Status</AppSelectItem>
+                    <AppSelectItem value="single">Single</AppSelectItem>
+                    <AppSelectItem value="married">Married</AppSelectItem>
+                    <AppSelectItem value="divorced">Divorced</AppSelectItem>
+                    <AppSelectItem value="widowed">Widowed</AppSelectItem>
+                </AppSelect>
                 {error && <p className="text-[10px] text-destructive">{error}</p>}
             </div>
         );

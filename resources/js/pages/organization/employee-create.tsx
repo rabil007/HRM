@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, RotateCcw, Save, UserPlus } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { DocumentRegistry } from '@/components/onboarding/document-registry';
 import { FieldRenderer } from '@/components/onboarding/field-renderer';
@@ -458,18 +459,21 @@ missingFields.push(labelFromKey(key));
                         <div>
                             <span className="text-sm font-semibold text-foreground">New Employee</span>
                             {options.ranks.length > 0 ? (
-                                <select
+                                <AppSelect
                                     value={form.data.rank_id}
-                                    onChange={(e) => form.setData('rank_id', e.target.value)}
-                                    className="ml-2 h-7 rounded-md border border-border bg-background px-2 text-xs text-muted-foreground"
+                                    onValueChange={(v) => form.setData('rank_id', v)}
+                                    variant="card"
+                                    placeholder="Select rank"
+                                    size="sm"
+                                    className="ml-2 w-36"
                                 >
-                                    <option value="">Select rank</option>
+                                    <AppSelectItem value="">Select rank</AppSelectItem>
                                     {options.ranks.map((r) => (
-                                        <option key={r.id} value={String(r.id)}>
+                                        <AppSelectItem key={r.id} value={String(r.id)}>
                                             {r.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                             ) : null}
                             {allTemplates.length > 1 ? (
                                 <DropdownMenu>

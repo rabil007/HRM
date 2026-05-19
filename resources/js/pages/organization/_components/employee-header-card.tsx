@@ -1,6 +1,7 @@
 import { Briefcase, Building2, Camera, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -517,19 +518,20 @@ export function EmployeeHeaderCard({
                             Marital status
                         </div>
                         {activeField === 'marital_status' && canUpdate ? (
-                            <select
-                                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-zinc-200 outline-none"
+                            <AppSelect
                                 value={form.data.marital_status}
-                                onChange={(e) => form.setData('marital_status', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
+                                onValueChange={(v) => { form.setData('marital_status', v); setActiveField(null); }}
+                                onClose={() => setActiveField(null)}
+                                variant="dark"
+                                placeholder="—"
+                                size="sm"
                             >
-                                <option value="">—</option>
-                                <option value="single">Single</option>
-                                <option value="married">Married</option>
-                                <option value="divorced">Divorced</option>
-                                <option value="widowed">Widowed</option>
-                            </select>
+                                <AppSelectItem value="">—</AppSelectItem>
+                                <AppSelectItem value="single">Single</AppSelectItem>
+                                <AppSelectItem value="married">Married</AppSelectItem>
+                                <AppSelectItem value="divorced">Divorced</AppSelectItem>
+                                <AppSelectItem value="widowed">Widowed</AppSelectItem>
+                            </AppSelect>
                         ) : (
                             <button
                                 type="button"
@@ -574,20 +576,21 @@ export function EmployeeHeaderCard({
                             Rank
                         </div>
                         {activeField === 'rank_id' && canUpdate ? (
-                            <select
-                                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-zinc-200 outline-none"
+                            <AppSelect
                                 value={form.data.rank_id}
-                                onChange={(e) => form.setData('rank_id', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
+                                onValueChange={(v) => { form.setData('rank_id', v); setActiveField(null); }}
+                                onClose={() => setActiveField(null)}
+                                variant="dark"
+                                placeholder="—"
+                                size="sm"
                             >
-                                <option value="">—</option>
+                                <AppSelectItem value="">—</AppSelectItem>
                                 {ranks.map((r) => (
-                                    <option key={r.id} value={String(r.id)}>
+                                    <AppSelectItem key={r.id} value={String(r.id)}>
                                         {r.name ?? `#${r.id}`}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                         ) : (
                             <button
                                 type="button"
@@ -633,20 +636,21 @@ export function EmployeeHeaderCard({
                             Gender
                         </div>
                         {activeField === 'gender_id' && canUpdate ? (
-                            <select
-                                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-zinc-200 outline-none"
+                            <AppSelect
                                 value={form.data.gender_id}
-                                onChange={(e) => form.setData('gender_id', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
+                                onValueChange={(v) => { form.setData('gender_id', v); setActiveField(null); }}
+                                onClose={() => setActiveField(null)}
+                                variant="dark"
+                                placeholder="—"
+                                size="sm"
                             >
-                                <option value="">—</option>
+                                <AppSelectItem value="">—</AppSelectItem>
                                 {genders.map((g) => (
-                                    <option key={g.id} value={String(g.id)}>
+                                    <AppSelectItem key={g.id} value={String(g.id)}>
                                         {g.name ?? `#${g.id}`}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                         ) : (
                             <button
                                 type="button"
@@ -666,20 +670,21 @@ export function EmployeeHeaderCard({
                             Religion
                         </div>
                         {activeField === 'religion_id' && canUpdate ? (
-                            <select
-                                className="h-8 w-full rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-zinc-200 outline-none"
+                            <AppSelect
                                 value={form.data.religion_id}
-                                onChange={(e) => form.setData('religion_id', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
+                                onValueChange={(v) => { form.setData('religion_id', v); setActiveField(null); }}
+                                onClose={() => setActiveField(null)}
+                                variant="dark"
+                                placeholder="—"
+                                size="sm"
                             >
-                                <option value="">—</option>
+                                <AppSelectItem value="">—</AppSelectItem>
                                 {religions.map((r) => (
-                                    <option key={r.id} value={String(r.id)}>
+                                    <AppSelectItem key={r.id} value={String(r.id)}>
                                         {r.name ?? `#${r.id}`}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                         ) : (
                             <button
                                 type="button"

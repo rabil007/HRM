@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -137,21 +138,19 @@ export function CompanyFormSheet({
                                 >
                                     Country
                                 </Label>
-                                <select
-                                    id="country_id"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                    value={form.data.country_id}
-                                    onChange={(e) =>
-                                        form.setData('country_id', e.target.value ? Number(e.target.value) : '')
-                                    }
+                                <AppSelect
+                                    value={String(form.data.country_id ?? '')}
+                                    onValueChange={(v) => form.setData('country_id', v ? Number(v) : '')}
+                                    variant="card"
+                                    placeholder="Select country"
                                 >
-                                    <option value="">Select country</option>
+                                    <AppSelectItem value="">Select country</AppSelectItem>
                                     {countries.map((country) => (
-                                        <option key={country.id} value={country.id}>
+                                        <AppSelectItem key={country.id} value={String(country.id)}>
                                             {country.code} {country.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                             </div>
                             <div className="space-y-2">
                                 <Label
@@ -233,21 +232,19 @@ export function CompanyFormSheet({
                                 >
                                     Currency
                                 </Label>
-                                <select
-                                    id="currency_id"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                    value={form.data.currency_id}
-                                    onChange={(e) =>
-                                        form.setData('currency_id', e.target.value ? Number(e.target.value) : '')
-                                    }
+                                <AppSelect
+                                    value={String(form.data.currency_id ?? '')}
+                                    onValueChange={(v) => form.setData('currency_id', v ? Number(v) : '')}
+                                    variant="card"
+                                    placeholder="Select currency"
                                 >
-                                    <option value="">Select currency</option>
+                                    <AppSelectItem value="">Select currency</AppSelectItem>
                                     {currencies.map((currency) => (
-                                        <option key={currency.id} value={currency.id}>
+                                        <AppSelectItem key={currency.id} value={String(currency.id)}>
                                             {currency.code} {currency.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                             </div>
                         </div>
                     </div>
@@ -326,18 +323,15 @@ export function CompanyFormSheet({
                                 >
                                     Payroll cycle
                                 </Label>
-                                <select
-                                    id="payroll_cycle"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.payroll_cycle}
-                                    onChange={(e) =>
-                                        form.setData('payroll_cycle', e.target.value as 'monthly' | 'biweekly' | 'weekly')
-                                    }
+                                    onValueChange={(v) => form.setData('payroll_cycle', v as 'monthly' | 'biweekly' | 'weekly')}
+                                    variant="card"
                                 >
-                                    <option value="monthly">Monthly</option>
-                                    <option value="biweekly">Biweekly</option>
-                                    <option value="weekly">Weekly</option>
-                                </select>
+                                    <AppSelectItem value="monthly">Monthly</AppSelectItem>
+                                    <AppSelectItem value="biweekly">Biweekly</AppSelectItem>
+                                    <AppSelectItem value="weekly">Weekly</AppSelectItem>
+                                </AppSelect>
                             </div>
                             <div className="space-y-2">
                                 <Label
@@ -346,18 +340,15 @@ export function CompanyFormSheet({
                                 >
                                     Status
                                 </Label>
-                                <select
-                                    id="status"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.status}
-                                    onChange={(e) =>
-                                        form.setData('status', e.target.value as 'active' | 'suspended' | 'inactive')
-                                    }
+                                    onValueChange={(v) => form.setData('status', v as 'active' | 'suspended' | 'inactive')}
+                                    variant="card"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="suspended">Suspended</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="suspended">Suspended</AppSelectItem>
+                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                </AppSelect>
                             </div>
                         </div>
 

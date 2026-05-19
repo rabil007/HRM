@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { BankOption } from '@/features/organization/employees/types';
@@ -202,18 +203,19 @@ export function EmployeeBankTab({
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Bank <span className="text-red-400">*</span></Label>
-                            <select
-                                className="flex h-10 w-full rounded-xl border border-white/10 bg-black/30 px-3 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
+                            <AppSelect
                                 value={bankForm.data.bank_id}
-                                onChange={(e) => bankForm.setData('bank_id', e.target.value)}
+                                onValueChange={(v) => bankForm.setData('bank_id', v)}
+                                variant="dark"
+                                placeholder="— Select a bank —"
                             >
-                                <option value="">— Select a bank —</option>
+                                <AppSelectItem value="">— Select a bank —</AppSelectItem>
                                 {banks.map((bank) => (
-                                    <option key={bank.id} value={String(bank.id)}>
+                                    <AppSelectItem key={bank.id} value={String(bank.id)}>
                                         {bank.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {bankForm.errors.bank_id ? (
                                 <p className="text-xs text-destructive">{bankForm.errors.bank_id}</p>
                             ) : (

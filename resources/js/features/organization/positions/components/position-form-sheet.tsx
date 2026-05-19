@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,19 +39,19 @@ export function PositionFormSheet({
                             <Label htmlFor="department_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Department (optional)
                             </Label>
-                            <select
-                                id="department_id"
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.department_id}
-                                onChange={(e) => form.setData('department_id', e.target.value ? Number(e.target.value) : '')}
+                            <AppSelect
+                                value={String(form.data.department_id ?? '')}
+                                onValueChange={(v) => form.setData('department_id', v ? Number(v) : '')}
+                                variant="card"
+                                placeholder="All departments"
                             >
-                                <option value="">All departments</option>
+                                <AppSelectItem value="">All departments</AppSelectItem>
                                 {availableDepartments.map((d) => (
-                                    <option key={d.id} value={d.id}>
+                                    <AppSelectItem key={d.id} value={String(d.id)}>
                                         {d.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.department_id ? <div className="text-xs font-medium text-destructive">{form.errors.department_id}</div> : null}
                         </div>
 
@@ -73,15 +74,14 @@ export function PositionFormSheet({
                                 <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                     Status
                                 </Label>
-                                <select
-                                    id="status"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.status}
-                                    onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
+                                    onValueChange={(v) => form.setData('status', v as 'active' | 'inactive')}
+                                    variant="card"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                </AppSelect>
                                 {form.errors.status ? <div className="text-xs font-medium text-destructive">{form.errors.status}</div> : null}
                             </div>
 

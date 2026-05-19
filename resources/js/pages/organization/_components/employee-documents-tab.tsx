@@ -12,6 +12,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeDocumentRowActions } from '@/components/employee-document-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -392,16 +393,17 @@ export function EmployeeDocumentsTab({ employee, documents, document_types, can 
 
                     <div className="space-y-1.5">
                         <Label className="text-xs">Document Type <span className="text-destructive">*</span></Label>
-                        <select
+                        <AppSelect
                             value={uploadForm.data.document_type_id}
-                            onChange={(event) => uploadForm.setData('document_type_id', event.target.value)}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-1 focus:ring-primary"
+                            onValueChange={(v) => uploadForm.setData('document_type_id', v)}
+                            variant="card"
+                            placeholder="Select type…"
                         >
-                            <option value="">Select type…</option>
+                            <AppSelectItem value="">Select type…</AppSelectItem>
                             {document_types.map((type) => (
-                                <option key={type.id} value={String(type.id)}>{type.title}</option>
+                                <AppSelectItem key={type.id} value={String(type.id)}>{type.title}</AppSelectItem>
                             ))}
-                        </select>
+                        </AppSelect>
                         {uploadForm.errors.document_type_id ? (
                             <p className="text-xs text-destructive">{uploadForm.errors.document_type_id}</p>
                         ) : null}

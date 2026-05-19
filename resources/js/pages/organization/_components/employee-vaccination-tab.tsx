@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
@@ -227,18 +228,19 @@ export function EmployeeVaccinationTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Country</Label>
-                                <select
+                                <AppSelect
                                     value={vaccinationForm.data.country_id}
-                                    onChange={(e) => vaccinationForm.setData('country_id', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => vaccinationForm.setData('country_id', v)}
+                                    variant="dark"
+                                    placeholder="— Select a country —"
                                 >
-                                    <option value="">— Select a country —</option>
+                                    <AppSelectItem value="">— Select a country —</AppSelectItem>
                                     {countries.map((c) => (
-                                        <option key={c.id} value={String(c.id)}>
+                                        <AppSelectItem key={c.id} value={String(c.id)}>
                                             {c.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                                 {vaccinationForm.errors.country_id ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.country_id}</p>
                                 ) : (

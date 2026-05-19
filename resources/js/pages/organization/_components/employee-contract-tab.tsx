@@ -28,6 +28,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -362,31 +363,29 @@ export function EmployeeContractTab({
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_type" className="text-xs">Contract type</Label>
-                                <select
-                                    id="contract_type"
+                                <AppSelect
                                     value={contractForm.data.contract_type}
-                                    onChange={(e) => contractForm.setData('contract_type', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => contractForm.setData('contract_type', v)}
+                                    variant="dark"
                                 >
-                                    <option value="unlimited">Unlimited</option>
-                                    <option value="limited">Limited</option>
-                                    <option value="part_time">Part time</option>
-                                    <option value="contract">Contract</option>
-                                </select>
+                                    <AppSelectItem value="unlimited">Unlimited</AppSelectItem>
+                                    <AppSelectItem value="limited">Limited</AppSelectItem>
+                                    <AppSelectItem value="part_time">Part time</AppSelectItem>
+                                    <AppSelectItem value="contract">Contract</AppSelectItem>
+                                </AppSelect>
                                 <p className="text-[11px] text-zinc-500">The nature of the employment term</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_status" className="text-xs">Status</Label>
-                                <select
-                                    id="contract_status"
+                                <AppSelect
                                     value={contractForm.data.status}
-                                    onChange={(e) => contractForm.setData('status', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => contractForm.setData('status', v)}
+                                    variant="dark"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="ended">Ended</option>
-                                    <option value="draft">Draft</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="ended">Ended</AppSelectItem>
+                                    <AppSelectItem value="draft">Draft</AppSelectItem>
+                                </AppSelect>
                                 <p className="text-[11px] text-zinc-500">Current state of this contract</p>
                             </div>
                         </div>

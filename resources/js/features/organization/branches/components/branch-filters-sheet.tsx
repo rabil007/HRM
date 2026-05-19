@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
@@ -34,19 +35,19 @@ export function BranchFiltersSheet({
                 <Label htmlFor="filter-country" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Country
                 </Label>
-                <select
-                    id="filter-country"
+                <AppSelect
                     value={value.country}
-                    onChange={(e) => onChange({ ...value, country: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, country: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {countries.map((country) => (
-                        <option key={country.code} value={country.code}>
+                        <AppSelectItem key={country.code} value={country.code}>
                             {country.code} {country.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -63,19 +64,19 @@ export function BranchFiltersSheet({
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label htmlFor="filter-status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Status
                     </Label>
-                    <select
-                        id="filter-status"
+                    <AppSelect
                         value={value.status}
-                        onChange={(e) => onChange({ ...value, status: e.target.value as BranchFilters['status'] })}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                        onValueChange={(v) => onChange({ ...value, status: v as BranchFilters['status'] })}
+                        variant="dark"
+                        placeholder="All"
                     >
-                        <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="active">Active</AppSelectItem>
+                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                    </AppSelect>
                 </div>
             </div>
 
@@ -103,4 +104,3 @@ export function BranchFiltersSheet({
         </FiltersSheet>
     );
 }
-

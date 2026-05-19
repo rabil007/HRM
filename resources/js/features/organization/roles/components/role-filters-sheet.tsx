@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Label } from '@/components/ui/label';
 
@@ -22,30 +23,21 @@ export function RoleFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label
-                        htmlFor="filter-has-permissions"
-                        className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
-                    >
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Permissions
                     </Label>
-                    <select
-                        id="filter-has-permissions"
+                    <AppSelect
                         value={value.has_permissions}
-                        onChange={(e) =>
-                            onChange({
-                                ...value,
-                                has_permissions: e.target.value as RoleFilters['has_permissions'],
-                            })
-                        }
-                        className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                        onValueChange={(v) => onChange({ ...value, has_permissions: v as RoleFilters['has_permissions'] })}
+                        variant="dark"
+                        placeholder="All"
                     >
-                        <option value="">All</option>
-                        <option value="true">Has permissions</option>
-                        <option value="false">No permissions</option>
-                    </select>
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="true">Has permissions</AppSelectItem>
+                        <AppSelectItem value="false">No permissions</AppSelectItem>
+                    </AppSelect>
                 </div>
             </div>
         </FiltersSheet>
     );
 }
-

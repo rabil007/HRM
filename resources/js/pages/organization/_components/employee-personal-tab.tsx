@@ -1,5 +1,6 @@
 import { Globe, Mail, MapPin, Phone, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { Input } from '@/components/ui/input';
 import { TabsContent } from '@/components/ui/tabs';
@@ -541,28 +542,23 @@ export function EmployeePersonalTab({
                             </label>
                             {activeField === 'nationality_id' ? (
                                 <div>
-                                    <select
-                                        className="h-10 w-full rounded-xl border border-white/5 bg-white/5 px-3 text-sm text-zinc-200 outline-none"
-                                        value={form.data.nationality_id}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'nationality_id',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
+                                    <AppSelect
+                                        value={form.data.nationality_id as string ?? ''}
+                                        onValueChange={(v) => { form.setData('nationality_id', v); setActiveField(null); }}
+                                        onClose={() => setActiveField(null)}
+                                        variant="dark"
+                                        placeholder="—"
                                     >
-                                        <option value="">—</option>
+                                        <AppSelectItem value="">—</AppSelectItem>
                                         {countries.map((c) => (
-                                            <option
+                                            <AppSelectItem
                                                 key={c.id}
                                                 value={String(c.id)}
                                             >
                                                 {c.name}
-                                            </option>
+                                            </AppSelectItem>
                                         ))}
-                                    </select>
+                                    </AppSelect>
                                     {form.errors.nationality_id ? (
                                         <div className="mt-1 text-xs text-destructive">
                                             {form.errors.nationality_id}

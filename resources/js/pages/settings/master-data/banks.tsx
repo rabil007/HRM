@@ -1,5 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
 import {
     AlertDialog,
@@ -235,19 +236,19 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
                             <Label htmlFor="country_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Country
                             </Label>
-                            <select
-                                id="country_id"
+                            <AppSelect
                                 value={form.data.country_id === '' ? '' : String(form.data.country_id)}
-                                onChange={(e) => form.setData('country_id', e.target.value ? Number(e.target.value) : '')}
-                                className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                onValueChange={(v) => form.setData('country_id', v ? Number(v) : '')}
+                                variant="dark"
+                                placeholder="—"
                             >
-                                <option value="">—</option>
+                                <AppSelectItem value="">—</AppSelectItem>
                                 {countries.map((c) => (
-                                    <option key={c.id} value={String(c.id)}>
+                                    <AppSelectItem key={c.id} value={String(c.id)}>
                                         {c.name} ({c.code})
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.country_id ? <div className="text-xs font-medium text-destructive">{form.errors.country_id}</div> : null}
                         </div>
 

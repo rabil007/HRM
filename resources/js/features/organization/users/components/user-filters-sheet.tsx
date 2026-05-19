@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Label } from '@/components/ui/label';
 
@@ -21,22 +22,21 @@ export function UserFiltersSheet({
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-2">
-                <Label htmlFor="filter-status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Status
                 </Label>
-                <select
-                    id="filter-status"
+                <AppSelect
                     value={value.status}
-                    onChange={(e) => onChange({ ...value, status: e.target.value as UserFilters['status'] })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, status: v as UserFilters['status'] })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                    <option value="suspended">Suspended</option>
-                </select>
+                    <AppSelectItem value="">All</AppSelectItem>
+                    <AppSelectItem value="active">Active</AppSelectItem>
+                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                    <AppSelectItem value="suspended">Suspended</AppSelectItem>
+                </AppSelect>
             </div>
         </FiltersSheet>
     );
 }
-

@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -46,15 +47,14 @@ export function DepartmentFormSheet({
                                 <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                     Status
                                 </Label>
-                                <select
-                                    id="status"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.status}
-                                    onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
+                                    onValueChange={(v) => form.setData('status', v as 'active' | 'inactive')}
+                                    variant="card"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                </AppSelect>
                                 {form.errors.status ? <div className="text-xs font-medium text-destructive">{form.errors.status}</div> : null}
                             </div>
 
@@ -91,19 +91,19 @@ export function DepartmentFormSheet({
                             <Label htmlFor="branch_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Branch (optional)
                             </Label>
-                            <select
-                                id="branch_id"
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.branch_id}
-                                onChange={(e) => form.setData('branch_id', e.target.value ? Number(e.target.value) : '')}
+                            <AppSelect
+                                value={String(form.data.branch_id ?? '')}
+                                onValueChange={(v) => form.setData('branch_id', v ? Number(v) : '')}
+                                variant="card"
+                                placeholder="All branches"
                             >
-                                <option value="">All branches</option>
+                                <AppSelectItem value="">All branches</AppSelectItem>
                                 {availableBranches.map((branch) => (
-                                    <option key={branch.id} value={branch.id}>
+                                    <AppSelectItem key={branch.id} value={String(branch.id)}>
                                         {branch.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.branch_id ? <div className="text-xs font-medium text-destructive">{form.errors.branch_id}</div> : null}
                         </div>
 
@@ -111,19 +111,19 @@ export function DepartmentFormSheet({
                             <Label htmlFor="parent_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Parent department (optional)
                             </Label>
-                            <select
-                                id="parent_id"
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.parent_id}
-                                onChange={(e) => form.setData('parent_id', e.target.value ? Number(e.target.value) : '')}
+                            <AppSelect
+                                value={String(form.data.parent_id ?? '')}
+                                onValueChange={(v) => form.setData('parent_id', v ? Number(v) : '')}
+                                variant="card"
+                                placeholder="No parent"
                             >
-                                <option value="">No parent</option>
+                                <AppSelectItem value="">No parent</AppSelectItem>
                                 {availableParents.map((parent) => (
-                                    <option key={parent.id} value={parent.id}>
+                                    <AppSelectItem key={parent.id} value={String(parent.id)}>
                                         {parent.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.parent_id ? <div className="text-xs font-medium text-destructive">{form.errors.parent_id}</div> : null}
                         </div>
 
@@ -131,19 +131,19 @@ export function DepartmentFormSheet({
                             <Label htmlFor="manager_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Manager (optional)
                             </Label>
-                            <select
-                                id="manager_id"
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.manager_id}
-                                onChange={(e) => form.setData('manager_id', e.target.value ? Number(e.target.value) : '')}
+                            <AppSelect
+                                value={String(form.data.manager_id ?? '')}
+                                onValueChange={(v) => form.setData('manager_id', v ? Number(v) : '')}
+                                variant="card"
+                                placeholder="No manager"
                             >
-                                <option value="">No manager</option>
+                                <AppSelectItem value="">No manager</AppSelectItem>
                                 {managers.map((manager) => (
-                                    <option key={manager.id} value={manager.id}>
+                                    <AppSelectItem key={manager.id} value={String(manager.id)}>
                                         {manager.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.manager_id ? <div className="text-xs font-medium text-destructive">{form.errors.manager_id}</div> : null}
                         </div>
                     </div>

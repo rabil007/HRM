@@ -9,6 +9,7 @@ import {
     X,
 } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
@@ -324,19 +325,20 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                         No onboarding templates found. Please create one before importing employees.
                                     </div>
                                 ) : (
-                                    <select
-                                        id="onboarding-template"
-                                        value={selectedTemplateId ?? ''}
-                                        onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
-                                        className="h-10 w-full max-w-sm rounded-md border border-white/10 bg-background px-3 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary"
+                                    <AppSelect
+                                        value={String(selectedTemplateId ?? '')}
+                                        onValueChange={(v) => setSelectedTemplateId(v ? Number(v) : null)}
+                                        variant="card"
+                                        placeholder="Select a template…"
+                                        className="max-w-sm"
                                     >
-                                        <option value="">Select a template…</option>
+                                        <AppSelectItem value="">Select a template…</AppSelectItem>
                                         {templates.map((t) => (
-                                            <option key={t.id} value={t.id}>
+                                            <AppSelectItem key={t.id} value={String(t.id)}>
                                                 {t.name}{t.is_default ? ' (Default)' : ''}
-                                            </option>
+                                            </AppSelectItem>
                                         ))}
-                                    </select>
+                                    </AppSelect>
                                 )}
                             </CardContent>
                         </Card>
@@ -508,21 +510,21 @@ toast.error('Please select an onboarding template first.');
                                                     ))}
                                                 </div>
                                                 <div>
-                                                    <select
+                                                    <AppSelect
                                                         value={header ?? ''}
+                                                        onValueChange={(v) => handleMappingChange(field, v)}
                                                         disabled={!allowed || isPreviewing}
-                                                        onChange={(event) => handleMappingChange(field, event.target.value)}
-                                                        className={`h-9 w-full rounded-md border px-3 text-xs outline-none focus:ring-1 focus:ring-primary disabled:cursor-not-allowed disabled:opacity-60 ${
-                                                            isMapped ? 'border-white/10 bg-background text-foreground' : isRequired ? 'border-amber-500/20 bg-amber-500/10 text-amber-500' : 'border-white/10 bg-background text-muted-foreground'
-                                                        }`}
+                                                        variant="card"
+                                                        placeholder={allowed ? 'Do not import' : 'Permission required'}
+                                                        size="sm"
                                                     >
-                                                        <option value="">{allowed ? 'Do not import' : 'Permission required'}</option>
+                                                        <AppSelectItem value="">{allowed ? 'Do not import' : 'Permission required'}</AppSelectItem>
                                                         {preview.headers.map((candidate) => (
-                                                            <option key={`${field}-${candidate}`} value={candidate}>
+                                                            <AppSelectItem key={`${field}-${candidate}`} value={candidate}>
                                                                 {candidate}
-                                                            </option>
+                                                            </AppSelectItem>
                                                         ))}
-                                                    </select>
+                                                    </AppSelect>
                                                 </div>
                                                 <div>
                                                     {relatedErrors.length > 0 ? (

@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import type { RankOption } from '@/features/organization/employees/types';
@@ -379,18 +380,19 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Vessel type <span className="text-red-400">*</span></Label>
-                                <select
+                                <AppSelect
                                     value={employeeForm.data.vessel_type_id}
-                                    onChange={(e) => employeeForm.setData('vessel_type_id', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => employeeForm.setData('vessel_type_id', v)}
+                                    variant="dark"
+                                    placeholder="— Select a type —"
                                 >
-                                    <option value="">— Select a type —</option>
+                                    <AppSelectItem value="">— Select a type —</AppSelectItem>
                                     {vessel_types.map((v) => (
-                                        <option key={v.id} value={String(v.id)}>
+                                        <AppSelectItem key={v.id} value={String(v.id)}>
                                             {v.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                                 {employeeForm.errors.vessel_type_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
                                 ) : (
@@ -399,18 +401,19 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Rank <span className="text-red-400">*</span></Label>
-                                <select
+                                <AppSelect
                                     value={employeeForm.data.rank_id}
-                                    onChange={(e) => employeeForm.setData('rank_id', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => employeeForm.setData('rank_id', v)}
+                                    variant="dark"
+                                    placeholder="— Select a rank —"
                                 >
-                                    <option value="">— Select a rank —</option>
+                                    <AppSelectItem value="">— Select a rank —</AppSelectItem>
                                     {ranks.map((r) => (
-                                        <option key={r.id} value={String(r.id)}>
+                                        <AppSelectItem key={r.id} value={String(r.id)}>
                                             {r.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                                 {employeeForm.errors.rank_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
                                 ) : (
@@ -419,18 +422,19 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Client</Label>
-                                <select
+                                <AppSelect
                                     value={employeeForm.data.client_id}
-                                    onChange={(e) => employeeForm.setData('client_id', e.target.value)}
-                                    className="h-10 w-full rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary"
+                                    onValueChange={(v) => employeeForm.setData('client_id', v)}
+                                    variant="dark"
+                                    placeholder="— Select a client —"
                                 >
-                                    <option value="">— Select a client —</option>
+                                    <AppSelectItem value="">— Select a client —</AppSelectItem>
                                     {clients.map((c) => (
-                                        <option key={c.id} value={String(c.id)}>
+                                        <AppSelectItem key={c.id} value={String(c.id)}>
                                             {c.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                                 {employeeForm.errors.client_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
                                 ) : (

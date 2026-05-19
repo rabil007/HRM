@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -30,39 +31,39 @@ export function PositionFiltersSheet({
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label htmlFor="filter-status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Status
                     </Label>
-                    <select
-                        id="filter-status"
+                    <AppSelect
                         value={value.status}
-                        onChange={(e) => onChange({ ...value, status: e.target.value as PositionFilters['status'] })}
-                        className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                        onValueChange={(v) => onChange({ ...value, status: v as PositionFilters['status'] })}
+                        variant="dark"
+                        placeholder="All"
                     >
-                        <option value="">All</option>
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                    </select>
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="active">Active</AppSelectItem>
+                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                    </AppSelect>
                 </div>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-dept" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Department
                 </Label>
-                <select
-                    id="filter-dept"
+                <AppSelect
                     value={value.department_id}
-                    onChange={(e) => onChange({ ...value, department_id: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, department_id: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {availableDepartments.map((d) => (
-                        <option key={d.id} value={String(d.id)}>
+                        <AppSelectItem key={d.id} value={String(d.id)}>
                             {d.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="space-y-2">
@@ -80,4 +81,3 @@ export function PositionFiltersSheet({
         </FiltersSheet>
     );
 }
-

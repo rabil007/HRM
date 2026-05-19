@@ -1,6 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
 import { ArrowRight, ChevronDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -153,16 +154,20 @@ export default function ActivityLogs({
 
                             <div className="lg:col-span-4">
                                 <Label>Model</Label>
-                                <select
-                                    className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm shadow-sm ring-offset-background focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                    value={form.data.subject || 'all'}
-                                    onChange={(e) => submit({ subject: e.target.value === 'all' ? '' : e.target.value })}
-                                >
-                                    <option value="all">All</option>
-                                    {subject_types.map((t) => (
-                                        <option key={t} value={t}>{t.split('\\').slice(-1)[0]}</option>
-                                    ))}
-                                </select>
+                                <div className="mt-1">
+                                    <AppSelect
+                                        value={form.data.subject || ''}
+                                        onValueChange={(v) => submit({ subject: v })}
+                                        variant="card"
+                                        placeholder="All"
+                                        size="sm"
+                                    >
+                                        <AppSelectItem value="">All</AppSelectItem>
+                                        {subject_types.map((t) => (
+                                            <AppSelectItem key={t} value={t}>{t.split('\\').slice(-1)[0]}</AppSelectItem>
+                                        ))}
+                                    </AppSelect>
+                                </div>
                             </div>
 
                             <div className="lg:col-span-6">

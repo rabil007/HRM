@@ -1,4 +1,5 @@
-import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { PAGINATION_PER_PAGE_OPTIONS } from '@/types/pagination';
@@ -60,24 +61,18 @@ export function Pagination({
                 {onPerPageChange && perPage !== undefined ? (
                     <div className="flex items-center gap-2">
                         <span className="text-sm text-muted-foreground">Rows</span>
-                        <div className="relative">
-                            <select
-                                value={perPage}
-                                onChange={(e) => onPerPageChange(Number(e.target.value))}
-                                className={cn(
-                                    'h-9 appearance-none rounded-lg border border-border/60 bg-card/80 pl-3 pr-8 text-sm font-medium',
-                                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                                )}
-                                aria-label="Rows per page"
-                            >
-                                {options.map((option) => (
-                                    <option key={option} value={option}>
-                                        {option}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        </div>
+                        <AppSelect
+                            value={String(perPage)}
+                            onValueChange={(v) => onPerPageChange(Number(v))}
+                            variant="card"
+                            size="sm"
+                        >
+                            {options.map((option) => (
+                                <AppSelectItem key={option} value={String(option)}>
+                                    {option}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
                     </div>
                 ) : null}
 

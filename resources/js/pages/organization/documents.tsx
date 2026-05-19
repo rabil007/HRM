@@ -1,6 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Download, FileText, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import EmployeeDocumentBulkDelete from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentBulkDeleteController';
 import EmployeeDocumentDownload from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentDownloadController';
 import {
@@ -205,23 +206,22 @@ return;
                             onChange={list.onSearchChange}
                         />
                     </div>
-                    <label className="flex w-full shrink-0 flex-col gap-1 sm:w-56">
+                    <div className="flex w-full shrink-0 flex-col gap-1 sm:w-56">
                         <span className="text-xs font-medium text-muted-foreground">Document type</span>
-                        <select
+                        <AppSelect
                             value={filters.document_type}
-                            onChange={(e) =>
-                                list.applyFilters({ document_type: e.target.value })
-                            }
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                            onValueChange={(v) => list.applyFilters({ document_type: v })}
+                            variant="card"
+                            placeholder="All document types"
                         >
-                            <option value="">All document types</option>
+                            <AppSelectItem value="">All document types</AppSelectItem>
                             {(filter_options?.document_types ?? []).map((type) => (
-                                <option key={type.id} value={String(type.id)}>
+                                <AppSelectItem key={type.id} value={String(type.id)}>
                                     {type.title}
-                                </option>
+                                </AppSelectItem>
                             ))}
-                        </select>
-                    </label>
+                        </AppSelect>
+                    </div>
                     <div className="flex shrink-0 flex-col gap-1">
                         <span className="text-xs font-medium text-muted-foreground">View</span>
                         <ViewToggle value={view} onChange={setView} showEmployeeView employeeLabel="By employee" />

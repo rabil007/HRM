@@ -1,3 +1,4 @@
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -36,76 +37,76 @@ export function DepartmentFiltersSheet({
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="space-y-2">
-                <Label htmlFor="filter-status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Status
                 </Label>
-                <select
-                    id="filter-status"
+                <AppSelect
                     value={value.status}
-                    onChange={(e) => onChange({ ...value, status: e.target.value as DepartmentFilters['status'] })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, status: v as DepartmentFilters['status'] })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                </select>
+                    <AppSelectItem value="">All</AppSelectItem>
+                    <AppSelectItem value="active">Active</AppSelectItem>
+                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                </AppSelect>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-branch" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Branch
                 </Label>
-                <select
-                    id="filter-branch"
+                <AppSelect
                     value={value.branch_id}
-                    onChange={(e) => onChange({ ...value, branch_id: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, branch_id: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {availableBranches.map((branch) => (
-                        <option key={branch.id} value={String(branch.id)}>
+                        <AppSelectItem key={branch.id} value={String(branch.id)}>
                             {branch.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-parent" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Parent
                 </Label>
-                <select
-                    id="filter-parent"
+                <AppSelect
                     value={value.parent_id}
-                    onChange={(e) => onChange({ ...value, parent_id: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, parent_id: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {availableParents.map((dept) => (
-                        <option key={dept.id} value={String(dept.id)}>
+                        <AppSelectItem key={dept.id} value={String(dept.id)}>
                             {dept.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="space-y-2">
-                <Label htmlFor="filter-manager" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                     Manager
                 </Label>
-                <select
-                    id="filter-manager"
+                <AppSelect
                     value={value.manager_id}
-                    onChange={(e) => onChange({ ...value, manager_id: e.target.value })}
-                    className="w-full rounded-xl border border-white/10 bg-white/5 h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                    onValueChange={(v) => onChange({ ...value, manager_id: v })}
+                    variant="dark"
+                    placeholder="All"
                 >
-                    <option value="">All</option>
+                    <AppSelectItem value="">All</AppSelectItem>
                     {managers.map((m) => (
-                        <option key={m.id} value={String(m.id)}>
+                        <AppSelectItem key={m.id} value={String(m.id)}>
                             {m.name}
-                        </option>
+                        </AppSelectItem>
                     ))}
-                </select>
+                </AppSelect>
             </div>
 
             <div className="space-y-2">
@@ -123,4 +124,3 @@ export function DepartmentFiltersSheet({
         </FiltersSheet>
     );
 }
-

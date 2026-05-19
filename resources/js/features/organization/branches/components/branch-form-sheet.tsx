@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -93,15 +94,14 @@ export function BranchFormSheet({
                                 >
                                     Status
                                 </Label>
-                                <select
-                                    id="status"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.status}
-                                    onChange={(e) => form.setData('status', e.target.value as 'active' | 'inactive')}
+                                    onValueChange={(v) => form.setData('status', v as 'active' | 'inactive')}
+                                    variant="card"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                </AppSelect>
                                 {form.errors.status ? (
                                     <div className="text-xs font-medium text-destructive">{form.errors.status}</div>
                                 ) : null}
@@ -156,19 +156,19 @@ export function BranchFormSheet({
                                 >
                                     Country
                                 </Label>
-                                <select
-                                    id="country"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.country}
-                                    onChange={(e) => form.setData('country', e.target.value)}
+                                    onValueChange={(v) => form.setData('country', v)}
+                                    variant="card"
+                                    placeholder="Select country"
                                 >
-                                    <option value="">Select country</option>
+                                    <AppSelectItem value="">Select country</AppSelectItem>
                                     {countries.map((country) => (
-                                        <option key={country.code} value={country.code}>
+                                        <AppSelectItem key={country.code} value={country.code}>
                                             {country.code} {country.name}
-                                        </option>
+                                        </AppSelectItem>
                                     ))}
-                                </select>
+                                </AppSelect>
                                 {form.errors.country ? (
                                     <div className="text-xs font-medium text-destructive">{form.errors.country}</div>
                                 ) : null}

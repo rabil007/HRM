@@ -1,5 +1,6 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { useId, useMemo } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -45,16 +46,15 @@ export function UserFormSheet({
                                 <Label htmlFor="status" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                     Status
                                 </Label>
-                                <select
-                                    id="status"
-                                    className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
+                                <AppSelect
                                     value={form.data.status}
-                                    onChange={(e) => form.setData('status', e.target.value as UserFormData['status'])}
+                                    onValueChange={(v) => form.setData('status', v as UserFormData['status'])}
+                                    variant="card"
                                 >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                    <option value="suspended">Suspended</option>
-                                </select>
+                                    <AppSelectItem value="active">Active</AppSelectItem>
+                                    <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                                    <AppSelectItem value="suspended">Suspended</AppSelectItem>
+                                </AppSelect>
                                 {form.errors.status ? <div className="text-xs font-medium text-destructive">{form.errors.status}</div> : null}
                             </div>
 
@@ -93,19 +93,19 @@ export function UserFormSheet({
                             <Label htmlFor="role_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Role (optional)
                             </Label>
-                            <select
-                                id="role_id"
-                                className="w-full rounded-xl border border-border bg-card h-11 px-3 text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-primary/40 transition-all"
-                                value={form.data.role_id}
-                                onChange={(e) => form.setData('role_id', e.target.value ? Number(e.target.value) : '')}
+                            <AppSelect
+                                value={String(form.data.role_id ?? '')}
+                                onValueChange={(v) => form.setData('role_id', v ? Number(v) : '')}
+                                variant="card"
+                                placeholder="No role"
                             >
-                                <option value="">No role</option>
+                                <AppSelectItem value="">No role</AppSelectItem>
                                 {roles.map((r) => (
-                                    <option key={r.id} value={r.id}>
+                                    <AppSelectItem key={r.id} value={String(r.id)}>
                                         {r.name}
-                                    </option>
+                                    </AppSelectItem>
                                 ))}
-                            </select>
+                            </AppSelect>
                             {form.errors.role_id ? <div className="text-xs font-medium text-destructive">{form.errors.role_id}</div> : null}
                         </div>
 
