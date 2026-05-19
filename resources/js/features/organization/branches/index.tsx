@@ -218,10 +218,17 @@ params.set('hasPhone', '1');
                 title="Branches"
                 description="Manage branches across your companies."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Branch
-                    </Button>
+                    <>
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Branch
+                        </Button>
+                    </>
                 }
             />
 
@@ -246,12 +253,6 @@ params.set('hasPhone', '1');
                                 </span>
                             ) : null}
                         </Button>
-
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
                     </>
                 }
             />

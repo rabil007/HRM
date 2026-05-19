@@ -196,10 +196,17 @@ params.set('code', initialFilters.code);
                 title="Departments"
                 description="Manage departments across your organization."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Department
-                    </Button>
+                    <>
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Department
+                        </Button>
+                    </>
                 }
             />
 
@@ -224,11 +231,6 @@ params.set('code', initialFilters.code);
                                 </span>
                             ) : null}
                         </Button>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
                     </>
                 }
             />

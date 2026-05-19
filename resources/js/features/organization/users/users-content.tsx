@@ -168,10 +168,17 @@ params.set('status', initialFilters.status);
                 title="Users"
                 description="Manage users, roles, and access."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add User
-                    </Button>
+                    <>
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add User
+                        </Button>
+                    </>
                 }
             />
 
@@ -196,11 +203,6 @@ params.set('status', initialFilters.status);
                                 </span>
                             ) : null}
                         </Button>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
                     </>
                 }
             />

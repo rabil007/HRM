@@ -237,10 +237,17 @@ params.set('currency', initialFilters.currency);
                 title="Companies"
                 description="Manage your multi-company structure and general information."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Company
-                    </Button>
+                    <>
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Company
+                        </Button>
+                    </>
                 }
             />
 
@@ -265,12 +272,6 @@ params.set('currency', initialFilters.currency);
                                 </span>
                             ) : null}
                         </Button>
-
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="outline"
-                            buttonClassName="glass-card rounded-xl py-6 px-6 hover:bg-accent"
-                        />
                     </>
                 }
             />

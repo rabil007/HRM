@@ -145,10 +145,17 @@ params.set('has_permissions', initialFilters.has_permissions);
                 title="Roles & Permissions"
                 description={company?.name ? `Manage roles for ${company.name}.` : 'Manage roles and permissions.'}
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Role
-                    </Button>
+                    <>
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Role
+                        </Button>
+                    </>
                 }
             />
 
@@ -173,11 +180,6 @@ params.set('has_permissions', initialFilters.has_permissions);
                                 </span>
                             ) : null}
                         </Button>
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
                     </>
                 }
             />

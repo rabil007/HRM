@@ -213,10 +213,28 @@ params.set('status', initialFilters.status);
                 title="Employees"
                 description="Manage employee directory and assignments."
                 right={
-                    <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Employee
-                    </Button>
+                    <>
+                        {canImport ? (
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                                onClick={() => router.visit('/organization/employees/import')}
+                            >
+                                <Upload className="mr-2 h-4 w-4" />
+                                Import
+                            </Button>
+                        ) : null}
+                        <ExportMenu
+                            getUrl={getExportUrl}
+                            buttonVariant="secondary"
+                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
+                        />
+                        <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Employee
+                        </Button>
+                    </>
                 }
             />
 
@@ -283,24 +301,6 @@ params.set('status', initialFilters.status);
                                 </span>
                             ) : null}
                         </Button>
-
-                        {canImport ? (
-                            <Button
-                                type="button"
-                                variant="secondary"
-                                className="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                                onClick={() => router.visit('/organization/employees/import')}
-                            >
-                                <Upload className="mr-2 h-4 w-4" />
-                                Import
-                            </Button>
-                        ) : null}
-
-                        <ExportMenu
-                            getUrl={getExportUrl}
-                            buttonVariant="secondary"
-                            buttonClassName="glass-card rounded-xl h-12 px-5 hover:bg-accent"
-                        />
                     </>
                 }
             />
