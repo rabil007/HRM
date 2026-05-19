@@ -14,6 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import { logTemplateFieldsDebug } from '@/lib/template-fields-debug';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
@@ -41,6 +42,7 @@ export function EmployeeHeaderCard({
     employeeNavigation = null,
     onNavigateEmployee,
     templateProfileFields = null,
+    templateFieldsDebug = false,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -63,9 +65,27 @@ export function EmployeeHeaderCard({
     onNavigateEmployee?: (employeeId: number) => void;
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
+    templateFieldsDebug?: boolean;
 }) {
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
+
+    useEffect(() => {
+        logTemplateFieldsDebug(templateFieldsDebug, 'employee.show.header-card', {
+            employee_id: employee.id,
+            template_profile_fields: templateProfileFields,
+            template_profile_fields_is_null: templateProfileFields === null,
+            show_rank: showField('rank_id'),
+            show_place_of_birth: showField('place_of_birth'),
+            show_gender: showField('gender_id'),
+            show_work_email: showField('work_email'),
+            show_religion: showField('religion_id'),
+        });
+    }, [
+        templateFieldsDebug,
+        employee.id,
+        templateProfileFields,
+    ]);
 
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);

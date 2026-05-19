@@ -30,6 +30,7 @@ import {
     
 } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type {UseEmployeeProfileFormResult} from '@/pages/organization/_hooks/use-employee-profile-form';
+import { logTemplateFieldsDebug } from '@/lib/template-fields-debug';
 import type {
     EmployeePageProps,
     EmployeeTab,
@@ -81,12 +82,33 @@ export default function EmployeeDetails({
     vessel_types,
     clients,
     employee_tabs,
+    template_fields_debug = false,
 }: EmployeePageProps) {
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
     };
 
     const canUpdate = (auth?.permissions ?? []).includes('employees.update');
+
+    useEffect(() => {
+        logTemplateFieldsDebug(template_fields_debug, 'employee.show.page', {
+            employee_id: employee.id,
+            onboarding_template_id: employee.onboarding_template?.id ?? null,
+            onboarding_template_name: employee.onboarding_template?.name ?? null,
+            profile_fields: employee_tabs.profile_fields,
+            profile_fields_is_null: employee_tabs.profile_fields === null,
+            includes_rank_id: employee_tabs.profile_fields?.includes('rank_id') ?? null,
+            rank_should_show_in_details:
+                employee_tabs.profile_fields === null ||
+                employee_tabs.profile_fields?.includes('rank_id') === true,
+        });
+    }, [
+        template_fields_debug,
+        employee.id,
+        employee.onboarding_template?.id,
+        employee.onboarding_template?.name,
+        employee_tabs.profile_fields,
+    ]);
 
     void branches;
     void departments;
@@ -398,6 +420,7 @@ export default function EmployeeDetails({
                             onPhotoSelect={uploadPhoto}
                             isUploadingPhoto={isUploadingPhoto}
                             templateProfileFields={employee_tabs.profile_fields}
+                            templateFieldsDebug={template_fields_debug}
                         />
 
                         <div id="employee-tabs" className="space-y-4">
