@@ -107,7 +107,10 @@ export function PositionsContent({
     };
 
     const confirmDelete = () => {
-        if (!currentPosition) return;
+        if (!currentPosition) {
+return;
+}
+
         router.delete(`/organization/positions/${currentPosition.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -133,8 +136,10 @@ export function PositionsContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/positions', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
@@ -147,11 +152,25 @@ export function PositionsContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.department_id) params.set('department_id', initialFilters.department_id);
-        if (initialFilters.status) params.set('status', initialFilters.status);
-        if (initialFilters.grade) params.set('grade', initialFilters.grade);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.department_id) {
+params.set('department_id', initialFilters.department_id);
+}
+
+        if (initialFilters.status) {
+params.set('status', initialFilters.status);
+}
+
+        if (initialFilters.grade) {
+params.set('grade', initialFilters.grade);
+}
+
         params.set('format', format);
+
         return `/organization/positions/export?${params.toString()}`;
     };
 

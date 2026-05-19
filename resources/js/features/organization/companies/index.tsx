@@ -164,7 +164,10 @@ export function CompaniesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentCompany) return;
+        if (!currentCompany) {
+return;
+}
+
         router.delete(`/organization/companies/${currentCompany.id}`, {
             onFinish: () => {
                 setIsDeleteDialogOpen(false);
@@ -190,11 +193,25 @@ export function CompaniesContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.industry) params.set('industry', initialFilters.industry);
-        if (initialFilters.country) params.set('country', initialFilters.country);
-        if (initialFilters.currency) params.set('currency', initialFilters.currency);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.industry) {
+params.set('industry', initialFilters.industry);
+}
+
+        if (initialFilters.country) {
+params.set('country', initialFilters.country);
+}
+
+        if (initialFilters.currency) {
+params.set('currency', initialFilters.currency);
+}
+
         params.set('format', format);
+
         return `/organization/companies/export?${params.toString()}`;
     };
 
@@ -204,8 +221,10 @@ export function CompaniesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/companies', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),

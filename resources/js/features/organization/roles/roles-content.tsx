@@ -91,7 +91,10 @@ export function RolesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentRole) return;
+        if (!currentRole) {
+return;
+}
+
         router.delete(`/organization/roles/${currentRole.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -106,8 +109,10 @@ export function RolesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/roles', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
@@ -120,9 +125,17 @@ export function RolesContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.has_permissions) params.set('has_permissions', initialFilters.has_permissions);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.has_permissions) {
+params.set('has_permissions', initialFilters.has_permissions);
+}
+
         params.set('format', format);
+
         return `/organization/roles/export?${params.toString()}`;
     };
 

@@ -7,6 +7,7 @@ import {
     store as storeWorkExperience,
     update as updateWorkExperience,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -27,7 +28,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';

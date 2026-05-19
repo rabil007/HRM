@@ -91,9 +91,7 @@ function parseAppSelectItems(children: React.ReactNode): ParsedAppSelectItem[] {
 }
 
 /** Marker component — options are rendered by `AppSelect` with built-in search. */
-export function AppSelectItem(_props: AppSelectItemProps): null {
-    return null;
-}
+export const AppSelectItem: React.FC<AppSelectItemProps> = () => null;
 
 export function AppSelect({
     value,

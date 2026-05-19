@@ -63,7 +63,6 @@ export function FieldRenderer({
     };
 
     const label = labelFromKey(fieldKey);
-    const selectClass = 'w-full rounded-lg border border-input bg-background h-10 px-3 text-sm outline-none focus:ring-1 focus:ring-primary transition-all';
     const inputClass = 'h-10 rounded-lg bg-background border-input focus:ring-1 focus:ring-primary transition-all';
 
     if (fieldKey === 'image') {

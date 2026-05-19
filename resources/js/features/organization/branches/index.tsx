@@ -1,10 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { Filter, Plus } from 'lucide-react';
 import { useState } from 'react';
-import { EmptyState } from '@/components/empty-state';
-import { ExportMenu } from '@/components/export-menu';
-import { Main } from '@/components/layout/main';
-import { PageHeader } from '@/components/page-header';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -14,7 +10,11 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { EmptyState } from '@/components/empty-state';
+import { ExportMenu } from '@/components/export-menu';
+import { Main } from '@/components/layout/main';
 import { ListTableCrudActions } from '@/components/list-table-actions';
+import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
@@ -129,7 +129,10 @@ export function BranchesContent({
     };
 
     const confirmDelete = () => {
-        if (!currentBranch) return;
+        if (!currentBranch) {
+return;
+}
+
         router.delete(`/organization/branches/${currentBranch.id}`, {
             onFinish: () => {
                 setIsDeleteDialogOpen(false);
@@ -163,8 +166,10 @@ export function BranchesContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/branches', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
@@ -173,14 +178,37 @@ export function BranchesContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.country) params.set('country', initialFilters.country);
-        if (initialFilters.status) params.set('status', initialFilters.status);
-        if (initialFilters.city) params.set('city', initialFilters.city);
-        if (initialFilters.headquartersOnly) params.set('headquartersOnly', '1');
-        if (initialFilters.hasEmail) params.set('hasEmail', '1');
-        if (initialFilters.hasPhone) params.set('hasPhone', '1');
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.country) {
+params.set('country', initialFilters.country);
+}
+
+        if (initialFilters.status) {
+params.set('status', initialFilters.status);
+}
+
+        if (initialFilters.city) {
+params.set('city', initialFilters.city);
+}
+
+        if (initialFilters.headquartersOnly) {
+params.set('headquartersOnly', '1');
+}
+
+        if (initialFilters.hasEmail) {
+params.set('hasEmail', '1');
+}
+
+        if (initialFilters.hasPhone) {
+params.set('hasPhone', '1');
+}
+
         params.set('format', format);
+
         return `/organization/branches/export?${params.toString()}`;
     };
 

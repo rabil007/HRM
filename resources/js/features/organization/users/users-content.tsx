@@ -101,7 +101,10 @@ export function UsersContent({
     };
 
     const confirmDelete = () => {
-        if (!currentUser) return;
+        if (!currentUser) {
+return;
+}
+
         router.delete(`/organization/users/${currentUser.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -128,8 +131,10 @@ export function UsersContent({
                 forceFormData: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/users', {
             preserveScroll: true,
             forceFormData: true,
@@ -143,9 +148,17 @@ export function UsersContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.status) params.set('status', initialFilters.status);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.status) {
+params.set('status', initialFilters.status);
+}
+
         params.set('format', format);
+
         return `/organization/users/export?${params.toString()}`;
     };
 

@@ -544,7 +544,9 @@ export function EmployeePersonalTab({
                                 <div>
                                     <AppSelect
                                         value={form.data.nationality_id as string ?? ''}
-                                        onValueChange={(v) => { form.setData('nationality_id', v); setActiveField(null); }}
+                                        onValueChange={(v) => {
+ form.setData('nationality_id', v); setActiveField(null); 
+}}
                                         onClose={() => setActiveField(null)}
                                         variant="dark"
                                         placeholder="—"

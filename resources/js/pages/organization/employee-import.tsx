@@ -489,7 +489,6 @@ toast.error('Please select an onboarding template first.');
 
                                 <div className="divide-y divide-white/10">
                                     {mappedFields.map(({ field, label, header, required, sensitive, allowed, permission }) => {
-                                        const isRequired = required;
                                         const isMapped = Boolean(header);
                                         const relatedErrors = preview.errors.filter((error) => error.field === field);
 
@@ -499,6 +498,9 @@ toast.error('Please select an onboarding template first.');
                                                     <div className="font-semibold text-foreground">{label}</div>
                                                     <div className="mt-1 flex flex-wrap items-center gap-1.5 text-muted-foreground">
                                                         <span>{field}</span>
+                                                        {required ? (
+                                                            <span className="rounded bg-rose-500/10 px-1.5 py-0.5 text-[10px] text-rose-400">Required</span>
+                                                        ) : null}
                                                         {sensitive ? (
                                                             <span className="rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-500">Sensitive</span>
                                                         ) : null}
@@ -539,6 +541,8 @@ toast.error('Please select an onboarding template first.');
                                                         <span className="text-amber-500">
                                                             Requires {permission}
                                                         </span>
+                                                    ) : required ? (
+                                                        <span className="text-amber-500">Required</span>
                                                     ) : (
                                                         <span className="text-muted-foreground">Ignored</span>
                                                     )}

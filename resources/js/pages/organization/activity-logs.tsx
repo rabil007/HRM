@@ -29,13 +29,23 @@ type AuditLog = {
 
 function formatDate(value: string): string {
     const dt = new Date(value);
-    if (Number.isNaN(dt.getTime())) return value;
+
+    if (Number.isNaN(dt.getTime())) {
+return value;
+}
+
     return dt.toLocaleString();
 }
 
 function eventBadgeVariant(event: string): 'default' | 'secondary' | 'destructive' | 'outline' {
-    if (event === 'deleted') return 'destructive';
-    if (event === 'created') return 'default';
+    if (event === 'deleted') {
+return 'destructive';
+}
+
+    if (event === 'created') {
+return 'default';
+}
+
     return 'secondary';
 }
 
@@ -44,6 +54,7 @@ function pickChangedKeys(
     newValues: Record<string, unknown> | null,
 ): string[] {
     const keys = new Set<string>([...Object.keys(oldValues ?? {}), ...Object.keys(newValues ?? {})]);
+
     return [...keys].sort((a, b) => a.localeCompare(b));
 }
 
@@ -54,16 +65,33 @@ function titleCaseKey(key: string): string {
 }
 
 function formatValue(value: unknown): string {
-    if (value === null || value === undefined || value === '') return '—';
-    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'string') return value;
-    try { return JSON.stringify(value); } catch { return String(value); }
+    if (value === null || value === undefined || value === '') {
+return '—';
+}
+
+    if (typeof value === 'boolean') {
+return value ? 'Yes' : 'No';
+}
+
+    if (typeof value === 'number') {
+return String(value);
+}
+
+    if (typeof value === 'string') {
+return value;
+}
+
+    try {
+ return JSON.stringify(value); 
+} catch {
+ return String(value); 
+}
 }
 
 function buildSummary(log: AuditLog): string {
     const who = log.causer?.name ?? 'System';
     const subject = log.subject_label ?? log.description ?? log.subject_name;
+
     return `${who} ${log.event} ${log.subject_name}${subject ? `: ${subject}` : ''}`;
 }
 
@@ -146,7 +174,11 @@ export default function ActivityLogs({
                                     id="q"
                                     value={form.data.q}
                                     onChange={(e) => form.setData('q', e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } }}
+                                    onKeyDown={(e) => {
+ if (e.key === 'Enter') {
+ e.preventDefault(); submit(); 
+} 
+}}
                                     placeholder="Subject, model, user..."
                                     className="mt-1"
                                 />
@@ -197,6 +229,7 @@ export default function ActivityLogs({
                                 <div className="mt-1 flex flex-wrap gap-2">
                                     {['all', ...events].map((e) => {
                                         const isActive = (form.data.event || 'all') === e;
+
                                         return (
                                             <Button
                                                 key={e}

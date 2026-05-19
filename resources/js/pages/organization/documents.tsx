@@ -1,9 +1,9 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { Download, FileText, Trash2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import EmployeeDocumentBulkDelete from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentBulkDeleteController';
 import EmployeeDocumentDownload from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentDownloadController';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -14,10 +14,10 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { Main } from '@/components/layout/main';
-import { TableRowActions } from '@/components/table-row-actions';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -29,9 +29,9 @@ import { DocumentPreviewDialog } from '@/features/organization/employee-document
 import { DocumentVersionsSheet } from '@/features/organization/employee-documents/document-versions-sheet';
 import { DOCUMENT_STATUS_CLASSES, DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from '@/features/organization/employee-documents/status';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import type { PaginationMeta } from '@/types/pagination';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatBytes } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 
 type DocumentRow = {
     id: number;

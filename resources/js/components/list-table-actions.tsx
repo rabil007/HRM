@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
-import { TableRowActions, type TableRowActionItem } from '@/components/table-row-actions';
+import { TableRowActions  } from '@/components/table-row-actions';
+import type {TableRowActionItem} from '@/components/table-row-actions';
 
 type ListTableCrudActionsProps = {
     onView?: (event: MouseEvent<HTMLButtonElement>) => void;

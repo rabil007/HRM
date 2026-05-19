@@ -520,7 +520,9 @@ export function EmployeeHeaderCard({
                         {activeField === 'marital_status' && canUpdate ? (
                             <AppSelect
                                 value={form.data.marital_status}
-                                onValueChange={(v) => { form.setData('marital_status', v); setActiveField(null); }}
+                                onValueChange={(v) => {
+ form.setData('marital_status', v); setActiveField(null); 
+}}
                                 onClose={() => setActiveField(null)}
                                 variant="dark"
                                 placeholder="—"
@@ -578,7 +580,9 @@ export function EmployeeHeaderCard({
                         {activeField === 'rank_id' && canUpdate ? (
                             <AppSelect
                                 value={form.data.rank_id}
-                                onValueChange={(v) => { form.setData('rank_id', v); setActiveField(null); }}
+                                onValueChange={(v) => {
+ form.setData('rank_id', v); setActiveField(null); 
+}}
                                 onClose={() => setActiveField(null)}
                                 variant="dark"
                                 placeholder="—"
@@ -638,7 +642,9 @@ export function EmployeeHeaderCard({
                         {activeField === 'gender_id' && canUpdate ? (
                             <AppSelect
                                 value={form.data.gender_id}
-                                onValueChange={(v) => { form.setData('gender_id', v); setActiveField(null); }}
+                                onValueChange={(v) => {
+ form.setData('gender_id', v); setActiveField(null); 
+}}
                                 onClose={() => setActiveField(null)}
                                 variant="dark"
                                 placeholder="—"
@@ -672,7 +678,9 @@ export function EmployeeHeaderCard({
                         {activeField === 'religion_id' && canUpdate ? (
                             <AppSelect
                                 value={form.data.religion_id}
-                                onValueChange={(v) => { form.setData('religion_id', v); setActiveField(null); }}
+                                onValueChange={(v) => {
+ form.setData('religion_id', v); setActiveField(null); 
+}}
                                 onClose={() => setActiveField(null)}
                                 variant="dark"
                                 placeholder="—"

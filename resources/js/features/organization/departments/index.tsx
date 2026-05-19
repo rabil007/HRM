@@ -115,7 +115,10 @@ export function DepartmentsContent({
     };
 
     const confirmDelete = () => {
-        if (!currentDepartment) return;
+        if (!currentDepartment) {
+return;
+}
+
         router.delete(`/organization/departments/${currentDepartment.id}`, {
             onFinish: () => {
                 setIsDeleteOpen(false);
@@ -141,8 +144,10 @@ export function DepartmentsContent({
                 preserveScroll: true,
                 onSuccess: () => setIsSheetOpen(false),
             });
+
             return;
         }
+
         form.post('/organization/departments', {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
@@ -155,13 +160,33 @@ export function DepartmentsContent({
 
     const getExportUrl = (format: 'csv' | 'xlsx' | 'pdf') => {
         const params = new URLSearchParams();
-        if (initialSearch) params.set('search', initialSearch);
-        if (initialFilters.branch_id) params.set('branch_id', initialFilters.branch_id);
-        if (initialFilters.parent_id) params.set('parent_id', initialFilters.parent_id);
-        if (initialFilters.manager_id) params.set('manager_id', initialFilters.manager_id);
-        if (initialFilters.status) params.set('status', initialFilters.status);
-        if (initialFilters.code) params.set('code', initialFilters.code);
+
+        if (initialSearch) {
+params.set('search', initialSearch);
+}
+
+        if (initialFilters.branch_id) {
+params.set('branch_id', initialFilters.branch_id);
+}
+
+        if (initialFilters.parent_id) {
+params.set('parent_id', initialFilters.parent_id);
+}
+
+        if (initialFilters.manager_id) {
+params.set('manager_id', initialFilters.manager_id);
+}
+
+        if (initialFilters.status) {
+params.set('status', initialFilters.status);
+}
+
+        if (initialFilters.code) {
+params.set('code', initialFilters.code);
+}
+
         params.set('format', format);
+
         return `/organization/departments/export?${params.toString()}`;
     };
 

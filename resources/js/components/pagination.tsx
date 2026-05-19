@@ -1,7 +1,6 @@
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import { PAGINATION_PER_PAGE_OPTIONS } from '@/types/pagination';
 
 type PaginationProps = {

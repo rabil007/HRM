@@ -2,6 +2,8 @@ import { router, useForm } from '@inertiajs/react';
 import { FileText, Trash2, UploadCloud, X } from 'lucide-react';
 import { useCallback, useMemo, useState  } from 'react';
 import type {ReactElement} from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { EmployeeDocumentRowActions } from '@/components/employee-document-row-actions';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -12,8 +14,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { EmployeeDocumentRowActions } from '@/components/employee-document-row-actions';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
