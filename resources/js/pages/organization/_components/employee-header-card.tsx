@@ -56,10 +56,26 @@ export function EmployeeHeaderCard({
 }) {
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+    const [photoPreviewForImage, setPhotoPreviewForImage] = useState<string | null>(
+        null,
+    );
+
+    const serverImageKey = employee.image ?? null;
+
+    const showOptimisticPreview =
+        photoPreview !== null && photoPreviewForImage === serverImageKey;
 
     useEffect(() => {
-        setPhotoPreview(null);
-    }, [employee.image]);
+        if (
+            !photoPreview?.startsWith('blob:') ||
+            photoPreviewForImage === null ||
+            photoPreviewForImage === serverImageKey
+        ) {
+            return;
+        }
+
+        URL.revokeObjectURL(photoPreview);
+    }, [photoPreview, photoPreviewForImage, serverImageKey]);
 
     useEffect(() => {
         return () => {
@@ -68,6 +84,7 @@ export function EmployeeHeaderCard({
             }
         };
     }, [photoPreview]);
+
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
@@ -91,7 +108,7 @@ export function EmployeeHeaderCard({
             : `/storage/${employee.image.replace(/^\/+/, '')}`
         : null;
 
-    const displayImageSrc = photoPreview ?? imageSrc;
+    const displayImageSrc = showOptimisticPreview ? photoPreview : imageSrc;
 
     const handlePhotoChange = (file: File | undefined) => {
         if (!file || !onPhotoSelect) {
@@ -102,7 +119,12 @@ export function EmployeeHeaderCard({
             return;
         }
 
+        if (photoPreview?.startsWith('blob:')) {
+            URL.revokeObjectURL(photoPreview);
+        }
+
         setPhotoPreview(URL.createObjectURL(file));
+        setPhotoPreviewForImage(serverImageKey);
         onPhotoSelect(file);
     };
 
