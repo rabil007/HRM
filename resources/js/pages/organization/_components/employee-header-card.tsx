@@ -40,6 +40,7 @@ export function EmployeeHeaderCard({
     isUploadingPhoto = false,
     employeeNavigation = null,
     onNavigateEmployee,
+    templateProfileFields = null,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -60,7 +61,12 @@ export function EmployeeHeaderCard({
     isUploadingPhoto?: boolean;
     employeeNavigation?: EmployeeNavigation | null;
     onNavigateEmployee?: (employeeId: number) => void;
+    /** null = no template, show all; string[] = only show these field keys */
+    templateProfileFields?: string[] | null;
 }) {
+    const showField = (key: string) =>
+        !templateProfileFields || templateProfileFields.includes(key);
+
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
     const [photoPreviewForImage, setPhotoPreviewForImage] = useState<string | null>(
@@ -477,243 +483,251 @@ export function EmployeeHeaderCard({
 
                 <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.05] md:grid-cols-4">
                     {/* Work email */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Work email {requiredDot('work_email')}
+                    {showField('work_email') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Work email {requiredDot('work_email')}
+                            </div>
+                            {activeField === 'work_email' && canUpdate ? (
+                                <Input
+                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
+                                    value={form.data.work_email}
+                                    onChange={(e) => form.setData('work_email', e.target.value)}
+                                    onBlur={() => setActiveField(null)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('work_email')}
+                                    disabled={!canUpdate}
+                                >
+                                    {form.data.work_email || employee.work_email || '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'work_email' && canUpdate ? (
-                            <Input
-                                className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                value={form.data.work_email}
-                                onChange={(e) => form.setData('work_email', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
-                            />
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('work_email')}
-                                disabled={!canUpdate}
-                            >
-                                {form.data.work_email || employee.work_email || '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Phone (UAE) */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <EmployeeInlinePhoneField
-                            fieldKey="phone"
-                            label="Phone (UAE)"
-                            value={form.data.phone ?? ''}
-                            fallbackValue={employee.phone}
-                            countries={countries}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            onChange={(next) => form.setData('phone', next)}
-                            error={form.errors.phone}
-                            defaultDialCode="+971"
-                            canEdit={canUpdate}
-                            rowClassName="flex flex-col gap-1.5"
-                            labelClassName="text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
-                        />
-                    </div>
+                    {showField('phone') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <EmployeeInlinePhoneField
+                                fieldKey="phone"
+                                label="Phone (UAE)"
+                                value={form.data.phone ?? ''}
+                                fallbackValue={employee.phone}
+                                countries={countries}
+                                activeField={activeField}
+                                setActiveField={setActiveField}
+                                beginEdit={beginEdit}
+                                onChange={(next) => form.setData('phone', next)}
+                                error={form.errors.phone}
+                                defaultDialCode="+971"
+                                canEdit={canUpdate}
+                                rowClassName="flex flex-col gap-1.5"
+                                labelClassName="text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
+                            />
+                        </div>
+                    )}
 
                     {/* Marital status */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Marital status
+                    {showField('marital_status') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Marital status
+                            </div>
+                            {activeField === 'marital_status' && canUpdate ? (
+                                <AppSelect
+                                    value={form.data.marital_status}
+                                    onValueChange={(v) => { form.setData('marital_status', v); setActiveField(null); }}
+                                    onClose={() => setActiveField(null)}
+                                    variant="dark"
+                                    placeholder="—"
+                                    size="sm"
+                                >
+                                    <AppSelectItem value="">—</AppSelectItem>
+                                    <AppSelectItem value="single">Single</AppSelectItem>
+                                    <AppSelectItem value="married">Married</AppSelectItem>
+                                    <AppSelectItem value="divorced">Divorced</AppSelectItem>
+                                    <AppSelectItem value="widowed">Widowed</AppSelectItem>
+                                </AppSelect>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('marital_status')}
+                                    disabled={!canUpdate}
+                                >
+                                    {form.data.marital_status || employee.marital_status || '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'marital_status' && canUpdate ? (
-                            <AppSelect
-                                value={form.data.marital_status}
-                                onValueChange={(v) => {
- form.setData('marital_status', v); setActiveField(null); 
-}}
-                                onClose={() => setActiveField(null)}
-                                variant="dark"
-                                placeholder="—"
-                                size="sm"
-                            >
-                                <AppSelectItem value="">—</AppSelectItem>
-                                <AppSelectItem value="single">Single</AppSelectItem>
-                                <AppSelectItem value="married">Married</AppSelectItem>
-                                <AppSelectItem value="divorced">Divorced</AppSelectItem>
-                                <AppSelectItem value="widowed">Widowed</AppSelectItem>
-                            </AppSelect>
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('marital_status')}
-                                disabled={!canUpdate}
-                            >
-                                {form.data.marital_status || employee.marital_status || '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Birthday */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Birthday
+                    {showField('date_of_birth') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Birthday
+                            </div>
+                            {activeField === 'date_of_birth' && canUpdate ? (
+                                <Input
+                                    type="date"
+                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
+                                    value={form.data.date_of_birth}
+                                    onChange={(e) => form.setData('date_of_birth', e.target.value)}
+                                    onBlur={() => setActiveField(null)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('date_of_birth')}
+                                    disabled={!canUpdate}
+                                >
+                                    {form.data.date_of_birth || employee.date_of_birth || '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'date_of_birth' && canUpdate ? (
-                            <Input
-                                type="date"
-                                className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                value={form.data.date_of_birth}
-                                onChange={(e) => form.setData('date_of_birth', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
-                            />
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('date_of_birth')}
-                                disabled={!canUpdate}
-                            >
-                                {form.data.date_of_birth || employee.date_of_birth || '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Rank */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Rank
+                    {showField('rank_id') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Rank
+                            </div>
+                            {activeField === 'rank_id' && canUpdate ? (
+                                <AppSelect
+                                    value={form.data.rank_id}
+                                    onValueChange={(v) => { form.setData('rank_id', v); setActiveField(null); }}
+                                    onClose={() => setActiveField(null)}
+                                    variant="dark"
+                                    placeholder="—"
+                                    size="sm"
+                                >
+                                    <AppSelectItem value="">—</AppSelectItem>
+                                    {ranks.map((r) => (
+                                        <AppSelectItem key={r.id} value={String(r.id)}>
+                                            {r.name ?? `#${r.id}`}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('rank_id')}
+                                    disabled={!canUpdate}
+                                >
+                                    {ranks.find((r) => String(r.id) === String(form.data.rank_id || employee.rank_id || ''))?.name ??
+                                        employee.rank?.name ??
+                                        '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'rank_id' && canUpdate ? (
-                            <AppSelect
-                                value={form.data.rank_id}
-                                onValueChange={(v) => {
- form.setData('rank_id', v); setActiveField(null); 
-}}
-                                onClose={() => setActiveField(null)}
-                                variant="dark"
-                                placeholder="—"
-                                size="sm"
-                            >
-                                <AppSelectItem value="">—</AppSelectItem>
-                                {ranks.map((r) => (
-                                    <AppSelectItem key={r.id} value={String(r.id)}>
-                                        {r.name ?? `#${r.id}`}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('rank_id')}
-                                disabled={!canUpdate}
-                            >
-                                {ranks.find((r) => String(r.id) === String(form.data.rank_id || employee.rank_id || ''))?.name ??
-                                    employee.rank?.name ??
-                                    '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Place of Birth */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Place of Birth
+                    {showField('place_of_birth') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Place of Birth
+                            </div>
+                            {activeField === 'place_of_birth' && canUpdate ? (
+                                <Input
+                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
+                                    value={form.data.place_of_birth}
+                                    onChange={(e) => form.setData('place_of_birth', e.target.value)}
+                                    onBlur={() => setActiveField(null)}
+                                    autoFocus
+                                />
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('place_of_birth')}
+                                    disabled={!canUpdate}
+                                >
+                                    {form.data.place_of_birth || employee.place_of_birth || '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'place_of_birth' && canUpdate ? (
-                            <Input
-                                className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                value={form.data.place_of_birth}
-                                onChange={(e) => form.setData('place_of_birth', e.target.value)}
-                                onBlur={() => setActiveField(null)}
-                                autoFocus
-                            />
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('place_of_birth')}
-                                disabled={!canUpdate}
-                            >
-                                {form.data.place_of_birth || employee.place_of_birth || '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Gender */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Gender
+                    {showField('gender_id') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Gender
+                            </div>
+                            {activeField === 'gender_id' && canUpdate ? (
+                                <AppSelect
+                                    value={form.data.gender_id}
+                                    onValueChange={(v) => { form.setData('gender_id', v); setActiveField(null); }}
+                                    onClose={() => setActiveField(null)}
+                                    variant="dark"
+                                    placeholder="—"
+                                    size="sm"
+                                >
+                                    <AppSelectItem value="">—</AppSelectItem>
+                                    {genders.map((g) => (
+                                        <AppSelectItem key={g.id} value={String(g.id)}>
+                                            {g.name ?? `#${g.id}`}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('gender_id')}
+                                    disabled={!canUpdate}
+                                >
+                                    {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ??
+                                        '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'gender_id' && canUpdate ? (
-                            <AppSelect
-                                value={form.data.gender_id}
-                                onValueChange={(v) => {
- form.setData('gender_id', v); setActiveField(null); 
-}}
-                                onClose={() => setActiveField(null)}
-                                variant="dark"
-                                placeholder="—"
-                                size="sm"
-                            >
-                                <AppSelectItem value="">—</AppSelectItem>
-                                {genders.map((g) => (
-                                    <AppSelectItem key={g.id} value={String(g.id)}>
-                                        {g.name ?? `#${g.id}`}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('gender_id')}
-                                disabled={!canUpdate}
-                            >
-                                {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ??
-                                    '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
 
                     {/* Religion */}
-                    <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                            Religion
+                    {showField('religion_id') && (
+                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                                Religion
+                            </div>
+                            {activeField === 'religion_id' && canUpdate ? (
+                                <AppSelect
+                                    value={form.data.religion_id}
+                                    onValueChange={(v) => { form.setData('religion_id', v); setActiveField(null); }}
+                                    onClose={() => setActiveField(null)}
+                                    variant="dark"
+                                    placeholder="—"
+                                    size="sm"
+                                >
+                                    <AppSelectItem value="">—</AppSelectItem>
+                                    {religions.map((r) => (
+                                        <AppSelectItem key={r.id} value={String(r.id)}>
+                                            {r.name ?? `#${r.id}`}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                            ) : (
+                                <button
+                                    type="button"
+                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                                    onClick={() => beginEdit('religion_id')}
+                                    disabled={!canUpdate}
+                                >
+                                    {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ??
+                                        '—'}
+                                </button>
+                            )}
                         </div>
-                        {activeField === 'religion_id' && canUpdate ? (
-                            <AppSelect
-                                value={form.data.religion_id}
-                                onValueChange={(v) => {
- form.setData('religion_id', v); setActiveField(null); 
-}}
-                                onClose={() => setActiveField(null)}
-                                variant="dark"
-                                placeholder="—"
-                                size="sm"
-                            >
-                                <AppSelectItem value="">—</AppSelectItem>
-                                {religions.map((r) => (
-                                    <AppSelectItem key={r.id} value={String(r.id)}>
-                                        {r.name ?? `#${r.id}`}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                        ) : (
-                            <button
-                                type="button"
-                                className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                onClick={() => beginEdit('religion_id')}
-                                disabled={!canUpdate}
-                            >
-                                {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ??
-                                    '—'}
-                            </button>
-                        )}
-                    </div>
+                    )}
                 </div>
             </div>
         </div>

@@ -635,11 +635,32 @@ class EmployeeController extends Controller
             'vaccination' => true,
         ];
 
+        $enabledProfileFields = null;
+
         if ($employee->onboarding_template_id) {
-            $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks(
-                is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null,
-            );
+            $tasks = is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null;
+
+            $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks($tasks);
+
+            if (is_array($tasks) && isset($tasks['stages']) && is_array($tasks['stages'])) {
+                $enabledProfileFields = [];
+
+                foreach ($tasks['stages'] as $stage) {
+                    if (is_array($stage['employee_fields'] ?? null)) {
+                        foreach ($stage['employee_fields'] as $f) {
+                            $key = is_array($f) ? ($f['key'] ?? '') : (string) $f;
+                            if ($key !== '') {
+                                $enabledProfileFields[] = $key;
+                            }
+                        }
+                    }
+                }
+
+                $enabledProfileFields = array_values(array_unique($enabledProfileFields));
+            }
         }
+
+        $employeeTabsPayload['profile_fields'] = $enabledProfileFields;
 
         $directoryFilters = EmployeeDirectoryFilters::fromRequest(request());
         $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(

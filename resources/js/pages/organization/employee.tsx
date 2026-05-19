@@ -397,6 +397,7 @@ export default function EmployeeDetails({
                             requiredDot={requiredDot}
                             onPhotoSelect={uploadPhoto}
                             isUploadingPhoto={isUploadingPhoto}
+                            templateProfileFields={employee_tabs.profile_fields}
                         />
 
                         <div id="employee-tabs" className="space-y-4">

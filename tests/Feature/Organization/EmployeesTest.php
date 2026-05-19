@@ -175,6 +175,7 @@ test('employee profile includes onboarding template when assigned', function () 
             ->component('organization/employee')
             ->where('employee.onboarding_template.id', $template->id)
             ->where('employee.onboarding_template.name', 'Office Staff Template')
+            ->where('employee_tabs.profile_fields', [])
         );
 });
 

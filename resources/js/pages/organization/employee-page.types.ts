@@ -238,6 +238,8 @@ export type EmployeeProfileTabVisibility = {
     documents: boolean;
     sea_service: boolean;
     vaccination: boolean;
+    /** null = no template assigned, show all fields; string[] = only these field keys are enabled */
+    profile_fields: string[] | null;
 };
 
 export type EmployeePageProps = {
