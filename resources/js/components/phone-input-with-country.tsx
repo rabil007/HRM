@@ -1,14 +1,13 @@
-import type { ReactElement } from 'react';
+import type { FocusEvent, ReactElement } from 'react';
 import { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import {
     combinePhoneWithDialCode,
     countriesWithDialCode,
     defaultDialCodeForPhoneField,
-    parsePhoneWithDialCode
-    
+    parsePhoneWithDialCode,
 } from '@/lib/phone-with-dial-code';
-import type {PhoneCountryOption} from '@/lib/phone-with-dial-code';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 
 export type PhoneInputWithCountryProps = {
@@ -60,8 +59,22 @@ export function PhoneInputWithCountry({
     const { dialCode, nationalNumber } = parsePhoneWithDialCode(value, countries);
     const effectiveDialCode = dialCode || fallbackDialCode;
 
+    const handleContainerBlur = (event: FocusEvent<HTMLDivElement>): void => {
+        const container = event.currentTarget;
+
+        window.setTimeout(() => {
+            const active = document.activeElement;
+
+            if (container.contains(active)) {
+                return;
+            }
+
+            onBlur?.();
+        }, 0);
+    };
+
     return (
-        <div className={cn('flex min-w-0 gap-2', className)}>
+        <div className={cn('flex min-w-0 gap-2', className)} onBlur={handleContainerBlur}>
             <select
                 aria-label="Country code"
                 disabled={disabled}
@@ -74,7 +87,6 @@ export function PhoneInputWithCountry({
                         ),
                     );
                 }}
-                onBlur={onBlur}
                 className={cn(
                     'h-10 shrink-0 rounded-xl border border-white/10 bg-white/5 px-2 text-sm text-zinc-100 outline-none focus:ring-1 focus:ring-primary',
                     selectClassName,
@@ -107,7 +119,6 @@ export function PhoneInputWithCountry({
                         ),
                     );
                 }}
-                onBlur={onBlur}
             />
         </div>
     );
