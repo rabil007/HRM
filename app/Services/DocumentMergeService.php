@@ -5,10 +5,15 @@ namespace App\Services;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use setasign\Fpdi\Fpdi;
+use setasign\Fpdi\FpdiException;
+use setasign\Fpdi\PdfParser\CrossReference\CrossReferenceException;
+use setasign\Fpdi\PdfParser\PdfParserException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class DocumentMergeService
 {
@@ -43,21 +48,50 @@ class DocumentMergeService
     {
         $this->assertMergeable($documents);
 
+        $sourcePaths = $this->resolveSourcePaths($documents);
+
+        try {
+            return $this->mergeWithFpdi($documents, $sourcePaths);
+        } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+            if ($this->ghostscriptAvailable()) {
+                return $this->mergeWithGhostscript($sourcePaths);
+            }
+
+            throw ValidationException::withMessages([
+                'document_ids' => $this->unsupportedPdfMessage($exception),
+            ]);
+        }
+    }
+
+    /**
+     * @param  Collection<int, EmployeeDocument>  $documents
+     * @param  list<string>  $sourcePaths
+     */
+    private function mergeWithFpdi(Collection $documents, array $sourcePaths): string
+    {
         $pdf = new Fpdi;
 
-        foreach ($documents as $document) {
-            $sourcePath = $this->resolveReadablePath($document);
+        foreach ($documents as $index => $document) {
+            try {
+                $pageCount = $pdf->setSourceFile($sourcePaths[$index]);
 
-            abort_if($sourcePath === null, 404, 'One or more selected files could not be read.');
+                for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
+                    $templateId = $pdf->importPage($pageNumber);
+                    $size = $pdf->getTemplateSize($templateId);
 
-            $pageCount = $pdf->setSourceFile($sourcePath);
+                    $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
+                    $pdf->useTemplate($templateId);
+                }
+            } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
+                $label = $document->original_filename
+                    ?? $document->title
+                    ?? "document-{$document->id}";
 
-            for ($pageNumber = 1; $pageNumber <= $pageCount; $pageNumber++) {
-                $templateId = $pdf->importPage($pageNumber);
-                $size = $pdf->getTemplateSize($templateId);
-
-                $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
-                $pdf->useTemplate($templateId);
+                throw new PdfParserException(
+                    "Unable to read \"{$label}\": ".$exception->getMessage(),
+                    0,
+                    $exception,
+                );
             }
         }
 
@@ -68,6 +102,77 @@ class DocumentMergeService
         $pdf->Output('F', $tempPath);
 
         return $tempPath;
+    }
+
+    /**
+     * @param  list<string>  $sourcePaths
+     */
+    private function mergeWithGhostscript(array $sourcePaths): string
+    {
+        $tempPath = tempnam(sys_get_temp_dir(), 'merged_pdf_');
+
+        abort_if($tempPath === false, 500, 'Could not prepare merged PDF.');
+
+        $binary = (string) config('services.pdf.ghostscript_binary', 'gs');
+
+        $result = Process::timeout(120)->run([
+            $binary,
+            '-dBATCH',
+            '-dNOPAUSE',
+            '-q',
+            '-sDEVICE=pdfwrite',
+            '-sOutputFile='.$tempPath,
+            ...$sourcePaths,
+        ]);
+
+        if ($result->failed() || ! is_readable($tempPath) || filesize($tempPath) === 0) {
+            @unlink($tempPath);
+
+            throw ValidationException::withMessages([
+                'document_ids' => 'Unable to merge the selected PDF files. Try re-saving them or use bulk download instead.',
+            ]);
+        }
+
+        return $tempPath;
+    }
+
+    /**
+     * @param  Collection<int, EmployeeDocument>  $documents
+     * @return list<string>
+     */
+    private function resolveSourcePaths(Collection $documents): array
+    {
+        $paths = [];
+
+        foreach ($documents as $document) {
+            $sourcePath = $this->resolveReadablePath($document);
+
+            abort_if($sourcePath === null, 404, 'One or more selected files could not be read.');
+
+            $paths[] = $sourcePath;
+        }
+
+        return $paths;
+    }
+
+    private function ghostscriptAvailable(): bool
+    {
+        $binary = (string) config('services.pdf.ghostscript_binary', 'gs');
+
+        try {
+            return Process::run([$binary, '--version'])->successful();
+        } catch (Throwable) {
+            return false;
+        }
+    }
+
+    private function unsupportedPdfMessage(Throwable $exception): string
+    {
+        if (str_contains($exception->getMessage(), 'Unable to read "')) {
+            return $exception->getMessage().' This PDF may use advanced compression. Install Ghostscript on the server or re-save the file as a standard PDF.';
+        }
+
+        return 'One or more selected PDFs use advanced compression that cannot be merged. Install Ghostscript on the server, re-save the files as standard PDFs, or use bulk download instead.';
     }
 
     /**

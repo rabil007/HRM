@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'pdf' => [
+        'ghostscript_binary' => env('GHOSTSCRIPT_BINARY', 'gs'),
+    ],
+
 ];

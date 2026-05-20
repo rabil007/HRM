@@ -148,6 +148,52 @@ test('users cannot merge documents belonging to another employee', function () {
     ])->assertNotFound();
 });
 
+test('merge returns validation error for unsupported pdf compression instead of server error', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
+
+    Storage::disk('public')->put($pathA, '%PDF-1.7 unsupported-by-fpdi');
+    Storage::disk('public')->put($pathB, '%PDF-1.7 unsupported-by-fpdi');
+
+    $docA = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $pathA,
+        'original_filename' => 'Broken A.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $docB = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $pathB,
+        'original_filename' => 'Broken B.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->postJson(route('organization.documents.employee.files.merge-pdf', $employee), [
+        'document_ids' => [$docA->id, $docB->id],
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['document_ids']);
+});
+
 test('bulk zip download still works after merge endpoint is available', function () {
     Storage::fake('public');
 
