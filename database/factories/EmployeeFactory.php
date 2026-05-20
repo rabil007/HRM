@@ -82,7 +82,6 @@ class EmployeeFactory extends Factory
             'phone' => $this->faker->optional()->phoneNumber(),
             'nearest_airport' => $this->faker->optional()->city(),
             'phone_home_country' => $this->faker->optional()->phoneNumber(),
-            'cv_source' => $this->faker->optional()->randomElement(['LinkedIn', 'Referral', 'Website', 'Agency']),
             'emergency_contact' => $this->faker->optional()->name(),
             'emergency_phone' => $this->faker->optional()->phoneNumber(),
             'emergency_contact_home_country' => $this->faker->optional()->name(),

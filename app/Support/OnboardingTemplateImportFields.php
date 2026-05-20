@@ -37,7 +37,6 @@ final class OnboardingTemplateImportFields
         'dependent_children_count',
         'address',
         'nearest_airport',
-        'cv_source',
         'emergency_contact',
         'emergency_phone',
         'emergency_contact_home_country',

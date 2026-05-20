@@ -115,7 +115,6 @@ export const profileFieldOptions = [
     { key: 'emergency_contact_home_country', label: 'Emergency Contact (Home Country)' },
     { key: 'emergency_phone_home_country', label: 'Emergency Phone (Home Country)' },
     { key: 'address', label: 'Address' },
-    { key: 'cv_source', label: 'CV Source' },
     { key: 'passport_number', label: 'Passport Number' },
     { key: 'emirates_id', label: 'Emirates ID' },
     { key: 'labor_card_number', label: 'Labor Card Number' },

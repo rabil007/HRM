@@ -39,7 +39,6 @@ function transformEmployeeFormData(data: Record<string, unknown>): Record<string
         work_email: String(data.work_email ?? '').trim() || null,
         phone: String(data.phone ?? '').trim() || null,
         phone_home_country: String(data.phone_home_country ?? '').trim() || null,
-        cv_source: String(data.cv_source ?? '').trim() || null,
         emergency_contact: String(data.emergency_contact ?? '').trim() || null,
         emergency_phone: String(data.emergency_phone ?? '').trim() || null,
         emergency_contact_home_country:
@@ -91,7 +90,6 @@ export function useEmployeeProfileForm(
             work_email: employee.work_email ?? '',
             phone: employee.phone ?? '',
             phone_home_country: employee.phone_home_country ?? '',
-            cv_source: employee.cv_source ?? '',
             emergency_contact: employee.emergency_contact ?? '',
             emergency_phone: employee.emergency_phone ?? '',
             emergency_contact_home_country:
@@ -133,7 +131,6 @@ export function useEmployeeProfileForm(
             employee.work_email,
             employee.phone,
             employee.phone_home_country,
-            employee.cv_source,
             employee.emergency_contact,
             employee.emergency_phone,
             employee.emergency_contact_home_country,

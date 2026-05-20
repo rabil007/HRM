@@ -19,7 +19,6 @@ export type EmployeePersonalFormSlice = {
     data: Record<string, unknown> & {
         personal_email?: string;
         phone_home_country?: string;
-        cv_source?: string;
         emergency_contact?: string;
         emergency_phone?: string;
         emergency_contact_home_country?: string;
@@ -139,43 +138,6 @@ export function EmployeePersonalTab({
                                             fieldKey: 'phone_home_country',
                                         },
                                     )}
-                                </button>
-                            )}
-                        </div>
-
-                        <div className={personalFieldRowClass}>
-                            <label className={personalFieldLabelClass}>
-                                Source Of CV
-                            </label>
-                            {activeField === 'cv_source' ? (
-                                <div>
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.cv_source}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'cv_source',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                    {form.errors.cv_source ? (
-                                        <div className="mt-1 text-xs text-destructive">
-                                            {form.errors.cv_source}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                    onClick={() => beginEdit('cv_source')}
-                                >
-                                    {form.data.cv_source ||
-                                        employee.cv_source ||
-                                        '—'}
                                 </button>
                             )}
                         </div>

@@ -43,7 +43,6 @@ class Employee extends Model
                 'gender_id',
                 'nearest_airport',
                 'phone_home_country',
-                'cv_source',
                 'emergency_contact',
                 'emergency_phone',
                 'emergency_contact_home_country',

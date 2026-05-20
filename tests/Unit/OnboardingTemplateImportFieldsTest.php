@@ -39,5 +39,6 @@ test('version 2 template without field group keys includes default import column
         ],
     ]);
 
-    expect($columns)->toContain('name', 'bank', 'iban', 'contract_type', 'start_date');
+    expect($columns)->toContain('name', 'bank', 'iban', 'contract_type', 'start_date')
+        ->and($columns)->not->toContain('cv_source');
 });

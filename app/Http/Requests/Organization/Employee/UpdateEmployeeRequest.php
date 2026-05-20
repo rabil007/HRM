@@ -70,7 +70,6 @@ class UpdateEmployeeRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:30'],
             'nearest_airport' => ['nullable', 'string', 'max:150'],
             'phone_home_country' => ['nullable', 'string', 'max:30'],
-            'cv_source' => ['nullable', 'string', 'max:120'],
             'emergency_contact' => ['nullable', 'string', 'max:200'],
             'emergency_phone' => ['nullable', 'string', 'max:30'],
             'emergency_contact_home_country' => ['nullable', 'string', 'max:200'],

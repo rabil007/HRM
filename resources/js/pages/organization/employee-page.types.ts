@@ -32,7 +32,6 @@ export type EmployeeDetails = {
     personal_email?: string | null;
     phone_home_country?: string | null;
     nearest_airport?: string | null;
-    cv_source?: string | null;
     emergency_contact?: string | null;
     emergency_phone?: string | null;
     emergency_contact_home_country?: string | null;

@@ -78,7 +78,6 @@ export type Employee = {
     phone: string | null;
     phone_home_country?: string | null;
     nearest_airport?: string | null;
-    cv_source?: string | null;
     emergency_contact?: string | null;
     emergency_phone?: string | null;
     emergency_contact_home_country?: string | null;
@@ -125,7 +124,6 @@ export type EmployeeFormData = {
     phone: string;
     phone_home_country: string;
     nearest_airport: string;
-    cv_source: string;
     emergency_contact: string;
     emergency_phone: string;
     emergency_contact_home_country: string;
