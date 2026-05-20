@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, FileStack, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { Download, FileStack, FolderOpen, Loader2, Mail, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -20,6 +20,10 @@ import { filterDocuments } from '@/features/organization/documents/filter-docume
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
 import { PdfMergeModal } from '@/features/organization/documents/pdf-merge';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge';
+import {
+    EmailDocumentsModal,
+    type EmailDocumentItem,
+} from '@/features/organization/documents/email-send';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
@@ -46,9 +50,15 @@ export default function EmployeeDocumentsBrowse({
     documents: allDocuments,
     summary,
 }: Props) {
-    const { auth } = usePage().props as unknown as {
-        auth?: { permissions?: string[] };
+    const { auth, company_switcher_companies, current_company_id } = usePage().props as unknown as {
+        auth?: { permissions?: string[]; user?: { name?: string } };
+        company_switcher_companies?: Array<{ id: number; name: string }>;
+        current_company_id?: number | null;
     };
+
+    const organizationName =
+        company_switcher_companies?.find((company) => company.id === current_company_id)?.name ??
+        'Organization';
 
     const canDeleteDocuments = (auth?.permissions ?? []).includes('employees.documents.delete');
 
@@ -58,6 +68,8 @@ export default function EmployeeDocumentsBrowse({
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
     const [mergeModalOpen, setMergeModalOpen] = useState(false);
     const [mergeDocuments, setMergeDocuments] = useState<MergeDocumentItem[]>([]);
+    const [emailModalOpen, setEmailModalOpen] = useState(false);
+    const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -131,6 +143,28 @@ export default function EmployeeDocumentsBrowse({
             })),
         );
         setMergeModalOpen(true);
+    };
+
+    const handleEmailDocuments = () => {
+        const selectedDocs = filteredDocuments.filter((document) =>
+            selectedDocumentIds.includes(document.id),
+        );
+
+        if (selectedDocs.length === 0) {
+            toast.error('Select at least one document to email.');
+
+            return;
+        }
+
+        setEmailDocuments(
+            selectedDocs.map((document) => ({
+                id: document.id,
+                document_name: document.document_name,
+                mime_type: document.mime_type,
+                size_bytes: document.size_bytes,
+            })),
+        );
+        setEmailModalOpen(true);
     };
 
     const handleBulkDelete = () => {
@@ -219,6 +253,16 @@ export default function EmployeeDocumentsBrowse({
                         >
                             <FileStack className="mr-2 h-4 w-4" />
                             Merge PDFs
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg"
+                            onClick={handleEmailDocuments}
+                        >
+                            <Mail className="mr-2 h-4 w-4" />
+                            Email
                         </Button>
                         {canDeleteDocuments ? (
                             <Button
@@ -315,6 +359,15 @@ export default function EmployeeDocumentsBrowse({
                 cancelClassName="glass-card rounded-xl hover:bg-accent"
                 confirmClassName="rounded-xl bg-red-600 hover:bg-red-600/90"
                 onConfirm={handleBulkDelete}
+            />
+
+            <EmailDocumentsModal
+                open={emailModalOpen}
+                onOpenChange={setEmailModalOpen}
+                employee={employee}
+                organizationName={organizationName}
+                documents={emailDocuments}
+                onSendComplete={clearDocumentSelection}
             />
 
             <PdfMergeModal

@@ -39,4 +39,8 @@ return [
         'ghostscript_binary' => env('GHOSTSCRIPT_BINARY', 'gs'),
     ],
 
+    'documents' => [
+        'email_max_attachment_bytes' => (int) env('DOCUMENT_EMAIL_MAX_ATTACHMENT_BYTES', 20 * 1024 * 1024),
+    ],
+
 ];

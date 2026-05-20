@@ -7,6 +7,7 @@ use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\DocumentBulkEmailController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
@@ -105,6 +106,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/documents/files/bulk-download', DocumentBulkFilesDownloadController::class)->name('organization.documents.files.bulk-download');
         Route::get('organization/documents/files/{document}/download', DocumentFileDownloadController::class)->name('organization.documents.files.download');
         Route::post('organization/documents/employees/{employee}/files/merge-pdf', DocumentBulkPdfMergeController::class)->name('organization.documents.employee.files.merge-pdf');
+        Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
     });
     Route::delete('organization/documents/employees/{employee}/files/bulk', DocumentBulkFilesDeleteController::class)
         ->middleware('can:employees.documents.delete')
