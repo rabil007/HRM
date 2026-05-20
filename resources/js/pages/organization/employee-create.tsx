@@ -190,7 +190,6 @@ continue;
         nationality_id: '',
         marital_status: '',
         spouse_name: '',
-        spouse_birthdate: '',
         address: '',
         branch_id: '',
         department_id: '',

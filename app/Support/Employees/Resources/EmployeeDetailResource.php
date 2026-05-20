@@ -65,7 +65,6 @@ final class EmployeeDetailResource
             ] : null,
             'marital_status' => $employee->marital_status,
             'spouse_name' => $employee->spouse_name,
-            'spouse_birthdate' => $employee->spouse_birthdate,
             'personal_email' => $employee->personal_email,
             'work_email' => $employee->work_email,
             'phone' => $employee->phone,

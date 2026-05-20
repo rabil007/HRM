@@ -103,7 +103,6 @@ export const profileFieldOptions = [
     { key: 'religion_id', label: 'Religion' },
     { key: 'marital_status', label: 'Marital Status' },
     { key: 'spouse_name', label: 'Spouse Name' },
-    { key: 'spouse_birthdate', label: 'Spouse Birthdate' },
     { key: 'personal_email', label: 'Personal Email' },
     { key: 'work_email', label: 'Work Email' },
     { key: 'phone', label: 'Phone' },

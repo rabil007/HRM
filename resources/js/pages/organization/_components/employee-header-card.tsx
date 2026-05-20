@@ -1,4 +1,4 @@
-import { Briefcase, Building2, Camera, ClipboardList, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
+import { Briefcase, Building2, Camera, ClipboardList, Loader2, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
@@ -12,7 +12,6 @@ import {
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
@@ -156,19 +155,6 @@ export function EmployeeHeaderCard({
         setPhotoPreviewForImage(serverImageKey);
         onPhotoSelect(file);
     };
-
-    const displayPhone = useMemo(() => {
-        const formatted = formatPhoneForDisplay(
-            form.data.phone || employee.phone,
-            {
-                countries,
-                fieldKey: 'phone',
-                defaultDialCode: '+971',
-            },
-        );
-
-        return formatted === '—' ? 'No mobile' : formatted;
-    }, [countries, employee.phone, form.data.phone]);
 
     const rankOptions = useMemo(
         () =>
@@ -333,21 +319,6 @@ export function EmployeeHeaderCard({
                                         {employee.department.name}
                                     </Badge>
                                 ) : null}
-                            </div>
-
-                            <div className="flex flex-wrap justify-center gap-1.5 text-xs text-zinc-400 md:justify-start">
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
-                                    <Mail className="h-3 w-3 text-indigo-400" />
-                                    {form.data.work_email || employee.work_email || 'No work email'}
-                                </div>
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
-                                    <Phone className="h-3 w-3 text-indigo-400" />
-                                    {displayPhone}
-                                </div>
-                                <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.07] bg-white/[0.04] px-3 py-1.5 transition-colors hover:border-white/[0.12] hover:text-zinc-300">
-                                    <MapPin className="h-3 w-3 text-indigo-400" />
-                                    {employee.branch?.name || 'No branch'}
-                                </div>
                             </div>
 
                             <div className="mx-auto grid max-w-xl grid-cols-2 gap-1.5 text-xs md:mx-0 md:max-w-none md:grid-cols-4">

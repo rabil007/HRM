@@ -90,7 +90,6 @@ export type Employee = {
     nationality_ref?: { id: number; name: string | null; code?: string | null } | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
-    spouse_birthdate?: string | null;
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;
@@ -130,7 +129,6 @@ export type EmployeeFormData = {
     nationality_id: number | '';
     marital_status: 'single' | 'married' | 'divorced' | 'widowed' | '';
     spouse_name: string;
-    spouse_birthdate: string;
     passport_number: string;
     emirates_id: string;
     labor_card_number: string;

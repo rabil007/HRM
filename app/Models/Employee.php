@@ -35,7 +35,6 @@ class Employee extends Model
                 'name',
                 'date_of_birth',
                 'spouse_name',
-                'spouse_birthdate',
                 'personal_email',
                 'work_email',
                 'phone',

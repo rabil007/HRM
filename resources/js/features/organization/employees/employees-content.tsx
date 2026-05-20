@@ -395,7 +395,6 @@ params.set('status', initialFilters.status);
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.spouse_name ?? '—'}</div>
-                                                <div className="text-xs text-muted-foreground/70">{formatDisplayDate(employee.spouse_birthdate)}</div>
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 {canToggle ? (

@@ -33,7 +33,6 @@ final class OnboardingTemplateImportFields
         'place_of_birth',
         'marital_status',
         'spouse_name',
-        'spouse_birthdate',
         'address',
         'nearest_airport',
         'emergency_contact',

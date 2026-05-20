@@ -75,7 +75,6 @@ class EmployeeFactory extends Factory
             },
             'marital_status' => $this->faker->optional()->randomElement(['single', 'married', 'divorced', 'widowed']),
             'spouse_name' => $this->faker->optional()->name(),
-            'spouse_birthdate' => $this->faker->optional()->date(),
             'personal_email' => $this->faker->optional()->safeEmail(),
             'work_email' => $this->faker->optional()->safeEmail(),
             'phone' => $this->faker->optional()->phoneNumber(),

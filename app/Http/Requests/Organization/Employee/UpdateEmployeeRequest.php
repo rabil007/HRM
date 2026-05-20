@@ -63,7 +63,6 @@ class UpdateEmployeeRequest extends FormRequest
             'nationality_id' => ['nullable', 'integer', Rule::exists('countries', 'id')],
             'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
             'spouse_name' => ['nullable', 'string', 'max:200'],
-            'spouse_birthdate' => ['nullable', 'date'],
             'personal_email' => ['nullable', 'string', 'email', 'max:200'],
             'work_email' => ['nullable', 'string', 'email', 'max:200'],
             'phone' => ['nullable', 'string', 'max:30'],

@@ -40,7 +40,6 @@ class EmployeesImport
         'place_of_birth' => ['place_of_birth', 'place of birth', 'birthplace'],
         'marital_status' => ['marital_status', 'marital status', 'civil status'],
         'spouse_name' => ['spouse_name', 'spouse name'],
-        'spouse_birthdate' => ['spouse_birthdate', 'spouse birthdate', 'spouse dob'],
         'address' => ['address', 'home address', 'residence'],
         'nearest_airport' => ['nearest_airport', 'nearest airport', 'airport'],
         'emergency_contact' => ['emergency_contact', 'emergency contact', 'emergency name'],
@@ -96,7 +95,6 @@ class EmployeesImport
 
     private const IMPORT_DATE_FIELDS = [
         'date_of_birth',
-        'spouse_birthdate',
         'start_date',
         'end_date',
     ];
@@ -119,7 +117,6 @@ class EmployeesImport
         'place_of_birth',
         'marital_status',
         'spouse_name',
-        'spouse_birthdate',
         'address',
         'nearest_airport',
         'emergency_contact',
@@ -376,7 +373,6 @@ class EmployeesImport
                 'work_email' => ['nullable', 'email', 'max:200'],
                 'personal_email' => ['nullable', 'email', 'max:200'],
                 'date_of_birth' => ['nullable', 'date'],
-                'spouse_birthdate' => ['nullable', 'date'],
                 'end_date' => ['nullable', 'date'],
                 'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
                 'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
@@ -492,7 +488,6 @@ class EmployeesImport
                         'place_of_birth' => $row['place_of_birth'] ?? null,
                         'marital_status' => $row['marital_status'] ?: null,
                         'spouse_name' => $row['spouse_name'] ?? null,
-                        'spouse_birthdate' => $row['spouse_birthdate'] ?? null,
                         'address' => $row['address'] ?? null,
                         'nearest_airport' => $row['nearest_airport'] ?? null,
                         'emergency_contact' => $row['emergency_contact'] ?? null,
@@ -610,7 +605,6 @@ class EmployeesImport
 
         $shaped = $this->normaliseDateFields($shaped, [
             'date_of_birth',
-            'spouse_birthdate',
             'start_date',
             'end_date',
         ]);

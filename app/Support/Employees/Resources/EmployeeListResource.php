@@ -60,7 +60,6 @@ final class EmployeeListResource
             ] : null,
             'marital_status' => $employee->marital_status,
             'spouse_name' => $employee->spouse_name,
-            'spouse_birthdate' => $employee->spouse_birthdate,
             'passport_number' => $employee->passport_number,
             'emirates_id' => $employee->emirates_id,
             'bank_id' => $employee->primaryBankAccount?->bank_id,

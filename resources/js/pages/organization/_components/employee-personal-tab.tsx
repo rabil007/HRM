@@ -7,7 +7,6 @@ import {
     PersonalEditableTextRow,
 } from '@/features/organization/employees/profile/components/personal-field-row';
 import type { CountryOption } from '@/features/organization/employees/types';
-import { formatDisplayDate } from '@/lib/format-date';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
 
@@ -18,7 +17,6 @@ export type EmployeePersonalFormSlice = {
         emergency_contact?: string;
         emergency_phone?: string;
         spouse_name?: string;
-        spouse_birthdate?: string;
         nearest_airport?: string;
         address?: string;
         nationality_id?: string;
@@ -143,36 +141,18 @@ export function EmployeePersonalTab({
                     icon={Users}
                 >
                     <div className="space-y-1">
-                        {[
-                            {
-                                key: 'spouse_name',
-                                label: 'Spouse name',
-                                value:
-                                    form.data.spouse_name ||
-                                    employee.spouse_name ||
-                                    '—',
-                            },
-                            {
-                                key: 'spouse_birthdate',
-                                label: 'Spouse birthdate',
-                                value: formatDisplayDate(
-                                    form.data.spouse_birthdate || employee.spouse_birthdate,
-                                ),
-                            },
-                        ].map((row) => (
-                            <PersonalEditableTextRow
-                                key={row.key}
-                                label={row.label}
-                                field={row.key}
-                                value={String((form.data as Record<string, unknown>)[row.key] ?? '')}
-                                displayValue={row.value}
-                                activeField={activeField}
-                                setActiveField={setActiveField}
-                                beginEdit={beginEdit}
-                                onChange={(value) => form.setData(row.key, value)}
-                                inputType={row.key === 'spouse_birthdate' ? 'date' : 'text'}
-                            />
-                        ))}
+                        <PersonalEditableTextRow
+                            label="Spouse name"
+                            field="spouse_name"
+                            value={form.data.spouse_name ?? ''}
+                            displayValue={
+                                form.data.spouse_name || employee.spouse_name || '—'
+                            }
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            onChange={(value) => form.setData('spouse_name', value)}
+                        />
                     </div>
                 </EmployeeSectionCard>
             </div>

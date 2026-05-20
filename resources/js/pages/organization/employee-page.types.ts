@@ -46,7 +46,6 @@ export type EmployeeDetails = {
     } | null;
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
-    spouse_birthdate?: string | null;
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;
