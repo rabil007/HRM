@@ -7,13 +7,15 @@ import { cn } from '@/lib/utils';
 export function OrganizationDataTable({
     children,
     minWidth = 'min-w-[980px]',
+    compact = false,
 }: {
     children: ReactNode;
     minWidth?: string;
+    compact?: boolean;
 }): ReactElement {
     return (
         <Card className="glass-card w-full overflow-hidden">
-            <CardContent className="min-h-[360px] w-full p-0">
+            <CardContent className={cn('w-full p-0', compact ? 'min-h-0' : 'min-h-[360px]')}>
                 <Table className={minWidth}>{children}</Table>
             </CardContent>
         </Card>
@@ -30,17 +32,17 @@ export function dataTableHeadClass(): string {
 
 export function dataTableBodyRowClass(interactive = true): string {
     return cn(
-        'border-b border-white/[0.05] transition-colors',
-        interactive && 'cursor-pointer hover:bg-accent/40',
+        'border-b border-white/[0.04] transition-colors duration-150',
+        interactive && 'hover:bg-white/[0.03]',
     );
 }
 
 export function dataTableCellClass(): string {
-    return 'px-4 py-3.5 align-middle text-sm text-muted-foreground/80';
+    return 'px-4 py-4 align-middle text-sm text-muted-foreground/80';
 }
 
 export function dataTableCellPrimaryClass(): string {
-    return 'px-4 py-3.5 align-middle text-sm font-medium text-foreground';
+    return 'px-4 py-4 align-middle text-sm font-medium text-foreground';
 }
 
 export function dataTableActionsCellClass(): string {

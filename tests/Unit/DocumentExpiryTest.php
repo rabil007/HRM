@@ -14,7 +14,7 @@ afterEach(function () {
 
 test('resolve returns null when expiry date is missing', function () {
     expect(DocumentExpiry::resolve(null))->toBeNull();
-    expect(DocumentExpiry::humanLabel(null))->toBe('No expiry');
+    expect(DocumentExpiry::humanLabel(null))->toBe('No Expiry');
 });
 
 test('resolve returns expired for past dates', function () {

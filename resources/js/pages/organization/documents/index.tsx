@@ -6,14 +6,15 @@ import {
     DataTableHead,
     DataTableHeaderRow,
 } from '@/components/data-table';
-import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
 import type {
@@ -68,6 +69,13 @@ export default function DocumentsIndex({
                 onSelect={onExpiryChange}
             />
 
+            <DocumentsActiveFilters
+                expiryFilter={initialExpiry}
+                search={initialSearch}
+                onClearExpiry={() => onExpiryChange('all')}
+                onClearSearch={() => onSearchChange('')}
+            />
+
             <div className="mb-6 space-y-4">
                 <SearchBar
                     placeholder={
@@ -95,11 +103,11 @@ export default function DocumentsIndex({
             {isComplianceView ? (
                 complianceDocuments && complianceDocuments.data.length > 0 ? (
                     <>
-                        <OrganizationDataTable minWidth="min-w-[960px]">
+                        <OrganizationDataTable minWidth="min-w-[960px]" compact>
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
-                                    <DataTableHead className="min-w-[200px]">Document</DataTableHead>
+                                    <DataTableHead className="min-w-[220px]">Document</DataTableHead>
                                     <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
                                     <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
                                     <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
@@ -130,39 +138,28 @@ export default function DocumentsIndex({
                         />
                     </>
                 ) : (
-                    <EmptyState
-                        title="No documents match this filter."
-                        description={
-                            initialSearch
-                                ? 'Try a different search or switch to another expiry filter.'
-                                : 'No expiry-tracked documents found for this filter.'
-                        }
+                    <DocumentsEmptyState
+                        context="index-compliance"
+                        expiryFilter={initialExpiry}
+                        hasSearch={initialSearch.trim() !== ''}
                     />
                 )
             ) : employees.length === 0 ? (
-                <EmptyState
-                    title="No employee folders found."
-                    description={
-                        initialSearch
-                            ? 'Try a different search or upload documents from an employee profile.'
-                            : 'Upload documents from an employee profile to see folders here.'
-                    }
+                <DocumentsEmptyState
+                    context="index-folders"
+                    expiryFilter={initialExpiry}
+                    hasSearch={initialSearch.trim() !== ''}
                 />
             ) : (
                 <section
                     className={cn(
-                        'min-h-[320px] rounded-xl border border-white/5 bg-white/[0.02] p-6 sm:p-8',
+                        'rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-6',
                         'transition-opacity duration-200',
                         isSearching && 'pointer-events-none opacity-60',
                     )}
                     aria-busy={isSearching}
                 >
-                    <div
-                        className="grid gap-x-3 gap-y-8 sm:gap-x-5"
-                        style={{
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(8.75rem, 1fr))',
-                        }}
-                    >
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(8.25rem,1fr))] sm:gap-x-5 sm:gap-y-8">
                         {employees.map((employee) => (
                             <EmployeeFolderItem key={employee.employee_id} employee={employee} />
                         ))}

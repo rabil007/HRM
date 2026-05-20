@@ -88,6 +88,11 @@ class EmployeeDocument extends Model
         return $query->whereNotNull('expiry_date');
     }
 
+    public function scopeWhereWithoutExpiry(Builder $query): Builder
+    {
+        return $query->whereNull('expiry_date');
+    }
+
     public function scopeWhereExpired(Builder $query): Builder
     {
         return $query
@@ -101,18 +106,6 @@ class EmployeeDocument extends Model
             ->whereExpiryTracked()
             ->whereDate('expiry_date', '>=', now()->toDateString())
             ->whereDate('expiry_date', '<=', now()->addDays($days)->toDateString());
-    }
-
-    /** @deprecated Use whereExpiringWithin(30) instead. */
-    public function scopeExpiringSoon(Builder $query): Builder
-    {
-        return $query->whereExpiringWithin(30);
-    }
-
-    /** @deprecated Use whereExpired() instead. */
-    public function scopeExpired(Builder $query): Builder
-    {
-        return $query->whereExpired();
     }
 
     public static function deriveStatus(?string $expiryDate): string

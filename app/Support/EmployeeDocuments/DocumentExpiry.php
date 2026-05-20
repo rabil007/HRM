@@ -2,11 +2,28 @@
 
 namespace App\Support\EmployeeDocuments;
 
+use App\Models\EmployeeDocument;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Illuminate\Database\Eloquent\Builder;
 
 class DocumentExpiry
 {
+    /**
+     * @param  Builder<EmployeeDocument>  $query
+     * @return Builder<EmployeeDocument>
+     */
+    public static function applyExpiryFilter(Builder $query, string $filter): Builder
+    {
+        return match ($filter) {
+            DocumentExpiryStatus::Expired->value => $query->whereExpired(),
+            DocumentExpiryStatus::Expiring30->value => $query->whereExpiringWithin(30),
+            DocumentExpiryStatus::Expiring15->value => $query->whereExpiringWithin(15),
+            DocumentExpiryStatus::Expiring7->value => $query->whereExpiringWithin(7),
+            default => $query,
+        };
+    }
+
     public static function resolve(CarbonInterface|string|null $expiryDate, ?CarbonInterface $today = null): ?DocumentExpiryStatus
     {
         $expiry = self::parseDate($expiryDate);
@@ -58,7 +75,7 @@ class DocumentExpiry
         $remaining = self::remainingDays($expiryDate, $today);
 
         if ($remaining === null) {
-            return 'No expiry';
+            return 'No Expiry';
         }
 
         if ($remaining < -1) {

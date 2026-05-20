@@ -6,13 +6,14 @@ import {
     DataTableHead,
     DataTableHeaderRow,
 } from '@/components/data-table';
-import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
@@ -48,7 +49,6 @@ export default function EmployeeDocumentsBrowse({
     }, [allDocuments, expiryFilter, fileSearch]);
 
     const profileDocumentsUrl = `${show.url({ employee: employee.id })}#documents`;
-    const isFilteredView = expiryFilter !== 'all' || fileSearch.trim() !== '';
 
     return (
         <Main>
@@ -67,6 +67,13 @@ export default function EmployeeDocumentsBrowse({
                 onSelect={setExpiryFilter}
             />
 
+            <DocumentsActiveFilters
+                expiryFilter={expiryFilter}
+                search={fileSearch}
+                onClearExpiry={() => setExpiryFilter('all')}
+                onClearSearch={() => setFileSearch('')}
+            />
+
             {allDocuments.length > 0 ? (
                 <SearchBar
                     className="mb-6"
@@ -77,9 +84,10 @@ export default function EmployeeDocumentsBrowse({
             ) : null}
 
             {allDocuments.length === 0 ? (
-                <EmptyState
-                    title="No documents in this folder."
-                    description="Upload files from the employee profile to see them here."
+                <DocumentsEmptyState
+                    context="employee-files"
+                    expiryFilter="all"
+                    hasSearch={false}
                     action={
                         <Button variant="outline" size="sm" className="rounded-lg" asChild>
                             <Link href={profileDocumentsUrl}>
@@ -90,27 +98,21 @@ export default function EmployeeDocumentsBrowse({
                     }
                 />
             ) : filteredDocuments.length === 0 ? (
-                <EmptyState
-                    title={
-                        isFilteredView
-                            ? 'No files match your filters.'
-                            : 'No files match your search.'
-                    }
-                    description={
-                        expiryFilter !== 'all'
-                            ? 'Try another expiry filter or view all documents.'
-                            : 'Try a different file name, document type, or upload date.'
-                    }
+                <DocumentsEmptyState
+                    context="employee-files"
+                    expiryFilter={expiryFilter}
+                    hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[800px]">
+                <OrganizationDataTable minWidth="min-w-[880px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
-                            <DataTableHead className="min-w-[220px]">File</DataTableHead>
+                            <DataTableHead className="min-w-[240px]">File</DataTableHead>
                             <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">Issue date</DataTableHead>
-                            <DataTableHead className="hidden lg:table-cell">Expiry date</DataTableHead>
+                            <DataTableHead className="hidden lg:table-cell">Expiry</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">File size</DataTableHead>
+                            <DataTableHead className="hidden lg:table-cell">Status</DataTableHead>
                             <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>

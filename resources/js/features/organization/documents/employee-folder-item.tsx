@@ -17,13 +17,13 @@ export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
             href={documents.employee.url({ employee: employee.employee_id })}
             title={`${employee.employee_name} (${employee.employee_no})`}
             className={cn(
-                'group flex w-full max-w-[9.5rem] flex-col items-center gap-2 rounded-xl px-3 py-4 text-center',
-                'transition-all duration-150 hover:bg-muted/50 hover:shadow-sm',
+                'group flex w-full flex-col items-center gap-2 rounded-xl px-2 py-3 text-center sm:px-3 sm:py-4',
+                'transition-all duration-150 hover:bg-muted/40',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
             )}
         >
             <Folder
-                className="h-[4.25rem] w-[4.25rem] shrink-0 text-amber-400/95 drop-shadow-sm transition-transform duration-150 group-hover:scale-[1.04] group-hover:text-amber-300"
+                className="h-16 w-16 shrink-0 text-amber-400/95 drop-shadow-sm transition-transform duration-150 group-hover:scale-[1.03] group-hover:text-amber-300 sm:h-[4.25rem] sm:w-[4.25rem]"
                 strokeWidth={1.15}
                 fill="currentColor"
                 fillOpacity={0.2}

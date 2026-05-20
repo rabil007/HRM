@@ -124,7 +124,7 @@ test('employee documents browse inertia page returns files with document type la
             ->where('documents.0.document_type', 'Passport Copy')
             ->where('documents.0.can_preview', true)
             ->where('documents.0.expiry_status', null)
-            ->where('documents.0.expiry_label', 'No expiry')
+            ->where('documents.0.expiry_label', 'No Expiry')
         );
 });
 
