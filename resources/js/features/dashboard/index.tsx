@@ -194,13 +194,13 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                             <AtGlanceItem
                                 title="Expired documents"
                                 subtitle="Immediate action"
-                                href="/organization/documents?status=expired"
+                                href="/organization/documents"
                                 value={String(documentCompliance.expired)}
                             />
                             <AtGlanceItem
                                 title="Expiring soon"
                                 subtitle="Next 30 days"
-                                href="/organization/documents?status=expiring_soon"
+                                href="/organization/documents"
                                 value={String(documentCompliance.expiring_soon)}
                             />
                             <AtGlanceItem

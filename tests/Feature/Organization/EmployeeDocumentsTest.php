@@ -281,7 +281,7 @@ test('users with permission can replace a document file and keep version history
     ]);
 });
 
-test('document overview supports filters and pagination props', function () {
+test('documents folder index lists employees with uploads', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -300,13 +300,12 @@ test('document overview supports filters and pagination props', function () {
         'status' => 'expired',
     ]);
 
-    $this->get('/organization/documents?document_type='.$visaType->id)
+    $this->get('/organization/documents')
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents')
-            ->where('filters.document_type', (string) $visaType->id)
-            ->has('documents', 1)
-            ->has('pagination')
-            ->has('filter_options.document_types')
+            ->component('organization/documents/index')
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $employee->id)
+            ->where('employees.0.document_count', 1)
         );
 });
 

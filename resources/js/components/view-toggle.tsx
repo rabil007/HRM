@@ -1,4 +1,4 @@
-import { LayoutGrid, List, Pin, Users } from 'lucide-react';
+import { Folder, LayoutGrid, List, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { setOrganizationDefaultView } from '@/hooks/use-view-preference';
 import type { ViewPreference } from '@/hooks/use-view-preference';
@@ -49,7 +49,7 @@ export function ViewToggle({
                     onClick={() => onChange('employee')}
                     title={employeeLabel}
                 >
-                    <Users className="h-4 w-4" />
+                    <Folder className="h-4 w-4" aria-hidden />
                 </Button>
             ) : null}
             <div className="mx-1 h-6 w-px bg-border/60" />
@@ -71,4 +71,3 @@ export function ViewToggle({
         </div>
     );
 }
-
