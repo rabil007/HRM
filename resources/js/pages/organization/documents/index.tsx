@@ -5,7 +5,6 @@ import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
-import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 
 type EmployeeFolder = {
@@ -79,9 +78,15 @@ export default function DocumentsIndex({ employees, search: initialSearch }: Pro
                     }
                 />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div
+                    className="grid gap-x-2 gap-y-6 sm:gap-x-4"
+                    style={{
+                        gridTemplateColumns:
+                            'repeat(auto-fill, minmax(6.5rem, 1fr))',
+                    }}
+                >
                     {employees.map((employee) => (
-                        <EmployeeFolderCard key={employee.employee_id} employee={employee} />
+                        <EmployeeFolderItem key={employee.employee_id} employee={employee} />
                     ))}
                 </div>
             )}
@@ -89,7 +94,7 @@ export default function DocumentsIndex({ employees, search: initialSearch }: Pro
     );
 }
 
-function EmployeeFolderCard({ employee }: { employee: EmployeeFolder }) {
+function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
     const fileLabel =
         employee.document_count === 1
             ? '1 file'
@@ -98,29 +103,26 @@ function EmployeeFolderCard({ employee }: { employee: EmployeeFolder }) {
     return (
         <Link
             href={`/organization/documents/employees/${employee.employee_id}`}
-            className="group block h-full"
+            title={`${employee.employee_name} (${employee.employee_no}) — ${fileLabel}`}
+            className={cn(
+                'group flex max-w-34 flex-col items-center gap-1.5 rounded-lg px-2 py-2.5 text-center',
+                'transition-colors hover:bg-muted/40',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+            )}
         >
-            <Card
-                className={cn(
-                    'glass-card h-full transition-all duration-200',
-                    'hover:border-primary/30 hover:shadow-md',
-                )}
-            >
-                <CardContent className="flex flex-col items-center gap-3 p-6 text-center">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/10 text-primary transition-colors group-hover:bg-primary/15">
-                        <Folder className="h-9 w-9" strokeWidth={1.5} aria-hidden />
-                    </div>
-                    <div className="min-w-0 w-full space-y-1">
-                        <p className="truncate text-base font-semibold text-foreground">
-                            {employee.employee_name}
-                        </p>
-                        <p className="font-mono text-xs text-muted-foreground tabular-nums">
-                            {employee.employee_no}
-                        </p>
-                        <p className="text-xs text-muted-foreground/80">{fileLabel}</p>
-                    </div>
-                </CardContent>
-            </Card>
+            <Folder
+                className="h-14 w-14 shrink-0 text-amber-400/90 drop-shadow-sm transition-transform duration-150 group-hover:scale-105 group-hover:text-amber-300"
+                strokeWidth={1.25}
+                fill="currentColor"
+                fillOpacity={0.22}
+                aria-hidden
+            />
+            <span className="line-clamp-2 w-full text-xs leading-snug font-medium text-foreground">
+                {employee.employee_name}
+            </span>
+            <span className="w-full truncate font-mono text-[10px] text-muted-foreground/70">
+                {employee.employee_no}
+            </span>
         </Link>
     );
 }
