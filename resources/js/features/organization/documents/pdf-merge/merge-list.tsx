@@ -1,5 +1,5 @@
-import Sortable from 'sortablejs';
 import { useEffect, useRef } from 'react';
+import Sortable from 'sortablejs';
 
 import { MergeListItem } from '@/features/organization/documents/pdf-merge/merge-list-item';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';

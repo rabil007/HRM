@@ -10,7 +10,7 @@ export function buildDefaultMergeFilename(employeeName: string, date = new Date(
     const segment =
         employeeName
             .trim()
-            .replace(/[^a-zA-Z0-9\-]+/g, '-')
+            .replace(/[^a-zA-Z0-9-]+/g, '-')
             .replace(/^-+|-+$/g, '') || 'EMPLOYEE';
 
     return `${segment.toUpperCase()}_DOCUMENTS_${formatDateYmd(date)}`;
@@ -20,6 +20,6 @@ export function sanitizeMergeFilename(value: string): string {
     return value
         .trim()
         .replace(/\.pdf$/i, '')
-        .replace(/[^a-zA-Z0-9\-_]+/g, '_')
+        .replace(/[^a-zA-Z0-9-_]+/g, '_')
         .replace(/^_+|_+$/g, '');
 }

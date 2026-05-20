@@ -7,7 +7,6 @@ import {
     DialogContent,
     DialogFooter,
 } from '@/components/ui/dialog';
-import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { FilenameInput } from '@/features/organization/documents/pdf-merge/filename-input';
 import {
     buildDefaultMergeFilename,
@@ -17,6 +16,7 @@ import { MergeList } from '@/features/organization/documents/pdf-merge/merge-lis
 import { MergeToolbar } from '@/features/organization/documents/pdf-merge/merge-toolbar';
 import { clearPdfPreviewCache } from '@/features/organization/documents/pdf-merge/pdf-preview-service';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';
+import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { toast } from '@/lib/toast';
 import { mergePdf } from '@/routes/organization/documents/employee/files';
 

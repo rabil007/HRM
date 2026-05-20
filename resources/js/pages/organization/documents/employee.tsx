@@ -15,15 +15,16 @@ import { DocumentsActiveFilters } from '@/features/organization/documents/docume
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import {
+    EmailDocumentsModal
+    
+} from '@/features/organization/documents/email-send';
+import type {EmailDocumentItem} from '@/features/organization/documents/email-send';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
 import { PdfMergeModal } from '@/features/organization/documents/pdf-merge';
 import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge';
-import {
-    EmailDocumentsModal,
-    type EmailDocumentItem,
-} from '@/features/organization/documents/email-send';
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';

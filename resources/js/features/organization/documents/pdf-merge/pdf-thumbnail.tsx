@@ -5,7 +5,7 @@ import { loadPdfPreview } from '@/features/organization/documents/pdf-merge/pdf-
 import type { MergeDocumentItem, PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
 import { cn } from '@/lib/utils';
 
-export function PdfThumbnail({
+function PdfThumbnailContent({
     document,
     className,
     onPreviewLoaded,
@@ -20,10 +20,6 @@ export function PdfThumbnail({
 
     useEffect(() => {
         let cancelled = false;
-
-        setIsLoading(true);
-        setHasError(false);
-        setThumbnailUrl(null);
 
         loadPdfPreview(document.id)
             .then((preview) => {
@@ -73,5 +69,24 @@ export function PdfThumbnail({
                 />
             )}
         </div>
+    );
+}
+
+export function PdfThumbnail({
+    document,
+    className,
+    onPreviewLoaded,
+}: {
+    document: MergeDocumentItem;
+    className?: string;
+    onPreviewLoaded?: (data: PdfPreviewData) => void;
+}) {
+    return (
+        <PdfThumbnailContent
+            key={document.id}
+            document={document}
+            className={className}
+            onPreviewLoaded={onPreviewLoaded}
+        />
     );
 }

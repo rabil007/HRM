@@ -1,10 +1,10 @@
-import { formatBytes } from '@/lib/utils';
-
-import type { EmailDocumentItem } from '@/features/organization/documents/email-send/types';
 import {
     emailMaxAttachmentLabel,
     totalAttachmentBytes,
 } from '@/features/organization/documents/email-send/email-utils';
+import type { EmailDocumentItem } from '@/features/organization/documents/email-send/types';
+import { formatBytes } from '@/lib/utils';
+
 
 function fileTypeLabel(mimeType: string | null): string {
     if (!mimeType) {
