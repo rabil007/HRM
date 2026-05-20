@@ -56,7 +56,7 @@ export function EmployeePersonalTab({
             <div className="grid items-stretch gap-4 lg:grid-cols-3">
                 <EmployeeSectionCard
                     title="Private contact"
-                    description="Personal email and home-country phone"
+                    description="Personal email and home-country mobile"
                     icon={Mail}
                 >
                     <div className="space-y-1">
@@ -99,7 +99,7 @@ export function EmployeePersonalTab({
 
                         <div className={personalFieldRowClass}>
                             <label className={personalFieldLabelClass}>
-                                Phone (Home Country)
+                                Mobile (Home Country)
                             </label>
                             {activeField === 'phone_home_country' ? (
                                 <div>
@@ -179,7 +179,7 @@ export function EmployeePersonalTab({
                                     ),
                             },
                             {
-                                label: 'Phone',
+                                label: 'Mobile',
                                 value:
                                     activeField === 'emergency_phone' ? (
                                         <PhoneInputWithCountry

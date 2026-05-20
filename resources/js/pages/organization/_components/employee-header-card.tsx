@@ -152,7 +152,7 @@ export function EmployeeHeaderCard({
             },
         );
 
-        return formatted === '—' ? 'No phone' : formatted;
+        return formatted === '—' ? 'No mobile' : formatted;
     }, [countries, employee.phone, form.data.phone]);
 
     const statusBadge = useMemo(() => {
@@ -510,12 +510,12 @@ export function EmployeeHeaderCard({
                         </div>
                     )}
 
-                    {/* Phone (UAE) */}
+                    {/* Mobile (UAE) */}
                     {showField('phone') && (
                         <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
                             <EmployeeInlinePhoneField
                                 fieldKey="phone"
-                                label="Phone (UAE)"
+                                label="Mobile (UAE)"
                                 value={form.data.phone ?? ''}
                                 fallbackValue={employee.phone}
                                 countries={countries}
