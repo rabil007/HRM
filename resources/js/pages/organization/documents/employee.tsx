@@ -1,6 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { ExternalLink, Eye, FolderOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -11,7 +11,7 @@ import {
 } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
-import { PageHeader } from '@/components/page-header';
+import { SearchBar } from '@/components/search-bar';
 import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,10 +44,32 @@ type Props = {
     documents: DocumentItem[];
 };
 
+function matchesFileSearch(doc: DocumentItem, query: string): boolean {
+    const haystack = [
+        doc.document_name,
+        doc.document_type,
+        formatDisplayDate(doc.uploaded_at),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return haystack.includes(query);
+}
+
 export default function EmployeeDocumentsBrowse({ employee, documents }: Props) {
     const [previewDoc, setPreviewDoc] = useState<DocumentItem | null>(null);
+    const [fileSearch, setFileSearch] = useState('');
 
-    const fileCountLabel = `${documents.length} file${documents.length === 1 ? '' : 's'}`;
+    const filteredDocuments = useMemo(() => {
+        const query = fileSearch.trim().toLowerCase();
+
+        if (query === '') {
+            return documents;
+        }
+
+        return documents.filter((doc) => matchesFileSearch(doc, query));
+    }, [documents, fileSearch]);
 
     return (
         <Main>
@@ -60,17 +82,14 @@ export default function EmployeeDocumentsBrowse({ employee, documents }: Props) 
                 ]}
             />
 
-            <PageHeader
-                title={employee.name}
-                description={`Employee no. ${employee.employee_no} · ${fileCountLabel}`}
-                right={
-                    <Button variant="outline" size="sm" className="rounded-lg" asChild>
-                        <Link href={`/organization/employees/${employee.id}#documents`}>
-                            Manage on profile
-                        </Link>
-                    </Button>
-                }
-            />
+            {documents.length > 0 ? (
+                <SearchBar
+                    className="mb-6"
+                    placeholder="Search files by name, type, or date…"
+                    value={fileSearch}
+                    onChange={setFileSearch}
+                />
+            ) : null}
 
             {documents.length === 0 ? (
                 <EmptyState
@@ -85,6 +104,11 @@ export default function EmployeeDocumentsBrowse({ employee, documents }: Props) 
                         </Button>
                     }
                 />
+            ) : filteredDocuments.length === 0 ? (
+                <EmptyState
+                    title="No files match your search."
+                    description="Try a different file name, document type, or upload date."
+                />
             ) : (
                 <OrganizationDataTable minWidth="min-w-[640px]">
                     <TableHeader>
@@ -96,7 +120,7 @@ export default function EmployeeDocumentsBrowse({ employee, documents }: Props) 
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
-                        {documents.map((doc) => (
+                        {filteredDocuments.map((doc) => (
                             <TableRow key={doc.id} className={dataTableBodyRowClass(false)}>
                                 <TableCell className="px-4 py-4 align-middle">
                                     <div className="flex min-w-0 items-center gap-3">
