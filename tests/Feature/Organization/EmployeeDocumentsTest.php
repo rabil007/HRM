@@ -324,14 +324,15 @@ test('employee profile documents include unified expiry serialization fields', f
 
     $this->get("/organization/employees/{$employee->id}")
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->where('documents.0.title', 'Passport Copy')
-            ->where('documents.0.expiry_date', '2026-05-25')
-            ->where('documents.0.expiry_status', 'expiring_7')
-            ->where('documents.0.expiry_label', 'Expires in 5 days')
-            ->where('documents.0.remaining_days', 5)
-        );
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->where('documents.0.title', 'Passport Copy')
+                ->where('documents.0.expiry_date', '2026-05-25')
+                ->where('documents.0.expiry_status', 'expiring_7')
+                ->where('documents.0.expiry_label', 'Expires in 5 days')
+                ->where('documents.0.remaining_days', 5),
+        ));
 
     Carbon::setTestNow();
 });

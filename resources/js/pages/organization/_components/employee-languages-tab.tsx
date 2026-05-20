@@ -1,5 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -8,17 +7,8 @@ import {
     update as updateLanguage,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeLanguageController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -346,55 +336,26 @@ export function EmployeeLanguagesTab({
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog
+            <EmployeeRecordDeleteDialog
                 open={!!deleteLanguageId}
                 onOpenChange={(openDialog) => {
                     if (!openDialog) {
                         setDeleteLanguageId(null);
                     }
                 }}
-            >
-                <AlertDialogContent className="sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className="mb-1 flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                                <Trash2 className="size-4" />
-                            </span>
-                            <AlertDialogTitle>Remove language?</AlertDialogTitle>
-                        </div>
-                        <AlertDialogDescription>
-                            This entry will be permanently removed.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-red-600 text-white hover:bg-red-500"
-                            onClick={() => {
-                                if (!deleteLanguageId) {
-                                    return;
-                                }
-
-                                router.delete(
-                                    destroyLanguage.url({
-                                        employee: employeeId,
-                                        language: deleteLanguageId,
-                                    }),
-                                    {
-                                        ...LANGUAGES_RELOAD,
-                                        onSuccess: () => {
-                                            setDeleteLanguageId(null);
-                                            toast.success('Language removed.');
-                                        },
-                                    },
-                                );
-                            }}
-                        >
-                            Remove
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                title="Remove language?"
+                description="This entry will be permanently removed."
+                destroyUrl={
+                    deleteLanguageId
+                        ? destroyLanguage.url({
+                              employee: employeeId,
+                              language: deleteLanguageId,
+                          })
+                        : null
+                }
+                reloadOptions={LANGUAGES_RELOAD}
+                successMessage="Language removed."
+            />
         </TabsContent>
     );
 }

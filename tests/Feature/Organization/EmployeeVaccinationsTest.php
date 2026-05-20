@@ -136,11 +136,13 @@ test('employee show page includes vaccinations', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('vaccinations', 1)
-            ->where('vaccinations.0.id', $vaccination->id)
-            ->where('vaccinations.0.vaccination_name', 'COVID-19'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('vaccinations', 1)
+                ->where('vaccinations.0.id', $vaccination->id)
+                ->where('vaccinations.0.vaccination_name', 'COVID-19'),
+        ));
 });
 
 test('users with permission can create update and delete vaccinations', function () {

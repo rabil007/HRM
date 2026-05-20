@@ -208,15 +208,15 @@ export type EmployeeProfileTabVisibility = {
 export type EmployeePageProps = {
     employee_navigation: EmployeeNavigation | null;
     employee: EmployeeDetails;
-    contracts: EmployeeContractDetails[];
-    documents: EmployeeDocumentItem[];
-    education_qualifications: EducationQualificationItem[];
-    work_experiences: WorkExperienceItem[];
-    vaccinations: VaccinationItem[];
-    languages: LanguageItem[];
-    bank_accounts: EmployeeBankAccountItem[];
-    sea_services: SeaServiceItem[];
-    document_types: DocumentTypeOption[];
+    contracts?: EmployeeContractDetails[];
+    documents?: EmployeeDocumentItem[];
+    education_qualifications?: EducationQualificationItem[];
+    work_experiences?: WorkExperienceItem[];
+    vaccinations?: VaccinationItem[];
+    languages?: LanguageItem[];
+    bank_accounts?: EmployeeBankAccountItem[];
+    sea_services?: SeaServiceItem[];
+    document_types?: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
         documents_delete: boolean;
@@ -237,7 +237,7 @@ export type EmployeePageProps = {
     genders: GenderOption[];
     banks: BankOption[];
     ranks: RankOption[];
-    vessel_types: VesselTypeOption[];
-    clients: ClientOption[];
+    vessel_types?: VesselTypeOption[];
+    clients?: ClientOption[];
     employee_tabs: EmployeeProfileTabVisibility;
 };

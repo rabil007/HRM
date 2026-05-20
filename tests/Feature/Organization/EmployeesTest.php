@@ -106,23 +106,14 @@ test('authenticated users can view an employee details page', function () {
 
     $this->get("/organization/employees/{$employee->id}")
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('employee_navigation')
-            ->has('employee')
-            ->has('contracts')
-            ->has('education_qualifications')
-            ->has('work_experiences')
-            ->has('vaccinations')
-            ->has('languages')
-            ->has('bank_accounts')
-            ->has('sea_services')
-            ->has('documents')
-            ->has('ranks')
-            ->has('vessel_types')
-            ->has('clients')
-            ->has('employee_tabs')
-        );
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page
+                ->component('organization/employee')
+                ->has('employee_navigation')
+                ->has('employee')
+                ->has('employee_tabs')
+                ->has('ranks'),
+        ));
 });
 
 test('employee profile includes onboarding template when assigned', function () {

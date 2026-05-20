@@ -134,6 +134,7 @@ export default function EmployeeDetails({
     };
 
     const canUpdate = (auth?.permissions ?? []).includes('employees.update');
+    const recordsLoading = contracts === undefined;
 
     void branches;
     void departments;
@@ -185,42 +186,62 @@ export default function EmployeeDetails({
             {
                 id: 'contract' as const,
                 label: 'Contract',
-                count: contracts.length || null,
+                count:
+                    contracts === undefined ? null : (contracts.length || null),
             },
             {
                 id: 'bank' as const,
                 label: 'Bank',
-                count: form.data.bank_id || form.data.iban ? 1 : null,
+                count:
+                    bank_accounts === undefined
+                        ? null
+                        : form.data.bank_id || form.data.iban
+                          ? 1
+                          : (bank_accounts.length || null),
             },
             {
                 id: 'education' as const,
                 label: 'Education',
-                count: education_qualifications.length || null,
+                count:
+                    education_qualifications === undefined
+                        ? null
+                        : (education_qualifications.length || null),
             },
             {
                 id: 'work_experience' as const,
                 label: 'Work experience',
-                count: work_experiences.length || null,
+                count:
+                    work_experiences === undefined
+                        ? null
+                        : (work_experiences.length || null),
             },
             {
                 id: 'vaccination' as const,
                 label: 'Vaccination',
-                count: vaccinations.length || null,
+                count:
+                    vaccinations === undefined
+                        ? null
+                        : (vaccinations.length || null),
             },
             {
                 id: 'languages' as const,
                 label: 'Languages',
-                count: languages.length || null,
+                count:
+                    languages === undefined ? null : (languages.length || null),
             },
             {
                 id: 'sea_service' as const,
                 label: 'Sea Service',
-                count: sea_services.length || null,
+                count:
+                    sea_services === undefined
+                        ? null
+                        : (sea_services.length || null),
             },
             {
                 id: 'documents' as const,
                 label: 'Documents',
-                count: documents.length || null,
+                count:
+                    documents === undefined ? null : (documents.length || null),
             },
         ] satisfies Array<{
             id: EmployeeTab;
@@ -253,15 +274,16 @@ export default function EmployeeDetails({
         employee_tabs.personal,
         employee_tabs.sea_service,
         employee_tabs.vaccination,
-        contracts.length,
-        documents.length,
-        education_qualifications.length,
+        contracts,
+        documents,
+        education_qualifications,
+        bank_accounts,
         form.data.bank_id,
         form.data.iban,
-        languages.length,
-        sea_services.length,
-        vaccinations.length,
-        work_experiences.length,
+        languages,
+        sea_services,
+        vaccinations,
+        work_experiences,
     ]);
 
     const activeTab = useMemo((): EmployeeTab => {
@@ -486,78 +508,110 @@ export default function EmployeeDetails({
                                         />
                                     ) : null}
                                     {employee_tabs.contract && activeTab === 'contract' ? (
-                                        <EmployeeContractTab
-                                            employeeId={employee.id}
-                                            contracts={contracts}
-                                            canManage={can.contracts_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeContractTab
+                                                employeeId={employee.id}
+                                                contracts={contracts ?? []}
+                                                canManage={can.contracts_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {employee_tabs.bank && activeTab === 'bank' ? (
-                                        <EmployeeBankTab
-                                            employeeId={employee.id}
-                                            bank_accounts={bank_accounts}
-                                            banks={banks}
-                                            canManage={can.bank_accounts_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeBankTab
+                                                employeeId={employee.id}
+                                                bank_accounts={bank_accounts ?? []}
+                                                banks={banks}
+                                                canManage={can.bank_accounts_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {activeTab === 'education' ? (
-                                        <EmployeeEducationTab
-                                            employeeId={employee.id}
-                                            education_qualifications={
-                                                education_qualifications
-                                            }
-                                            countries={countries}
-                                            canManage={can.education_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeEducationTab
+                                                employeeId={employee.id}
+                                                education_qualifications={
+                                                    education_qualifications ?? []
+                                                }
+                                                countries={countries}
+                                                canManage={can.education_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {activeTab === 'work_experience' ? (
-                                        <EmployeeWorkExperienceTab
-                                            employeeId={employee.id}
-                                            work_experiences={work_experiences}
-                                            canManage={can.work_experience_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeWorkExperienceTab
+                                                employeeId={employee.id}
+                                                work_experiences={work_experiences ?? []}
+                                                canManage={can.work_experience_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {employee_tabs.vaccination &&
                                     activeTab === 'vaccination' ? (
-                                        <EmployeeVaccinationTab
-                                            employeeId={employee.id}
-                                            vaccinations={vaccinations}
-                                            countries={countries}
-                                            canManage={can.vaccination_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeVaccinationTab
+                                                employeeId={employee.id}
+                                                vaccinations={vaccinations ?? []}
+                                                countries={countries}
+                                                canManage={can.vaccination_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {activeTab === 'languages' ? (
-                                        <EmployeeLanguagesTab
-                                            employeeId={employee.id}
-                                            languages={languages}
-                                            canManage={can.languages_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeLanguagesTab
+                                                employeeId={employee.id}
+                                                languages={languages ?? []}
+                                                canManage={can.languages_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {employee_tabs.sea_service &&
                                     activeTab === 'sea_service' ? (
-                                        <EmployeeSeaServiceTab
-                                            employeeId={employee.id}
-                                            sea_services={sea_services}
-                                            vessel_types={vessel_types}
-                                            ranks={ranks}
-                                            clients={clients}
-                                            employeeRankId={employee.rank_id ?? null}
-                                            canManage={can.sea_service_manage}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeSeaServiceTab
+                                                employeeId={employee.id}
+                                                sea_services={sea_services ?? []}
+                                                vessel_types={vessel_types ?? []}
+                                                ranks={ranks}
+                                                clients={clients ?? []}
+                                                employeeRankId={employee.rank_id ?? null}
+                                                canManage={can.sea_service_manage}
+                                            />
+                                        )
                                     ) : null}
                                     {employee_tabs.documents && activeTab === 'documents' ? (
-                                        <EmployeeDocumentsTab
-                                            employee={{
-                                                id: employee.id,
-                                                name: employee.name,
-                                            }}
-                                            documents={documents}
-                                            document_types={document_types}
-                                            can={{
-                                                documents_upload: can.documents_upload,
-                                                documents_delete: can.documents_delete,
-                                            }}
-                                        />
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeDocumentsTab
+                                                employee={{
+                                                    id: employee.id,
+                                                    name: employee.name,
+                                                }}
+                                                documents={documents ?? []}
+                                                document_types={document_types ?? []}
+                                                can={{
+                                                    documents_upload: can.documents_upload,
+                                                    documents_delete: can.documents_delete,
+                                                }}
+                                            />
+                                        )
                                     ) : null}
                                 </Suspense>
                             </Tabs>

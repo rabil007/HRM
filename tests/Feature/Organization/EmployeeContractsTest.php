@@ -115,15 +115,17 @@ test('employee show page includes contracts', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('contracts')
-            ->where(
-                'contracts',
-                fn ($contracts) => collect($contracts)->contains(
-                    fn ($row) => $row['contract_type'] === 'limited' && $row['status'] === 'ended',
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('contracts')
+                ->where(
+                    'contracts',
+                    fn ($contracts) => collect($contracts)->contains(
+                        fn ($row) => $row['contract_type'] === 'limited' && $row['status'] === 'ended',
+                    ),
                 ),
-            ));
+        ));
 });
 
 test('users with permission can add update and delete contracts', function () {

@@ -1,5 +1,4 @@
 import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -9,17 +8,8 @@ import {
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -610,57 +600,26 @@ export function EmployeeSeaServiceTab({
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog
+            <EmployeeRecordDeleteDialog
                 open={!!deleteRowId}
                 onOpenChange={(openDialog) => {
                     if (!openDialog) {
                         setDeleteRowId(null);
                     }
                 }}
-            >
-                <AlertDialogContent className="sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className="mb-1 flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                                <Trash2 className="size-4" />
-                            </span>
-                            <AlertDialogTitle>Remove sea service?</AlertDialogTitle>
-                        </div>
-                        <AlertDialogDescription>
-                            This row will be permanently removed.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-red-600 text-white hover:bg-red-500"
-                            onClick={() => {
-                                if (!deleteRowId) {
-                                    return;
-                                }
-
-                                router.delete(
-                                    destroySeaService.url({
-                                        employee: employeeId,
-                                        seaService: deleteRowId,
-                                    }),
-                                    {
-                                        ...SEA_SERVICE_RELOAD,
-                                        onSuccess: () => {
-                                            setDeleteRowId(null);
-                                            toast.success(
-                                                'Sea service removed.',
-                                            );
-                                        },
-                                    },
-                                );
-                            }}
-                        >
-                            Remove
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                title="Remove sea service?"
+                description="This row will be permanently removed."
+                destroyUrl={
+                    deleteRowId
+                        ? destroySeaService.url({
+                              employee: employeeId,
+                              seaService: deleteRowId,
+                          })
+                        : null
+                }
+                reloadOptions={SEA_SERVICE_RELOAD}
+                successMessage="Sea service removed."
+            />
 
             <EmployeeRecordImportDialog
                 open={seaServiceImportOpen}

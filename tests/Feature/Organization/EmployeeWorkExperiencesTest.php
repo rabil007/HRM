@@ -152,12 +152,14 @@ test('employee show page includes work experience rows', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('work_experiences', 1)
-            ->where('work_experiences.0.id', $experience->id)
-            ->where('work_experiences.0.company_name', 'OMS')
-            ->where('work_experiences.0.job_title', 'Engineer'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('work_experiences', 1)
+                ->where('work_experiences.0.id', $experience->id)
+                ->where('work_experiences.0.company_name', 'OMS')
+                ->where('work_experiences.0.job_title', 'Engineer'),
+        ));
 });
 
 test('users with permission can create update and delete work experience', function () {

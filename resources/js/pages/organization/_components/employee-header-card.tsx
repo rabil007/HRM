@@ -4,18 +4,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
-import {
-    CommandDialog,
-    CommandEmpty,
-    CommandInput,
-    CommandItem,
-    CommandList,
-} from '@/components/ui/command';
 import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
+import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
+import {
+    EditableDetailField,
+    EditableDetailTextField,
+} from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 
@@ -367,62 +365,20 @@ export function EmployeeHeaderCard({
                                         description: 'Search employees...',
                                     },
                                 ].map((item) => (
-                                     <div
-                                         key={item.field}
-                                         className="group flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]"
-                                     >
-                                         <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">{item.label}</div>
-                                         <button
-                                             type="button"
-                                             className="min-w-0 truncate text-left text-xs font-semibold text-zinc-300 hover:text-white disabled:cursor-default disabled:hover:text-zinc-300"
-                                             onClick={() => beginEdit(item.field)}
-                                             disabled={!canUpdate}
-                                         >
-                                             {item.current || '—'}
-                                         </button>
-
-                                        <CommandDialog
-                                            open={activeField === item.field && canUpdate}
-                                            onOpenChange={(open) => {
-                                                if (!open) {
-                                                    setActiveField(null);
-                                                }
-                                            }}
-                                            title={item.title}
-                                            description={item.description}
-                                        >
-                                            <CommandInput placeholder={item.description} />
-                                            <CommandList>
-                                                <CommandEmpty>No results found.</CommandEmpty>
-                                                <CommandItem
-                                                    value="__none__"
-                                                    onSelect={() => {
-                                                        form.setData(item.field, '');
-                                                        setActiveField(null);
-                                                    }}
-                                                >
-                                                    —
-                                                </CommandItem>
-                                                {item.items.map((row: any) => (
-                                                    <CommandItem
-                                                        key={row.id}
-                                                        value={row.search ?? row.label}
-                                                        onSelect={() => {
-                                                            form.setData(item.field, row.value);
-                                                            setActiveField(null);
-                                                        }}
-                                                    >
-                                                        {row.label}
-                                                        {row.extra ? (
-                                                            <span className="ml-auto text-xs text-muted-foreground">
-                                                                {row.extra}
-                                                            </span>
-                                                        ) : null}
-                                                    </CommandItem>
-                                                ))}
-                                            </CommandList>
-                                        </CommandDialog>
-                                    </div>
+                                    <EditableCommandSelectCell
+                                        key={item.field}
+                                        field={item.field}
+                                        label={item.label}
+                                        currentLabel={item.current || '—'}
+                                        title={item.title}
+                                        description={item.description}
+                                        items={item.items}
+                                        activeField={activeField}
+                                        setActiveField={setActiveField}
+                                        beginEdit={beginEdit}
+                                        canEdit={canUpdate}
+                                        onSelect={(value) => form.setData(item.field, value)}
+                                    />
                                 ))}
                             </div>
                         </div>
@@ -485,29 +441,22 @@ export function EmployeeHeaderCard({
                 <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.05] md:grid-cols-4">
                     {/* Work email */}
                     {showField('work_email') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Work email {requiredDot('work_email')}
-                            </div>
-                            {activeField === 'work_email' && canUpdate ? (
-                                <Input
-                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                    value={form.data.work_email}
-                                    onChange={(e) => form.setData('work_email', e.target.value)}
-                                    onBlur={() => setActiveField(null)}
-                                    autoFocus
-                                />
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('work_email')}
-                                    disabled={!canUpdate}
-                                >
-                                    {form.data.work_email || employee.work_email || '—'}
-                                </button>
-                            )}
-                        </div>
+                        <EditableDetailTextField
+                            label={
+                                <>
+                                    Work email {requiredDot('work_email')}
+                                </>
+                            }
+                            field="work_email"
+                            value={form.data.work_email}
+                            displayValue={form.data.work_email || employee.work_email || '—'}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('work_email', value)}
+                            inputType="email"
+                        />
                     )}
 
                     {/* Mobile (UAE) */}
@@ -534,16 +483,23 @@ export function EmployeeHeaderCard({
 
                     {/* Marital status */}
                     {showField('marital_status') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Marital status
-                            </div>
-                            {activeField === 'marital_status' && canUpdate ? (
+                        <EditableDetailField
+                            label="Marital status"
+                            field="marital_status"
+                            displayValue={
+                                form.data.marital_status || employee.marital_status || '—'
+                            }
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            editControl={
                                 <AppSelect
                                     value={form.data.marital_status}
-                                    onValueChange={(v) => {
- form.setData('marital_status', v); setActiveField(null); 
-}}
+                                    onValueChange={(value) => {
+                                        form.setData('marital_status', value);
+                                        setActiveField(null);
+                                    }}
                                     onClose={() => setActiveField(null)}
                                     variant="dark"
                                     placeholder="—"
@@ -555,45 +511,26 @@ export function EmployeeHeaderCard({
                                     <AppSelectItem value="divorced">Divorced</AppSelectItem>
                                     <AppSelectItem value="widowed">Widowed</AppSelectItem>
                                 </AppSelect>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('marital_status')}
-                                    disabled={!canUpdate}
-                                >
-                                    {form.data.marital_status || employee.marital_status || '—'}
-                                </button>
-                            )}
-                        </div>
+                            }
+                        />
                     )}
 
                     {/* Birthday */}
                     {showField('date_of_birth') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Birthday
-                            </div>
-                            {activeField === 'date_of_birth' && canUpdate ? (
-                                <Input
-                                    type="date"
-                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                    value={form.data.date_of_birth}
-                                    onChange={(e) => form.setData('date_of_birth', e.target.value)}
-                                    onBlur={() => setActiveField(null)}
-                                    autoFocus
-                                />
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('date_of_birth')}
-                                    disabled={!canUpdate}
-                                >
-                                    {formatDisplayDate(form.data.date_of_birth || employee.date_of_birth)}
-                                </button>
+                        <EditableDetailTextField
+                            label="Birthday"
+                            field="date_of_birth"
+                            value={form.data.date_of_birth}
+                            displayValue={formatDisplayDate(
+                                form.data.date_of_birth || employee.date_of_birth,
                             )}
-                        </div>
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('date_of_birth', value)}
+                            inputType="date"
+                        />
                     )}
 
                     {/* Rank */}

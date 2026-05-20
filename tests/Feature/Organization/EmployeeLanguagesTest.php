@@ -131,10 +131,12 @@ test('employee show page includes languages', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('languages', 1)
-            ->where('languages.0.language_name', 'Hindi'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('languages', 1)
+                ->where('languages.0.language_name', 'Hindi'),
+        ));
 });
 
 test('users with permission can add update and delete languages', function () {

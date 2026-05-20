@@ -7,13 +7,14 @@ import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import {
+    PersonalEditableTextRow,
+    PersonalFieldRow,
+    personalFieldLabelClass,
+    personalFieldRowClass,
+} from '@/features/organization/employees/profile/components/personal-field-row';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
-
-const personalFieldRowClass =
-    'grid grid-cols-1 gap-2 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-white/[0.06] hover:bg-white/[0.03] sm:grid-cols-[minmax(0,9.5rem)_1fr] sm:items-center sm:gap-5';
-const personalFieldLabelClass =
-    'text-[11px] font-medium uppercase tracking-wider text-zinc-500';
 
 export type EmployeePersonalFormSlice = {
     data: Record<string, unknown> & {
@@ -60,42 +61,21 @@ export function EmployeePersonalTab({
                     icon={Mail}
                 >
                     <div className="space-y-1">
-                        <div className={personalFieldRowClass}>
-                            <label className={personalFieldLabelClass}>
-                                Email
-                            </label>
-                            {activeField === 'personal_email' ? (
-                                <div>
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.personal_email}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'personal_email',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                    {form.errors.personal_email ? (
-                                        <div className="mt-1 text-xs text-destructive">
-                                            {form.errors.personal_email}
-                                        </div>
-                                    ) : null}
-                                </div>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                    onClick={() => beginEdit('personal_email')}
-                                >
-                                    {form.data.personal_email ||
-                                        employee.personal_email ||
-                                        '—'}
-                                </button>
-                            )}
-                        </div>
+                        <PersonalEditableTextRow
+                            label="Email"
+                            field="personal_email"
+                            value={form.data.personal_email ?? ''}
+                            displayValue={
+                                form.data.personal_email ||
+                                employee.personal_email ||
+                                '—'
+                            }
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            onChange={(value) => form.setData('personal_email', value)}
+                            error={form.errors.personal_email}
+                        />
 
                         <div className={personalFieldRowClass}>
                             <label className={personalFieldLabelClass}>
@@ -214,14 +194,9 @@ export function EmployeePersonalTab({
                                     ),
                             },
                         ].map((item, i) => (
-                            <div key={i} className={personalFieldRowClass}>
-                                <label className={personalFieldLabelClass}>
-                                    {item.label}
-                                </label>
-                                <div className="min-w-0 text-sm font-medium text-zinc-100">
-                                    {item.value}
-                                </div>
-                            </div>
+                            <PersonalFieldRow key={i} label={item.label}>
+                                {item.value}
+                            </PersonalFieldRow>
                         ))}
                     </div>
                 </EmployeeSectionCard>
@@ -236,20 +211,6 @@ export function EmployeePersonalTab({
                             {
                                 key: 'spouse_name',
                                 label: 'Spouse name',
-                                input: (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.spouse_name}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'spouse_name',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ),
                                 value:
                                     form.data.spouse_name ||
                                     employee.spouse_name ||
@@ -258,42 +219,23 @@ export function EmployeePersonalTab({
                             {
                                 key: 'spouse_birthdate',
                                 label: 'Spouse birthdate',
-                                input: (
-                                    <Input
-                                        type="date"
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.spouse_birthdate}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'spouse_birthdate',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ),
                                 value: formatDisplayDate(
                                     form.data.spouse_birthdate || employee.spouse_birthdate,
                                 ),
                             },
                         ].map((row) => (
-                            <div key={row.key} className={personalFieldRowClass}>
-                                <label className={personalFieldLabelClass}>
-                                    {row.label}
-                                </label>
-                                {activeField === row.key ? (
-                                    <div>{row.input}</div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                        onClick={() => beginEdit(row.key)}
-                                    >
-                                        {row.value}
-                                    </button>
-                                )}
-                            </div>
+                            <PersonalEditableTextRow
+                                key={row.key}
+                                label={row.label}
+                                field={row.key}
+                                value={String((form.data as Record<string, unknown>)[row.key] ?? '')}
+                                displayValue={row.value}
+                                activeField={activeField}
+                                setActiveField={setActiveField}
+                                beginEdit={beginEdit}
+                                onChange={(value) => form.setData(row.key, value)}
+                                inputType={row.key === 'spouse_birthdate' ? 'date' : 'text'}
+                            />
                         ))}
                     </div>
                 </EmployeeSectionCard>
@@ -310,20 +252,6 @@ export function EmployeePersonalTab({
                             {
                                 key: 'nearest_airport',
                                 label: 'Nearest Airport (Home Country)',
-                                input: (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.nearest_airport}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'nearest_airport',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ),
                                 value:
                                     form.data.nearest_airport ||
                                     employee.nearest_airport ||
@@ -332,42 +260,21 @@ export function EmployeePersonalTab({
                             {
                                 key: 'address',
                                 label: 'Address',
-                                input: (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={form.data.address}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'address',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ),
                                 value:
-                                    form.data.address ||
-                                    employee.address ||
-                                    '—',
+                                    form.data.address || employee.address || '—',
                             },
                         ].map((row) => (
-                            <div key={row.key} className={personalFieldRowClass}>
-                                <label className={personalFieldLabelClass}>
-                                    {row.label}
-                                </label>
-                                {activeField === row.key ? (
-                                    <div>{row.input}</div>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                        onClick={() => beginEdit(row.key)}
-                                    >
-                                        {row.value}
-                                    </button>
-                                )}
-                            </div>
+                            <PersonalEditableTextRow
+                                key={row.key}
+                                label={row.label}
+                                field={row.key}
+                                value={String((form.data as Record<string, unknown>)[row.key] ?? '')}
+                                displayValue={row.value}
+                                activeField={activeField}
+                                setActiveField={setActiveField}
+                                beginEdit={beginEdit}
+                                onChange={(value) => form.setData(row.key, value)}
+                            />
                         ))}
                 </div>
             </EmployeeSectionCard>
@@ -456,33 +363,17 @@ export function EmployeePersonalTab({
                                     '—',
                             },
                         ].map((item) => (
-                            <div key={item.key} className={personalFieldRowClass}>
-                                <label className={personalFieldLabelClass}>
-                                    {item.label}
-                                </label>
-                                {activeField === item.key ? (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={(form.data as any)[item.key]}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                item.key as any,
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                        onClick={() => beginEdit(item.key)}
-                                    >
-                                        {item.value}
-                                    </button>
-                                )}
-                            </div>
+                            <PersonalEditableTextRow
+                                key={item.key}
+                                label={item.label}
+                                field={item.key}
+                                value={String((form.data as Record<string, unknown>)[item.key] ?? '')}
+                                displayValue={item.value}
+                                activeField={activeField}
+                                setActiveField={setActiveField}
+                                beginEdit={beginEdit}
+                                onChange={(value) => form.setData(item.key, value)}
+                            />
                         ))}
             </EmployeeSectionCard>
             </div>

@@ -165,11 +165,13 @@ test('employee show page includes sea services', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('sea_services', 1)
-            ->where('sea_services.0.vessel_type_name', 'BES SINCERE')
-            ->where('sea_services.0.vessel_name', 'MV Horizon'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('sea_services', 1)
+                ->where('sea_services.0.vessel_type_name', 'BES SINCERE')
+                ->where('sea_services.0.vessel_name', 'MV Horizon'),
+        ));
 });
 
 test('users with permission can add update delete and reorder sea services', function () {

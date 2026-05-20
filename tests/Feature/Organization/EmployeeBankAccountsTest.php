@@ -148,11 +148,13 @@ test('employee show includes bank_accounts', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('bank_accounts', 1)
-            ->where('bank_accounts.0.iban', 'AE029010101010')
-            ->where('bank_accounts.0.account_name', 'John Doe'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('bank_accounts', 1)
+                ->where('bank_accounts.0.iban', 'AE029010101010')
+                ->where('bank_accounts.0.account_name', 'John Doe'),
+        ));
 });
 
 test('users with permission can add update and delete bank accounts', function () {

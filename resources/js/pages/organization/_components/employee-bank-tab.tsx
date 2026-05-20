@@ -1,5 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -9,17 +8,8 @@ import {
 } from '@/actions/App/Http/Controllers/Organization/EmployeeBankAccountController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -338,57 +328,26 @@ export function EmployeeBankTab({
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog
+            <EmployeeRecordDeleteDialog
                 open={!!deleteId}
                 onOpenChange={(openDialog) => {
                     if (!openDialog) {
                         setDeleteId(null);
                     }
                 }}
-            >
-            <AlertDialogContent className="sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className="mb-1 flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                                <Trash2 className="size-4" />
-                            </span>
-                            <AlertDialogTitle>Remove bank account?</AlertDialogTitle>
-                        </div>
-                        <AlertDialogDescription>
-                            This entry will be permanently removed.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-red-600 text-white hover:bg-red-500"
-                            onClick={() => {
-                                if (!deleteId) {
-                                    return;
-                                }
-
-                                router.delete(
-                                    destroyBankAccount.url({
-                                        employee: employeeId,
-                                        bankAccount: deleteId,
-                                    }),
-                                    {
-                                        ...BANK_ACCOUNTS_RELOAD,
-                                        onSuccess: () => {
-                                            setDeleteId(null);
-                                            toast.success(
-                                                'Bank account removed.',
-                                            );
-                                        },
-                                    },
-                                );
-                            }}
-                        >
-                            Remove
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+                title="Remove bank account?"
+                description="This entry will be permanently removed."
+                destroyUrl={
+                    deleteId
+                        ? destroyBankAccount.url({
+                              employee: employeeId,
+                              bankAccount: deleteId,
+                          })
+                        : null
+                }
+                reloadOptions={BANK_ACCOUNTS_RELOAD}
+                successMessage="Bank account removed."
+            />
         </TabsContent>
     );
 }

@@ -132,11 +132,13 @@ test('employee show page includes education qualifications', function () {
 
     $this->get(route('organization.employees.show', $employee))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/employee')
-            ->has('education_qualifications', 1)
-            ->where('education_qualifications.0.id', $qualification->id)
-            ->where('education_qualifications.0.certificate', 'MBA'));
+        ->assertInertia(fn (Assert $page) => assertEmployeeProfileRecords(
+            $page->component('organization/employee'),
+            fn (Assert $page) => $page
+                ->has('education_qualifications', 1)
+                ->where('education_qualifications.0.id', $qualification->id)
+                ->where('education_qualifications.0.certificate', 'MBA'),
+        ));
 });
 
 test('users with permission can create education qualifications', function () {
