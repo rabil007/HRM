@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { firstValidationError } from '@/lib/first-validation-error';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
@@ -191,8 +192,13 @@ export function EmployeeImportDialog({
                 }
             },
             onError: (errors) => {
-                const message = Object.values(errors)[0];
-                toast.error(typeof message === 'string' ? message : 'Import failed.');
+                toast.error(
+                    firstValidationError(
+                        errors as Record<string, string | string[]>,
+                        'file',
+                        'Import failed.',
+                    ),
+                );
             },
             onFinish: () => setIsImporting(false),
         });

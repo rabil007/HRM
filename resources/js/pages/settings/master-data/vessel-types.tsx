@@ -27,6 +27,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
 type VesselTypeRow = {
@@ -207,16 +208,25 @@ export default function VesselTypes({ vessel_types }: { vessel_types: VesselType
                 preserveScroll: true,
                 forceFormData: true,
                 onFinish: () => setImportProcessing(false),
-                onSuccess: () => {
-                    setImportOpen(false);
-                    setImportFile(null);
-                    setImportMessage(null);
+                onSuccess: (page) => {
+                    if (hasFlashSuccess(page)) {
+                        setImportOpen(false);
+                        setImportFile(null);
+                        setImportMessage(null);
 
-                    if (fileInputRef.current) {
-                        fileInputRef.current.value = '';
+                        if (fileInputRef.current) {
+                            fileInputRef.current.value = '';
+                        }
                     }
                 },
-                onError: (errs) => setImportMessage((errs as { file?: string }).file ?? 'Import failed.'),
+                onError: (errs) =>
+                    setImportMessage(
+                        firstValidationError(
+                            errs as Record<string, string | string[]>,
+                            'file',
+                            'Import failed.',
+                        ),
+                    ),
             },
         );
     };

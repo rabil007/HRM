@@ -179,6 +179,16 @@ class EmployeeSeaServiceController extends Controller
         $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
 
         $imported = 0;
+        $skipped = [
+            'empty_rows' => 0,
+            'missing_vessel_type' => 0,
+            'missing_required_fields' => 0,
+            'unknown_vessel_type' => 0,
+            'unknown_rank' => 0,
+            'invalid_duration' => 0,
+        ];
+        $unknownVesselTypes = [];
+        $unknownRanks = [];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -192,21 +202,43 @@ class EmployeeSeaServiceController extends Controller
             $totalDaysRaw = trim((string) ($row[$map['total_days']] ?? ''));
 
             if ($vesselTypeName === '' && $vesselName === '' && $rankName === '') {
+                $skipped['empty_rows']++;
+
                 continue;
             }
 
-            if ($vesselTypeName === '' || $vesselName === '' || $rankName === '' || $totalMonthsRaw === '' || $totalDaysRaw === '') {
+            if ($vesselTypeName === '') {
+                $skipped['missing_vessel_type']++;
+
+                continue;
+            }
+
+            if ($vesselName === '' || $rankName === '' || $totalMonthsRaw === '' || $totalDaysRaw === '') {
+                $skipped['missing_required_fields']++;
+
                 continue;
             }
 
             $vesselTypeId = $vesselTypeIdsByName[mb_strtolower($vesselTypeName)] ?? null;
             $rankId = $rankIdsByName[mb_strtolower($rankName)] ?? null;
 
-            if ($vesselTypeId === null || $rankId === null) {
+            if ($vesselTypeId === null) {
+                $skipped['unknown_vessel_type']++;
+                $unknownVesselTypes[$vesselTypeName] = true;
+
+                continue;
+            }
+
+            if ($rankId === null) {
+                $skipped['unknown_rank']++;
+                $unknownRanks[$rankName] = true;
+
                 continue;
             }
 
             if (! is_numeric($totalMonthsRaw) || ! is_numeric($totalDaysRaw)) {
+                $skipped['invalid_duration']++;
+
                 continue;
             }
 
@@ -214,6 +246,8 @@ class EmployeeSeaServiceController extends Controller
             $totalDays = (int) $totalDaysRaw;
 
             if ($totalMonths < 0 || $totalMonths > 1200 || $totalDays < 0 || $totalDays > 366) {
+                $skipped['invalid_duration']++;
+
                 continue;
             }
 
@@ -271,9 +305,54 @@ class EmployeeSeaServiceController extends Controller
 
         fclose($handle);
 
-        return back()->with('success', $imported > 0
-            ? "Imported {$imported} sea service row(s)."
-            : 'No rows were imported. Check vessel type, rank names, and required columns.');
+        if ($imported === 0) {
+            return back()->withErrors([
+                'file' => $this->formatSeaServiceImportFailureMessage($skipped, $unknownVesselTypes, $unknownRanks),
+            ]);
+        }
+
+        return back()->with('success', "Imported {$imported} sea service row(s).");
+    }
+
+    /**
+     * @param  array<string, int>  $skipped
+     * @param  array<string, bool>  $unknownVesselTypes
+     * @param  array<string, bool>  $unknownRanks
+     */
+    private function formatSeaServiceImportFailureMessage(
+        array $skipped,
+        array $unknownVesselTypes,
+        array $unknownRanks,
+    ): string {
+        $details = [];
+
+        if ($skipped['missing_vessel_type'] > 0) {
+            $details[] = "missing vessel_type ({$skipped['missing_vessel_type']} row(s))";
+        }
+
+        if ($skipped['missing_required_fields'] > 0) {
+            $details[] = "missing vessel_name, rank, total_months, or total_days ({$skipped['missing_required_fields']} row(s))";
+        }
+
+        if ($skipped['unknown_vessel_type'] > 0) {
+            $names = implode(', ', array_keys($unknownVesselTypes));
+            $details[] = "unknown vessel type(s): {$names}";
+        }
+
+        if ($skipped['unknown_rank'] > 0) {
+            $names = implode(', ', array_keys($unknownRanks));
+            $details[] = "unknown rank(s): {$names} — add them in Settings → Master Data → Ranks";
+        }
+
+        if ($skipped['invalid_duration'] > 0) {
+            $details[] = "invalid total_months or total_days ({$skipped['invalid_duration']} row(s))";
+        }
+
+        if ($details === []) {
+            return 'No rows were imported. Check the CSV columns and use exact master data names from Settings.';
+        }
+
+        return 'No rows were imported. '.implode('; ', $details).'.';
     }
 
     /**

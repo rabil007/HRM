@@ -149,6 +149,11 @@ class EmployeeWorkExperienceController extends Controller
         $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
 
         $imported = 0;
+        $skipped = [
+            'empty_rows' => 0,
+            'missing_required_fields' => 0,
+            'invalid_date_from' => 0,
+        ];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -160,15 +165,21 @@ class EmployeeWorkExperienceController extends Controller
             $dateFromRaw = trim((string) ($row[$map['date_from']] ?? ''));
 
             if ($companyName === '' && $jobTitle === '' && $dateFromRaw === '') {
+                $skipped['empty_rows']++;
+
                 continue;
             }
 
             if ($companyName === '' || $jobTitle === '' || $dateFromRaw === '') {
+                $skipped['missing_required_fields']++;
+
                 continue;
             }
 
             $parsedFrom = $this->parseWorkExperienceCsvDate($dateFromRaw);
             if ($parsedFrom === null) {
+                $skipped['invalid_date_from']++;
+
                 continue;
             }
 
@@ -212,9 +223,35 @@ class EmployeeWorkExperienceController extends Controller
 
         fclose($handle);
 
-        return back()->with('success', $imported > 0
-            ? "Imported {$imported} work experience row(s)."
-            : 'No rows were imported. Check dates and required columns.');
+        if ($imported === 0) {
+            return back()->withErrors([
+                'file' => $this->formatWorkExperienceImportFailureMessage($skipped),
+            ]);
+        }
+
+        return back()->with('success', "Imported {$imported} work experience row(s).");
+    }
+
+    /**
+     * @param  array<string, int>  $skipped
+     */
+    private function formatWorkExperienceImportFailureMessage(array $skipped): string
+    {
+        $details = [];
+
+        if ($skipped['missing_required_fields'] > 0) {
+            $details[] = "missing company_name, job_title, or date_from ({$skipped['missing_required_fields']} row(s))";
+        }
+
+        if ($skipped['invalid_date_from'] > 0) {
+            $details[] = "invalid date_from format ({$skipped['invalid_date_from']} row(s)) — use YYYY-MM-DD";
+        }
+
+        if ($details === []) {
+            return 'No rows were imported. Check required columns and date formats.';
+        }
+
+        return 'No rows were imported. '.implode('; ', $details).'.';
     }
 
     /**

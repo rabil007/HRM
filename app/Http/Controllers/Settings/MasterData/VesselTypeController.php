@@ -109,6 +109,8 @@ class VesselTypeController extends Controller
         }
 
         $imported = 0;
+        $emptyNames = 0;
+
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
                 continue;
@@ -116,6 +118,8 @@ class VesselTypeController extends Controller
 
             $name = trim((string) ($row[$map['name']] ?? ''));
             if ($name === '') {
+                $emptyNames++;
+
                 continue;
             }
 
@@ -138,10 +142,18 @@ class VesselTypeController extends Controller
 
         fclose($handle);
 
+        if ($imported === 0) {
+            return redirect()
+                ->route('settings.master-data.vessel-types.index')
+                ->withErrors([
+                    'file' => $emptyNames > 0
+                        ? "No rows were imported. {$emptyNames} row(s) had an empty name."
+                        : 'No rows were imported. Ensure each row has a name.',
+                ]);
+        }
+
         return redirect()
             ->route('settings.master-data.vessel-types.index')
-            ->with('success', $imported > 0
-                ? "Imported {$imported} vessel type row(s)."
-                : 'No rows were imported.');
+            ->with('success', "Imported {$imported} vessel type row(s).");
     }
 }

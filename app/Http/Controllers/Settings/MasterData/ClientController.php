@@ -100,6 +100,8 @@ class ClientController extends Controller
         }
 
         $imported = 0;
+        $emptyNames = 0;
+
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
                 continue;
@@ -107,6 +109,8 @@ class ClientController extends Controller
 
             $name = trim((string) ($row[$map['name']] ?? ''));
             if ($name === '') {
+                $emptyNames++;
+
                 continue;
             }
 
@@ -129,10 +133,18 @@ class ClientController extends Controller
 
         fclose($handle);
 
+        if ($imported === 0) {
+            return redirect()
+                ->route('settings.master-data.clients.index')
+                ->withErrors([
+                    'file' => $emptyNames > 0
+                        ? "No rows were imported. {$emptyNames} row(s) had an empty name."
+                        : 'No rows were imported. Ensure each row has a name.',
+                ]);
+        }
+
         return redirect()
             ->route('settings.master-data.clients.index')
-            ->with('success', $imported > 0
-                ? "Imported {$imported} client row(s)."
-                : 'No rows were imported.');
+            ->with('success', "Imported {$imported} client row(s).");
     }
 }

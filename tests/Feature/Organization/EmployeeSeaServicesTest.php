@@ -524,3 +524,36 @@ CSV;
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
+
+test('sea service import returns a clear error when vessel type is missing', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+
+    Rank::query()->create([
+        'name' => 'Appointed Person',
+        'is_active' => true,
+    ]);
+
+    $csv = <<<'CSV'
+vessel_type,vessel_name,rank,total_months,total_days,grt,bhp,client,is_offshore
+,CREST MARS,Appointed Person,2,14,,,EL HAIL,
+
+CSV;
+
+    $file = UploadedFile::fake()->createWithContent('ashok new.csv', $csv);
+
+    $this->post(route('organization.employees.sea-services.import', $employee), [
+        'file' => $file,
+    ])->assertSessionHasErrors(['file']);
+
+    expect(session('errors')->get('file')[0])
+        ->toContain('missing vessel_type');
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});

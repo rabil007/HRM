@@ -1239,6 +1239,24 @@ class EmployeeController extends Controller
 
         $result = $importer->execute($importable, (int) $validated['onboarding_template_id']);
 
+        if ($result['created'] === 0) {
+            $message = count($validation['errors']) > 0
+                ? 'No employees were imported. Fix the validation errors shown in the preview and try again.'
+                : 'No employees were imported. The file contained no valid rows.';
+
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => $message,
+                    'errors' => $validation['errors'],
+                    'created' => 0,
+                    'skipped' => $invalidRowNumbers,
+                    'failed' => $result['failed'],
+                ], 422);
+            }
+
+            return back()->withErrors(['file' => $message]);
+        }
+
         $message = sprintf(
             'Imported %d employee%s. %d row%s skipped.',
             $result['created'],

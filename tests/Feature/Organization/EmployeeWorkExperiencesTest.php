@@ -310,6 +310,68 @@ CSV;
     expect(EmployeeWorkExperience::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
 
+test('work experience import returns an error when no rows can be imported', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'WXI',
+        'name' => 'Work Importland',
+        'dial_code' => '+991',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'WXI',
+        'name' => 'Work Import Currency',
+        'symbol' => 'W$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Work Import Co',
+        'slug' => 'work-import-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'WXI001',
+            'name' => 'Work Importer',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.work_experience.manage']);
+
+    $csv = <<<'CSV'
+company_name,job_title,date_from
+North Co,,2020-01-01
+
+CSV;
+
+    $file = UploadedFile::fake()->createWithContent('bad.csv', $csv);
+
+    $this->post(route('organization.employees.work-experience.import', $employee), [
+        'file' => $file,
+    ])->assertSessionHasErrors(['file']);
+
+    expect(EmployeeWorkExperience::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
 test('another employee cannot mutate work experience rows', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

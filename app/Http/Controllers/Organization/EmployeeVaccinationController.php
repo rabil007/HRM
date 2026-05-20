@@ -153,6 +153,10 @@ class EmployeeVaccinationController extends Controller
         $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
 
         $imported = 0;
+        $skipped = [
+            'empty_rows' => 0,
+            'missing_vaccination_name' => 0,
+        ];
 
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
@@ -161,6 +165,12 @@ class EmployeeVaccinationController extends Controller
 
             $name = trim((string) ($row[$map['vaccination_name']] ?? ''));
             if ($name === '') {
+                if ($this->vaccinationCsvRowHasData($row)) {
+                    $skipped['missing_vaccination_name']++;
+                } else {
+                    $skipped['empty_rows']++;
+                }
+
                 continue;
             }
 
@@ -197,9 +207,29 @@ class EmployeeVaccinationController extends Controller
 
         fclose($handle);
 
-        return back()->with('success', $imported > 0
-            ? "Imported {$imported} vaccination row(s)."
-            : 'No rows were imported. Check the vaccination column and date formats.');
+        if ($imported === 0) {
+            return back()->withErrors([
+                'file' => $skipped['missing_vaccination_name'] > 0
+                    ? "No rows were imported. {$skipped['missing_vaccination_name']} row(s) are missing a vaccination name."
+                    : 'No rows were imported. Ensure each row has a vaccination name.',
+            ]);
+        }
+
+        return back()->with('success', "Imported {$imported} vaccination row(s).");
+    }
+
+    /**
+     * @param  array<int, string|null>  $row
+     */
+    private function vaccinationCsvRowHasData(array $row): bool
+    {
+        foreach ($row as $cell) {
+            if (trim((string) $cell) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

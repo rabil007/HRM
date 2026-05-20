@@ -98,6 +98,8 @@ class DocumentTypeController extends Controller
         }
 
         $imported = 0;
+        $emptyTitles = 0;
+
         while (($row = fgetcsv($handle)) !== false) {
             if (! is_array($row)) {
                 continue;
@@ -105,6 +107,8 @@ class DocumentTypeController extends Controller
 
             $title = trim((string) ($row[$map['title']] ?? ''));
             if ($title === '') {
+                $emptyTitles++;
+
                 continue;
             }
 
@@ -127,10 +131,18 @@ class DocumentTypeController extends Controller
 
         fclose($handle);
 
+        if ($imported === 0) {
+            return redirect()
+                ->route('settings.master-data.document-types.index')
+                ->withErrors([
+                    'file' => $emptyTitles > 0
+                        ? "No rows were imported. {$emptyTitles} row(s) had an empty title."
+                        : 'No rows were imported. Ensure each row has a title.',
+                ]);
+        }
+
         return redirect()
             ->route('settings.master-data.document-types.index')
-            ->with('success', $imported > 0
-                ? "Imported {$imported} document type row(s)."
-                : 'No rows were imported.');
+            ->with('success', "Imported {$imported} document type row(s).");
     }
 }

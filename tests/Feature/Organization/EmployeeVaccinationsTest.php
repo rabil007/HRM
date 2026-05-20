@@ -296,6 +296,68 @@ CSV;
     ]);
 });
 
+test('vaccination import returns an error when no rows can be imported', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VXI',
+        'name' => 'Vaccine Importland',
+        'dial_code' => '+992',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VXI',
+        'name' => 'Vaccine Import Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Vaccine Import Co',
+        'slug' => 'vaccine-import-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'VXI001',
+            'name' => 'Vaccine Importer',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.vaccination.manage']);
+
+    $csv = <<<'CSV'
+vaccination_name,country,first_dose
+,United Arab Emirates,2023-01-10
+
+CSV;
+
+    $file = UploadedFile::fake()->createWithContent('bad.csv', $csv);
+
+    $this->post(route('organization.employees.vaccinations.import', $employee), [
+        'file' => $file,
+    ])->assertSessionHasErrors(['file']);
+
+    expect(EmployeeVaccination::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
 test('another employee cannot mutate vaccination rows', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

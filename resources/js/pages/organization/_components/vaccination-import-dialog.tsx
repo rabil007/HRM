@@ -13,6 +13,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
 type VaccinationImportDialogProps = {
@@ -105,11 +106,20 @@ export function VaccinationImportDialog({ open, onOpenChange, employeeId }: Vacc
                 only: ['vaccinations'],
                 forceFormData: true,
                 onFinish: () => setImportProcessing(false),
-                onSuccess: () => {
-                    onOpenChange(false);
-                    resetState();
+                onSuccess: (page) => {
+                    if (hasFlashSuccess(page)) {
+                        onOpenChange(false);
+                        resetState();
+                    }
                 },
-                onError: (errs) => setImportMessage((errs as { file?: string }).file ?? 'Import failed.'),
+                onError: (errs) =>
+                    setImportMessage(
+                        firstValidationError(
+                            errs as Record<string, string | string[]>,
+                            'file',
+                            'Import failed.',
+                        ),
+                    ),
             },
         );
     };
