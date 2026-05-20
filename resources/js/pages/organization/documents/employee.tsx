@@ -1,5 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
-import { FolderOpen } from 'lucide-react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Download, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -8,22 +8,37 @@ import {
 } from '@/components/data-table';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/documents-bulk-toolbar';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import { downloadBulkZip } from '@/features/organization/documents/download-bulk-zip';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
+import { useBulkSelection } from '@/features/organization/documents/use-bulk-selection';
 import type {
     DocumentBrowseItem,
     DocumentExpirySummary,
     EmployeeSummary,
 } from '@/features/organization/documents/types';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
+import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { show } from '@/routes/organization/employees';
 
@@ -38,9 +53,18 @@ export default function EmployeeDocumentsBrowse({
     documents: allDocuments,
     summary,
 }: Props) {
+    const { auth } = usePage().props as unknown as {
+        auth?: { permissions?: string[] };
+    };
+
+    const canDeleteDocuments = (auth?.permissions ?? []).includes('employees.documents.delete');
+
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
     const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
+    const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const filteredDocuments = useMemo(() => {
         const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
@@ -48,7 +72,65 @@ export default function EmployeeDocumentsBrowse({
         return filterDocuments(byExpiry, fileSearch);
     }, [allDocuments, expiryFilter, fileSearch]);
 
+    const visibleDocumentIds = useMemo(
+        () => filteredDocuments.map((document) => document.id),
+        [filteredDocuments],
+    );
+
+    const {
+        selectedIds: selectedDocumentIds,
+        selectedCount: selectedDocumentCount,
+        isSelected: isDocumentSelected,
+        isAllSelected: allDocumentsSelected,
+        isPartiallySelected: documentsPartiallySelected,
+        toggle: toggleDocument,
+        toggleAll: toggleAllDocuments,
+        clear: clearDocumentSelection,
+    } = useBulkSelection(visibleDocumentIds);
+
     const profileDocumentsUrl = `${show.url({ employee: employee.id })}#documents`;
+
+    const handleBulkDownload = async () => {
+        if (selectedDocumentIds.length === 0) {
+            return;
+        }
+
+        setIsBulkDownloading(true);
+
+        try {
+            await downloadBulkZip(documents.files.bulkDownload.url(), {
+                document_ids: selectedDocumentIds,
+            });
+            clearDocumentSelection();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Download failed.');
+        } finally {
+            setIsBulkDownloading(false);
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedDocumentIds.length === 0) {
+            return;
+        }
+
+        setIsDeleting(true);
+
+        router.delete(documents.employee.files.bulkDestroy.url({ employee: employee.id }), {
+            data: { document_ids: selectedDocumentIds },
+            preserveScroll: true,
+            onSuccess: () => {
+                clearDocumentSelection();
+                setDeleteDialogOpen(false);
+            },
+            onError: () => {
+                toast.error('Failed to delete selected documents.');
+            },
+            onFinish: () => {
+                setIsDeleting(false);
+            },
+        });
+    };
 
     return (
         <Main>
@@ -83,6 +165,44 @@ export default function EmployeeDocumentsBrowse({
                 />
             ) : null}
 
+            <DocumentsBulkToolbar
+                count={selectedDocumentCount}
+                itemLabel="files"
+                onClear={clearDocumentSelection}
+                actions={
+                    <>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg"
+                            disabled={isBulkDownloading}
+                            onClick={handleBulkDownload}
+                        >
+                            {isBulkDownloading ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <Download className="mr-2 h-4 w-4" />
+                            )}
+                            Download
+                        </Button>
+                        {canDeleteDocuments ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg text-red-400/80 hover:bg-red-500/10 hover:text-red-400"
+                                disabled={isDeleting}
+                                onClick={() => setDeleteDialogOpen(true)}
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Delete
+                            </Button>
+                        ) : null}
+                    </>
+                }
+            />
+
             {allDocuments.length === 0 ? (
                 <DocumentsEmptyState
                     context="employee-files"
@@ -104,9 +224,22 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[880px]" compact>
+                <OrganizationDataTable minWidth="min-w-[920px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
+                            <DataTableHead className="w-10 px-3">
+                                <Checkbox
+                                    checked={
+                                        allDocumentsSelected
+                                            ? true
+                                            : documentsPartiallySelected
+                                              ? 'indeterminate'
+                                              : false
+                                    }
+                                    onCheckedChange={toggleAllDocuments}
+                                    aria-label="Select all files"
+                                />
+                            </DataTableHead>
                             <DataTableHead className="min-w-[240px]">File</DataTableHead>
                             <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">Issue date</DataTableHead>
@@ -122,11 +255,39 @@ export default function EmployeeDocumentsBrowse({
                                 key={doc.id}
                                 doc={doc}
                                 onPreview={setPreviewDoc}
+                                selectionMode
+                                selected={isDocumentSelected(doc.id)}
+                                onSelectedChange={() => toggleDocument(doc.id)}
                             />
                         ))}
                     </TableBody>
                 </OrganizationDataTable>
             )}
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                <AlertDialogContent className="glass-card">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete selected documents</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete {selectedDocumentCount} selected{' '}
+                            {selectedDocumentCount === 1 ? 'document' : 'documents'}? This action
+                            cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            className="rounded-xl bg-red-600 hover:bg-red-600/90"
+                            disabled={isDeleting}
+                            onClick={handleBulkDelete}
+                        >
+                            {isDeleting ? 'Deleting…' : 'Delete'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <DocumentPreviewDialog
                 document={

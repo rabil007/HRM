@@ -7,6 +7,9 @@ use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
+use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
+use App\Http\Controllers\Organization\DocumentBulkFilesDownloadController;
+use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
@@ -97,8 +100,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::get('organization/documents/employees/{employee}/download', DocumentFolderDownloadController::class)->name('organization.documents.employee.download');
+        Route::post('organization/documents/folders/bulk-download', DocumentBulkFolderDownloadController::class)->name('organization.documents.folders.bulk-download');
+        Route::post('organization/documents/files/bulk-download', DocumentBulkFilesDownloadController::class)->name('organization.documents.files.bulk-download');
         Route::get('organization/documents/files/{document}/download', DocumentFileDownloadController::class)->name('organization.documents.files.download');
     });
+    Route::delete('organization/documents/employees/{employee}/files/bulk', DocumentBulkFilesDeleteController::class)
+        ->middleware('can:employees.documents.delete')
+        ->name('organization.documents.employee.files.bulk-destroy');
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.store');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.update');

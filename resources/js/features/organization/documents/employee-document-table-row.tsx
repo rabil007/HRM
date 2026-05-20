@@ -6,6 +6,7 @@ import {
 } from '@/components/data-table';
 import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
 import { expiryRemainingClass } from '@/features/organization/documents/document-expiry';
@@ -22,12 +23,27 @@ function formatOptionalDate(value: string | null): string {
 export function EmployeeDocumentTableRow({
     doc,
     onPreview,
+    selected = false,
+    onSelectedChange,
+    selectionMode = false,
 }: {
     doc: DocumentBrowseItem;
     onPreview: (doc: DocumentBrowseItem) => void;
+    selected?: boolean;
+    onSelectedChange?: (selected: boolean) => void;
+    selectionMode?: boolean;
 }) {
     return (
-        <TableRow className={dataTableBodyRowClass(false)}>
+        <TableRow className={cn(dataTableBodyRowClass(false), selected && 'bg-primary/5')}>
+            {selectionMode ? (
+                <TableCell className="w-10 px-3 py-4 align-middle">
+                    <Checkbox
+                        checked={selected}
+                        onCheckedChange={(value) => onSelectedChange?.(value === true)}
+                        aria-label={`Select ${doc.document_name}`}
+                    />
+                </TableCell>
+            ) : null}
             <TableCell className="min-w-[240px] px-4 py-4 align-middle">
                 <div className="flex min-w-0 items-center gap-3.5">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-white/[0.06] bg-muted/25">

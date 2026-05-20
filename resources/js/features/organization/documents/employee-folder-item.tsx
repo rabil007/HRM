@@ -2,12 +2,23 @@ import { Link } from '@inertiajs/react';
 import { Download, Folder } from 'lucide-react';
 import type { EmployeeFolder } from '@/features/organization/documents/types';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 
 export type { EmployeeFolder };
 
-export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
+export function EmployeeFolderItem({
+    employee,
+    selected = false,
+    onSelectedChange,
+    selectionMode = false,
+}: {
+    employee: EmployeeFolder;
+    selected?: boolean;
+    onSelectedChange?: (selected: boolean) => void;
+    selectionMode?: boolean;
+}) {
     const fileLabel =
         employee.document_count === 1
             ? '1 file'
@@ -16,7 +27,23 @@ export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
     const downloadUrl = documents.employee.download.url({ employee: employee.employee_id });
 
     return (
-        <div className="group relative flex w-full flex-col items-center">
+        <div
+            className={cn(
+                'group relative flex w-full flex-col items-center rounded-xl',
+                selected && 'ring-1 ring-primary/30 bg-primary/5',
+            )}
+        >
+            {selectionMode ? (
+                <div className="absolute top-2 left-2 z-10">
+                    <Checkbox
+                        checked={selected}
+                        onCheckedChange={(value) => onSelectedChange?.(value === true)}
+                        aria-label={`Select ${employee.employee_name}`}
+                        onClick={(event) => event.stopPropagation()}
+                    />
+                </div>
+            ) : null}
+
             <Link
                 href={documents.employee.url({ employee: employee.employee_id })}
                 title={`${employee.employee_name} (${employee.employee_no})`}
@@ -46,21 +73,23 @@ export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
                 </div>
             </Link>
 
-            <Button
-                variant="ghost"
-                size="icon"
-                className="absolute top-1 right-1 size-7 rounded-lg text-muted-foreground/70 opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-                asChild
-            >
-                <a
-                    href={downloadUrl}
-                    title="Download all documents as ZIP"
-                    aria-label={`Download all documents for ${employee.employee_name}`}
-                    onClick={(event) => event.stopPropagation()}
+            {!selectionMode ? (
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-1 right-1 size-7 rounded-lg text-muted-foreground/70 opacity-0 transition-opacity hover:bg-white/10 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+                    asChild
                 >
-                    <Download className="size-3.5" />
-                </a>
-            </Button>
+                    <a
+                        href={downloadUrl}
+                        title="Download all documents as ZIP"
+                        aria-label={`Download all documents for ${employee.employee_name}`}
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <Download className="size-3.5" />
+                    </a>
+                </Button>
+            ) : null}
         </div>
     );
 }

@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
-import { Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { Download, Loader2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -9,14 +9,19 @@ import {
 import { Main } from '@/components/layout/main';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/documents-bulk-toolbar';
 import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
+import { downloadBulkZip } from '@/features/organization/documents/download-bulk-zip';
 import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
+import { useBulkSelection } from '@/features/organization/documents/use-bulk-selection';
 import type {
     ComplianceDocumentItem,
     DocumentExpirySummary,
@@ -25,6 +30,7 @@ import type {
 } from '@/features/organization/documents/types';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 
@@ -44,6 +50,42 @@ export default function DocumentsIndex({
     complianceDocuments,
 }: Props) {
     const [previewDoc, setPreviewDoc] = useState<ComplianceDocumentItem | null>(null);
+    const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+
+    const folderIds = useMemo(
+        () => employees.map((employee) => employee.employee_id),
+        [employees],
+    );
+
+    const {
+        selectedIds: selectedFolderIds,
+        selectedCount: selectedFolderCount,
+        isSelected: isFolderSelected,
+        isAllSelected: allFoldersSelected,
+        isPartiallySelected: foldersPartiallySelected,
+        toggle: toggleFolder,
+        toggleAll: toggleAllFolders,
+        clear: clearFolderSelection,
+    } = useBulkSelection(folderIds);
+
+    const handleBulkFolderDownload = async () => {
+        if (selectedFolderIds.length === 0) {
+            return;
+        }
+
+        setIsBulkDownloading(true);
+
+        try {
+            await downloadBulkZip(documents.folders.bulkDownload.url(), {
+                employee_ids: selectedFolderIds,
+            });
+            clearFolderSelection();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Download failed.');
+        } finally {
+            setIsBulkDownloading(false);
+        }
+    };
 
     const { searchInput, isSearching, onSearchChange, onExpiryChange, onPageChange } =
         useDocumentsIndexFilters({
@@ -151,20 +193,68 @@ export default function DocumentsIndex({
                     hasSearch={initialSearch.trim() !== ''}
                 />
             ) : (
-                <section
-                    className={cn(
-                        'rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-6',
-                        'transition-opacity duration-200',
-                        isSearching && 'pointer-events-none opacity-60',
-                    )}
-                    aria-busy={isSearching}
-                >
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(8.25rem,1fr))] sm:gap-x-5 sm:gap-y-8">
-                        {employees.map((employee) => (
-                            <EmployeeFolderItem key={employee.employee_id} employee={employee} />
-                        ))}
-                    </div>
-                </section>
+                <>
+                    <DocumentsBulkToolbar
+                        count={selectedFolderCount}
+                        itemLabel="folders"
+                        onClear={clearFolderSelection}
+                        actions={
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg"
+                                disabled={isBulkDownloading}
+                                onClick={handleBulkFolderDownload}
+                            >
+                                {isBulkDownloading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                Download ZIP
+                            </Button>
+                        }
+                    />
+
+                    <section
+                        className={cn(
+                            'rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-6',
+                            'transition-opacity duration-200',
+                            isSearching && 'pointer-events-none opacity-60',
+                        )}
+                        aria-busy={isSearching}
+                    >
+                        {employees.length > 0 ? (
+                            <div className="mb-4 flex items-center gap-2.5">
+                                <Checkbox
+                                    checked={
+                                        allFoldersSelected
+                                            ? true
+                                            : foldersPartiallySelected
+                                              ? 'indeterminate'
+                                              : false
+                                    }
+                                    onCheckedChange={toggleAllFolders}
+                                    aria-label="Select all folders"
+                                />
+                                <span className="text-sm text-muted-foreground">Select all</span>
+                            </div>
+                        ) : null}
+
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(8.25rem,1fr))] sm:gap-x-5 sm:gap-y-8">
+                            {employees.map((employee) => (
+                                <EmployeeFolderItem
+                                    key={employee.employee_id}
+                                    employee={employee}
+                                    selectionMode
+                                    selected={isFolderSelected(employee.employee_id)}
+                                    onSelectedChange={() => toggleFolder(employee.employee_id)}
+                                />
+                            ))}
+                        </div>
+                    </section>
+                </>
             )}
 
             <DocumentPreviewDialog

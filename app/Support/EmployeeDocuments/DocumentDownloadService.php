@@ -12,6 +12,10 @@ use ZipArchive;
 
 class DocumentDownloadService
 {
+    public function __construct(
+        private DocumentBulkActionService $bulkActions,
+    ) {}
+
     public function assertEmployeeAccessible(Employee $employee, int $companyId): void
     {
         abort_unless($employee->company_id === $companyId, 404);
@@ -28,6 +32,11 @@ class DocumentDownloadService
         $number = $this->sanitizeSegment((string) $employee->employee_no, 'UNKNOWN');
 
         return "{$name}_{$number}_documents.zip";
+    }
+
+    public function employeeArchiveFolderName(Employee $employee): string
+    {
+        return $this->sanitizeFilename((string) ($employee->name ?: "employee-{$employee->id}"));
     }
 
     /**
@@ -58,43 +67,71 @@ class DocumentDownloadService
 
         abort_if($documents->isEmpty(), 404, 'No documents found for this employee.');
 
-        $tmpPath = tempnam(sys_get_temp_dir(), 'employee_docs_');
+        return $this->buildAndStreamZip(
+            function (ZipArchive $zip) use ($documents, $companyId): int {
+                $usedNames = [];
 
-        abort_if($tmpPath === false, 500, 'Could not prepare download.');
+                return $this->addDocumentsToArchive($zip, $documents, $companyId, $usedNames);
+            },
+            $this->employeeZipDownloadName($employee),
+        );
+    }
 
-        $zip = new ZipArchive;
+    /**
+     * @param  list<int>  $employeeIds
+     */
+    public function streamBulkEmployeesZip(array $employeeIds, int $companyId): StreamedResponse
+    {
+        $employees = $this->bulkActions->employeesForDownload($employeeIds, $companyId);
 
-        abort_unless($zip->open($tmpPath, ZipArchive::OVERWRITE) === true, 500, 'Could not create archive.');
+        $downloadName = $employees->count() === 1
+            ? $this->employeeZipDownloadName($employees->first())
+            : 'documents_export.zip';
 
-        $usedNames = [];
-        $added = 0;
+        return $this->buildAndStreamZip(
+            function (ZipArchive $zip) use ($employees, $companyId): int {
+                $added = 0;
+                $useSubfolders = $employees->count() > 1;
 
-        foreach ($documents as $document) {
-            if ($this->addDocumentToArchive($zip, $document, $companyId, $usedNames)) {
-                $added++;
-            }
-        }
+                foreach ($employees as $employee) {
+                    $documents = $this->documentsForEmployeeArchive($employee, $companyId);
 
-        $zip->close();
+                    if ($documents->isEmpty()) {
+                        continue;
+                    }
 
-        abort_if($added === 0, 404, 'No downloadable files found for this employee.');
+                    $usedNames = [];
+                    $prefix = $useSubfolders ? $this->employeeArchiveFolderName($employee).'/' : '';
 
-        $downloadName = $this->employeeZipDownloadName($employee);
-        $contentLength = filesize($tmpPath);
+                    $added += $this->addDocumentsToArchive($zip, $documents, $companyId, $usedNames, $prefix);
+                }
 
-        return response()->streamDownload(function () use ($tmpPath): void {
-            $handle = fopen($tmpPath, 'rb');
+                return $added;
+            },
+            $downloadName,
+        );
+    }
 
-            if ($handle !== false) {
-                fpassthru($handle);
-                fclose($handle);
-            }
+    /**
+     * @param  list<int>  $documentIds
+     */
+    public function streamBulkDocumentsZip(
+        array $documentIds,
+        int $companyId,
+        string $downloadName = 'documents_export.zip',
+    ): StreamedResponse {
+        $documents = $this->bulkActions->documentsForDownload($documentIds, $companyId);
 
-            @unlink($tmpPath);
-        }, $downloadName, [
-            'Content-Type' => 'application/zip',
-            'Content-Length' => $contentLength !== false ? (string) $contentLength : null,
-        ]);
+        abort_if($documents->isEmpty(), 404, 'No documents found.');
+
+        return $this->buildAndStreamZip(
+            function (ZipArchive $zip) use ($documents, $companyId): int {
+                $usedNames = [];
+
+                return $this->addDocumentsToArchive($zip, $documents, $companyId, $usedNames);
+            },
+            $downloadName,
+        );
     }
 
     public function downloadSingleDocument(EmployeeDocument $document, int $companyId): Response
@@ -119,11 +156,74 @@ class DocumentDownloadService
     }
 
     /**
+     * @param  callable(ZipArchive): int  $buildArchive
+     */
+    private function buildAndStreamZip(callable $buildArchive, string $downloadName): StreamedResponse
+    {
+        $tmpPath = tempnam(sys_get_temp_dir(), 'employee_docs_');
+
+        abort_if($tmpPath === false, 500, 'Could not prepare download.');
+
+        $zip = new ZipArchive;
+
+        abort_unless($zip->open($tmpPath, ZipArchive::OVERWRITE) === true, 500, 'Could not create archive.');
+
+        $added = $buildArchive($zip);
+
+        $zip->close();
+
+        abort_if($added === 0, 404, 'No downloadable files found.');
+
+        $contentLength = filesize($tmpPath);
+
+        return response()->streamDownload(function () use ($tmpPath): void {
+            $handle = fopen($tmpPath, 'rb');
+
+            if ($handle !== false) {
+                fpassthru($handle);
+                fclose($handle);
+            }
+
+            @unlink($tmpPath);
+        }, $downloadName, [
+            'Content-Type' => 'application/zip',
+            'Content-Length' => $contentLength !== false ? (string) $contentLength : null,
+        ]);
+    }
+
+    /**
+     * @param  Collection<int, EmployeeDocument>  $documents
      * @param  array<string, int>  $usedNames
      */
-    private function addDocumentToArchive(ZipArchive $zip, EmployeeDocument $document, int $companyId, array &$usedNames): bool
-    {
-        $entryName = $this->uniqueArchiveEntryName($document, $usedNames);
+    private function addDocumentsToArchive(
+        ZipArchive $zip,
+        Collection $documents,
+        int $companyId,
+        array &$usedNames,
+        string $prefix = '',
+    ): int {
+        $added = 0;
+
+        foreach ($documents as $document) {
+            if ($this->addDocumentToArchive($zip, $document, $companyId, $usedNames, $prefix)) {
+                $added++;
+            }
+        }
+
+        return $added;
+    }
+
+    /**
+     * @param  array<string, int>  $usedNames
+     */
+    private function addDocumentToArchive(
+        ZipArchive $zip,
+        EmployeeDocument $document,
+        int $companyId,
+        array &$usedNames,
+        string $prefix = '',
+    ): bool {
+        $entryName = $prefix.$this->uniqueArchiveEntryName($document, $usedNames);
 
         if ($this->isExternalUrl((string) $document->file_path)) {
             $contents = @file_get_contents((string) $document->file_path);
