@@ -1,13 +1,13 @@
 import { Globe, Mail, MapPin, Phone, Users } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { TabsContent } from '@/components/ui/tabs';
-import type { CountryOption } from '@/features/organization/employees/types';
-import { formatDisplayDate } from '@/lib/format-date';
 import {
     PersonalEditablePhoneRow,
     PersonalEditableSelectRow,
     PersonalEditableTextRow,
 } from '@/features/organization/employees/profile/components/personal-field-row';
+import type { CountryOption } from '@/features/organization/employees/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
 

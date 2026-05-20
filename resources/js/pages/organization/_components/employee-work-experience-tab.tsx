@@ -8,7 +8,6 @@ import {
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
-import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import {
     Dialog,
     DialogContent,
@@ -19,6 +18,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -31,8 +33,6 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
-import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
@@ -386,7 +386,6 @@ export function EmployeeWorkExperienceTab({
             <EmployeeRecordImportDialog
                 open={workExperienceImportOpen}
                 onOpenChange={setWorkExperienceImportOpen}
-                employeeId={employeeId}
                 inputId={workExperienceImport.inputId}
                 title={workExperienceImport.title}
                 description={workExperienceImport.description}

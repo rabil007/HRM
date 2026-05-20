@@ -43,7 +43,6 @@ export function EditableDetailSelectField({
             field={field}
             displayValue={displayValue}
             activeField={activeField}
-            setActiveField={setActiveField}
             beginEdit={beginEdit}
             canEdit={canEdit}
             editControl={

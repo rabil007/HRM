@@ -18,7 +18,6 @@ import { cn } from '@/lib/utils';
 export type EmployeeRecordImportDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    employeeId: number;
     inputId: string;
     title: string;
     description: string;
@@ -32,7 +31,6 @@ export type EmployeeRecordImportDialogProps = {
 export function EmployeeRecordImportDialog({
     open,
     onOpenChange,
-    employeeId,
     inputId,
     title,
     description,

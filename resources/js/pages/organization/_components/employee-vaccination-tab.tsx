@@ -9,7 +9,6 @@ import {
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
-import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import {
     Dialog,
     DialogContent,
@@ -20,6 +19,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { vaccinationImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
@@ -33,8 +35,6 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
-import { vaccinationImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
 
@@ -388,7 +388,6 @@ export function EmployeeVaccinationTab({
             <EmployeeRecordImportDialog
                 open={vaccinationImportOpen}
                 onOpenChange={setVaccinationImportOpen}
-                employeeId={employeeId}
                 inputId={vaccinationImport.inputId}
                 title={vaccinationImport.title}
                 description={vaccinationImport.description}

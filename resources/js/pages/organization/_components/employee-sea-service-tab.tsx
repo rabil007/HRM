@@ -9,7 +9,6 @@ import {
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
-import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
@@ -21,6 +20,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import type { RankOption } from '@/features/organization/employees/types';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -34,8 +36,6 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
-import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
     ClientOption,
@@ -624,7 +624,6 @@ export function EmployeeSeaServiceTab({
             <EmployeeRecordImportDialog
                 open={seaServiceImportOpen}
                 onOpenChange={setSeaServiceImportOpen}
-                employeeId={employeeId}
                 inputId={seaServiceImport.inputId}
                 title={seaServiceImport.title}
                 description={seaServiceImport.description}

@@ -3,10 +3,6 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
-import type { CountryOption } from '@/features/organization/employees/types';
-import { formatDisplayDate } from '@/lib/format-date';
-import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
-import { cn } from '@/lib/utils';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
@@ -14,6 +10,10 @@ import {
     EditableHeaderNameField,
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
+import type { CountryOption } from '@/features/organization/employees/types';
+import { formatDisplayDate } from '@/lib/format-date';
+import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
+import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 

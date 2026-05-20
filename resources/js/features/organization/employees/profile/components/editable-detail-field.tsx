@@ -7,7 +7,6 @@ export type EditableDetailFieldProps = {
     field: string;
     displayValue: string;
     activeField: string | null;
-    setActiveField: (value: string | null) => void;
     beginEdit: (field: string) => void;
     canEdit: boolean;
     editControl: ReactNode;
@@ -19,7 +18,6 @@ export function EditableDetailField({
     field,
     displayValue,
     activeField,
-    setActiveField,
     beginEdit,
     canEdit,
     editControl,
@@ -81,7 +79,6 @@ export function EditableDetailTextField({
             field={field}
             displayValue={displayValue}
             activeField={activeField}
-            setActiveField={setActiveField}
             beginEdit={beginEdit}
             canEdit={canEdit}
             editControl={
