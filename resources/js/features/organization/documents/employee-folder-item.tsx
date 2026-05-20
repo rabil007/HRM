@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { Download, Folder } from 'lucide-react';
-import type { EmployeeFolder } from '@/features/organization/documents/types';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import type { EmployeeFolder } from '@/features/organization/documents/types';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 

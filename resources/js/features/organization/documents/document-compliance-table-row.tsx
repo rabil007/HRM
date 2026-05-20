@@ -7,8 +7,8 @@ import {
 import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
 import { expiryRemainingClass } from '@/features/organization/documents/document-expiry';
+import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
 import { DocumentFileIcon } from '@/features/organization/documents/document-file-icon';
 import type { ComplianceDocumentItem } from '@/features/organization/documents/types';
 import { formatDisplayDate } from '@/lib/format-date';

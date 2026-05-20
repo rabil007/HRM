@@ -2,13 +2,13 @@ import { Head, useForm } from '@inertiajs/react';
 import { Activity, Building2, Mail, MapPin, Phone, Store } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BranchFormSheet } from '@/features/organization/branches/components/branch-form-sheet';
 import type { Branch as SheetBranch, BranchFormData, Company, Country } from '@/features/organization/branches/types';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 
 type Branch = {
     id: number;

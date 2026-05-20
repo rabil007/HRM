@@ -2,9 +2,10 @@ import { X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-    EXPIRY_FILTER_LABELS,
-    type ExpiryFilter,
+    EXPIRY_FILTER_LABELS
+    
 } from '@/features/organization/documents/document-expiry';
+import type {ExpiryFilter} from '@/features/organization/documents/document-expiry';
 
 export function DocumentsActiveFilters({
     expiryFilter,

@@ -31,6 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -43,7 +44,6 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { VaccinationImportDialog } from '@/pages/organization/_components/vaccination-import-dialog';
-import { formatDisplayDate } from '@/lib/format-date';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
 

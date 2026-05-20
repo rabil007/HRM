@@ -1,8 +1,9 @@
 import { Card, CardContent } from '@/components/ui/card';
 import {
-    EXPIRY_FILTER_LABELS,
-    type ExpiryFilter,
+    EXPIRY_FILTER_LABELS
+    
 } from '@/features/organization/documents/document-expiry';
+import type {ExpiryFilter} from '@/features/organization/documents/document-expiry';
 import { cn } from '@/lib/utils';
 import type { DocumentExpirySummary } from './types';
 

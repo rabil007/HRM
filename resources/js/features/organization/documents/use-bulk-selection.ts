@@ -1,24 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 export function useBulkSelection<T extends string | number>(visibleIds: T[]) {
     const [selected, setSelected] = useState<Set<T>>(new Set());
 
-    const visibleKey = visibleIds.join('|');
+    const visibleSet = useMemo(() => new Set(visibleIds), [visibleIds]);
 
-    useEffect(() => {
-        setSelected((current) => {
-            const visibleSet = new Set(visibleIds);
-            const next = new Set<T>();
+    const visibleSelection = useMemo(() => {
+        const next = new Set<T>();
 
-            current.forEach((id) => {
-                if (visibleSet.has(id)) {
-                    next.add(id);
-                }
-            });
-
-            return next;
+        selected.forEach((id) => {
+            if (visibleSet.has(id)) {
+                next.add(id);
+            }
         });
-    }, [visibleKey, visibleIds]);
+
+        return next;
+    }, [selected, visibleSet]);
 
     const toggle = useCallback((id: T) => {
         setSelected((current) => {
@@ -36,10 +33,10 @@ export function useBulkSelection<T extends string | number>(visibleIds: T[]) {
 
     const toggleAll = useCallback(() => {
         setSelected((current) => {
-            const allSelected =
+            const allVisibleSelected =
                 visibleIds.length > 0 && visibleIds.every((id) => current.has(id));
 
-            return allSelected ? new Set<T>() : new Set(visibleIds);
+            return allVisibleSelected ? new Set<T>() : new Set(visibleIds);
         });
     }, [visibleIds]);
 
@@ -47,19 +44,19 @@ export function useBulkSelection<T extends string | number>(visibleIds: T[]) {
         setSelected(new Set());
     }, []);
 
-    const isSelected = useCallback((id: T) => selected.has(id), [selected]);
+    const isSelected = useCallback((id: T) => visibleSelection.has(id), [visibleSelection]);
 
-    const selectedIds = useMemo(() => Array.from(selected), [selected]);
+    const selectedIds = useMemo(() => Array.from(visibleSelection), [visibleSelection]);
 
     const isAllSelected =
-        visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
+        visibleIds.length > 0 && visibleIds.every((id) => visibleSelection.has(id));
 
     const isPartiallySelected =
-        !isAllSelected && visibleIds.some((id) => selected.has(id));
+        !isAllSelected && visibleIds.some((id) => visibleSelection.has(id));
 
     return {
         selectedIds,
-        selectedCount: selected.size,
+        selectedCount: visibleSelection.size,
         isSelected,
         isAllSelected,
         isPartiallySelected,

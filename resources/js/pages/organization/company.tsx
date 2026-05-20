@@ -21,13 +21,13 @@ import {
 import { useState } from 'react';
 import type { ComponentType } from 'react';
 import { DetailsHeader } from '@/components/details-header';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyFormSheet } from '@/features/organization/companies/components/company-form-sheet';
 import type { Company as SheetCompany, CompanyFormData, Country, Currency } from '@/features/organization/companies/types';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 
 type Company = {
     id: number;

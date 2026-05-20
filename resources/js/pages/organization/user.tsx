@@ -2,13 +2,13 @@ import { Head, useForm } from '@inertiajs/react';
 import { Activity } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserFormSheet } from '@/features/organization/users/components/user-form-sheet';
 import type { User, UserFormData } from '@/features/organization/users/types';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 
 type ActivityItem = {
     id: number;

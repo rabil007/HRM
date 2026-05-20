@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
+import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -41,7 +42,6 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
-import { formatDisplayDate } from '@/lib/format-date';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 

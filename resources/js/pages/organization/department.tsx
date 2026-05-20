@@ -2,7 +2,6 @@ import { Head, useForm } from '@inertiajs/react';
 import { Activity, Briefcase, Crown, GitBranch, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 import { Main } from '@/components/layout/main';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import type {
     DepartmentParentOption,
     Manager,
 } from '@/features/organization/departments/types';
+import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 
 type Department = {
     id: number;
