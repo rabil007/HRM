@@ -1,8 +1,7 @@
 import { router } from '@inertiajs/react';
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
-import { useRef, useState   } from 'react';
-import type {DragEvent, KeyboardEvent} from 'react';
-import { importMethod, importTemplate } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
+import type { DragEvent, KeyboardEvent, ReactElement, ReactNode } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -16,13 +15,33 @@ import {
 import { firstValidationError, hasFlashSuccess } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 
-type WorkExperienceImportDialogProps = {
+export type EmployeeRecordImportDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     employeeId: number;
+    inputId: string;
+    title: string;
+    description: string;
+    templateHint: string;
+    columnHelp: ReactNode;
+    importUrl: string;
+    templateUrl: string;
+    reloadOnly: string[];
 };
 
-export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: WorkExperienceImportDialogProps) {
+export function EmployeeRecordImportDialog({
+    open,
+    onOpenChange,
+    employeeId,
+    inputId,
+    title,
+    description,
+    templateHint,
+    columnHelp,
+    importUrl,
+    templateUrl,
+    reloadOnly,
+}: EmployeeRecordImportDialogProps): ReactElement {
     const [importFile, setImportFile] = useState<File | null>(null);
     const [importMessage, setImportMessage] = useState<string | null>(null);
     const [importProcessing, setImportProcessing] = useState(false);
@@ -99,11 +118,11 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
         setImportMessage(null);
         setImportProcessing(true);
         router.post(
-            importMethod.url({ employee: employeeId }),
+            importUrl,
             { file: importFile },
             {
                 preserveScroll: true,
-                only: ['work_experiences'],
+                only: reloadOnly,
                 forceFormData: true,
                 onFinish: () => setImportProcessing(false),
                 onSuccess: (page) => {
@@ -145,10 +164,8 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                             <Upload className="size-5" />
                         </div>
                         <div className="min-w-0 space-y-1.5 pt-0.5">
-                            <DialogTitle className="text-xl leading-tight">Import work experience</DialogTitle>
-                            <DialogDescription>
-                                Rows are appended to this employee’s history. Omit date_to for ongoing roles when the spreadsheet column is present.
-                            </DialogDescription>
+                            <DialogTitle className="text-xl leading-tight">{title}</DialogTitle>
+                            <DialogDescription>{description}</DialogDescription>
                         </div>
                     </div>
                 </DialogHeader>
@@ -158,34 +175,18 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                         <Info className="text-primary" aria-hidden />
                         <AlertDescription>
                             <span className="sr-only">CSV columns</span>
-                            <ul className="list-inside list-disc space-y-1 text-muted-foreground">
-                                <li>
-                                    <span className="font-medium text-foreground">company_name</span> — required (
-                                    aliases: Company name, Employer)
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">job_title</span> — required (aliases: Job title, Role, Position)
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">date_from</span> — required parseable date (aliases: Start date,
-                                    From)
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">date_to</span> — optional (aliases: End date, To)
-                                </li>
-                                <li>
-                                    <span className="font-medium text-foreground">responsibility</span> — optional (aliases: Duties, Description)
-                                </li>
-                            </ul>
+                            {columnHelp}
                         </AlertDescription>
                     </Alert>
 
                     <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 1 — Template</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Step 1 — Template
+                        </p>
                         <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
-                            <p className="text-sm text-muted-foreground">Use the sample headers and date format (YYYY-MM-DD or common locale dates).</p>
+                            <p className="text-sm text-muted-foreground">{templateHint}</p>
                             <Button variant="secondary" type="button" className="mt-3 w-full sm:w-auto" asChild>
-                                <a href={importTemplate.url({ employee: employeeId })}>
+                                <a href={templateUrl}>
                                     <Download className="mr-2 size-4" />
                                     Download CSV template
                                 </a>
@@ -194,13 +195,15 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                     </div>
 
                     <div className="space-y-2">
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Step 2 — Upload</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                            Step 2 — Upload
+                        </p>
                         <input
                             ref={fileInputRef}
                             type="file"
                             accept=".csv,text/csv,text/plain,application/vnd.ms-excel"
                             className="sr-only"
-                            id={`work-experience-import-${employeeId}`}
+                            id={inputId}
                             onChange={(event) => {
                                 pickImportFile(event.target.files?.[0]);
                             }}
@@ -212,7 +215,8 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                             className={cn(
                                 'group relative rounded-xl border-2 border-dashed border-border bg-background/80 p-6 text-center transition-[color,background-color,border-color,box-shadow] outline-none',
                                 'focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/35',
-                                importDragActive && 'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
+                                importDragActive &&
+                                    'border-primary bg-primary/6 ring-2 ring-primary/25 ring-offset-2 ring-offset-background',
                                 importFile &&
                                     'border-solid border-emerald-500/40 bg-emerald-500/7 hover:bg-emerald-500/9',
                             )}
@@ -238,7 +242,9 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                                             <FileSpreadsheet className="size-5" />
                                         </div>
                                         <div className="min-w-0 pt-0.5">
-                                            <p className="truncate text-sm font-medium text-foreground">{importFile.name}</p>
+                                            <p className="truncate text-sm font-medium text-foreground">
+                                                {importFile.name}
+                                            </p>
                                             <p className="text-xs text-muted-foreground">Ready to import</p>
                                         </div>
                                     </div>
@@ -263,7 +269,8 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                                     <div>
                                         <p className="text-sm font-medium text-foreground">Drop your CSV here</p>
                                         <p className="mt-0.5 text-xs text-muted-foreground">
-                                            or click to browse — <span className="text-foreground/80">.csv</span> files only
+                                            or click to browse —{' '}
+                                            <span className="text-foreground/80">.csv</span> files only
                                         </p>
                                     </div>
                                 </div>
@@ -280,7 +287,12 @@ export function WorkExperienceImportDialog({ open, onOpenChange, employeeId }: W
                 </div>
 
                 <DialogFooter className="gap-2 border-t border-border bg-muted/30 px-6 py-4 sm:justify-end">
-                    <Button type="button" variant="outline" disabled={importProcessing} onClick={() => onOpenChange(false)}>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={importProcessing}
+                        onClick={() => onOpenChange(false)}
+                    >
                         Cancel
                     </Button>
                     <Button

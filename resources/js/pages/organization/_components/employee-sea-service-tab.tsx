@@ -44,7 +44,8 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { SeaServiceImportDialog } from '@/pages/organization/_components/sea-service-import-dialog';
+import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
     ClientOption,
@@ -122,6 +123,8 @@ export function EmployeeSeaServiceTab({
         client_id: '',
         is_offshore: false,
     });
+
+    const seaServiceImport = seaServiceImportConfig(employeeId);
 
     const appliedRankTotals =
         employeeRankId != null
@@ -659,10 +662,18 @@ export function EmployeeSeaServiceTab({
                 </AlertDialogContent>
             </AlertDialog>
 
-            <SeaServiceImportDialog
+            <EmployeeRecordImportDialog
                 open={seaServiceImportOpen}
                 onOpenChange={setSeaServiceImportOpen}
                 employeeId={employeeId}
+                inputId={seaServiceImport.inputId}
+                title={seaServiceImport.title}
+                description={seaServiceImport.description}
+                templateHint={seaServiceImport.templateHint}
+                columnHelp={seaServiceImport.columnHelp}
+                reloadOnly={seaServiceImport.reloadOnly}
+                importUrl={seaServiceImport.importUrl(employeeId)}
+                templateUrl={seaServiceImport.templateUrl(employeeId)}
             />
         </TabsContent>
     );

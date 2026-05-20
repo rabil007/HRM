@@ -1,5 +1,4 @@
-import { router, useForm } from '@inertiajs/react';
-import { Trash2 } from 'lucide-react';
+import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useState } from 'react';
 import {
@@ -8,17 +7,8 @@ import {
     update as updateWorkExperience,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
+import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import {
     Dialog,
     DialogContent,
@@ -41,7 +31,8 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import { WorkExperienceImportDialog } from '@/pages/organization/_components/work-experience-import-dialog';
+import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
@@ -78,6 +69,8 @@ export function EmployeeWorkExperienceTab({
         date_to: '',
         responsibility: '',
     });
+
+    const workExperienceImport = workExperienceImportConfig(employeeId);
 
     return (
         <TabsContent value="work_experience" className="mt-6">
@@ -369,64 +362,39 @@ export function EmployeeWorkExperienceTab({
                 </DialogContent>
             </Dialog>
 
-            <AlertDialog
+            <EmployeeRecordDeleteDialog
                 open={!!deleteWorkExperienceId}
                 onOpenChange={(openDialog) => {
                     if (!openDialog) {
                         setDeleteWorkExperienceId(null);
                     }
                 }}
-            >
-                <AlertDialogContent className="sm:max-w-sm">
-                    <AlertDialogHeader>
-                        <div className="mb-1 flex items-center gap-3">
-                            <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-red-500/10 text-red-400">
-                                <Trash2 className="size-4" />
-                            </span>
-                            <AlertDialogTitle>
-                                Remove work experience?
-                            </AlertDialogTitle>
-                        </div>
-                        <AlertDialogDescription>
-                            This entry will be permanently removed.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                            className="bg-red-600 text-white hover:bg-red-500"
-                            onClick={() => {
-                                if (!deleteWorkExperienceId) {
-                                    return;
-                                }
+                title="Remove work experience?"
+                description="This entry will be permanently removed."
+                destroyUrl={
+                    deleteWorkExperienceId
+                        ? destroyWorkExperience.url({
+                              employee: employeeId,
+                              workExperience: deleteWorkExperienceId,
+                          })
+                        : null
+                }
+                reloadOptions={WORK_EXPERIENCE_RELOAD}
+                successMessage="Work experience removed."
+            />
 
-                                router.delete(
-                                    destroyWorkExperience.url({
-                                        employee: employeeId,
-                                        workExperience: deleteWorkExperienceId,
-                                    }),
-                                    {
-                                        ...WORK_EXPERIENCE_RELOAD,
-                                        onSuccess: () => {
-                                            setDeleteWorkExperienceId(null);
-                                            toast.success(
-                                                'Work experience removed.',
-                                            );
-                                        },
-                                    },
-                                );
-                            }}
-                        >
-                            Remove
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
-
-            <WorkExperienceImportDialog
+            <EmployeeRecordImportDialog
                 open={workExperienceImportOpen}
                 onOpenChange={setWorkExperienceImportOpen}
                 employeeId={employeeId}
+                inputId={workExperienceImport.inputId}
+                title={workExperienceImport.title}
+                description={workExperienceImport.description}
+                templateHint={workExperienceImport.templateHint}
+                columnHelp={workExperienceImport.columnHelp}
+                reloadOnly={workExperienceImport.reloadOnly}
+                importUrl={workExperienceImport.importUrl(employeeId)}
+                templateUrl={workExperienceImport.templateUrl(employeeId)}
             />
         </TabsContent>
     );
