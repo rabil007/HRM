@@ -20,12 +20,12 @@ class DocumentMergeService
     /**
      * @param  Collection<int, EmployeeDocument>  $documents
      */
-    public function streamMergedPdf(Collection $documents, Employee $employee): StreamedResponse
+    public function streamMergedPdf(Collection $documents, Employee $employee, ?string $downloadName = null): StreamedResponse
     {
         $this->assertMergeable($documents);
 
         $tempPath = $this->buildMergedPdf($documents);
-        $downloadName = $this->mergedDownloadName($employee);
+        $downloadName = $this->resolveDownloadName($employee, $downloadName);
 
         return response()->streamDownload(function () use ($tempPath): void {
             $handle = fopen($tempPath, 'rb');
@@ -218,6 +218,21 @@ class DocumentMergeService
         $absolutePath = Storage::disk('public')->path($diskPath);
 
         return is_readable($absolutePath) ? $absolutePath : null;
+    }
+
+    private function resolveDownloadName(Employee $employee, ?string $downloadName): string
+    {
+        if ($downloadName === null || trim($downloadName) === '') {
+            return $this->mergedDownloadName($employee);
+        }
+
+        $segment = strtoupper(trim($downloadName));
+
+        if (str_ends_with(strtolower($segment), '.pdf')) {
+            $segment = substr($segment, 0, -4);
+        }
+
+        return "{$segment}.pdf";
     }
 
     private function mergedDownloadName(Employee $employee): string

@@ -3,6 +3,7 @@
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentBulkActionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Storage;
 
@@ -42,6 +43,84 @@ test('users can merge selected employee pdfs into one download', function () {
     expect(Storage::disk('public')->allFiles())->toHaveCount(2);
 
     Carbon::setTestNow();
+});
+
+test('merge preserves document ids order from request', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
+
+    $docA = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathA, 'First.pdf');
+    $docB = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathB, 'Second.pdf');
+
+    $bulkActions = app(DocumentBulkActionService::class);
+
+    $documents = $bulkActions->documentsForEmployeeAction(
+        [$docB->id, $docA->id],
+        $company->id,
+        $employee->id,
+    );
+
+    expect($documents->pluck('id')->all())->toBe([$docB->id, $docA->id]);
+});
+
+test('merge accepts custom download name', function () {
+    Carbon::setTestNow('2026-05-20 12:00:00');
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
+
+    $docA = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathA, 'Visa Front.pdf');
+    $docB = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathB, 'Emirates ID.pdf');
+
+    $response = $this->postJson(route('organization.documents.employee.files.merge-pdf', $employee), [
+        'document_ids' => [$docA->id, $docB->id],
+        'download_name' => 'CUSTOM_MERGE',
+    ]);
+
+    $response->assertOk();
+    $response->assertDownload('CUSTOM_MERGE.pdf');
+
+    Carbon::setTestNow();
+});
+
+test('merge rejects invalid download name', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
+
+    $docA = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathA, 'Visa Front.pdf');
+    $docB = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $pathB, 'Emirates ID.pdf');
+
+    $this->postJson(route('organization.documents.employee.files.merge-pdf', $employee), [
+        'document_ids' => [$docA->id, $docB->id],
+        'download_name' => 'invalid name!.pdf',
+    ])->assertUnprocessable()
+        ->assertJsonValidationErrors(['download_name']);
 });
 
 test('merge requires at least two document ids', function () {

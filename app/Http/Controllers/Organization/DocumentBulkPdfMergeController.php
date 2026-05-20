@@ -28,6 +28,6 @@ class DocumentBulkPdfMergeController extends Controller
             $employee->id,
         );
 
-        return $merge->streamMergedPdf($documents, $employee);
+        return $merge->streamMergedPdf($documents, $employee, $request->validated('download_name'));
     }
 }

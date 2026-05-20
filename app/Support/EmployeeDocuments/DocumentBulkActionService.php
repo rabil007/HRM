@@ -62,8 +62,6 @@ class DocumentBulkActionService
             ->forCompany($companyId)
             ->where('employee_id', $employeeId)
             ->whereIn('id', $uniqueIds)
-            ->orderBy('created_at')
-            ->orderBy('id')
             ->get([
                 'id',
                 'company_id',
@@ -77,7 +75,12 @@ class DocumentBulkActionService
 
         abort_if($documents->count() !== count($uniqueIds), 404);
 
-        return $documents;
+        $documentsById = $documents->keyBy('id');
+
+        return collect($documentIds)
+            ->map(fn (int $id) => $documentsById->get($id))
+            ->filter()
+            ->values();
     }
 
     /**

@@ -19,6 +19,7 @@ class BulkMergePdfDocumentsRequest extends FormRequest
         return [
             'document_ids' => ['required', 'array', 'min:2'],
             'document_ids.*' => ['integer', 'distinct'],
+            'download_name' => ['nullable', 'string', 'max:200', 'regex:/^[a-zA-Z0-9\-_]+$/'],
         ];
     }
 
