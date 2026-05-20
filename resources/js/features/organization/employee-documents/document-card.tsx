@@ -1,8 +1,9 @@
 import { Link } from '@inertiajs/react';
-import { Eye, ExternalLink, FileImage, FileText, FileType, History } from 'lucide-react';
+import { Eye, ExternalLink, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { DocumentFileIcon } from '@/features/organization/documents/document-file-icon';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatBytes } from '@/lib/utils';
 import { DOCUMENT_STATUS_VARIANTS, documentStatusLabel } from './status';
@@ -24,18 +25,6 @@ type DocumentCardProps = {
     current_version: number | null;
     status: string | null;
 };
-
-function FileIcon({ mimeType }: { mimeType: string | null }) {
-    if (mimeType?.startsWith('image/')) {
-        return <FileImage className="h-8 w-8 opacity-60" />;
-    }
-
-    if (mimeType === 'application/pdf') {
-        return <FileType className="h-8 w-8 opacity-60" />;
-    }
-
-    return <FileText className="h-8 w-8 opacity-60" />;
-}
 
 function expiryColor(status: string | null) {
     if (status === 'expired') {
@@ -62,7 +51,11 @@ export function DocumentCard({
         <Card className="glass-card group flex flex-col overflow-hidden transition-all duration-200 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">
             <div className="flex items-center gap-3 border-b border-border/40 px-4 py-3">
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted/50 text-muted-foreground dark:bg-white/6">
-                    <FileIcon mimeType={doc.mime_type} />
+                    <DocumentFileIcon
+                        mimeType={doc.mime_type}
+                        fileName={doc.title}
+                        className="h-8 w-8 opacity-80"
+                    />
                 </div>
                 <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">

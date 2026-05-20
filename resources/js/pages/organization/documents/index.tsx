@@ -1,18 +1,13 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { Folder } from 'lucide-react';
+import { Head, router } from '@inertiajs/react';
+import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
-import { PageHeader } from '@/components/page-header';
 import { SearchBar } from '@/components/search-bar';
+import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import type { EmployeeFolder } from '@/features/organization/documents/employee-folder-item';
+import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
 import { cn } from '@/lib/utils';
-
-type EmployeeFolder = {
-    employee_id: number;
-    employee_name: string;
-    employee_no: string;
-    document_count: number;
-};
 
 type Props = {
     employees: EmployeeFolder[];
@@ -20,12 +15,10 @@ type Props = {
 };
 
 export default function DocumentsIndex({ employees, search: initialSearch }: Props) {
-    const [searchInput, setSearchInput] = useState(initialSearch);
+    const [draftSearch, setDraftSearch] = useState<string | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-    useEffect(() => {
-        setSearchInput(initialSearch);
-    }, [initialSearch]);
+    const searchInput = draftSearch ?? initialSearch;
 
     useEffect(() => {
         return () => {
@@ -36,36 +29,57 @@ export default function DocumentsIndex({ employees, search: initialSearch }: Pro
     }, []);
 
     const onSearchChange = useCallback((value: string) => {
-        setSearchInput(value);
+        setDraftSearch(value);
 
         if (debounceRef.current) {
             clearTimeout(debounceRef.current);
         }
 
         debounceRef.current = setTimeout(() => {
+            setIsSearching(true);
             router.get(
                 '/organization/documents',
                 { search: value || undefined },
-                { preserveState: true, replace: true, only: ['employees', 'search'] },
+                {
+                    preserveState: true,
+                    replace: true,
+                    only: ['employees', 'search'],
+                    onFinish: () => {
+                        setIsSearching(false);
+                        setDraftSearch(null);
+                    },
+                },
             );
         }, 400);
     }, []);
+
+    const folderLabel =
+        employees.length === 1 ? '1 employee folder' : `${employees.length} employee folders`;
 
     return (
         <Main>
             <Head title="Documents" />
 
-            <PageHeader
-                title="Documents"
-                description="Browse employee document folders. Only employees with uploaded files are shown."
-            />
+            <DocumentsBreadcrumbs items={[{ title: 'Documents' }]} />
 
-            <div className="mb-6">
+            <div className="mb-6 space-y-4">
                 <SearchBar
                     placeholder="Search by employee name or number…"
                     value={searchInput}
                     onChange={onSearchChange}
                 />
+
+                {employees.length > 0 ? (
+                    <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
+                        <span className="font-medium">{folderLabel}</span>
+                        {isSearching ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs">
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                Updating…
+                            </span>
+                        ) : null}
+                    </div>
+                ) : null}
             </div>
 
             {employees.length === 0 ? (
@@ -78,51 +92,27 @@ export default function DocumentsIndex({ employees, search: initialSearch }: Pro
                     }
                 />
             ) : (
-                <div
-                    className="grid gap-x-2 gap-y-6 sm:gap-x-4"
-                    style={{
-                        gridTemplateColumns:
-                            'repeat(auto-fill, minmax(6.5rem, 1fr))',
-                    }}
+                <section
+                    className={cn(
+                        'min-h-[320px] rounded-xl border border-white/5 bg-white/[0.02] p-6 sm:p-8',
+                        'transition-opacity duration-200',
+                        isSearching && 'pointer-events-none opacity-60',
+                    )}
+                    aria-busy={isSearching}
                 >
-                    {employees.map((employee) => (
-                        <EmployeeFolderItem key={employee.employee_id} employee={employee} />
-                    ))}
-                </div>
+                    <div
+                        className="grid gap-x-3 gap-y-8 sm:gap-x-5"
+                        style={{
+                            gridTemplateColumns:
+                                'repeat(auto-fill, minmax(8.75rem, 1fr))',
+                        }}
+                    >
+                        {employees.map((employee) => (
+                            <EmployeeFolderItem key={employee.employee_id} employee={employee} />
+                        ))}
+                    </div>
+                </section>
             )}
         </Main>
-    );
-}
-
-function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
-    const fileLabel =
-        employee.document_count === 1
-            ? '1 file'
-            : `${employee.document_count} files`;
-
-    return (
-        <Link
-            href={`/organization/documents/employees/${employee.employee_id}`}
-            title={`${employee.employee_name} (${employee.employee_no}) — ${fileLabel}`}
-            className={cn(
-                'group flex max-w-34 flex-col items-center gap-1.5 rounded-lg px-2 py-2.5 text-center',
-                'transition-colors hover:bg-muted/40',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-            )}
-        >
-            <Folder
-                className="h-14 w-14 shrink-0 text-amber-400/90 drop-shadow-sm transition-transform duration-150 group-hover:scale-105 group-hover:text-amber-300"
-                strokeWidth={1.25}
-                fill="currentColor"
-                fillOpacity={0.22}
-                aria-hidden
-            />
-            <span className="line-clamp-2 w-full text-xs leading-snug font-medium text-foreground">
-                {employee.employee_name}
-            </span>
-            <span className="w-full truncate font-mono text-[10px] text-muted-foreground/70">
-                {employee.employee_no}
-            </span>
-        </Link>
     );
 }
