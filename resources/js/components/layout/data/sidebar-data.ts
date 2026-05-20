@@ -136,7 +136,7 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Employees',
             items: [
-                { title: 'Employee directory', url: '/organization/employees', icon: Users },
+                { title: 'Employee', url: '/organization/employees', icon: Users },
                 { title: 'Documents', url: '/organization/documents', icon: FileText },
             ],
         },
