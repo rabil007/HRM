@@ -23,7 +23,7 @@ pest()->extend(TestCase::class)
 
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
-    ->in('Unit/Support');
+    ->in('Unit/Support', 'Unit/Employees');
 
 /*
 |--------------------------------------------------------------------------
