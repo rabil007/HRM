@@ -149,7 +149,7 @@ export function EmployeePersonalTab({
                     <div className="space-y-1">
                         {[
                             {
-                                label: 'Contact',
+                                label: 'Contacted Name',
                                 value:
                                     activeField === 'emergency_contact' ? (
                                         <Input
@@ -179,7 +179,7 @@ export function EmployeePersonalTab({
                                     ),
                             },
                             {
-                                label: 'Mobile',
+                                label: 'Contacted Mobile',
                                 value:
                                     activeField === 'emergency_phone' ? (
                                         <PhoneInputWithCountry
@@ -309,7 +309,7 @@ export function EmployeePersonalTab({
                         {[
                             {
                                 key: 'nearest_airport',
-                                label: 'Nearest airport',
+                                label: 'Nearest Airport (Home Country)',
                                 input: (
                                     <Input
                                         className="h-10 rounded-xl border-white/5 bg-white/5"
