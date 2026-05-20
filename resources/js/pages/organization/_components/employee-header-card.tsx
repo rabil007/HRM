@@ -18,13 +18,6 @@ import type { EmployeeNavigation } from '@/pages/organization/employee-page.type
 
 type Option = { id: number; name?: string | null; title?: string | null };
 
-const MARITAL_STATUS_OPTIONS = [
-    { id: 1, label: 'Single', value: 'single' },
-    { id: 2, label: 'Married', value: 'married' },
-    { id: 3, label: 'Divorced', value: 'divorced' },
-    { id: 4, label: 'Widowed', value: 'widowed' },
-] as const;
-
 function optionLabel(
     options: Option[],
     id: string | number | null | undefined,
@@ -482,31 +475,6 @@ export function EmployeeHeaderCard({
                                 labelClassName="text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
                             />
                         </div>
-                    )}
-
-                    {/* Marital status */}
-                    {showField('marital_status') && (
-                        <EditableDetailSelectField
-                            label="Marital status"
-                            field="marital_status"
-                            value={form.data.marital_status}
-                            displayValue={
-                                MARITAL_STATUS_OPTIONS.find(
-                                    (option) =>
-                                        option.value ===
-                                        (form.data.marital_status || employee.marital_status),
-                                )?.label ??
-                                (form.data.marital_status ||
-                                    employee.marital_status ||
-                                    '—')
-                            }
-                            options={[...MARITAL_STATUS_OPTIONS]}
-                            activeField={activeField}
-                            setActiveField={setActiveField}
-                            beginEdit={beginEdit}
-                            canEdit={canUpdate}
-                            onChange={(value) => form.setData('marital_status', value)}
-                        />
                     )}
 
                     {/* Birthday */}

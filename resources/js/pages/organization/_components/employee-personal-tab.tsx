@@ -6,6 +6,10 @@ import {
     PersonalEditableSelectRow,
     PersonalEditableTextRow,
 } from '@/features/organization/employees/profile/components/personal-field-row';
+import {
+    MARITAL_STATUS_OPTIONS,
+    maritalStatusLabel,
+} from '@/features/organization/employees/profile/marital-status-options';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
@@ -16,6 +20,7 @@ export type EmployeePersonalFormSlice = {
         phone_home_country?: string;
         emergency_contact?: string;
         emergency_phone?: string;
+        marital_status?: string;
         spouse_name?: string;
         nearest_airport?: string;
         address?: string;
@@ -137,10 +142,23 @@ export function EmployeePersonalTab({
 
                 <EmployeeSectionCard
                     title="Family"
-                    description="Spouse and dependents"
+                    description="Marital status and spouse"
                     icon={Users}
                 >
                     <div className="space-y-1">
+                        <PersonalEditableSelectRow
+                            label="Marital status"
+                            field="marital_status"
+                            value={String(form.data.marital_status ?? '')}
+                            displayValue={maritalStatusLabel(
+                                form.data.marital_status || employee.marital_status,
+                            )}
+                            options={[...MARITAL_STATUS_OPTIONS]}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            onChange={(value) => form.setData('marital_status', value)}
+                        />
                         <PersonalEditableTextRow
                             label="Spouse name"
                             field="spouse_name"
