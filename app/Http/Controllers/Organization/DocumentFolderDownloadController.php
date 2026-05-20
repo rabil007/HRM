@@ -8,10 +8,7 @@ use App\Support\EmployeeDocuments\DocumentDownloadService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-/**
- * @deprecated Prefer organization.documents.employee.download. Kept for backward compatibility.
- */
-class EmployeeDocumentDownloadController extends Controller
+class DocumentFolderDownloadController extends Controller
 {
     public function __invoke(Request $request, Employee $employee, DocumentDownloadService $downloads): StreamedResponse
     {

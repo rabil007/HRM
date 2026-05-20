@@ -1,4 +1,4 @@
-import { ExternalLink, Eye } from 'lucide-react';
+import { Download, ExternalLink, Eye } from 'lucide-react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
@@ -12,6 +12,7 @@ import { expiryRemainingClass } from '@/features/organization/documents/document
 import { DocumentFileIcon } from '@/features/organization/documents/document-file-icon';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn, formatBytes } from '@/lib/utils';
+import { documents } from '@/routes/organization';
 import type { DocumentBrowseItem } from './types';
 
 function formatOptionalDate(value: string | null): string {
@@ -75,10 +76,15 @@ export function EmployeeDocumentTableRow({
                 <TableRowActions
                     actions={[
                         {
-                            label: 'Preview',
+                            label: 'View',
                             icon: Eye,
                             onClick: () => onPreview(doc),
                             hidden: !doc.can_preview,
+                        },
+                        {
+                            label: 'Download',
+                            icon: Download,
+                            href: documents.files.download.url({ document: doc.id }),
                         },
                         {
                             label: 'Open file',

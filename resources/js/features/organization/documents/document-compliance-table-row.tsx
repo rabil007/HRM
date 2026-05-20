@@ -1,4 +1,4 @@
-import { ExternalLink, Eye, FolderOpen } from 'lucide-react';
+import { Download, ExternalLink, Eye, FolderOpen } from 'lucide-react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
@@ -67,10 +67,15 @@ export function DocumentComplianceTableRow({
                 <TableRowActions
                     actions={[
                         {
-                            label: 'Preview',
+                            label: 'View',
                             icon: Eye,
                             onClick: () => onPreview(doc),
                             hidden: !doc.can_preview,
+                        },
+                        {
+                            label: 'Download',
+                            icon: Download,
+                            href: documents.files.download.url({ document: doc.id }),
                         },
                         {
                             label: 'Open file',
