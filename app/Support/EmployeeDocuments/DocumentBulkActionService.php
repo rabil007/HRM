@@ -46,6 +46,44 @@ class DocumentBulkActionService
      * @param  list<int>  $documentIds
      * @return Collection<int, EmployeeDocument>
      */
+    public function documentsForEmployeeAction(array $documentIds, int $companyId, int $employeeId): Collection
+    {
+        abort_unless(
+            Employee::query()
+                ->where('company_id', $companyId)
+                ->whereKey($employeeId)
+                ->exists(),
+            404,
+        );
+
+        $uniqueIds = array_values(array_unique($documentIds));
+
+        $documents = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->where('employee_id', $employeeId)
+            ->whereIn('id', $uniqueIds)
+            ->orderBy('created_at')
+            ->orderBy('id')
+            ->get([
+                'id',
+                'company_id',
+                'employee_id',
+                'file_path',
+                'original_filename',
+                'mime_type',
+                'title',
+                'document_type',
+            ]);
+
+        abort_if($documents->count() !== count($uniqueIds), 404);
+
+        return $documents;
+    }
+
+    /**
+     * @param  list<int>  $documentIds
+     * @return Collection<int, EmployeeDocument>
+     */
     public function documentsForDownload(array $documentIds, int $companyId): Collection
     {
         $documents = EmployeeDocument::query()

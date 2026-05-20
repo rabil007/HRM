@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { Download, FileStack, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -22,6 +22,7 @@ import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/b
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
 import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
+import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
     DocumentBrowseItem,
@@ -31,6 +32,7 @@ import type {
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
+import { mergePdf } from '@/routes/organization/documents/employee/files';
 import { show } from '@/routes/organization/employees';
 
 type Props = {
@@ -54,6 +56,7 @@ export default function EmployeeDocumentsBrowse({
     const [fileSearch, setFileSearch] = useState('');
     const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
+    const [isMerging, setIsMerging] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -97,6 +100,41 @@ export default function EmployeeDocumentsBrowse({
             toast.error(error instanceof Error ? error.message : 'Download failed.');
         } finally {
             setIsBulkDownloading(false);
+        }
+    };
+
+    const handleMergePdfs = async () => {
+        const selectedDocs = filteredDocuments.filter((document) =>
+            selectedDocumentIds.includes(document.id),
+        );
+
+        if (selectedDocs.length < 2) {
+            toast.error('Select at least 2 PDF files to merge.');
+
+            return;
+        }
+
+        if (selectedDocs.some((document) => document.mime_type !== 'application/pdf')) {
+            toast.error('All selected files must be PDF documents.');
+
+            return;
+        }
+
+        setIsMerging(true);
+
+        try {
+            await downloadBinaryExport(
+                mergePdf.url({ employee: employee.id }),
+                { document_ids: selectedDocumentIds },
+                'application/pdf',
+                `${employee.name.replace(/\s+/g, '_')}_DOCUMENTS.pdf`,
+                'Merge failed. Please try again.',
+            );
+            clearDocumentSelection();
+        } catch (error) {
+            toast.error(error instanceof Error ? error.message : 'Merge failed. Please try again.');
+        } finally {
+            setIsMerging(false);
         }
     };
 
@@ -176,6 +214,21 @@ export default function EmployeeDocumentsBrowse({
                                 <Download className="mr-2 h-4 w-4" />
                             )}
                             Download
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="rounded-lg"
+                            disabled={isMerging}
+                            onClick={handleMergePdfs}
+                        >
+                            {isMerging ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : (
+                                <FileStack className="mr-2 h-4 w-4" />
+                            )}
+                            Merge PDFs
                         </Button>
                         {canDeleteDocuments ? (
                             <Button

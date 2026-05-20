@@ -6,6 +6,8 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\DocumentType;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
+use Illuminate\Support\Facades\Storage;
 
 function makeDocumentFixtures(): array
 {
@@ -57,4 +59,36 @@ function makeDocumentFixtures(): array
     );
 
     return compact('company', 'branch', 'employee', 'passportType', 'visaType');
+}
+
+function minimalPdfBytes(): string
+{
+    $pdf = new setasign\Fpdi\Fpdi;
+    $pdf->AddPage();
+    $pdf->SetFont('Helvetica', '', 12);
+    $pdf->Cell(0, 10, 'Test document');
+
+    return $pdf->Output('S');
+}
+
+function createEmployeePdfDocument(
+    int $companyId,
+    int $employeeId,
+    int $documentTypeId,
+    string $relativePath,
+    string $filename,
+): EmployeeDocument {
+    Storage::disk('public')->put($relativePath, minimalPdfBytes());
+
+    return EmployeeDocument::query()->create([
+        'company_id' => $companyId,
+        'employee_id' => $employeeId,
+        'document_type_id' => $documentTypeId,
+        'type' => 'other',
+        'document_type' => (string) $documentTypeId,
+        'file_path' => $relativePath,
+        'original_filename' => $filename,
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
 }
