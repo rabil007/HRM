@@ -21,7 +21,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -202,9 +201,6 @@ export function EmployeeContractTab({
                 setDialogOpen(false);
                 contractForm.reset();
                 setEditingContract(null);
-                toast.success(
-                    editingContract ? 'Contract updated.' : 'Contract added.',
-                );
             },
         };
 
@@ -528,7 +524,6 @@ export function EmployeeContractTab({
                         : null
                 }
                 reloadOptions={CONTRACTS_RELOAD}
-                successMessage="Contract removed."
             />
         </TabsContent>
     );

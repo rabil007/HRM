@@ -24,7 +24,6 @@ import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/pr
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import type { RankOption } from '@/features/organization/employees/types';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -569,11 +568,6 @@ export function EmployeeSeaServiceTab({
                                         setDialogOpen(false);
                                         employeeForm.reset();
                                         setEditingRow(null);
-                                        toast.success(
-                                            editingRow
-                                                ? 'Sea service updated.'
-                                                : 'Sea service added.',
-                                        );
                                     },
                                     onError: (errors: Record<string, string>) => {
                                         Object.entries(errors).forEach(
@@ -618,7 +612,6 @@ export function EmployeeSeaServiceTab({
                         : null
                 }
                 reloadOptions={SEA_SERVICE_RELOAD}
-                successMessage="Sea service removed."
             />
 
             <EmployeeRecordImportDialog

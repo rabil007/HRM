@@ -11,8 +11,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { toast } from '@/lib/toast';
-
 export type EmployeeRecordDeleteDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -23,7 +21,6 @@ export type EmployeeRecordDeleteDialogProps = {
         preserveScroll: boolean;
         only: string[];
     };
-    successMessage: string;
 };
 
 export function EmployeeRecordDeleteDialog({
@@ -33,7 +30,6 @@ export function EmployeeRecordDeleteDialog({
     description,
     destroyUrl,
     reloadOptions,
-    successMessage,
 }: EmployeeRecordDeleteDialogProps): ReactElement {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -60,10 +56,7 @@ export function EmployeeRecordDeleteDialog({
 
                             router.delete(destroyUrl, {
                                 ...reloadOptions,
-                                onSuccess: () => {
-                                    onOpenChange(false);
-                                    toast.success(successMessage);
-                                },
+                                onSuccess: () => onOpenChange(false),
                             });
                         }}
                     >

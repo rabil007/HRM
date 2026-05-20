@@ -24,7 +24,6 @@ import { EmployeeRecordImportDialog } from '@/features/organization/employees/pr
 import { vaccinationImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -341,9 +340,6 @@ export function EmployeeVaccinationTab({
                                             setVaccinationDialogOpen(false);
                                             vaccinationForm.reset();
                                             setEditingVaccination(null);
-                                            toast.success(
-                                                'Vaccination updated.',
-                                            );
                                         },
                                     });
                                 } else {
@@ -352,7 +348,6 @@ export function EmployeeVaccinationTab({
                                         onSuccess: () => {
                                             setVaccinationDialogOpen(false);
                                             vaccinationForm.reset();
-                                            toast.success('Vaccination added.');
                                         },
                                     });
                                 }
@@ -382,7 +377,6 @@ export function EmployeeVaccinationTab({
                         : null
                 }
                 reloadOptions={VACCINATION_RELOAD}
-                successMessage="Vaccination removed."
             />
 
             <EmployeeRecordImportDialog

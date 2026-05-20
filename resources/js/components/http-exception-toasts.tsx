@@ -2,6 +2,7 @@ import { router } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { toast } from '@/lib/toast';
 
+/** Single place for server flash toasts after Inertia visits — do not duplicate with manual toast.success in onSuccess. */
 let lastFlashToast: { key: string; at: number } | null = null;
 
 function showFlashToast(

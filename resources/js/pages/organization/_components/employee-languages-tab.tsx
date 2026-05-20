@@ -21,7 +21,6 @@ import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -315,7 +314,6 @@ export function EmployeeLanguagesTab({
                                             setLanguageDialogOpen(false);
                                             languageForm.reset();
                                             setEditingLanguage(null);
-                                            toast.success('Language updated.');
                                         },
                                     });
                                 } else {
@@ -324,7 +322,6 @@ export function EmployeeLanguagesTab({
                                         onSuccess: () => {
                                             setLanguageDialogOpen(false);
                                             languageForm.reset();
-                                            toast.success('Language added.');
                                         },
                                     });
                                 }
@@ -354,7 +351,6 @@ export function EmployeeLanguagesTab({
                         : null
                 }
                 reloadOptions={LANGUAGES_RELOAD}
-                successMessage="Language removed."
             />
         </TabsContent>
     );

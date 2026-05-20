@@ -23,7 +23,6 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import type { BankOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -302,9 +301,6 @@ export function EmployeeBankTab({
                                             setDialogOpen(false);
                                             bankForm.reset();
                                             setEditingRow(null);
-                                            toast.success(
-                                                'Bank account updated.',
-                                            );
                                         },
                                     });
                                 } else {
@@ -314,9 +310,6 @@ export function EmployeeBankTab({
                                             setDialogOpen(false);
                                             bankForm.reset();
                                             setEditingRow(null);
-                                            toast.success(
-                                                'Bank account added.',
-                                            );
                                         },
                                     });
                                 }
@@ -346,7 +339,6 @@ export function EmployeeBankTab({
                         : null
                 }
                 reloadOptions={BANK_ACCOUNTS_RELOAD}
-                successMessage="Bank account removed."
             />
         </TabsContent>
     );

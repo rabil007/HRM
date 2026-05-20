@@ -22,7 +22,6 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -313,9 +312,6 @@ export function EmployeeEducationTab({
                                             setEducationDialogOpen(false);
                                             educationForm.reset();
                                             setEditingEducation(null);
-                                            toast.success(
-                                                'Qualification updated.',
-                                            );
                                         },
                                     });
                                 } else {
@@ -324,9 +320,6 @@ export function EmployeeEducationTab({
                                         onSuccess: () => {
                                             setEducationDialogOpen(false);
                                             educationForm.reset();
-                                            toast.success(
-                                                'Qualification added.',
-                                            );
                                         },
                                     });
                                 }
@@ -356,7 +349,6 @@ export function EmployeeEducationTab({
                         : null
                 }
                 reloadOptions={EDUCATION_RELOAD}
-                successMessage="Qualification removed."
             />
         </TabsContent>
     );

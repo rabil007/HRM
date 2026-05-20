@@ -206,7 +206,6 @@ export function useEmployeeProfileForm(
                 preserveScroll: true,
                 onSuccess: () => {
                     setActiveField(null);
-                    toast.success('Changes saved.');
                     afterSuccess?.();
                 },
                 onError: (errors) => {
@@ -244,9 +243,6 @@ export function useEmployeeProfileForm(
             form.put(updateEmployee.url({ employee: employee.id }), {
                 forceFormData: true,
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Photo updated.');
-                },
                 onError: (errors) => {
                     const first = Object.values(errors ?? {})[0];
                     toast.error(

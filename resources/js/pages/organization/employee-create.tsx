@@ -412,7 +412,6 @@ missingFields.push(labelFromKey(key));
         form.post('/organization/employees', {
             onSuccess: () => {
                 localStorage.removeItem(STORAGE_KEY);
-                toast.success('Employee created successfully.');
             },
             onError: () => setShowMissingIndicators(true),
         });

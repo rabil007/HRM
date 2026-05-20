@@ -180,16 +180,11 @@ export function EmployeeImportDialog({
         router.post(IMPORT_URL, formData, {
             forceFormData: true,
             preserveScroll: true,
-            onSuccess: (page) => {
-                const flashMessage = (page.props as { flash?: { success?: string } }).flash?.success;
+            onSuccess: () => {
                 const created = preview ? preview.summary.valid : 0;
                 const invalidRows = preview ? preview.summary.invalid : 0;
                 setResult({ created, skipped: invalidRows, failed: 0 });
                 setStep('result');
-
-                if (flashMessage) {
-                    toast.success(flashMessage);
-                }
             },
             onError: (errors) => {
                 toast.error(

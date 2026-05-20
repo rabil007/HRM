@@ -22,7 +22,6 @@ import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/pr
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,
@@ -337,9 +336,6 @@ export function EmployeeWorkExperienceTab({
                                             setWorkExperienceDialogOpen(false);
                                             workExperienceForm.reset();
                                             setEditingWorkExperience(null);
-                                            toast.success(
-                                                'Work experience updated.',
-                                            );
                                         },
                                     });
                                 } else {
@@ -348,9 +344,6 @@ export function EmployeeWorkExperienceTab({
                                         onSuccess: () => {
                                             setWorkExperienceDialogOpen(false);
                                             workExperienceForm.reset();
-                                            toast.success(
-                                                'Work experience added.',
-                                            );
                                         },
                                     });
                                 }
@@ -380,7 +373,6 @@ export function EmployeeWorkExperienceTab({
                         : null
                 }
                 reloadOptions={WORK_EXPERIENCE_RELOAD}
-                successMessage="Work experience removed."
             />
 
             <EmployeeRecordImportDialog
