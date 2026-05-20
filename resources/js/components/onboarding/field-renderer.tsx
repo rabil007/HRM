@@ -18,7 +18,6 @@ const PHONE_FIELD_KEYS = new Set([
     'phone',
     'emergency_phone',
     'phone_home_country',
-    'emergency_phone_home_country',
 ]);
 
 interface FieldRendererProps {

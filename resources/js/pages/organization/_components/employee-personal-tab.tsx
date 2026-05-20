@@ -21,11 +21,8 @@ export type EmployeePersonalFormSlice = {
         phone_home_country?: string;
         emergency_contact?: string;
         emergency_phone?: string;
-        emergency_contact_home_country?: string;
-        emergency_phone_home_country?: string;
         spouse_name?: string;
         spouse_birthdate?: string;
-        dependent_children_count?: string | number;
         nearest_airport?: string;
         address?: string;
         nationality_id?: string;
@@ -146,7 +143,7 @@ export function EmployeePersonalTab({
 
                 <EmployeeSectionCard
                     title="Emergency contact"
-                    description="Primary and home-country contacts"
+                    description="Primary emergency contact"
                     icon={Phone}
                 >
                     <div className="space-y-1">
@@ -216,88 +213,6 @@ export function EmployeePersonalTab({
                                         </button>
                                     ),
                             },
-                            {
-                                label: 'Home country contact',
-                                value:
-                                    activeField ===
-                                    'emergency_contact_home_country' ? (
-                                        <Input
-                                            className="h-10 rounded-xl border-white/5 bg-white/5"
-                                            value={
-                                                form.data
-                                                    .emergency_contact_home_country
-                                            }
-                                            onChange={(e) =>
-                                                form.setData(
-                                                    'emergency_contact_home_country',
-                                                    e.target.value,
-                                                )
-                                            }
-                                            onBlur={() => setActiveField(null)}
-                                            autoFocus
-                                        />
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                            onClick={() =>
-                                                beginEdit(
-                                                    'emergency_contact_home_country',
-                                                )
-                                            }
-                                        >
-                                            {form.data
-                                                .emergency_contact_home_country ||
-                                                employee.emergency_contact_home_country ||
-                                                '—'}
-                                        </button>
-                                    ),
-                            },
-                            {
-                                label: 'Home country phone',
-                                value:
-                                    activeField ===
-                                    'emergency_phone_home_country' ? (
-                                        <PhoneInputWithCountry
-                                            countries={countries}
-                                            value={
-                                                form.data
-                                                    .emergency_phone_home_country ??
-                                                ''
-                                            }
-                                            onChange={(next) =>
-                                                form.setData(
-                                                    'emergency_phone_home_country',
-                                                    next,
-                                                )
-                                            }
-                                            fieldKey="emergency_phone_home_country"
-                                            autoFocus
-                                            onBlur={() => setActiveField(null)}
-                                        />
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            className="text-left text-sm font-medium text-zinc-200 hover:text-white"
-                                            onClick={() =>
-                                                beginEdit(
-                                                    'emergency_phone_home_country',
-                                                )
-                                            }
-                                        >
-                                            {formatPhoneForDisplay(
-                                                form.data
-                                                    .emergency_phone_home_country ||
-                                                    employee.emergency_phone_home_country,
-                                                {
-                                                    countries,
-                                                    fieldKey:
-                                                        'emergency_phone_home_country',
-                                                },
-                                            )}
-                                        </button>
-                                    ),
-                            },
                         ].map((item, i) => (
                             <div key={i} className={personalFieldRowClass}>
                                 <label className={personalFieldLabelClass}>
@@ -361,41 +276,6 @@ export function EmployeePersonalTab({
                                 value: formatDisplayDate(
                                     form.data.spouse_birthdate || employee.spouse_birthdate,
                                 ),
-                            },
-                            {
-                                key: 'dependent_children_count',
-                                label: 'Dependent children',
-                                input: (
-                                    <Input
-                                        inputMode="numeric"
-                                        className="h-10 rounded-xl border-white/5 bg-white/5"
-                                        value={String(
-                                            form.data
-                                                .dependent_children_count ?? '',
-                                        )}
-                                        onChange={(e) =>
-                                            form.setData(
-                                                'dependent_children_count',
-                                                e.target.value,
-                                            )
-                                        }
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ),
-                                value:
-                                    String(
-                                        form.data.dependent_children_count ??
-                                            '',
-                                    ) ||
-                                    (employee.dependent_children_count ===
-                                        null ||
-                                    employee.dependent_children_count ===
-                                        undefined
-                                        ? '—'
-                                        : String(
-                                              employee.dependent_children_count,
-                                          )),
                             },
                         ].map((row) => (
                             <div key={row.key} className={personalFieldRowClass}>

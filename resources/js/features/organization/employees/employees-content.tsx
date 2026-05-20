@@ -383,10 +383,6 @@ params.set('status', initialFilters.status);
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.emergency_contact ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.emergency_phone ?? '—'}</div>
-                                                <div className="text-xs text-muted-foreground/70">
-                                                    {employee.emergency_contact_home_country ?? '—'}
-                                                    {employee.emergency_phone_home_country ? ` • ${employee.emergency_phone_home_country}` : ''}
-                                                </div>
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-xs text-muted-foreground/70">
@@ -400,11 +396,6 @@ params.set('status', initialFilters.status);
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.spouse_name ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{formatDisplayDate(employee.spouse_birthdate)}</div>
-                                                <div className="text-xs text-muted-foreground/70">
-                                                    {employee.dependent_children_count === null || employee.dependent_children_count === undefined
-                                                        ? '—'
-                                                        : String(employee.dependent_children_count)}
-                                                </div>
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 {canToggle ? (

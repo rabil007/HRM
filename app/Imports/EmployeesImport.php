@@ -41,13 +41,10 @@ class EmployeesImport
         'marital_status' => ['marital_status', 'marital status', 'civil status'],
         'spouse_name' => ['spouse_name', 'spouse name'],
         'spouse_birthdate' => ['spouse_birthdate', 'spouse birthdate', 'spouse dob'],
-        'dependent_children_count' => ['dependent_children_count', 'dependent children', 'children count', 'children'],
         'address' => ['address', 'home address', 'residence'],
         'nearest_airport' => ['nearest_airport', 'nearest airport', 'airport'],
         'emergency_contact' => ['emergency_contact', 'emergency contact', 'emergency name'],
         'emergency_phone' => ['emergency_phone', 'emergency phone'],
-        'emergency_contact_home_country' => ['emergency_contact_home_country', 'emergency contact home country', 'home country emergency contact'],
-        'emergency_phone_home_country' => ['emergency_phone_home_country', 'emergency phone home country', 'home country emergency phone'],
         'passport_number' => ['passport_number', 'passport no', 'passport number', 'passport'],
         'emirates_id' => ['emirates_id', 'emirates id', 'eid'],
         'labor_card_number' => ['labor_card_number', 'labor card', 'labor card number', 'labour card'],
@@ -105,7 +102,6 @@ class EmployeesImport
     ];
 
     private const IMPORT_NUMERIC_FIELDS = [
-        'dependent_children_count',
         'basic_salary',
         'housing_allowance',
         'transport_allowance',
@@ -124,13 +120,10 @@ class EmployeesImport
         'marital_status',
         'spouse_name',
         'spouse_birthdate',
-        'dependent_children_count',
         'address',
         'nearest_airport',
         'emergency_contact',
         'emergency_phone',
-        'emergency_contact_home_country',
-        'emergency_phone_home_country',
         'passport_number',
         'emirates_id',
         'labor_card_number',
@@ -391,7 +384,6 @@ class EmployeesImport
                 'housing_allowance' => ['nullable', 'numeric', 'min:0'],
                 'transport_allowance' => ['nullable', 'numeric', 'min:0'],
                 'other_allowances' => ['nullable', 'numeric', 'min:0'],
-                'dependent_children_count' => ['nullable', 'integer', 'min:0', 'max:999'],
             ];
 
             $validator = Validator::make($shaped, $rules);
@@ -501,15 +493,10 @@ class EmployeesImport
                         'marital_status' => $row['marital_status'] ?: null,
                         'spouse_name' => $row['spouse_name'] ?? null,
                         'spouse_birthdate' => $row['spouse_birthdate'] ?? null,
-                        'dependent_children_count' => isset($row['dependent_children_count']) && $row['dependent_children_count'] !== ''
-                            ? (int) $row['dependent_children_count']
-                            : null,
                         'address' => $row['address'] ?? null,
                         'nearest_airport' => $row['nearest_airport'] ?? null,
                         'emergency_contact' => $row['emergency_contact'] ?? null,
                         'emergency_phone' => $row['emergency_phone'] ?? null,
-                        'emergency_contact_home_country' => $row['emergency_contact_home_country'] ?? null,
-                        'emergency_phone_home_country' => $row['emergency_phone_home_country'] ?? null,
                         'passport_number' => $row['passport_number'] ?? null,
                         'emirates_id' => $row['emirates_id'] ?? null,
                         'labor_card_number' => $row['labor_card_number'] ?? null,
@@ -638,12 +625,6 @@ class EmployeesImport
 
         if (isset($shaped['contract_type']) && is_string($shaped['contract_type'])) {
             $shaped['contract_type'] = strtolower(str_replace([' ', '-'], '_', $shaped['contract_type']));
-        }
-
-        if (isset($shaped['dependent_children_count']) && $shaped['dependent_children_count'] !== null) {
-            $shaped['dependent_children_count'] = is_numeric($shaped['dependent_children_count'])
-                ? (int) $shaped['dependent_children_count']
-                : null;
         }
 
         return $shaped;

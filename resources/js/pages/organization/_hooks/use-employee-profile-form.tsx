@@ -41,10 +41,6 @@ function transformEmployeeFormData(data: Record<string, unknown>): Record<string
         phone_home_country: String(data.phone_home_country ?? '').trim() || null,
         emergency_contact: String(data.emergency_contact ?? '').trim() || null,
         emergency_phone: String(data.emergency_phone ?? '').trim() || null,
-        emergency_contact_home_country:
-            String(data.emergency_contact_home_country ?? '').trim() || null,
-        emergency_phone_home_country:
-            String(data.emergency_phone_home_country ?? '').trim() || null,
         nearest_airport: String(data.nearest_airport ?? '').trim() || null,
         address: String(data.address ?? '').trim() || null,
         date_of_birth: data.date_of_birth || null,
@@ -55,10 +51,6 @@ function transformEmployeeFormData(data: Record<string, unknown>): Record<string
         marital_status: data.marital_status || null,
         spouse_name: String(data.spouse_name ?? '').trim() || null,
         spouse_birthdate: data.spouse_birthdate || null,
-        dependent_children_count:
-            data.dependent_children_count === ''
-                ? null
-                : Number(data.dependent_children_count),
         passport_number: String(data.passport_number ?? '').trim() || null,
         emirates_id: String(data.emirates_id ?? '').trim() || null,
         labor_card_number: String(data.labor_card_number ?? '').trim() || null,
@@ -92,10 +84,6 @@ export function useEmployeeProfileForm(
             phone_home_country: employee.phone_home_country ?? '',
             emergency_contact: employee.emergency_contact ?? '',
             emergency_phone: employee.emergency_phone ?? '',
-            emergency_contact_home_country:
-                employee.emergency_contact_home_country ?? '',
-            emergency_phone_home_country:
-                employee.emergency_phone_home_country ?? '',
             nearest_airport: employee.nearest_airport ?? '',
             address: employee.address ?? '',
             date_of_birth: employee.date_of_birth ?? '',
@@ -110,11 +98,6 @@ export function useEmployeeProfileForm(
             marital_status: employee.marital_status ?? '',
             spouse_name: employee.spouse_name ?? '',
             spouse_birthdate: employee.spouse_birthdate ?? '',
-            dependent_children_count:
-                employee.dependent_children_count === null ||
-                employee.dependent_children_count === undefined
-                    ? ''
-                    : String(employee.dependent_children_count),
             passport_number: employee.passport_number ?? '',
             emirates_id: employee.emirates_id ?? '',
             labor_card_number: employee.labor_card_number ?? '',
@@ -133,8 +116,6 @@ export function useEmployeeProfileForm(
             employee.phone_home_country,
             employee.emergency_contact,
             employee.emergency_phone,
-            employee.emergency_contact_home_country,
-            employee.emergency_phone_home_country,
             employee.nearest_airport,
             employee.address,
             employee.date_of_birth,
@@ -145,7 +126,6 @@ export function useEmployeeProfileForm(
             employee.marital_status,
             employee.spouse_name,
             employee.spouse_birthdate,
-            employee.dependent_children_count,
             employee.passport_number,
             employee.emirates_id,
             employee.labor_card_number,

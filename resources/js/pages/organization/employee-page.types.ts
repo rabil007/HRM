@@ -34,8 +34,6 @@ export type EmployeeDetails = {
     nearest_airport?: string | null;
     emergency_contact?: string | null;
     emergency_phone?: string | null;
-    emergency_contact_home_country?: string | null;
-    emergency_phone_home_country?: string | null;
     date_of_birth?: string | null;
     place_of_birth?: string | null;
     gender_id?: number | null;
@@ -49,7 +47,6 @@ export type EmployeeDetails = {
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     spouse_birthdate?: string | null;
-    dependent_children_count?: number | null;
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;

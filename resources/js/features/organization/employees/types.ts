@@ -80,8 +80,6 @@ export type Employee = {
     nearest_airport?: string | null;
     emergency_contact?: string | null;
     emergency_phone?: string | null;
-    emergency_contact_home_country?: string | null;
-    emergency_phone_home_country?: string | null;
     date_of_birth?: string | null;
     place_of_birth?: string | null;
     gender_id?: number | null;
@@ -93,7 +91,6 @@ export type Employee = {
     marital_status?: 'single' | 'married' | 'divorced' | 'widowed' | null;
     spouse_name?: string | null;
     spouse_birthdate?: string | null;
-    dependent_children_count?: number | null;
     labor_contract_id?: string | null;
     passport_number?: string | null;
     emirates_id?: string | null;
@@ -126,8 +123,6 @@ export type EmployeeFormData = {
     nearest_airport: string;
     emergency_contact: string;
     emergency_phone: string;
-    emergency_contact_home_country: string;
-    emergency_phone_home_country: string;
     date_of_birth: string;
     place_of_birth: string;
     gender_id: number | '';
@@ -136,7 +131,6 @@ export type EmployeeFormData = {
     marital_status: 'single' | 'married' | 'divorced' | 'widowed' | '';
     spouse_name: string;
     spouse_birthdate: string;
-    dependent_children_count: number | '';
     passport_number: string;
     emirates_id: string;
     labor_card_number: string;
