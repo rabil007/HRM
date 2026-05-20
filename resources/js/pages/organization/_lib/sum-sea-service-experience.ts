@@ -27,7 +27,7 @@ export function formatSeaServiceTotalsYmd<T extends SeaServiceTotalsRow>(
     }
 
     let months = Math.floor(periodDays / 30);
-    let days = periodDays % 30;
+    const days = periodDays % 30;
     const years = Math.floor(months / 12);
     months %= 12;
 

@@ -123,6 +123,7 @@ export default function EmployeeDetails({
     countries,
     religions,
     genders,
+    visa_types,
     banks,
     ranks,
     vessel_types,
@@ -451,7 +452,6 @@ export default function EmployeeDetails({
                             employee={employee}
                             employeeNavigation={employee_navigation}
                             onNavigateEmployee={handleNavigateEmployee}
-                            branches={branches}
                             departments={departments}
                             positions={positions}
                             ranks={ranks}
@@ -459,6 +459,7 @@ export default function EmployeeDetails({
                             countries={countries}
                             genders={genders}
                             religions={religions}
+                            visa_types={visa_types}
                             form={form}
                             activeField={activeField}
                             setActiveField={setActiveField}

@@ -117,7 +117,7 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
             <Head title="Visa types" />
 
             <div className="space-y-6">
-                <Heading variant="small" title="Visa types" description="Manage visa types used across the system." />
+                <Heading variant="small" title="Visa types" description="Manage visa type titles used across the system." />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex-1">
@@ -134,7 +134,7 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
-                                <div className="col-span-7">Name</div>
+                                <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
                                 <div className="col-span-3 text-right">Actions</div>
                             </div>
@@ -177,20 +177,20 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                             {current ? 'Edit visa type' : 'New visa type'}
                         </SheetTitle>
                         <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                            Keep names short and consistent.
+                            Enter the visa type title only.
                         </SheetDescription>
                     </SheetHeader>
 
                     <div className="flex-1 overflow-y-auto p-8 space-y-5">
                         <div className="space-y-2">
                             <Label
-                                htmlFor="name"
+                                htmlFor="title"
                                 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
                             >
-                                Name
+                                Title
                             </Label>
                             <Input
-                                id="name"
+                                id="title"
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                                 placeholder="Residential Visa"

@@ -13,6 +13,7 @@ use App\Models\Position;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\User;
+use App\Models\VisaType;
 use Illuminate\Support\Collection;
 
 final class EmployeeFormOptions
@@ -29,6 +30,7 @@ final class EmployeeFormOptions
      *     countries: Collection,
      *     religions: Collection,
      *     genders: Collection,
+     *     visa_types: Collection,
      *     banks: Collection
      * }
      */
@@ -43,6 +45,7 @@ final class EmployeeFormOptions
             'countries' => self::countries(),
             'religions' => self::religions(),
             'genders' => self::genders(),
+            'visa_types' => self::visaTypes(),
             'banks' => self::banks(),
         ];
     }
@@ -58,6 +61,7 @@ final class EmployeeFormOptions
      *     countries: Collection,
      *     religions: Collection,
      *     genders: Collection,
+     *     visa_types: Collection,
      *     banks: Collection,
      *     ranks: Collection,
      *     document_types: Collection
@@ -73,6 +77,7 @@ final class EmployeeFormOptions
             'countries' => self::countries(),
             'religions' => self::religions(),
             'genders' => self::genders(),
+            'visa_types' => self::visaTypes(),
             'banks' => self::banks(),
             'ranks' => self::activeRanks(),
             'document_types' => self::documentTypes(),
@@ -184,6 +189,14 @@ final class EmployeeFormOptions
     private static function genders()
     {
         return once(fn () => Gender::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']));
+    }
+
+    private static function visaTypes()
+    {
+        return once(fn () => VisaType::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']));

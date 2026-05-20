@@ -43,6 +43,11 @@ export type GenderOption = {
     name: string;
 };
 
+export type VisaTypeOption = {
+    id: number;
+    name: string;
+};
+
 export type RankOption = {
     id: number;
     name: string;

@@ -5,6 +5,7 @@ import type {
     CountryOption,
     DepartmentOption,
     GenderOption,
+    VisaTypeOption,
     ManagerOption,
     PositionOption,
     RankOption,
@@ -38,6 +39,11 @@ export type EmployeeDetails = {
     place_of_birth?: string | null;
     gender_id?: number | null;
     religion_id?: number | null;
+    visa_type_id?: number | null;
+    visa_type_ref?: {
+        id: number;
+        name: string | null;
+    } | null;
     nationality_id?: number | null;
     nationality_ref?: {
         id: number;
@@ -236,6 +242,7 @@ export type EmployeePageProps = {
     countries: CountryOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
+    visa_types: VisaTypeOption[];
     banks: BankOption[];
     ranks: RankOption[];
     vessel_types?: VesselTypeOption[];

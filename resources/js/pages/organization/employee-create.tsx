@@ -49,6 +49,7 @@ type Props = {
         countries: Option[];
         religions: Option[];
         genders: Option[];
+        visa_types: Option[];
         banks: Option[];
         ranks: Option[];
         document_types: Array<{ id: number; title: string }>;
@@ -72,6 +73,8 @@ export default function EmployeeCreate({ template, allTemplates, selectedRankId,
             nationality: 'nationality_id',
             gender: 'gender_id',
             religion: 'religion_id',
+            visa: 'visa_type_id',
+            visa_type: 'visa_type_id',
             bank: 'bank_id',
             branch: 'branch_id',
             department: 'department_id',
@@ -187,6 +190,7 @@ continue;
         place_of_birth: '',
         gender_id: '',
         religion_id: '',
+        visa_type_id: '',
         nationality_id: '',
         marital_status: '',
         spouse_name: '',

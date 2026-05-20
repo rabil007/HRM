@@ -101,6 +101,7 @@ export const profileFieldOptions = [
     { key: 'gender_id', label: 'Gender' },
     { key: 'nationality_id', label: 'Nationality' },
     { key: 'religion_id', label: 'Religion' },
+    { key: 'visa_type_id', label: 'Visa type' },
     { key: 'marital_status', label: 'Marital Status' },
     { key: 'spouse_name', label: 'Spouse Name' },
     { key: 'personal_email', label: 'Personal Email' },

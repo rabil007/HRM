@@ -39,6 +39,7 @@ class Employee extends Model
                 'work_email',
                 'phone',
                 'gender_id',
+                'visa_type_id',
                 'nearest_airport',
                 'phone_home_country',
                 'emergency_contact',
@@ -117,6 +118,11 @@ class Employee extends Model
     public function genderRef(): BelongsTo
     {
         return $this->belongsTo(Gender::class, 'gender_id');
+    }
+
+    public function visaTypeRef(): BelongsTo
+    {
+        return $this->belongsTo(VisaType::class, 'visa_type_id');
     }
 
     public function nationalityRef(): BelongsTo

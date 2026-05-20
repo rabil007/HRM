@@ -31,13 +31,13 @@ function optionLabel(
 export function EmployeeHeaderCard({
     canUpdate,
     employee,
-    branches,
     departments,
     positions,
     managers,
     countries,
     genders,
     religions,
+    visa_types = [],
     ranks,
     form,
     activeField,
@@ -52,13 +52,13 @@ export function EmployeeHeaderCard({
 }: {
     canUpdate: boolean;
     employee: any;
-    branches: Option[];
     departments: Option[];
     positions: Option[];
     managers: any[];
     countries: CountryOption[];
     genders: Option[];
     religions: Option[];
+    visa_types?: Option[];
     ranks: Option[];
     form: any;
     activeField: string | null;
@@ -177,6 +177,16 @@ export function EmployeeHeaderCard({
                 value: String(religion.id),
             })),
         [religions],
+    );
+
+    const visaTypeOptions = useMemo(
+        () =>
+            visa_types.map((visaType) => ({
+                id: visaType.id,
+                label: visaType.name ?? `#${visaType.id}`,
+                value: String(visaType.id),
+            })),
+        [visa_types],
     );
 
     const statusBadge = useMemo(() => {
@@ -314,19 +324,8 @@ export function EmployeeHeaderCard({
                                 ) : null}
                             </div>
 
-                            <div className="mx-auto grid max-w-xl grid-cols-2 gap-1.5 text-xs md:mx-0 md:max-w-none md:grid-cols-4">
+                            <div className="mx-auto grid max-w-xl grid-cols-2 gap-1.5 text-xs md:mx-0 md:max-w-none md:grid-cols-3">
                                 {[
-                                    {
-                                        field: 'branch_id',
-                                        label: 'Branch',
-                                        current:
-                                            branches.find((b) => String(b.id) === String(form.data.branch_id || employee.branch?.id || ''))?.name ??
-                                            employee.branch?.name ??
-                                            '—',
-                                        items: branches.map((b) => ({ id: b.id, label: b.name ?? `#${b.id}`, value: String(b.id) })),
-                                        title: 'Select branch',
-                                        description: 'Search branches...',
-                                    },
                                     {
                                         field: 'department_id',
                                         label: 'Department',
@@ -564,6 +563,25 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('religion_id', value)}
+                        />
+                    )}
+
+                    {showField('visa_type_id') && (
+                        <EditableDetailSelectField
+                            label="Visa type"
+                            field="visa_type_id"
+                            value={form.data.visa_type_id}
+                            displayValue={optionLabel(
+                                visa_types,
+                                form.data.visa_type_id || employee.visa_type_id,
+                                employee.visa_type_ref?.name,
+                            )}
+                            options={visaTypeOptions}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('visa_type_id', value)}
                         />
                     )}
                 </div>

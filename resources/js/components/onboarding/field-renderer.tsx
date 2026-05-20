@@ -34,6 +34,7 @@ interface FieldRendererProps {
         countries: Option[];
         religions: Option[];
         genders: Option[];
+        visa_types: Option[];
         banks: Option[];
         ranks: Option[];
     };
@@ -160,6 +161,10 @@ export function FieldRenderer({
 
     if (fieldKey === 'religion_id') {
         return renderSelect(options.religions, 'Select Religion');
+    }
+
+    if (fieldKey === 'visa_type_id') {
+        return renderSelect(options.visa_types, 'Select visa type');
     }
 
     if (fieldKey === 'bank_id') {

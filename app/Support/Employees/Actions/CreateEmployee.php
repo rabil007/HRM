@@ -70,6 +70,10 @@ final class CreateEmployee
             $data['gender_id'] = null;
         }
 
+        if (($data['visa_type_id'] ?? null) === '') {
+            $data['visa_type_id'] = null;
+        }
+
         if (($data['bank_id'] ?? null) === '') {
             $data['bank_id'] = null;
         }
@@ -83,6 +87,7 @@ final class CreateEmployee
             'manager_id',
             'date_of_birth',
             'nationality_id',
+            'visa_type_id',
             'marital_status',
             'personal_email',
             'work_email',

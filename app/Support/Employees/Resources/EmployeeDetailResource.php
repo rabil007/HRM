@@ -57,6 +57,11 @@ final class EmployeeDetailResource
                 'id' => $employee->religion_id,
                 'name' => $employee->religionRef?->name,
             ] : null,
+            'visa_type_id' => $employee->visa_type_id,
+            'visa_type_ref' => $employee->visa_type_id ? [
+                'id' => $employee->visa_type_id,
+                'name' => $employee->visaTypeRef?->name,
+            ] : null,
             'nationality_id' => $employee->nationality_id,
             'nationality_ref' => $employee->nationality_id ? [
                 'id' => $employee->nationality_id,

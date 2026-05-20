@@ -182,6 +182,10 @@ class EmployeeController extends Controller
             $data['gender_id'] = null;
         }
 
+        if (($data['visa_type_id'] ?? null) === '') {
+            $data['visa_type_id'] = null;
+        }
+
         foreach ([
             'user_id',
             'branch_id',
@@ -191,6 +195,7 @@ class EmployeeController extends Controller
             'manager_id',
             'date_of_birth',
             'nationality_id',
+            'visa_type_id',
             'marital_status',
             'personal_email',
             'work_email',

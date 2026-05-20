@@ -12,6 +12,7 @@ use App\Models\OnboardingTemplate;
 use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\VisaType;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -253,7 +254,158 @@ test('employee profile profile_fields excludes unchecked template fields such as
 
     expect($profileFields)->toBeArray()
         ->and($profileFields)->toContain('work_email', 'religion_id')
-        ->and($profileFields)->not->toContain('rank_id', 'place_of_birth', 'gender_id');
+        ->and($profileFields)->not->toContain('rank_id', 'place_of_birth', 'gender_id', 'visa_type_id');
+});
+
+test('employee profile profile_fields includes visa_type_id when enabled in template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VIS',
+        'name' => 'Visaland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VIS',
+        'name' => 'Visa Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Visa Co',
+        'slug' => 'visa-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Visa Template',
+        'is_default' => true,
+        'tasks' => [
+            'version' => 2,
+            'stages' => [
+                [
+                    'key' => 'profile_info',
+                    'label' => 'Profile',
+                    'employee_fields' => [
+                        ['key' => 'employee_no', 'required' => true],
+                        ['key' => 'name', 'required' => true],
+                        ['key' => 'visa_type_id', 'required' => false],
+                    ],
+                    'bank_account_fields' => [],
+                    'contract_fields' => [],
+                    'documents' => [],
+                ],
+            ],
+        ],
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'onboarding_template_id' => $template->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->get("/organization/employees/{$employee->id}");
+
+    $response->assertOk();
+
+    $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
+
+    expect($profileFields)->toContain('visa_type_id');
+});
+
+test('employee can be created and updated with visa_type_id', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'V2',
+        'name' => 'Visaland Two',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'V2',
+        'name' => 'Visa Currency Two',
+        'symbol' => 'V2$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Visa Co Two',
+        'slug' => 'visa-co-two',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $visaType = VisaType::query()->create([
+        'name' => 'Residential Visa',
+        'is_active' => true,
+    ]);
+
+    $missionVisa = VisaType::query()->create([
+        'name' => 'Mission Visa',
+        'is_active' => true,
+    ]);
+
+    $template = OnboardingTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Minimal',
+        'is_default' => true,
+        'tasks' => ['version' => 2, 'stages' => []],
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.view']);
+
+    $this->post('/organization/employees', [
+        'onboarding_template_id' => $template->id,
+        'employee_no' => 'EMP-VISA',
+        'name' => 'Visa Holder',
+        'start_date' => '2026-01-01',
+        'contract_type' => 'unlimited',
+        'status' => 'active',
+        'visa_type_id' => $visaType->id,
+    ])->assertRedirect('/organization/employees');
+
+    $employee = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-VISA')
+        ->first();
+
+    expect($employee)->not->toBeNull()
+        ->and($employee->visa_type_id)->toBe($visaType->id);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.visa_type_id', $visaType->id)
+            ->where('employee.visa_type_ref.name', 'Residential Visa')
+        );
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-VISA',
+        'name' => 'Visa Holder',
+        'visa_type_id' => $missionVisa->id,
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->visa_type_id)->toBe($missionVisa->id);
 });
 
 test('employee profile includes image and can be updated with a photo', function () {
