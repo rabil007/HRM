@@ -79,7 +79,16 @@ function formatMoney(value: number | null | undefined): string {
         return '—';
     }
 
-    return String(value);
+    const numeric = Number(value);
+
+    if (Number.isNaN(numeric)) {
+        return String(value);
+    }
+
+    return numeric.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
 }
 
 function contractStatusClass(status: string | null | undefined): string {
@@ -232,18 +241,27 @@ export function EmployeeContractTab({
                     ) : undefined
                 }
             >
-                <EmployeeRecordsTable className="min-w-[960px]">
+                <EmployeeRecordsTable className="min-w-[1280px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             <th className={employeeRecordsTableThClass()}>Type</th>
+                            <th className={employeeRecordsTableThClass()}>Status</th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Labor contract ID
+                            </th>
                             <th className={employeeRecordsTableThClass()}>Start</th>
                             <th className={employeeRecordsTableThClass()}>End</th>
-                            <th className={employeeRecordsTableThClass()}>Status</th>
                             <th className={employeeRecordsTableThClass()}>
                                 Basic salary
                             </th>
                             <th className={employeeRecordsTableThClass()}>
-                                Labor contract ID
+                                Housing
+                            </th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Transport
+                            </th>
+                            <th className={employeeRecordsTableThClass()}>
+                                Other allowances
                             </th>
                             {canManage ? <EmployeeRecordsActionsHeader /> : null}
                         </tr>
@@ -262,6 +280,25 @@ export function EmployeeContractTab({
                                 >
                                     {formatContractType(row.contract_type)}
                                 </td>
+                                <td className={employeeRecordsTableTdClass()}>
+                                    <span
+                                        className={cn(
+                                            'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+                                            contractStatusClass(row.status),
+                                        )}
+                                    >
+                                        {formatStatus(row.status)}
+                                    </span>
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[160px] truncate font-mono text-xs text-zinc-300',
+                                    )}
+                                    title={row.labor_contract_id ?? undefined}
+                                >
+                                    {row.labor_contract_id || '—'}
+                                </td>
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -278,27 +315,37 @@ export function EmployeeContractTab({
                                 >
                                     {formatIsoDateDisplay(row.end_date)}
                                 </td>
-                                <td className={employeeRecordsTableTdClass()}>
-                                    <span
-                                        className={cn(
-                                            'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
-                                            contractStatusClass(row.status),
-                                        )}
-                                    >
-                                        {formatStatus(row.status)}
-                                    </span>
-                                </td>
-                                <td className={employeeRecordsTableTdClass()}>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'tabular-nums text-zinc-300',
+                                    )}
+                                >
                                     {formatMoney(row.basic_salary)}
                                 </td>
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate',
+                                        'tabular-nums text-zinc-300',
                                     )}
-                                    title={row.labor_contract_id ?? undefined}
                                 >
-                                    {row.labor_contract_id || '—'}
+                                    {formatMoney(row.housing_allowance)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'tabular-nums text-zinc-300',
+                                    )}
+                                >
+                                    {formatMoney(row.transport_allowance)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'tabular-nums text-zinc-300',
+                                    )}
+                                >
+                                    {formatMoney(row.other_allowances)}
                                 </td>
                                 {canManage ? (
                                     <td
