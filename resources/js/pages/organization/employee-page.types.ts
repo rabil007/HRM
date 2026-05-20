@@ -164,6 +164,8 @@ export type SeaServiceItem = {
     vessel_name: string | null;
     rank_id: number;
     rank_name: string | null;
+    start_date: string | null;
+    end_date: string | null;
     total_months: number;
     total_days: number;
     grt: string | null;

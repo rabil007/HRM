@@ -10,6 +10,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\VesselType;
+use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -20,8 +21,8 @@ test('guests cannot manage sea services', function () {
         'vessel_type_id' => 1,
         'vessel_name' => 'Test Vessel',
         'rank_id' => 1,
-        'total_months' => 1,
-        'total_days' => 0,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
     ])->assertRedirect(route('login'));
 
     $this->get(route('organization.employees.sea-services.import.template', $employee))
@@ -81,8 +82,8 @@ test('users without permission cannot manage sea services', function () {
         'vessel_type_id' => 1,
         'vessel_name' => 'Test Vessel',
         'rank_id' => 1,
-        'total_months' => 1,
-        'total_days' => 0,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
     ])->assertForbidden();
 });
 
@@ -149,6 +150,8 @@ test('employee show page includes sea services', function () {
         'is_active' => true,
     ]);
 
+    $showDuration = SeaServiceDuration::fromDates('2020-01-01', '2020-06-22');
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
@@ -156,8 +159,10 @@ test('employee show page includes sea services', function () {
             'vessel_name' => 'MV Horizon',
             'rank_id' => $rank->id,
             'client_id' => $client->id,
-            'total_months' => 5,
-            'total_days' => 22,
+            'start_date' => '2020-01-01',
+            'end_date' => '2020-06-22',
+            'total_months' => $showDuration['months'],
+            'total_days' => $showDuration['days'],
             'is_offshore' => false,
         ]);
 
@@ -252,8 +257,8 @@ test('users with permission can add update delete and reorder sea services', fun
         'vessel_type_id' => $vesselA->id,
         'vessel_name' => 'MV Alpha',
         'rank_id' => $rankCaptain->id,
-        'total_months' => 2,
-        'total_days' => 10,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-03-11',
         'grt' => '1500.5',
         'bhp' => 5000,
         'client_id' => $clientX->id,
@@ -261,11 +266,16 @@ test('users with permission can add update delete and reorder sea services', fun
     ])->assertRedirect();
 
     $row = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
+    $expectedDuration = SeaServiceDuration::fromDates('2024-01-01', '2024-03-11');
 
     expect($row)->not->toBeNull();
     expect($row->vessel_name)->toBe('MV Alpha');
     expect($row->is_offshore)->toBeTrue();
     expect($row->client_id)->toBe($clientX->id);
+    expect($row->start_date?->toDateString())->toBe('2024-01-01');
+    expect($row->end_date?->toDateString())->toBe('2024-03-11');
+    expect($row->total_months)->toBe($expectedDuration['months']);
+    expect($row->total_days)->toBe($expectedDuration['days']);
 
     $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
         'vessel_type_id' => $vesselB->id,
@@ -277,14 +287,17 @@ test('users with permission can add update delete and reorder sea services', fun
         'vessel_type_id' => $vesselAPlus->id,
         'vessel_name' => 'MV Alpha Plus',
         'rank_id' => $rankCaptain->id,
-        'total_months' => 3,
-        'total_days' => 1,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-04-02',
         'is_offshore' => false,
     ])->assertRedirect();
 
+    $updatedDuration = SeaServiceDuration::fromDates('2024-01-01', '2024-04-02');
+
     expect($row->fresh()->vessel_type_id)->toBe($vesselAPlus->id)
         ->and($row->fresh()->vessel_name)->toBe('MV Alpha Plus')
-        ->and((string) $row->fresh()->total_months)->toBe('3')
+        ->and($row->fresh()->total_months)->toBe($updatedDuration['months'])
+        ->and($row->fresh()->total_days)->toBe($updatedDuration['days'])
         ->and($row->fresh()->is_offshore)->toBeFalse();
 
     $ordered = [$second->id, $row->fresh()->id];
@@ -367,8 +380,8 @@ test('store requires vessel name and rejects inactive vessel type', function () 
         'vessel_type_id' => $inactiveVessel->id,
         'vessel_name' => 'MV Test',
         'rank_id' => $rank->id,
-        'total_months' => 1,
-        'total_days' => 0,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_type_id');
 
     $activeVessel = VesselType::query()->create([
@@ -379,9 +392,17 @@ test('store requires vessel name and rejects inactive vessel type', function () 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $activeVessel->id,
         'rank_id' => $rank->id,
-        'total_months' => 1,
-        'total_days' => 0,
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_name');
+
+    $this->post(route('organization.employees.sea-services.store', $employee), [
+        'vessel_type_id' => $activeVessel->id,
+        'vessel_name' => 'MV Test',
+        'rank_id' => $rank->id,
+        'start_date' => '2024-03-01',
+        'end_date' => '2024-01-01',
+    ])->assertSessionHasErrors('end_date');
 });
 
 test('reorder rejects partial order lists', function () {
@@ -504,10 +525,12 @@ test('csv import appends sea service rows for the employee', function () {
     grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
 
     $csv = <<<'CSV'
-vessel type,vessel name,rank,total months,total days,grt,bhp,client,is offshore
-Bulk Carrier,MV North Star,Second Officer,8,10,42000,6500,Offshore Logistics,yes
+vessel type,vessel name,rank,start date,end date,grt,bhp,client,is offshore
+Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,42000,6500,Offshore Logistics,yes
 
 CSV;
+
+    $importDuration = SeaServiceDuration::fromDates('2023-01-01', '2023-09-11');
 
     $file = UploadedFile::fake()->createWithContent('sea-service.csv', $csv);
 
@@ -515,14 +538,18 @@ CSV;
         'file' => $file,
     ])->assertRedirect();
 
-    $this->assertDatabaseHas('employee_sea_services', [
-        'employee_id' => $employee->id,
-        'vessel_name' => 'MV North Star',
-        'vessel_type_id' => $vesselType->id,
-        'rank_id' => $rank->id,
-        'client_id' => $client->id,
-        'is_offshore' => true,
-    ]);
+    $importedRow = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
+
+    expect($importedRow)->not->toBeNull()
+        ->and($importedRow->vessel_name)->toBe('MV North Star')
+        ->and($importedRow->vessel_type_id)->toBe($vesselType->id)
+        ->and($importedRow->rank_id)->toBe($rank->id)
+        ->and($importedRow->client_id)->toBe($client->id)
+        ->and($importedRow->start_date?->toDateString())->toBe('2023-01-01')
+        ->and($importedRow->end_date?->toDateString())->toBe('2023-09-11')
+        ->and($importedRow->total_months)->toBe($importDuration['months'])
+        ->and($importedRow->total_days)->toBe($importDuration['days'])
+        ->and($importedRow->is_offshore)->toBeTrue();
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
@@ -543,8 +570,8 @@ test('sea service import returns a clear error when vessel type is missing', fun
     ]);
 
     $csv = <<<'CSV'
-vessel_type,vessel_name,rank,total_months,total_days,grt,bhp,client,is_offshore
-,CREST MARS,Appointed Person,2,14,,,EL HAIL,
+vessel_type,vessel_name,rank,start_date,end_date,grt,bhp,client,is_offshore
+,CREST MARS,Appointed Person,2024-01-01,2024-03-15,,,EL HAIL,
 
 CSV;
 

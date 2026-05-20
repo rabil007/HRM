@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     destroy as destroySeaService,
     store as storeSeaService,
@@ -35,6 +35,8 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
+import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import type {
     ClientOption,
@@ -51,8 +53,8 @@ function buildSeaServicePayload(data: {
     vessel_type_id: string;
     vessel_name: string;
     rank_id: string;
-    total_months: string;
-    total_days: string;
+    start_date: string;
+    end_date: string;
     grt: string;
     bhp: string;
     client_id: string;
@@ -62,8 +64,8 @@ function buildSeaServicePayload(data: {
         vessel_type_id: Number.parseInt(data.vessel_type_id, 10),
         vessel_name: data.vessel_name.trim(),
         rank_id: Number.parseInt(data.rank_id, 10),
-        total_months: Math.max(0, Number.parseInt(data.total_months, 10) || 0),
-        total_days: Math.max(0, Number.parseInt(data.total_days, 10) || 0),
+        start_date: data.start_date,
+        end_date: data.end_date,
         grt: data.grt.trim() === '' ? null : Number(data.grt),
         bhp:
             data.bhp.trim() === ''
@@ -75,6 +77,35 @@ function buildSeaServicePayload(data: {
                 : Number.parseInt(data.client_id, 10),
         is_offshore: !!data.is_offshore,
     };
+}
+
+function resolveDisplayedDuration(
+    startDate: string,
+    endDate: string,
+    legacyRow: SeaServiceItem | null,
+): { months: string; days: string } {
+    const calculated = calculateSeaServiceDuration(startDate, endDate);
+
+    if (calculated) {
+        return {
+            months: String(calculated.months),
+            days: String(calculated.days),
+        };
+    }
+
+    if (
+        legacyRow
+        && (!startDate || !endDate)
+        && legacyRow.start_date === null
+        && legacyRow.end_date === null
+    ) {
+        return {
+            months: String(legacyRow.total_months),
+            days: String(legacyRow.total_days),
+        };
+    }
+
+    return { months: '0', days: '0' };
 }
 
 export type EmployeeSeaServiceTabProps = {
@@ -105,13 +136,27 @@ export function EmployeeSeaServiceTab({
         vessel_type_id: '',
         vessel_name: '',
         rank_id: '',
-        total_months: '0',
-        total_days: '0',
+        start_date: '',
+        end_date: '',
         grt: '',
         bhp: '',
         client_id: '',
         is_offshore: false,
     });
+
+    const displayedDuration = useMemo(
+        () =>
+            resolveDisplayedDuration(
+                employeeForm.data.start_date,
+                employeeForm.data.end_date,
+                editingRow,
+            ),
+        [
+            employeeForm.data.start_date,
+            employeeForm.data.end_date,
+            editingRow,
+        ],
+    );
 
     const seaServiceImport = seaServiceImportConfig(employeeId);
 
@@ -176,8 +221,8 @@ export function EmployeeSeaServiceTab({
                                         vessel_type_id: '',
                                         vessel_name: '',
                                         rank_id: '',
-                                        total_months: '0',
-                                        total_days: '0',
+                                        start_date: '',
+                                        end_date: '',
                                         grt: '',
                                         bhp: '',
                                         client_id: '',
@@ -193,12 +238,14 @@ export function EmployeeSeaServiceTab({
                     ) : undefined
                 }
             >
-                <EmployeeRecordsTable className="min-w-[1100px]">
+                <EmployeeRecordsTable className="min-w-[1280px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             <th className={employeeRecordsTableThClass()}>Vessel type</th>
                             <th className={employeeRecordsTableThClass()}>Vessel name</th>
                             <th className={employeeRecordsTableThClass()}>Rank</th>
+                            <th className={employeeRecordsTableThClass()}>Start</th>
+                            <th className={employeeRecordsTableThClass()}>End</th>
                             <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
                                 Total months
                             </th>
@@ -243,6 +290,22 @@ export function EmployeeSeaServiceTab({
                                     title={row.rank_name ?? ''}
                                 >
                                     {row.rank_name ?? '—'}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'whitespace-nowrap text-zinc-400',
+                                    )}
+                                >
+                                    {formatIsoDateDisplay(row.start_date)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'whitespace-nowrap text-zinc-400',
+                                    )}
+                                >
+                                    {formatIsoDateDisplay(row.end_date)}
                                 </td>
                                 <td
                                     className={cn(
@@ -301,8 +364,8 @@ export function EmployeeSeaServiceTab({
                                                     vessel_type_id: String(row.vessel_type_id),
                                                     vessel_name: row.vessel_name ?? '',
                                                     rank_id: String(row.rank_id),
-                                                    total_months: String(row.total_months),
-                                                    total_days: String(row.total_days),
+                                                    start_date: row.start_date ?? '',
+                                                    end_date: row.end_date ?? '',
                                                     grt: row.grt ?? '',
                                                     bhp:
                                                         row.bhp !== null && row.bhp !== undefined
@@ -442,36 +505,76 @@ export function EmployeeSeaServiceTab({
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Total months <span className="text-red-400">*</span></Label>
+                                <Label htmlFor="sea_service_start_date" className="text-xs">
+                                    Start date <span className="text-red-400">*</span>
+                                </Label>
                                 <Input
-                                    type="number"
-                                    min={0}
-                                    inputMode="numeric"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
-                                    value={employeeForm.data.total_months}
-                                    onChange={(e) => employeeForm.setData('total_months', e.target.value)}
+                                    id="sea_service_start_date"
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={employeeForm.data.start_date}
+                                    onChange={(e) =>
+                                        employeeForm.setData('start_date', e.target.value)
+                                    }
                                 />
-                                {employeeForm.errors.total_months ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.total_months}</p>
+                                {employeeForm.errors.start_date ? (
+                                    <p className="text-xs text-destructive">
+                                        {employeeForm.errors.start_date}
+                                    </p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Full months served</p>
+                                    <p className="text-[11px] text-zinc-500">
+                                        First day of service on board
+                                    </p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
-                                <Label className="text-xs">Total days <span className="text-red-400">*</span></Label>
+                                <Label htmlFor="sea_service_end_date" className="text-xs">
+                                    End date <span className="text-red-400">*</span>
+                                </Label>
+                                <Input
+                                    id="sea_service_end_date"
+                                    type="date"
+                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    value={employeeForm.data.end_date}
+                                    onChange={(e) =>
+                                        employeeForm.setData('end_date', e.target.value)
+                                    }
+                                />
+                                {employeeForm.errors.end_date ? (
+                                    <p className="text-xs text-destructive">
+                                        {employeeForm.errors.end_date}
+                                    </p>
+                                ) : (
+                                    <p className="text-[11px] text-zinc-500">
+                                        Last day of service on board
+                                    </p>
+                                )}
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Total months</Label>
                                 <Input
                                     type="number"
-                                    min={0}
-                                    inputMode="numeric"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
-                                    value={employeeForm.data.total_days}
-                                    onChange={(e) => employeeForm.setData('total_days', e.target.value)}
+                                    readOnly
+                                    tabIndex={-1}
+                                    className="h-10 cursor-default rounded-xl border-white/5 bg-white/[0.02] text-sm tabular-nums text-zinc-400"
+                                    value={displayedDuration.months}
                                 />
-                                {employeeForm.errors.total_days ? (
-                                    <p className="text-xs text-destructive">{employeeForm.errors.total_days}</p>
-                                ) : (
-                                    <p className="text-[11px] text-zinc-500">Remaining days served</p>
-                                )}
+                                <p className="text-[11px] text-zinc-500">
+                                    Calculated from service dates
+                                </p>
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label className="text-xs">Total days</Label>
+                                <Input
+                                    type="number"
+                                    readOnly
+                                    tabIndex={-1}
+                                    className="h-10 cursor-default rounded-xl border-white/5 bg-white/[0.02] text-sm tabular-nums text-zinc-400"
+                                    value={displayedDuration.days}
+                                />
+                                <p className="text-[11px] text-zinc-500">
+                                    Total days in the service period (inclusive)
+                                </p>
                             </div>
                         </div>
 

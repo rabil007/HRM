@@ -390,6 +390,8 @@ final class EmployeeProfilePageData
                     'vessel_name' => $row->vessel_name,
                     'rank_id' => $row->rank_id,
                     'rank_name' => $row->rank?->name,
+                    'start_date' => $row->start_date?->toDateString(),
+                    'end_date' => $row->end_date?->toDateString(),
                     'total_months' => $row->total_months,
                     'total_days' => $row->total_days,
                     'grt' => $row->grt !== null ? (string) $row->grt : null,

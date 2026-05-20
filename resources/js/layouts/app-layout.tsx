@@ -8,6 +8,7 @@ import { ProfileDropdown } from '@/components/profile-dropdown';
 import { Search } from '@/components/search';
 import { ThemeSwitch } from '@/components/theme-switch';
 import { dashboard } from '@/routes';
+import { employees } from '@/routes/organization';
 import type { BreadcrumbItem } from '@/types';
 
 export default function AppLayout({
@@ -29,8 +30,8 @@ export default function AppLayout({
         },
         {
             title: 'Employees',
-            href: placeholder('employees.index'),
-            isActive: url.includes('module=employees') || url.includes('employees'),
+            href: employees.url(),
+            isActive: url.startsWith('/organization/employees'),
             disabled: false,
         },
         {

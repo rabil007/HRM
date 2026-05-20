@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\VesselType;
+use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -21,6 +22,12 @@ class EmployeeSeaServiceFactory extends Factory
      */
     public function definition(): array
     {
+        $startDate = fake()->dateTimeBetween('-5 years', '-1 year');
+        $endDate = fake()->dateTimeBetween($startDate, 'now');
+        $start = $startDate->format('Y-m-d');
+        $end = $endDate->format('Y-m-d');
+        $duration = SeaServiceDuration::fromDates($start, $end);
+
         return [
             'sort_order' => 0,
             'vessel_type_id' => static function (): int {
@@ -36,8 +43,10 @@ class EmployeeSeaServiceFactory extends Factory
                     'is_active' => true,
                 ])->id;
             },
-            'total_months' => fake()->numberBetween(0, 24),
-            'total_days' => fake()->numberBetween(0, 29),
+            'start_date' => $start,
+            'end_date' => $end,
+            'total_months' => $duration['months'],
+            'total_days' => $duration['days'],
             'grt' => null,
             'bhp' => null,
             'client_id' => null,

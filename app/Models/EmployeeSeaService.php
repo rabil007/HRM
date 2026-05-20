@@ -20,6 +20,8 @@ class EmployeeSeaService extends Model
             'sort_order' => 'integer',
             'vessel_type_id' => 'integer',
             'rank_id' => 'integer',
+            'start_date' => 'date',
+            'end_date' => 'date',
             'client_id' => 'integer',
             'total_months' => 'integer',
             'total_days' => 'integer',

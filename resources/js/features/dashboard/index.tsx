@@ -20,7 +20,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { dashboard } from '@/routes';
-import { documents } from '@/routes/organization';
+import { documents, employees } from '@/routes/organization';
 import { AnalyticsChart } from './components/analytics-chart';
 
 type DocumentCompliance = {
@@ -56,7 +56,7 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                     </div>
                     <div className="flex items-center gap-3">
                         <Button variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10" asChild>
-                            <a href={placeholder('employees.index')}>
+                            <a href={employees.url()}>
                                 <LayoutGrid className="mr-2 h-4 w-4" />
                                 Directory
                             </a>
