@@ -1,0 +1,28 @@
+import { formatDisplayDate } from '@/lib/format-date';
+import type { DocumentBrowseItem } from './types';
+
+export function matchesFileSearch(doc: DocumentBrowseItem, query: string): boolean {
+    const haystack = [
+        doc.document_name,
+        doc.document_type,
+        formatDisplayDate(doc.uploaded_at),
+    ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+    return haystack.includes(query);
+}
+
+export function filterDocuments(
+    documents: DocumentBrowseItem[],
+    search: string,
+): DocumentBrowseItem[] {
+    const query = search.trim().toLowerCase();
+
+    if (query === '') {
+        return documents;
+    }
+
+    return documents.filter((doc) => matchesFileSearch(doc, query));
+}

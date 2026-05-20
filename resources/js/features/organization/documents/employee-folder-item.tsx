@@ -1,13 +1,10 @@
 import { Link } from '@inertiajs/react';
 import { Folder } from 'lucide-react';
+import type { EmployeeFolder } from '@/features/organization/documents/types';
 import { cn } from '@/lib/utils';
+import { documents } from '@/routes/organization';
 
-export type EmployeeFolder = {
-    employee_id: number;
-    employee_name: string;
-    employee_no: string;
-    document_count: number;
-};
+export type { EmployeeFolder };
 
 export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
     const fileLabel =
@@ -17,7 +14,7 @@ export function EmployeeFolderItem({ employee }: { employee: EmployeeFolder }) {
 
     return (
         <Link
-            href={`/organization/documents/employees/${employee.employee_id}`}
+            href={documents.employee.url({ employee: employee.employee_id })}
             title={`${employee.employee_name} (${employee.employee_no})`}
             className={cn(
                 'group flex w-full max-w-[9.5rem] flex-col items-center gap-2 rounded-xl px-3 py-4 text-center',

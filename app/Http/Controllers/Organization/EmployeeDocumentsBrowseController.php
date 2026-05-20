@@ -14,7 +14,11 @@ class EmployeeDocumentsBrowseController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $result = $browse->documentsForEmployee($companyId, $employee->id);
+        if ($employee->company_id !== $companyId) {
+            abort(404);
+        }
+
+        $result = $browse->documentsForEmployee($companyId, $employee);
 
         return Inertia::render('organization/documents/employee', [
             'employee' => $result['employee'],

@@ -154,7 +154,7 @@ class Employee extends Model
 
     public function documents(): HasMany
     {
-        return $this->hasMany(EmployeeDocument::class)->latest('id');
+        return $this->hasMany(EmployeeDocument::class)->latestUpload();
     }
 
     public function educationQualifications(): HasMany

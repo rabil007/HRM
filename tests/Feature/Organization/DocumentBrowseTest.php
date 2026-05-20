@@ -5,12 +5,11 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
-test('guests cannot access document browse api or pages', function () {
-    $this->getJson('/api/documents/employees')->assertUnauthorized();
+test('guests cannot access document browse pages', function () {
     $this->get('/organization/documents')->assertRedirect(route('login'));
 });
 
-test('api documents employees returns only employees with document counts', function () {
+test('documents folder index returns only employees with document counts', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -46,20 +45,22 @@ test('api documents employees returns only employees with document counts', func
         'status' => 'valid',
     ]);
 
-    $response = $this->getJson('/api/documents/employees');
+    $this->get('/organization/documents')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/index')
+            ->has('employees', 1)
+            ->where('employees.0.employee_id', $employeeA->id)
+            ->where('employees.0.employee_name', $employeeA->name)
+            ->where('employees.0.employee_no', $employeeA->employee_no)
+            ->where('employees.0.document_count', 2)
+            ->missing('employees.1')
+        );
 
-    $response->assertOk();
-    $response->assertJsonCount(1);
-    $response->assertJsonFragment([
-        'employee_id' => $employeeA->id,
-        'employee_name' => $employeeA->name,
-        'employee_no' => $employeeA->employee_no,
-        'document_count' => 2,
-    ]);
-    $response->assertJsonMissing(['employee_id' => $employeeB->id]);
+    expect(collect($employeeB->documents)->count())->toBe(0);
 });
 
-test('api documents employees supports search', function () {
+test('documents folder index supports search', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -77,95 +78,19 @@ test('api documents employees supports search', function () {
         'status' => 'valid',
     ]);
 
-    $this->getJson('/api/documents/employees?search=DOC001')
-        ->assertOk()
-        ->assertJsonCount(1);
-
-    $this->getJson('/api/documents/employees?search=missing')
-        ->assertOk()
-        ->assertJsonCount(0);
-});
-
-test('api documents for employee returns file list', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
-
-    grantCompanyPermissions($user, $company, ['employees.view']);
-
-    EmployeeDocument::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'document_type_id' => $passportType->id,
-        'type' => 'other',
-        'document_type' => (string) $passportType->id,
-        'file_path' => 'employee-documents/test/visa.pdf',
-        'original_filename' => 'Visa.pdf',
-        'mime_type' => 'application/pdf',
-        'status' => 'valid',
-    ]);
-
-    $response = $this->getJson("/api/documents/employees/{$employee->id}");
-
-    $response->assertOk();
-    $response->assertJsonCount(1);
-    $response->assertJsonFragment([
-        'document_name' => 'Visa.pdf',
-        'document_type' => 'Passport Copy',
-    ]);
-    expect($response->json('0'))->toHaveKeys([
-        'id',
-        'document_name',
-        'document_type',
-        'file_url',
-        'uploaded_at',
-        'can_preview',
-    ]);
-});
-
-test('api documents for employee returns 404 when employee is outside company', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
-    ['company' => $otherCompany, 'employee' => $otherEmployee] = makeDocumentFixtures();
-
-    grantCompanyPermissions($user, $company, ['employees.view']);
-
-    $this->getJson("/api/documents/employees/{$otherEmployee->id}")
-        ->assertNotFound();
-});
-
-test('documents folder index inertia page', function () {
-    $user = User::factory()->create();
-    $this->actingAs($user);
-
-    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
-
-    grantCompanyPermissions($user, $company, ['employees.view']);
-
-    EmployeeDocument::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'document_type_id' => $passportType->id,
-        'type' => 'other',
-        'document_type' => (string) $passportType->id,
-        'file_path' => 'employee-documents/test/file.pdf',
-        'status' => 'valid',
-    ]);
-
-    $this->get('/organization/documents')
+    $this->get('/organization/documents?search=DOC001')
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/documents/index')
             ->has('employees', 1)
-            ->where('employees.0.employee_id', $employee->id)
-            ->where('employees.0.document_count', 1)
+            ->where('search', 'DOC001')
         );
+
+    $this->get('/organization/documents?search=missing')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('employees', 0));
 });
 
-test('employee documents browse inertia page', function () {
+test('employee documents browse inertia page returns files with document type label', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -181,6 +106,7 @@ test('employee documents browse inertia page', function () {
         'document_type' => (string) $passportType->id,
         'file_path' => 'employee-documents/test/file.pdf',
         'original_filename' => 'Contract.pdf',
+        'mime_type' => 'application/pdf',
         'status' => 'valid',
     ]);
 
@@ -191,5 +117,60 @@ test('employee documents browse inertia page', function () {
             ->where('employee.id', $employee->id)
             ->has('documents', 1)
             ->where('documents.0.document_name', 'Contract.pdf')
+            ->where('documents.0.document_type', 'Passport Copy')
+            ->where('documents.0.can_preview', true)
         );
+});
+
+test('employee documents browse returns documents newest first', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $older = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/older.pdf',
+        'original_filename' => 'Older.pdf',
+        'status' => 'valid',
+        'created_at' => now()->subDay(),
+    ]);
+
+    $newer = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/newer.pdf',
+        'original_filename' => 'Newer.pdf',
+        'status' => 'valid',
+        'created_at' => now(),
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('documents.0.id', $newer->id)
+            ->where('documents.1.id', $older->id)
+        );
+});
+
+test('employee documents browse returns 404 when employee is outside company', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+    ['employee' => $otherEmployee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/documents/employees/{$otherEmployee->id}")
+        ->assertNotFound();
 });

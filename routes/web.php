@@ -91,8 +91,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/employees/{employee}', [EmployeeController::class, 'update'])->middleware('can:employees.update')->name('organization.employees.update');
     Route::put('organization/employees/{employee}/status', [EmployeeController::class, 'updateStatus'])->middleware('can:employees.update')->name('organization.employees.status');
     Route::delete('organization/employees/{employee}', [EmployeeController::class, 'destroy'])->middleware('can:employees.delete')->name('organization.employees.destroy');
-    Route::get('organization/documents', DocumentsFolderIndexController::class)->middleware('can:employees.view')->name('organization.documents');
-    Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->middleware('can:employees.view')->name('organization.documents.employee');
+    Route::middleware('can:employees.view')->group(function () {
+        Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
+        Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
+    });
     Route::post('organization/employees/{employee}/documents', [EmployeeDocumentController::class, 'store'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.store');
     Route::post('organization/employees/{employee}/documents/bulk', [EmployeeDocumentController::class, 'bulkStore'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.bulk-store');
     Route::put('organization/employees/{employee}/documents/{document}', [EmployeeDocumentController::class, 'update'])->middleware('can:employees.documents.upload')->name('organization.employees.documents.update');

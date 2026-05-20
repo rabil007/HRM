@@ -77,6 +77,11 @@ class EmployeeDocument extends Model
         return $query->where('company_id', $companyId);
     }
 
+    public function scopeLatestUpload(Builder $query): Builder
+    {
+        return $query->orderByDesc('created_at')->orderByDesc('id');
+    }
+
     public function scopeExpiringSoon(Builder $query): Builder
     {
         return $query->where('status', 'expiring_soon');
@@ -129,5 +134,33 @@ class EmployeeDocument extends Model
     {
         return str_starts_with((string) $this->mime_type, 'image/')
             || $this->mime_type === 'application/pdf';
+    }
+
+    /**
+     * @return array{
+     *     id: int,
+     *     document_name: string,
+     *     document_type: string,
+     *     file_url: string,
+     *     uploaded_at: string|null,
+     *     mime_type: string|null,
+     *     can_preview: bool,
+     *     status: string|null
+     * }
+     */
+    public function toBrowseArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'document_name' => $this->original_filename
+                ?? $this->title
+                ?? $this->document_type_label,
+            'document_type' => $this->document_type_label,
+            'file_url' => $this->file_url,
+            'uploaded_at' => $this->created_at?->toIso8601String(),
+            'mime_type' => $this->mime_type,
+            'can_preview' => $this->can_preview,
+            'status' => $this->status,
+        ];
     }
 }

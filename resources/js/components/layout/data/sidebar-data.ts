@@ -30,6 +30,7 @@ import {
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
+import { documents } from '@/routes/organization';
 import { edit as editSecurity } from '@/routes/security';
 import type { SidebarData } from '../types';
 
@@ -137,7 +138,7 @@ const baseSidebarData: SidebarData = {
             title: 'Employees',
             items: [
                 { title: 'Employee', url: '/organization/employees', icon: Users },
-                { title: 'Documents', url: '/organization/documents', icon: FileText },
+                { title: 'Documents', url: documents.url(), icon: FileText },
             ],
         },
         {
@@ -275,7 +276,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'positions.view') ? item : null;
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
-                        case '/organization/documents':
+                        case documents.url():
                             return has(permissions, 'employees.view') ? item : null;
                         case '/organization/roles':
                             return has(permissions, 'roles.view') ? item : null;

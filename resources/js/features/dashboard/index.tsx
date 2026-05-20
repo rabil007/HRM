@@ -20,6 +20,7 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { dashboard } from '@/routes';
+import { documents } from '@/routes/organization';
 import { AnalyticsChart } from './components/analytics-chart';
 
 type DocumentCompliance = {
@@ -194,19 +195,19 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                             <AtGlanceItem
                                 title="Expired documents"
                                 subtitle="Immediate action"
-                                href="/organization/documents"
+                                href={documents.url()}
                                 value={String(documentCompliance.expired)}
                             />
                             <AtGlanceItem
                                 title="Expiring soon"
                                 subtitle="Next 30 days"
-                                href="/organization/documents"
+                                href={documents.url()}
                                 value={String(documentCompliance.expiring_soon)}
                             />
                             <AtGlanceItem
                                 title="Uploaded this month"
                                 subtitle={`${documentCompliance.valid} valid documents`}
-                                href="/organization/documents"
+                                href={documents.url()}
                                 value={String(documentCompliance.uploaded_this_month)}
                             />
                         </CardContent>

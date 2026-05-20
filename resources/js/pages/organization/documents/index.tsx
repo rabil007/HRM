@@ -1,13 +1,14 @@
-import { Head, router } from '@inertiajs/react';
+import { Head } from '@inertiajs/react';
 import { Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import { EmptyState } from '@/components/empty-state';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
-import type { EmployeeFolder } from '@/features/organization/documents/employee-folder-item';
 import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
+import type { EmployeeFolder } from '@/features/organization/documents/types';
+import { useDebouncedInertiaSearch } from '@/features/organization/documents/use-debounced-inertia-search';
 import { cn } from '@/lib/utils';
+import { documents } from '@/routes/organization';
 
 type Props = {
     employees: EmployeeFolder[];
@@ -15,43 +16,11 @@ type Props = {
 };
 
 export default function DocumentsIndex({ employees, search: initialSearch }: Props) {
-    const [draftSearch, setDraftSearch] = useState<string | null>(null);
-    const [isSearching, setIsSearching] = useState(false);
-    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const searchInput = draftSearch ?? initialSearch;
-
-    useEffect(() => {
-        return () => {
-            if (debounceRef.current) {
-                clearTimeout(debounceRef.current);
-            }
-        };
-    }, []);
-
-    const onSearchChange = useCallback((value: string) => {
-        setDraftSearch(value);
-
-        if (debounceRef.current) {
-            clearTimeout(debounceRef.current);
-        }
-
-        debounceRef.current = setTimeout(() => {
-            setIsSearching(true);
-            router.get(
-                '/organization/documents',
-                { search: value || undefined },
-                {
-                    preserveState: true,
-                    replace: true,
-                    only: ['employees', 'search'],
-                    onFinish: () => {
-                        setIsSearching(false);
-                        setDraftSearch(null);
-                    },
-                },
-            );
-        }, 400);
-    }, []);
+    const { searchInput, isSearching, onSearchChange } = useDebouncedInertiaSearch({
+        url: documents.url(),
+        initialSearch,
+        only: ['employees', 'search'],
+    });
 
     const folderLabel =
         employees.length === 1 ? '1 employee folder' : `${employees.length} employee folders`;

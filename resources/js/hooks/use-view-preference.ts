@@ -21,7 +21,6 @@ const ORGANIZATION_VIEW_KEYS = [
     'positions:view',
     'users:view',
     'roles:view',
-    'documents:view',
 ] as const;
 
 export function setOrganizationDefaultView(next: ViewPreference): void {
