@@ -95,6 +95,55 @@ test('users with permission can bulk upload documents', function () {
     ]);
 });
 
+test('bulk upload persists distinct metadata per document index', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType, 'visaType' => $visaType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+
+    $this->post("/organization/employees/{$employee->id}/documents/bulk", [
+        'documents' => [
+            [
+                'document_type_id' => $passportType->id,
+                'title' => 'Passport Copy',
+                'file' => UploadedFile::fake()->create('passport.pdf', 100, 'application/pdf'),
+                'document_number' => 'P-111',
+                'issue_date' => '2019-06-01',
+                'expiry_date' => '2029-06-01',
+                'notes' => 'Primary travel document',
+            ],
+            [
+                'document_type_id' => $visaType->id,
+                'title' => 'UAE Residence Visa',
+                'file' => UploadedFile::fake()->image('visa.jpg'),
+                'document_number' => 'V-222',
+                'expiry_date' => now()->addDays(45)->toDateString(),
+                'notes' => 'Work permit visa',
+            ],
+        ],
+    ])->assertRedirect();
+
+    $this->assertDatabaseHas('employee_documents', [
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'title' => 'Passport Copy',
+        'document_number' => 'P-111',
+        'notes' => 'Primary travel document',
+    ]);
+
+    $this->assertDatabaseHas('employee_documents', [
+        'employee_id' => $employee->id,
+        'document_type_id' => $visaType->id,
+        'title' => 'UAE Residence Visa',
+        'document_number' => 'V-222',
+        'notes' => 'Work permit visa',
+    ]);
+});
+
 test('users without permission cannot upload a document', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
