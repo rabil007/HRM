@@ -10,8 +10,6 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
-import { toast } from '@/lib/toast';
-
 export function ReplaceDocumentDialog({
     document,
     employeeId,
@@ -70,10 +68,11 @@ export function ReplaceDocumentDialog({
                                 }),
                                 {
                                     forceFormData: true,
+                                    preserveScroll: true,
+                                    only: ['documents'],
                                     onSuccess: () => {
                                         onOpenChange(false);
                                         replaceForm.reset();
-                                        toast.success('Document file replaced.');
                                     },
                                 },
                             );

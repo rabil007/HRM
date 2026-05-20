@@ -12,7 +12,6 @@ import { DocumentPreviewDialog } from '@/features/organization/documents/shared/
 import { DocumentVersionsSheet } from '@/features/organization/documents/shared/document-versions-sheet';
 import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
@@ -210,10 +209,7 @@ export function EmployeeDocumentsTab({
                         }),
                         {
                             ...DOCUMENTS_RELOAD,
-                            onSuccess: () => {
-                                setDeleteDocId(null);
-                                toast.success('Document deleted.');
-                            },
+                            onSuccess: () => setDeleteDocId(null),
                         },
                     );
                 }}

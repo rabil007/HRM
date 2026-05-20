@@ -370,7 +370,6 @@ export function UploadDocumentDialog({
                                             onSuccess: () => {
                                                 onOpenChange(false);
                                                 resetUploadDialog();
-                                                toast.success('Documents uploaded.');
                                             },
                                         },
                                     );
@@ -382,10 +381,10 @@ export function UploadDocumentDialog({
                                     EmployeeDocumentController.store.url({ employee: employeeId }),
                                     {
                                         forceFormData: true,
+                                        ...DOCUMENTS_RELOAD,
                                         onSuccess: () => {
                                             onOpenChange(false);
                                             resetUploadDialog();
-                                            toast.success('Document uploaded.');
                                         },
                                     },
                                 );

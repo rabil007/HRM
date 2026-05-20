@@ -12,8 +12,6 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
-import { toast } from '@/lib/toast';
-
 export function EditDocumentDialog({
     document,
     employeeId,
@@ -148,10 +146,9 @@ export function EditDocumentDialog({
                                     document: document.id,
                                 }),
                                 {
-                                    onSuccess: () => {
-                                        onOpenChange(false);
-                                        toast.success('Document updated.');
-                                    },
+                                    preserveScroll: true,
+                                    only: ['documents'],
+                                    onSuccess: () => onOpenChange(false),
                                 },
                             );
                         }}

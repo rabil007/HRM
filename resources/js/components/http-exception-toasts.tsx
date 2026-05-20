@@ -2,6 +2,23 @@ import { router } from '@inertiajs/react';
 import { useEffect } from 'react';
 import { toast } from '@/lib/toast';
 
+let lastFlashToast: { key: string; at: number } | null = null;
+
+function showFlashToast(
+    type: 'success' | 'error' | 'info',
+    message: string,
+): void {
+    const key = `${type}:${message}`;
+    const now = Date.now();
+
+    if (lastFlashToast?.key === key && now - lastFlashToast.at < 750) {
+        return;
+    }
+
+    lastFlashToast = { key, at: now };
+    toast[type](message);
+}
+
 export function HttpExceptionToasts() {
     useEffect(() => {
         const removeSuccess = router.on('success', (event: any) => {
@@ -12,15 +29,15 @@ export function HttpExceptionToasts() {
             const info = typeof flash.info === 'string' ? flash.info.trim() : '';
 
             if (success) {
-                toast.success(success);
+                showFlashToast('success', success);
             }
 
             if (error) {
-                toast.error(error);
+                showFlashToast('error', error);
             }
 
             if (info) {
-                toast.info(info);
+                showFlashToast('info', info);
             }
         });
 
