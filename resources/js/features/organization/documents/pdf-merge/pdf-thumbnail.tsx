@@ -1,5 +1,5 @@
 import { FileText } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { loadPdfPreview } from '@/features/organization/documents/pdf-merge/pdf-preview-service';
 import type { MergeDocumentItem, PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
@@ -14,66 +14,45 @@ export function PdfThumbnail({
     className?: string;
     onPreviewLoaded?: (data: PdfPreviewData) => void;
 }) {
-    const containerRef = useRef<HTMLDivElement>(null);
     const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
 
     useEffect(() => {
-        const element = containerRef.current;
-
-        if (!element) {
-            return;
-        }
-
         let cancelled = false;
 
-        const observer = new IntersectionObserver(
-            (entries) => {
-                const entry = entries[0];
+        setIsLoading(true);
+        setHasError(false);
+        setThumbnailUrl(null);
 
-                if (!entry?.isIntersecting || cancelled) {
-                    return;
+        loadPdfPreview(document.id)
+            .then((preview) => {
+                if (!cancelled) {
+                    setThumbnailUrl(preview.thumbnailDataUrl);
+                    setHasError(preview.thumbnailDataUrl === null);
+                    onPreviewLoaded?.(preview);
                 }
-
-                observer.disconnect();
-                setIsLoading(true);
-
-                loadPdfPreview(document.id, document.file_url)
-                    .then((preview) => {
-                        if (!cancelled) {
-                            setThumbnailUrl(preview.thumbnailDataUrl);
-                            setHasError(preview.thumbnailDataUrl === null);
-                            onPreviewLoaded?.(preview);
-                        }
-                    })
-                    .catch(() => {
-                        if (!cancelled) {
-                            setHasError(true);
-                        }
-                    })
-                    .finally(() => {
-                        if (!cancelled) {
-                            setIsLoading(false);
-                        }
-                    });
-            },
-            { rootMargin: '120px' },
-        );
-
-        observer.observe(element);
+            })
+            .catch(() => {
+                if (!cancelled) {
+                    setHasError(true);
+                }
+            })
+            .finally(() => {
+                if (!cancelled) {
+                    setIsLoading(false);
+                }
+            });
 
         return () => {
             cancelled = true;
-            observer.disconnect();
         };
-    }, [document.file_url, document.id, onPreviewLoaded]);
+    }, [document.id, onPreviewLoaded]);
 
     return (
         <div
-            ref={containerRef}
             className={cn(
-                'relative flex h-24 w-20 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-zinc-950/60',
+                'relative flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/10 bg-zinc-950/60',
                 className,
             )}
         >
@@ -88,7 +67,7 @@ export function PdfThumbnail({
             ) : (
                 <FileText
                     className={cn(
-                        'h-8 w-8',
+                        'h-6 w-6',
                         hasError ? 'text-zinc-600' : 'text-zinc-500',
                     )}
                 />

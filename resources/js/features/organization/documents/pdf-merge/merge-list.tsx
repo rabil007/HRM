@@ -41,7 +41,7 @@ export function MergeList({ documents, pageCounts, onReorder, onPreviewLoaded }:
     }, [onReorder]);
 
     return (
-        <div ref={listRef} className="flex flex-col gap-3">
+        <div ref={listRef} className="flex flex-col gap-2">
             {documents.map((document, index) => (
                 <MergeListItem
                     key={document.id}

@@ -20,7 +20,7 @@ export function MergeListItem({
     return (
         <div
             data-id={document.id}
-            className="flex items-center gap-4 rounded-xl border border-white/10 bg-zinc-900/80 p-4 transition-colors"
+            className="flex items-center gap-3 rounded-lg border border-white/10 bg-zinc-900/80 p-3 transition-colors"
         >
             <button
                 type="button"

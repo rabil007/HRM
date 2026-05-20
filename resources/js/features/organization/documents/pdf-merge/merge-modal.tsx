@@ -5,10 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
-    DialogHeader,
-    DialogTitle,
 } from '@/components/ui/dialog';
 import { downloadBinaryExport } from '@/features/organization/documents/shared/download-binary-export';
 import { FilenameInput } from '@/features/organization/documents/pdf-merge/filename-input';
@@ -115,23 +112,13 @@ export function PdfMergeModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent
-                className="fixed inset-0 flex h-screen w-screen max-w-none translate-x-0 translate-y-0 flex-col gap-0 rounded-none border-0 bg-zinc-900/98 p-0 shadow-2xl sm:max-w-none"
-                onInteractOutside={(event) => event.preventDefault()}
-            >
-                <DialogHeader className="sr-only">
-                    <DialogTitle>Merge PDFs</DialogTitle>
-                    <DialogDescription>
-                        Reorder selected PDF files and download a merged document.
-                    </DialogDescription>
-                </DialogHeader>
-
+            <DialogContent className="flex max-h-[85vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
                 <MergeToolbar
                     documentCount={orderedDocuments.length}
                     estimatedSizeBytes={estimatedSizeBytes}
                 />
 
-                <div className="flex-1 overflow-y-auto px-6 py-5">
+                <div className="max-h-[min(420px,50vh)] overflow-y-auto px-5 py-4">
                     <MergeList
                         documents={orderedDocuments}
                         pageCounts={pageCounts}
@@ -140,7 +127,7 @@ export function PdfMergeModal({
                     />
                 </div>
 
-                <div className="border-t border-white/10 px-6 py-4">
+                <div className="border-t border-white/10 px-5 py-4">
                     <FilenameInput
                         value={filename}
                         onChange={setFilename}
@@ -148,7 +135,7 @@ export function PdfMergeModal({
                     />
                 </div>
 
-                <DialogFooter className="border-t border-white/10 px-6 py-4 sm:justify-end">
+                <DialogFooter className="border-t border-white/10 px-5 py-4 sm:justify-end">
                     <Button
                         type="button"
                         variant="outline"
