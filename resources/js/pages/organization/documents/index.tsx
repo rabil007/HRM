@@ -13,23 +13,23 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
-import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
-import { DocumentsBulkToolbar } from '@/features/organization/documents/documents-bulk-toolbar';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
-import { downloadBulkZip } from '@/features/organization/documents/download-bulk-zip';
 import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
+import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
+import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
     ComplianceDocumentItem,
     DocumentExpirySummary,
     EmployeeFolder,
     PaginatedComplianceDocuments,
-} from '@/features/organization/documents/types';
-import { useBulkSelection } from '@/features/organization/documents/use-bulk-selection';
+} from '@/features/organization/documents/shared/types';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
-import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';

@@ -5,10 +5,13 @@ namespace App\Support\EmployeeDocuments;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
 
 class DocumentBulkActionService
 {
+    public function __construct(
+        private DocumentDeletionService $deletion,
+    ) {}
+
     /**
      * @param  list<int>  $documentIds
      */
@@ -28,16 +31,12 @@ class DocumentBulkActionService
             ->forCompany($companyId)
             ->where('employee_id', $employeeId)
             ->whereIn('id', $uniqueIds)
-            ->get(['id', 'file_path']);
+            ->get();
 
         abort_if($documents->count() !== count($uniqueIds), 404);
 
         foreach ($documents as $document) {
-            if (! str_starts_with((string) $document->file_path, 'http')) {
-                Storage::disk('public')->delete((string) $document->file_path);
-            }
-
-            $document->delete();
+            $this->deletion->delete($document);
         }
 
         return $documents->count();

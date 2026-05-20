@@ -298,3 +298,40 @@ test('users cannot manage documents for employees in another company', function 
         'file' => UploadedFile::fake()->create('visa.pdf', 100, 'application/pdf'),
     ])->assertForbidden();
 });
+
+test('employee profile documents include unified expiry serialization fields', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'title' => 'Passport Copy',
+        'file_path' => 'employee-documents/test/passport.pdf',
+        'original_filename' => 'passport.pdf',
+        'expiry_date' => '2026-05-25',
+        'status' => 'expiring_soon',
+    ]);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('documents.0.title', 'Passport Copy')
+            ->where('documents.0.expiry_date', '2026-05-25')
+            ->where('documents.0.expiry_status', 'expiring_7')
+            ->where('documents.0.expiry_label', 'Expires in 5 days')
+            ->where('documents.0.remaining_days', 5)
+        );
+
+    Carbon::setTestNow();
+});

@@ -108,6 +108,24 @@ class DocumentExpiry
         ], true);
     }
 
+    /**
+     * Maps resolved expiry status to the persisted DB status column.
+     */
+    public static function persistedStatus(CarbonInterface|string|null $expiryDate, ?CarbonInterface $today = null): string
+    {
+        $resolved = self::resolve($expiryDate, $today);
+
+        if ($resolved === null || $resolved === DocumentExpiryStatus::Valid) {
+            return DocumentExpiryStatus::Valid->value;
+        }
+
+        if ($resolved === DocumentExpiryStatus::Expired) {
+            return DocumentExpiryStatus::Expired->value;
+        }
+
+        return 'expiring_soon';
+    }
+
     private static function parseDate(CarbonInterface|string|null $expiryDate): ?Carbon
     {
         if ($expiryDate === null || $expiryDate === '') {

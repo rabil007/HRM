@@ -9,4 +9,6 @@ enum DocumentExpiryStatus: string
     case Expiring15 = 'expiring_15';
     case Expiring7 = 'expiring_7';
     case Expired = 'expired';
+
+    // Future lifecycle states: renewed, archived
 }

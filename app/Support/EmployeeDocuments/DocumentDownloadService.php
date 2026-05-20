@@ -18,12 +18,12 @@ class DocumentDownloadService
 
     public function assertEmployeeAccessible(Employee $employee, int $companyId): void
     {
-        abort_unless($employee->company_id === $companyId, 404);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
     }
 
     public function assertDocumentAccessible(EmployeeDocument $document, int $companyId): void
     {
-        abort_unless($document->company_id === $companyId, 404);
+        DocumentAccess::assertDocumentInCompany($document, $companyId);
     }
 
     public function employeeZipDownloadName(Employee $employee): string

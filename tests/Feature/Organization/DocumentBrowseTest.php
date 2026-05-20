@@ -112,6 +112,7 @@ test('employee documents browse inertia page returns files with document type la
         'original_filename' => 'Contract.pdf',
         'mime_type' => 'application/pdf',
         'status' => 'valid',
+        'uploaded_by' => $user->id,
     ]);
 
     $this->get("/organization/documents/employees/{$employee->id}")
@@ -125,6 +126,8 @@ test('employee documents browse inertia page returns files with document type la
             ->where('documents.0.can_preview', true)
             ->where('documents.0.expiry_status', null)
             ->where('documents.0.expiry_label', 'No Expiry')
+            ->where('documents.0.uploaded_by', $user->name)
+            ->where('documents.0.uploaded_at', fn ($value) => $value !== null)
         );
 });
 

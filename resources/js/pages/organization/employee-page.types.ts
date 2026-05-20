@@ -1,3 +1,4 @@
+import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import type {
     BankOption,
     BranchOption,
@@ -9,6 +10,8 @@ import type {
     RankOption,
     ReligionOption,
 } from '@/features/organization/employees/types';
+
+export type { DocumentTypeOption };
 
 export type EmployeeDetails = {
     id: number;
@@ -97,43 +100,7 @@ export type EmployeeContractDetails = {
     updated_at: string;
 };
 
-export type EmployeeDocumentItem = {
-    id: number;
-    title: string | null;
-    type: string | null;
-    document_type_id: number | null;
-    document_type: string | null;
-    document_type_label: string | null;
-    file_path: string;
-    file_url: string;
-    original_filename: string | null;
-    mime_type: string | null;
-    size_bytes: number | null;
-    current_version: number | null;
-    can_preview: boolean;
-    issue_date: string | null;
-    expiry_date: string | null;
-    document_number: string | null;
-    notes: string | null;
-    status: string | null;
-    uploaded_by: string | null;
-    versions_count?: number;
-    versions: {
-        id: number;
-        version: number;
-        file_url: string;
-        original_filename: string | null;
-        mime_type: string | null;
-        size_bytes: number | null;
-        replaced_by: string | null;
-        created_at: string;
-    }[];
-};
-
-export type DocumentTypeOption = {
-    id: number;
-    title: string;
-};
+export type EmployeeDocumentItem = DocumentProfileItem;
 
 export type EducationQualificationItem = {
     id: number;

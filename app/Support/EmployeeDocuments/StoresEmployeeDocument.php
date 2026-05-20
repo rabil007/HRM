@@ -33,7 +33,7 @@ class StoresEmployeeDocument
             'expiry_date' => $data['expiry_date'] ?? null,
             'document_number' => $data['document_number'] ?? null,
             'notes' => $data['notes'] ?? null,
-            'status' => EmployeeDocument::deriveStatus($data['expiry_date'] ?? null),
+            'status' => DocumentExpiry::persistedStatus($data['expiry_date'] ?? null),
             'uploaded_by' => $userId,
         ]);
     }

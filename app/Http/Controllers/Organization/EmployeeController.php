@@ -423,30 +423,7 @@ class EmployeeController extends Controller
             ->withCount('versions')
             ->latest('id')
             ->get()
-            ->map(fn (EmployeeDocument $doc) => [
-                'id' => $doc->id,
-                'title' => $doc->title,
-                'type' => $doc->type,
-                'document_type_id' => $doc->document_type_id,
-                'document_type' => $doc->document_type,
-                'document_type_label' => $doc->document_type_label,
-                'file_path' => $doc->file_path,
-                'file_url' => $doc->file_url,
-                'original_filename' => $doc->original_filename,
-                'mime_type' => $doc->mime_type,
-                'size_bytes' => $doc->size_bytes,
-                'current_version' => $doc->current_version,
-                'can_preview' => $doc->can_preview,
-                'issue_date' => $doc->issue_date?->toDateString(),
-                'expiry_date' => $doc->expiry_date?->toDateString(),
-                'document_number' => $doc->document_number,
-                'notes' => $doc->notes,
-                'status' => $doc->status,
-                'uploaded_by' => $doc->uploader?->name,
-                'created_at' => $doc->created_at?->toDateTimeString(),
-                'versions_count' => (int) $doc->versions_count,
-                'versions' => [],
-            ])
+            ->map(fn (EmployeeDocument $doc) => $doc->toProfileArray())
             ->all();
 
         $educationQualifications = EmployeeEducationQualification::query()

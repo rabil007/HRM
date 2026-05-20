@@ -8,36 +8,27 @@ import {
 } from '@/components/data-table';
 import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
-import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
-import { DocumentsBulkToolbar } from '@/features/organization/documents/documents-bulk-toolbar';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
-import { downloadBulkZip } from '@/features/organization/documents/download-bulk-zip';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
+import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
+import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
+import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
     DocumentBrowseItem,
     DocumentExpirySummary,
     EmployeeSummary,
-} from '@/features/organization/documents/types';
-import { useBulkSelection } from '@/features/organization/documents/use-bulk-selection';
-import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
+} from '@/features/organization/documents/shared/types';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { show } from '@/routes/organization/employees';
@@ -224,7 +215,7 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[920px]" compact>
+                <OrganizationDataTable minWidth="min-w-[1040px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="w-10 px-3">
@@ -246,6 +237,7 @@ export default function EmployeeDocumentsBrowse({
                             <DataTableHead className="hidden lg:table-cell">Expiry</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">File size</DataTableHead>
                             <DataTableHead className="hidden lg:table-cell">Status</DataTableHead>
+                            <DataTableHead className="hidden xl:table-cell">Uploaded</DataTableHead>
                             <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
@@ -264,30 +256,23 @@ export default function EmployeeDocumentsBrowse({
                 </OrganizationDataTable>
             )}
 
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-                <AlertDialogContent className="glass-card">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete selected documents</AlertDialogTitle>
-                        <AlertDialogDescription>
-                            Are you sure you want to delete {selectedDocumentCount} selected{' '}
-                            {selectedDocumentCount === 1 ? 'document' : 'documents'}? This action
-                            cannot be undone.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel className="glass-card rounded-xl hover:bg-accent">
-                            Cancel
-                        </AlertDialogCancel>
-                        <AlertDialogAction
-                            className="rounded-xl bg-red-600 hover:bg-red-600/90"
-                            disabled={isDeleting}
-                            onClick={handleBulkDelete}
-                        >
-                            {isDeleting ? 'Deleting…' : 'Delete'}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <ConfirmDeleteDocumentDialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+                title="Delete selected documents"
+                description={
+                    <>
+                        Are you sure you want to delete {selectedDocumentCount} selected{' '}
+                        {selectedDocumentCount === 1 ? 'document' : 'documents'}? This action cannot be undone.
+                    </>
+                }
+                confirmLabel={isDeleting ? 'Deleting…' : 'Delete'}
+                confirmDisabled={isDeleting}
+                contentClassName="glass-card"
+                cancelClassName="glass-card rounded-xl hover:bg-accent"
+                confirmClassName="rounded-xl bg-red-600 hover:bg-red-600/90"
+                onConfirm={handleBulkDelete}
+            />
 
             <DocumentPreviewDialog
                 document={

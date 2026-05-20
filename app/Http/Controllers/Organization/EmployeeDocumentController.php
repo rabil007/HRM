@@ -3,33 +3,33 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\EmployeeDocument\BulkStoreEmployeeDocumentRequest;
+use App\Http\Requests\Organization\EmployeeDocument\ReplaceEmployeeDocumentRequest;
+use App\Http\Requests\Organization\EmployeeDocument\StoreEmployeeDocumentRequest;
+use App\Http\Requests\Organization\EmployeeDocument\UpdateEmployeeDocumentRequest;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\EmployeeDocuments\DocumentAccess;
+use App\Support\EmployeeDocuments\DocumentDeletionService;
+use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
 
 class EmployeeDocumentController extends Controller
 {
-    public function store(Request $request, Employee $employee, StoresEmployeeDocument $store): RedirectResponse
-    {
+    public function store(
+        StoreEmployeeDocumentRequest $request,
+        Employee $employee,
+        StoresEmployeeDocument $store,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId);
 
-        $validated = $request->validate([
-            'document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('is_active', true)],
-            'title' => ['nullable', 'string', 'max:200'],
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:20480'],
-            'issue_date' => ['nullable', 'date'],
-            'expiry_date' => ['nullable', 'date'],
-            'document_number' => ['nullable', 'string', 'max:120'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         $documentType = DocumentType::query()
             ->whereKey($validated['document_type_id'])
@@ -41,22 +41,16 @@ class EmployeeDocumentController extends Controller
         return back()->with('success', 'Document uploaded.');
     }
 
-    public function bulkStore(Request $request, Employee $employee, StoresEmployeeDocument $store): RedirectResponse
-    {
+    public function bulkStore(
+        BulkStoreEmployeeDocumentRequest $request,
+        Employee $employee,
+        StoresEmployeeDocument $store,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId, 403);
+        DocumentAccess::assertEmployeeInCompany($employee, $companyId);
 
-        $validated = $request->validate([
-            'documents' => ['required', 'array', 'min:1', 'max:20'],
-            'documents.*.document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('is_active', true)],
-            'documents.*.title' => ['nullable', 'string', 'max:200'],
-            'documents.*.file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:20480'],
-            'documents.*.issue_date' => ['nullable', 'date'],
-            'documents.*.expiry_date' => ['nullable', 'date'],
-            'documents.*.document_number' => ['nullable', 'string', 'max:120'],
-            'documents.*.notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         $ids = collect($validated['documents'])->pluck('document_type_id')->unique()->all();
         $types = DocumentType::query()
@@ -83,54 +77,51 @@ class EmployeeDocumentController extends Controller
         return back()->with('success', 'Documents uploaded.');
     }
 
-    public function update(Request $request, Employee $employee, EmployeeDocument $document): RedirectResponse
-    {
+    public function update(
+        UpdateEmployeeDocumentRequest $request,
+        Employee $employee,
+        EmployeeDocument $document,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId && $document->employee_id === $employee->id, 403);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
 
-        $validated = $request->validate([
-            'title' => ['nullable', 'string', 'max:200'],
-            'document_number' => ['nullable', 'string', 'max:120'],
-            'issue_date' => ['nullable', 'date'],
-            'expiry_date' => ['nullable', 'date'],
-            'notes' => ['nullable', 'string', 'max:1000'],
-        ]);
+        $validated = $request->validated();
 
         $document->update([
             ...$validated,
-            'status' => EmployeeDocument::deriveStatus($validated['expiry_date'] ?? $document->expiry_date?->toDateString()),
+            'status' => DocumentExpiry::persistedStatus($validated['expiry_date'] ?? $document->expiry_date?->toDateString()),
         ]);
 
         return back()->with('success', 'Document updated.');
     }
 
-    public function replace(Request $request, Employee $employee, EmployeeDocument $document, StoresEmployeeDocument $store): RedirectResponse
-    {
+    public function replace(
+        ReplaceEmployeeDocumentRequest $request,
+        Employee $employee,
+        EmployeeDocument $document,
+        StoresEmployeeDocument $store,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId && $document->employee_id === $employee->id, 403);
-
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png', 'max:20480'],
-        ]);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
 
         $store->replace($document, $request->file('file'), $companyId, $employee->id, $request->user()?->id);
 
         return back()->with('success', 'Document file replaced.');
     }
 
-    public function destroy(Request $request, Employee $employee, EmployeeDocument $document): RedirectResponse
-    {
+    public function destroy(
+        Request $request,
+        Employee $employee,
+        EmployeeDocument $document,
+        DocumentDeletionService $deletion,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId && $document->employee_id === $employee->id, 403);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
 
-        if (! str_starts_with($document->file_path, 'http')) {
-            Storage::disk('public')->delete($document->file_path);
-        }
-
-        $document->delete();
+        $deletion->delete($document);
 
         return back()->with('success', 'Document deleted.');
     }
@@ -139,7 +130,7 @@ class EmployeeDocumentController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        abort_unless($employee->company_id === $companyId && $document->employee_id === $employee->id, 403);
+        DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
 
         $document->load(['versions.replacer:id,name']);
 

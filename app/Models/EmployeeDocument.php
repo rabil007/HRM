@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
 use App\Support\EmployeeDocuments\DocumentExpiry;
-use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -110,22 +109,31 @@ class EmployeeDocument extends Model
 
     public static function deriveStatus(?string $expiryDate): string
     {
-        if (! $expiryDate) {
-            return 'valid';
-        }
+        return DocumentExpiry::persistedStatus($expiryDate);
+    }
 
-        $expiry = Carbon::parse($expiryDate);
-        $now = now();
-
-        if ($expiry->lt($now)) {
-            return 'expired';
-        }
-
-        if ($expiry->lt($now->copy()->addDays(30))) {
-            return 'expiring_soon';
-        }
-
-        return 'valid';
+    /**
+     * @return array<string, mixed>
+     */
+    public function toProfileArray(): array
+    {
+        return [
+            ...$this->toBrowseArray(),
+            'title' => $this->title,
+            'type' => $this->type,
+            'document_type_id' => $this->document_type_id,
+            'document_type' => $this->document_type,
+            'document_type_label' => $this->document_type_label,
+            'file_path' => $this->file_path,
+            'original_filename' => $this->original_filename,
+            'document_number' => $this->document_number,
+            'notes' => $this->notes,
+            'current_version' => $this->current_version,
+            'versions_count' => (int) ($this->versions_count ?? 0),
+            'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
+            'created_at' => $this->created_at?->toDateTimeString(),
+            'versions' => [],
+        ];
     }
 
     public function getFileUrlAttribute(): string
@@ -159,6 +167,7 @@ class EmployeeDocument extends Model
      *     document_type: string,
      *     file_url: string,
      *     uploaded_at: string|null,
+     *     uploaded_by: string|null,
      *     mime_type: string|null,
      *     can_preview: bool,
      *     status: string|null,
@@ -180,6 +189,7 @@ class EmployeeDocument extends Model
             'document_type' => $this->document_type_label,
             'file_url' => $this->file_url,
             'uploaded_at' => $this->created_at?->toIso8601String(),
+            'uploaded_by' => $this->relationLoaded('uploader') ? $this->uploader?->name : null,
             'mime_type' => $this->mime_type,
             'can_preview' => $this->can_preview,
             'status' => $this->status,

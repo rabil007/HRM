@@ -15,9 +15,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
-import { EmployeeDocumentsTab } from '@/pages/organization/_components/employee-documents-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';

@@ -102,6 +102,7 @@ class DocumentBrowseQuery
             ->with([
                 'employee:id,name,employee_no,company_id',
                 'documentType:id,title',
+                'uploader:id,name',
             ]);
 
         DocumentExpiry::applyExpiryFilter($query, $expiryFilter);
@@ -141,7 +142,10 @@ class DocumentBrowseQuery
         $documents = EmployeeDocument::query()
             ->forCompany($companyId)
             ->where('employee_id', $employee->id)
-            ->with('documentType:id,title')
+            ->with([
+                'documentType:id,title',
+                'uploader:id,name',
+            ])
             ->latestUpload()
             ->get()
             ->map(fn (EmployeeDocument $document) => $document->toBrowseArray())
