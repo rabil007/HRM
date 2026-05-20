@@ -8,6 +8,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -310,6 +311,8 @@ test('documents folder index lists employees with uploads', function () {
 });
 
 test('dashboard includes document compliance stats', function () {
+    Carbon::setTestNow('2026-05-20 12:00:00');
+
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -324,14 +327,19 @@ test('dashboard includes document compliance stats', function () {
         'type' => 'other',
         'document_type' => (string) $visaType->id,
         'file_path' => 'employee-documents/test/visa.pdf',
+        'expiry_date' => '2026-05-10',
         'status' => 'expired',
     ]);
 
-    $this->get('/dashboard')
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/dashboard')
         ->assertInertia(fn (Assert $page) => $page
             ->component('dashboard')
+            ->where('document_compliance.total_documents', 1)
             ->where('document_compliance.expired', 1)
         );
+
+    Carbon::setTestNow();
 });
 
 test('users cannot manage documents for employees in another company', function () {
