@@ -198,6 +198,19 @@ export default function DocumentsIndex({
                         count={selectedFolderCount}
                         itemLabel="folders"
                         onClear={clearFolderSelection}
+                        selectAll={
+                            <Checkbox
+                                checked={
+                                    allFoldersSelected
+                                        ? true
+                                        : foldersPartiallySelected
+                                          ? 'indeterminate'
+                                          : false
+                                }
+                                onCheckedChange={toggleAllFolders}
+                                aria-label="Select all folders"
+                            />
+                        }
                         actions={
                             <Button
                                 type="button"
@@ -225,23 +238,6 @@ export default function DocumentsIndex({
                         )}
                         aria-busy={isSearching}
                     >
-                        {employees.length > 0 ? (
-                            <div className="mb-4 flex items-center gap-2.5">
-                                <Checkbox
-                                    checked={
-                                        allFoldersSelected
-                                            ? true
-                                            : foldersPartiallySelected
-                                              ? 'indeterminate'
-                                              : false
-                                    }
-                                    onCheckedChange={toggleAllFolders}
-                                    aria-label="Select all folders"
-                                />
-                                <span className="text-sm text-muted-foreground">Select all</span>
-                            </div>
-                        ) : null}
-
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(8.25rem,1fr))] sm:gap-x-5 sm:gap-y-8">
                             {employees.map((employee) => (
                                 <EmployeeFolderItem

@@ -7,12 +7,14 @@ export function DocumentsBulkToolbar({
     itemLabel,
     onClear,
     actions,
+    selectAll,
     className,
 }: {
     count: number;
     itemLabel: string;
     onClear: () => void;
     actions: ReactNode;
+    selectAll?: ReactNode;
     className?: string;
 }) {
     if (count === 0) {
@@ -29,6 +31,7 @@ export function DocumentsBulkToolbar({
                 className,
             )}
         >
+            {selectAll}
             <span className="text-sm font-medium text-foreground">{label} selected</span>
             <Button
                 type="button"
