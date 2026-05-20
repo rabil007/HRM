@@ -6,6 +6,9 @@ export function matchesFileSearch(doc: DocumentBrowseItem, query: string): boole
         doc.document_name,
         doc.document_type,
         formatDisplayDate(doc.uploaded_at),
+        formatDisplayDate(doc.issue_date),
+        formatDisplayDate(doc.expiry_date),
+        doc.expiry_label,
     ]
         .filter(Boolean)
         .join(' ')

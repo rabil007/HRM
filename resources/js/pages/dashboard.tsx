@@ -2,9 +2,11 @@ import { Head } from '@inertiajs/react';
 import { DashboardContent } from '@/features/dashboard';
 
 type DocumentCompliance = {
-    valid: number;
-    expiring_soon: number;
+    total_documents: number;
     expired: number;
+    expiring_30: number;
+    expiring_15: number;
+    expiring_7: number;
     uploaded_this_month: number;
 };
 

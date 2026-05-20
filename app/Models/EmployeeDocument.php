@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
+use App\Support\EmployeeDocuments\DocumentExpiry;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -82,14 +83,36 @@ class EmployeeDocument extends Model
         return $query->orderByDesc('created_at')->orderByDesc('id');
     }
 
-    public function scopeExpiringSoon(Builder $query): Builder
+    public function scopeWhereExpiryTracked(Builder $query): Builder
     {
-        return $query->where('status', 'expiring_soon');
+        return $query->whereNotNull('expiry_date');
     }
 
+    public function scopeWhereExpired(Builder $query): Builder
+    {
+        return $query
+            ->whereExpiryTracked()
+            ->whereDate('expiry_date', '<', now()->toDateString());
+    }
+
+    public function scopeWhereExpiringWithin(Builder $query, int $days): Builder
+    {
+        return $query
+            ->whereExpiryTracked()
+            ->whereDate('expiry_date', '>=', now()->toDateString())
+            ->whereDate('expiry_date', '<=', now()->addDays($days)->toDateString());
+    }
+
+    /** @deprecated Use whereExpiringWithin(30) instead. */
+    public function scopeExpiringSoon(Builder $query): Builder
+    {
+        return $query->whereExpiringWithin(30);
+    }
+
+    /** @deprecated Use whereExpired() instead. */
     public function scopeExpired(Builder $query): Builder
     {
-        return $query->where('status', 'expired');
+        return $query->whereExpired();
     }
 
     public static function deriveStatus(?string $expiryDate): string
@@ -145,7 +168,13 @@ class EmployeeDocument extends Model
      *     uploaded_at: string|null,
      *     mime_type: string|null,
      *     can_preview: bool,
-     *     status: string|null
+     *     status: string|null,
+     *     expiry_date: string|null,
+     *     issue_date: string|null,
+     *     size_bytes: int|null,
+     *     expiry_status: string|null,
+     *     remaining_days: int|null,
+     *     expiry_label: string
      * }
      */
     public function toBrowseArray(): array
@@ -161,6 +190,12 @@ class EmployeeDocument extends Model
             'mime_type' => $this->mime_type,
             'can_preview' => $this->can_preview,
             'status' => $this->status,
+            'expiry_date' => $this->expiry_date?->toDateString(),
+            'issue_date' => $this->issue_date?->toDateString(),
+            'size_bytes' => $this->size_bytes !== null ? (int) $this->size_bytes : null,
+            'expiry_status' => DocumentExpiry::resolve($this->expiry_date)?->value,
+            'remaining_days' => DocumentExpiry::remainingDays($this->expiry_date),
+            'expiry_label' => DocumentExpiry::humanLabel($this->expiry_date),
         ];
     }
 }

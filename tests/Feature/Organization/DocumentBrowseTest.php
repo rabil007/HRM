@@ -3,6 +3,7 @@
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access document browse pages', function () {
@@ -49,6 +50,9 @@ test('documents folder index returns only employees with document counts', funct
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/documents/index')
+            ->where('expiry', 'all')
+            ->has('summary')
+            ->where('summary.total_documents', 2)
             ->has('employees', 1)
             ->where('employees.0.employee_id', $employeeA->id)
             ->where('employees.0.employee_name', $employeeA->name)
@@ -119,7 +123,142 @@ test('employee documents browse inertia page returns files with document type la
             ->where('documents.0.document_name', 'Contract.pdf')
             ->where('documents.0.document_type', 'Passport Copy')
             ->where('documents.0.can_preview', true)
+            ->where('documents.0.expiry_status', null)
+            ->where('documents.0.expiry_label', 'No expiry')
         );
+});
+
+test('documents folder index expiry summary counts only tracked documents', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/no-expiry.pdf',
+        'status' => 'valid',
+    ]);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/expired.pdf',
+        'expiry_date' => '2026-05-10',
+        'status' => 'expired',
+    ]);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/expiring.pdf',
+        'expiry_date' => '2026-05-25',
+        'status' => 'expiring_soon',
+    ]);
+
+    $this->get('/organization/documents')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total_documents', 3)
+            ->where('summary.expired', 1)
+            ->where('summary.expiring_30', 1)
+            ->where('summary.expiring_7', 1)
+        );
+
+    Carbon::setTestNow();
+});
+
+test('expired filter excludes documents without expiry date', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/no-expiry.pdf',
+        'status' => 'valid',
+    ]);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/expired.pdf',
+        'original_filename' => 'Expired Visa.pdf',
+        'expiry_date' => '2026-05-10',
+        'status' => 'expired',
+    ]);
+
+    $this->get('/organization/documents?expiry=expired')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('expiry', 'expired')
+            ->has('complianceDocuments.data', 1)
+            ->where('complianceDocuments.data.0.document_name', 'Expired Visa.pdf')
+            ->where('complianceDocuments.data.0.expiry_status', 'expired')
+        );
+
+    Carbon::setTestNow();
+});
+
+test('employee documents browse includes expiry fields when expiry is set', function () {
+    Carbon::setTestNow('2026-05-20');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/visa.pdf',
+        'original_filename' => 'Visa.pdf',
+        'expiry_date' => '2026-05-25',
+        'status' => 'expiring_soon',
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('documents.0.expiry_date', '2026-05-25')
+            ->where('documents.0.expiry_status', 'expiring_7')
+            ->where('documents.0.expiry_label', 'Expires in 5 days')
+            ->where('summary.total_documents', 1)
+            ->where('summary.expiring_7', 1)
+        );
+
+    Carbon::setTestNow();
 });
 
 test('employee documents browse returns documents newest first', function () {

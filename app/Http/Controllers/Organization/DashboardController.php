@@ -4,31 +4,30 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Models\EmployeeDocument;
+use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): Response
+    public function __invoke(DocumentBrowseQuery $browse): Response
     {
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $counts = EmployeeDocument::query()
-            ->where('company_id', $companyId)
-            ->selectRaw('status, count(*) as total')
-            ->groupBy('status')
-            ->pluck('total', 'status');
+        $summary = $browse->expirySummary($companyId);
 
-        $uploadedThisMonth = EmployeeDocument::query()
+        $uploadedThisMonth = (int) EmployeeDocument::query()
             ->where('company_id', $companyId)
             ->whereBetween('created_at', [now()->startOfMonth(), now()->endOfMonth()])
             ->count();
 
         return Inertia::render('dashboard', [
             'document_compliance' => [
-                'valid' => (int) ($counts['valid'] ?? 0),
-                'expiring_soon' => (int) ($counts['expiring_soon'] ?? 0),
-                'expired' => (int) ($counts['expired'] ?? 0),
+                'total_documents' => $summary['total_documents'],
+                'expired' => $summary['expired'],
+                'expiring_30' => $summary['expiring_30'],
+                'expiring_15' => $summary['expiring_15'],
+                'expiring_7' => $summary['expiring_7'],
                 'uploaded_this_month' => $uploadedThisMonth,
             ],
         ]);

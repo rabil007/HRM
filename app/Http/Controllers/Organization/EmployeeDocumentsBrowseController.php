@@ -23,6 +23,7 @@ class EmployeeDocumentsBrowseController extends Controller
         return Inertia::render('organization/documents/employee', [
             'employee' => $result['employee'],
             'documents' => $result['documents'],
+            'summary' => $browse->expirySummary($companyId, $employee->id),
         ]);
     }
 }

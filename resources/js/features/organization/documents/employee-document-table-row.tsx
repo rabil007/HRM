@@ -9,8 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { DocumentFileIcon } from '@/features/organization/documents/document-file-icon';
 import { formatDisplayDate } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
+import { cn, formatBytes } from '@/lib/utils';
 import type { DocumentBrowseItem } from './types';
+
+function formatOptionalDate(value: string | null): string {
+    return value ? formatDisplayDate(value) : '—';
+}
 
 export function EmployeeDocumentTableRow({
     doc,
@@ -38,7 +42,7 @@ export function EmployeeDocumentTableRow({
                             {doc.document_type}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground md:hidden">
-                            {formatDisplayDate(doc.uploaded_at)}
+                            {formatOptionalDate(doc.issue_date)} · {formatOptionalDate(doc.expiry_date)}
                         </p>
                     </div>
                 </div>
@@ -51,7 +55,17 @@ export function EmployeeDocumentTableRow({
             <TableCell
                 className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell')}
             >
-                {formatDisplayDate(doc.uploaded_at)}
+                {formatOptionalDate(doc.issue_date)}
+            </TableCell>
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden whitespace-nowrap lg:table-cell')}
+            >
+                {formatOptionalDate(doc.expiry_date)}
+            </TableCell>
+            <TableCell
+                className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell tabular-nums')}
+            >
+                {formatBytes(doc.size_bytes)}
             </TableCell>
             <TableCell className={dataTableActionsCellClass()}>
                 <TableRowActions

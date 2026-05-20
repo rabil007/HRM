@@ -4,6 +4,7 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class DocumentBrowseQuery
@@ -34,6 +35,80 @@ class DocumentBrowseQuery
                 'employee_name' => $employee->name,
                 'employee_no' => $employee->employee_no,
                 'document_count' => (int) $employee->document_count,
+            ]);
+    }
+
+    /**
+     * @return array{
+     *     total_documents: int,
+     *     expired: int,
+     *     expiring_30: int,
+     *     expiring_15: int,
+     *     expiring_7: int
+     * }
+     */
+    public function expirySummary(int $companyId, ?int $employeeId = null): array
+    {
+        $baseQuery = EmployeeDocument::query()->forCompany($companyId);
+
+        if ($employeeId !== null) {
+            $baseQuery->where('employee_id', $employeeId);
+        }
+
+        return [
+            'total_documents' => (clone $baseQuery)->count(),
+            'expired' => (clone $baseQuery)->whereExpired()->count(),
+            'expiring_30' => (clone $baseQuery)->whereExpiringWithin(30)->count(),
+            'expiring_15' => (clone $baseQuery)->whereExpiringWithin(15)->count(),
+            'expiring_7' => (clone $baseQuery)->whereExpiringWithin(7)->count(),
+        ];
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function documentsForCompliance(
+        int $companyId,
+        string $expiryFilter,
+        ?string $search = null,
+        int $perPage = 25,
+    ): LengthAwarePaginator {
+        $search = $search !== null ? trim($search) : '';
+        $today = now()->toDateString();
+
+        $query = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->with([
+                'employee:id,name,employee_no,company_id',
+                'documentType:id,title',
+            ])
+            ->when($expiryFilter === DocumentExpiryStatus::Expired->value, fn ($q) => $q->whereExpired())
+            ->when($expiryFilter === DocumentExpiryStatus::Expiring30->value, fn ($q) => $q->whereExpiringWithin(30))
+            ->when($expiryFilter === DocumentExpiryStatus::Expiring15->value, fn ($q) => $q->whereExpiringWithin(15))
+            ->when($expiryFilter === DocumentExpiryStatus::Expiring7->value, fn ($q) => $q->whereExpiringWithin(7))
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($inner) use ($search) {
+                    $inner->whereHas('employee', function ($employeeQuery) use ($search) {
+                        $employeeQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('employee_no', 'like', "%{$search}%");
+                    })
+                        ->orWhere('original_filename', 'like', "%{$search}%")
+                        ->orWhere('title', 'like', "%{$search}%")
+                        ->orWhereHas('documentType', fn ($typeQuery) => $typeQuery->where('title', 'like', "%{$search}%"));
+                });
+            })
+            ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
+            ->orderBy('expiry_date');
+
+        return $query
+            ->paginate($perPage)
+            ->withQueryString()
+            ->through(fn (EmployeeDocument $document) => [
+                ...$document->toBrowseArray(),
+                'employee_id' => $document->employee_id,
+                'employee_name' => $document->employee?->name ?? '',
+                'employee_no' => $document->employee?->employee_no ?? '',
             ]);
     }
 

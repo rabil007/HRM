@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
+use App\Support\EmployeeDocuments\DocumentExpiry;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -13,15 +14,35 @@ class DocumentsFolderIndexController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         $search = trim((string) $request->query('search', ''));
+        $expiry = (string) $request->query('expiry', 'all');
 
-        $employees = $browse->employeesWithDocuments(
-            $companyId,
-            $search !== '' ? $search : null,
-        )->values()->all();
+        if (! DocumentExpiry::isValidFilter($expiry)) {
+            $expiry = 'all';
+        }
 
-        return Inertia::render('organization/documents/index', [
-            'employees' => $employees,
+        $summary = $browse->expirySummary($companyId);
+
+        $payload = [
+            'summary' => $summary,
+            'expiry' => $expiry,
             'search' => $search,
-        ]);
+            'employees' => [],
+            'complianceDocuments' => null,
+        ];
+
+        if ($expiry === 'all') {
+            $payload['employees'] = $browse->employeesWithDocuments(
+                $companyId,
+                $search !== '' ? $search : null,
+            )->values()->all();
+        } else {
+            $payload['complianceDocuments'] = $browse->documentsForCompliance(
+                $companyId,
+                $expiry,
+                $search !== '' ? $search : null,
+            );
+        }
+
+        return Inertia::render('organization/documents/index', $payload);
     }
 }

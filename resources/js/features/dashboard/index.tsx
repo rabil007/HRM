@@ -24,9 +24,11 @@ import { documents } from '@/routes/organization';
 import { AnalyticsChart } from './components/analytics-chart';
 
 type DocumentCompliance = {
-    valid: number;
-    expiring_soon: number;
+    total_documents: number;
     expired: number;
+    expiring_30: number;
+    expiring_15: number;
+    expiring_7: number;
     uploaded_this_month: number;
 };
 
@@ -195,18 +197,24 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                             <AtGlanceItem
                                 title="Expired documents"
                                 subtitle="Immediate action"
-                                href={documents.url()}
+                                href={documents.url({ query: { expiry: 'expired' } })}
                                 value={String(documentCompliance.expired)}
                             />
                             <AtGlanceItem
-                                title="Expiring soon"
-                                subtitle="Next 30 days"
-                                href={documents.url()}
-                                value={String(documentCompliance.expiring_soon)}
+                                title="Expiring in 30 days"
+                                subtitle="Expiry-tracked only"
+                                href={documents.url({ query: { expiry: 'expiring_30' } })}
+                                value={String(documentCompliance.expiring_30)}
+                            />
+                            <AtGlanceItem
+                                title="Expiring in 7 days"
+                                subtitle="Urgent renewals"
+                                href={documents.url({ query: { expiry: 'expiring_7' } })}
+                                value={String(documentCompliance.expiring_7)}
                             />
                             <AtGlanceItem
                                 title="Uploaded this month"
-                                subtitle={`${documentCompliance.valid} valid documents`}
+                                subtitle={`${documentCompliance.total_documents} total documents`}
                                 href={documents.url()}
                                 value={String(documentCompliance.uploaded_this_month)}
                             />

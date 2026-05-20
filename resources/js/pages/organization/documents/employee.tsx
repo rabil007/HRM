@@ -11,10 +11,17 @@ import { Main } from '@/components/layout/main';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableHeader } from '@/components/ui/table';
+import type { ExpiryFilter } from '@/features/organization/documents/document-expiry';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
+import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
-import type { DocumentBrowseItem, EmployeeSummary } from '@/features/organization/documents/types';
+import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
+import type {
+    DocumentBrowseItem,
+    DocumentExpirySummary,
+    EmployeeSummary,
+} from '@/features/organization/documents/types';
 import { DocumentPreviewDialog } from '@/features/organization/employee-documents/document-preview-dialog';
 import { documents } from '@/routes/organization';
 import { show } from '@/routes/organization/employees';
@@ -22,18 +29,26 @@ import { show } from '@/routes/organization/employees';
 type Props = {
     employee: EmployeeSummary;
     documents: DocumentBrowseItem[];
+    summary: DocumentExpirySummary;
 };
 
-export default function EmployeeDocumentsBrowse({ employee, documents: allDocuments }: Props) {
+export default function EmployeeDocumentsBrowse({
+    employee,
+    documents: allDocuments,
+    summary,
+}: Props) {
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
+    const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
 
-    const filteredDocuments = useMemo(
-        () => filterDocuments(allDocuments, fileSearch),
-        [allDocuments, fileSearch],
-    );
+    const filteredDocuments = useMemo(() => {
+        const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
+
+        return filterDocuments(byExpiry, fileSearch);
+    }, [allDocuments, expiryFilter, fileSearch]);
 
     const profileDocumentsUrl = `${show.url({ employee: employee.id })}#documents`;
+    const isFilteredView = expiryFilter !== 'all' || fileSearch.trim() !== '';
 
     return (
         <Main>
@@ -44,6 +59,12 @@ export default function EmployeeDocumentsBrowse({ employee, documents: allDocume
                     { title: 'Documents', href: documents.url() },
                     { title: employee.name },
                 ]}
+            />
+
+            <DocumentsSummaryCards
+                summary={summary}
+                activeExpiry={expiryFilter}
+                onSelect={setExpiryFilter}
             />
 
             {allDocuments.length > 0 ? (
@@ -70,16 +91,26 @@ export default function EmployeeDocumentsBrowse({ employee, documents: allDocume
                 />
             ) : filteredDocuments.length === 0 ? (
                 <EmptyState
-                    title="No files match your search."
-                    description="Try a different file name, document type, or upload date."
+                    title={
+                        isFilteredView
+                            ? 'No files match your filters.'
+                            : 'No files match your search.'
+                    }
+                    description={
+                        expiryFilter !== 'all'
+                            ? 'Try another expiry filter or view all documents.'
+                            : 'Try a different file name, document type, or upload date.'
+                    }
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[640px]">
+                <OrganizationDataTable minWidth="min-w-[800px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="min-w-[220px]">File</DataTableHead>
                             <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
-                            <DataTableHead className="hidden md:table-cell">Uploaded</DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">Issue date</DataTableHead>
+                            <DataTableHead className="hidden lg:table-cell">Expiry date</DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">File size</DataTableHead>
                             <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
