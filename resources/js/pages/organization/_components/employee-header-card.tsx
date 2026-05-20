@@ -1,23 +1,40 @@
 import { Briefcase, Building2, Camera, ClipboardList, Loader2, Mail, MapPin, Phone, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
+import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
+import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
 import {
-    EditableDetailField,
-    EditableDetailTextField,
-} from '@/features/organization/employees/profile/components/editable-detail-field';
+    EditableHeaderNameField,
+    EditableHeaderPillTextField,
+} from '@/features/organization/employees/profile/components/editable-header-fields';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 
 type Option = { id: number; name?: string | null; title?: string | null };
+
+const MARITAL_STATUS_OPTIONS = [
+    { id: 1, label: 'Single', value: 'single' },
+    { id: 2, label: 'Married', value: 'married' },
+    { id: 3, label: 'Divorced', value: 'divorced' },
+    { id: 4, label: 'Widowed', value: 'widowed' },
+] as const;
+
+function optionLabel(
+    options: Option[],
+    id: string | number | null | undefined,
+    fallback?: string | null,
+): string {
+    const found = options.find((option) => String(option.id) === String(id ?? ''));
+
+    return found?.name ?? fallback ?? '—';
+}
 
 export function EmployeeHeaderCard({
     canUpdate,
@@ -153,6 +170,36 @@ export function EmployeeHeaderCard({
         return formatted === '—' ? 'No mobile' : formatted;
     }, [countries, employee.phone, form.data.phone]);
 
+    const rankOptions = useMemo(
+        () =>
+            ranks.map((rank) => ({
+                id: rank.id,
+                label: rank.name ?? `#${rank.id}`,
+                value: String(rank.id),
+            })),
+        [ranks],
+    );
+
+    const genderOptions = useMemo(
+        () =>
+            genders.map((gender) => ({
+                id: gender.id,
+                label: gender.name ?? `#${gender.id}`,
+                value: String(gender.id),
+            })),
+        [genders],
+    );
+
+    const religionOptions = useMemo(
+        () =>
+            religions.map((religion) => ({
+                id: religion.id,
+                label: religion.name ?? `#${religion.id}`,
+                value: String(religion.id),
+            })),
+        [religions],
+    );
+
     const statusBadge = useMemo(() => {
         const status = employee.status;
 
@@ -261,25 +308,16 @@ export function EmployeeHeaderCard({
                             </div>
 
                             <h1 className="truncate text-3xl font-black tracking-tight text-white md:text-4xl">
-                                {activeField === 'name' && canUpdate ? (
-                                    <Input
-                                        className="h-10 rounded-xl border-white/10 bg-white/5 text-white"
-                                        value={form.data.name}
-                                        onChange={(e) => form.setData('name', e.target.value)}
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                        placeholder="Name"
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="text-left hover:text-white disabled:cursor-default disabled:opacity-100"
-                                        onClick={() => beginEdit('name')}
-                                        disabled={!canUpdate}
-                                    >
-                                        {displayName}
-                                    </button>
-                                )}
+                                <EditableHeaderNameField
+                                    field="name"
+                                    value={form.data.name}
+                                    displayValue={displayName}
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    canEdit={canUpdate}
+                                    onChange={(value) => form.setData('name', value)}
+                                />
                             </h1>
 
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
@@ -391,24 +429,18 @@ export function EmployeeHeaderCard({
                                 />
                             ) : null}
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
-                                {activeField === 'employee_no' && canUpdate ? (
-                                    <Input
-                                        className="h-8 w-[120px] rounded-full border-white/10 bg-white/5 px-3 text-[10px] font-semibold tracking-wide text-zinc-200"
-                                        value={form.data.employee_no}
-                                        onChange={(e) => form.setData('employee_no', e.target.value)}
-                                        onBlur={() => setActiveField(null)}
-                                        autoFocus
-                                    />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        className="flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[10px] font-bold tracking-widest text-zinc-400 transition-colors hover:border-white/[0.14] hover:text-zinc-200 disabled:cursor-default disabled:hover:text-zinc-400"
-                                        onClick={() => beginEdit('employee_no')}
-                                        disabled={!canUpdate}
-                                    >
-                                        {form.data.employee_no || employee.employee_no}
-                                    </button>
-                                )}
+                                <EditableHeaderPillTextField
+                                    field="employee_no"
+                                    value={form.data.employee_no}
+                                    displayValue={
+                                        form.data.employee_no || employee.employee_no
+                                    }
+                                    activeField={activeField}
+                                    setActiveField={setActiveField}
+                                    beginEdit={beginEdit}
+                                    canEdit={canUpdate}
+                                    onChange={(value) => form.setData('employee_no', value)}
+                                />
 
                                 <div
                                     className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${statusBadge.container}`}
@@ -483,35 +515,26 @@ export function EmployeeHeaderCard({
 
                     {/* Marital status */}
                     {showField('marital_status') && (
-                        <EditableDetailField
+                        <EditableDetailSelectField
                             label="Marital status"
                             field="marital_status"
+                            value={form.data.marital_status}
                             displayValue={
-                                form.data.marital_status || employee.marital_status || '—'
+                                MARITAL_STATUS_OPTIONS.find(
+                                    (option) =>
+                                        option.value ===
+                                        (form.data.marital_status || employee.marital_status),
+                                )?.label ??
+                                (form.data.marital_status ||
+                                    employee.marital_status ||
+                                    '—')
                             }
+                            options={[...MARITAL_STATUS_OPTIONS]}
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
-                            editControl={
-                                <AppSelect
-                                    value={form.data.marital_status}
-                                    onValueChange={(value) => {
-                                        form.setData('marital_status', value);
-                                        setActiveField(null);
-                                    }}
-                                    onClose={() => setActiveField(null)}
-                                    variant="dark"
-                                    placeholder="—"
-                                    size="sm"
-                                >
-                                    <AppSelectItem value="">—</AppSelectItem>
-                                    <AppSelectItem value="single">Single</AppSelectItem>
-                                    <AppSelectItem value="married">Married</AppSelectItem>
-                                    <AppSelectItem value="divorced">Divorced</AppSelectItem>
-                                    <AppSelectItem value="widowed">Widowed</AppSelectItem>
-                                </AppSelect>
-                            }
+                            onChange={(value) => form.setData('marital_status', value)}
                         />
                     )}
 
@@ -535,144 +558,74 @@ export function EmployeeHeaderCard({
 
                     {/* Rank */}
                     {showField('rank_id') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Rank
-                            </div>
-                            {activeField === 'rank_id' && canUpdate ? (
-                                <AppSelect
-                                    value={form.data.rank_id}
-                                    onValueChange={(v) => {
- form.setData('rank_id', v); setActiveField(null); 
-}}
-                                    onClose={() => setActiveField(null)}
-                                    variant="dark"
-                                    placeholder="—"
-                                    size="sm"
-                                >
-                                    <AppSelectItem value="">—</AppSelectItem>
-                                    {ranks.map((r) => (
-                                        <AppSelectItem key={r.id} value={String(r.id)}>
-                                            {r.name ?? `#${r.id}`}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('rank_id')}
-                                    disabled={!canUpdate}
-                                >
-                                    {ranks.find((r) => String(r.id) === String(form.data.rank_id || employee.rank_id || ''))?.name ??
-                                        employee.rank?.name ??
-                                        '—'}
-                                </button>
+                        <EditableDetailSelectField
+                            label="Rank"
+                            field="rank_id"
+                            value={form.data.rank_id}
+                            displayValue={optionLabel(
+                                ranks,
+                                form.data.rank_id || employee.rank_id,
+                                employee.rank?.name,
                             )}
-                        </div>
+                            options={rankOptions}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('rank_id', value)}
+                        />
                     )}
 
-                    {/* Place of Birth */}
                     {showField('place_of_birth') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Place of Birth
-                            </div>
-                            {activeField === 'place_of_birth' && canUpdate ? (
-                                <Input
-                                    className="h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200"
-                                    value={form.data.place_of_birth}
-                                    onChange={(e) => form.setData('place_of_birth', e.target.value)}
-                                    onBlur={() => setActiveField(null)}
-                                    autoFocus
-                                />
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('place_of_birth')}
-                                    disabled={!canUpdate}
-                                >
-                                    {form.data.place_of_birth || employee.place_of_birth || '—'}
-                                </button>
-                            )}
-                        </div>
+                        <EditableDetailTextField
+                            label="Place of Birth"
+                            field="place_of_birth"
+                            value={form.data.place_of_birth}
+                            displayValue={
+                                form.data.place_of_birth || employee.place_of_birth || '—'
+                            }
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('place_of_birth', value)}
+                        />
                     )}
 
-                    {/* Gender */}
                     {showField('gender_id') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Gender
-                            </div>
-                            {activeField === 'gender_id' && canUpdate ? (
-                                <AppSelect
-                                    value={form.data.gender_id}
-                                    onValueChange={(v) => {
- form.setData('gender_id', v); setActiveField(null); 
-}}
-                                    onClose={() => setActiveField(null)}
-                                    variant="dark"
-                                    placeholder="—"
-                                    size="sm"
-                                >
-                                    <AppSelectItem value="">—</AppSelectItem>
-                                    {genders.map((g) => (
-                                        <AppSelectItem key={g.id} value={String(g.id)}>
-                                            {g.name ?? `#${g.id}`}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('gender_id')}
-                                    disabled={!canUpdate}
-                                >
-                                    {genders.find((g) => String(g.id) === String(form.data.gender_id || employee.gender_id || ''))?.name ??
-                                        '—'}
-                                </button>
+                        <EditableDetailSelectField
+                            label="Gender"
+                            field="gender_id"
+                            value={form.data.gender_id}
+                            displayValue={optionLabel(
+                                genders,
+                                form.data.gender_id || employee.gender_id,
                             )}
-                        </div>
+                            options={genderOptions}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('gender_id', value)}
+                        />
                     )}
 
-                    {/* Religion */}
                     {showField('religion_id') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
-                            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
-                                Religion
-                            </div>
-                            {activeField === 'religion_id' && canUpdate ? (
-                                <AppSelect
-                                    value={form.data.religion_id}
-                                    onValueChange={(v) => {
- form.setData('religion_id', v); setActiveField(null); 
-}}
-                                    onClose={() => setActiveField(null)}
-                                    variant="dark"
-                                    placeholder="—"
-                                    size="sm"
-                                >
-                                    <AppSelectItem value="">—</AppSelectItem>
-                                    {religions.map((r) => (
-                                        <AppSelectItem key={r.id} value={String(r.id)}>
-                                            {r.name ?? `#${r.id}`}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                            ) : (
-                                <button
-                                    type="button"
-                                    className="min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
-                                    onClick={() => beginEdit('religion_id')}
-                                    disabled={!canUpdate}
-                                >
-                                    {religions.find((r) => String(r.id) === String(form.data.religion_id || employee.religion_id || ''))?.name ??
-                                        '—'}
-                                </button>
+                        <EditableDetailSelectField
+                            label="Religion"
+                            field="religion_id"
+                            value={form.data.religion_id}
+                            displayValue={optionLabel(
+                                religions,
+                                form.data.religion_id || employee.religion_id,
                             )}
-                        </div>
+                            options={religionOptions}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('religion_id', value)}
+                        />
                     )}
                 </div>
             </div>
