@@ -59,9 +59,4 @@ export function applyBrandTheme(primaryColor: string, accentColor: string): void
     root.style.setProperty('--primary', primary);
     root.style.setProperty('--primary-foreground', primaryForeground);
     root.style.setProperty('--ring', mixWithAlpha(primary, 0.45));
-    root.style.setProperty('--sidebar-primary', primary);
-    root.style.setProperty('--sidebar-primary-foreground', primaryForeground);
-    root.style.setProperty('--sidebar-ring', mixWithAlpha(primary, 0.4));
-    root.style.setProperty('--accent', mixWithAlpha(accent, 0.15));
-    root.style.setProperty('--accent-foreground', primary);
 }

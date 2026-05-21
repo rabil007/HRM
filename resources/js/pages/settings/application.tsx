@@ -119,6 +119,9 @@ export default function ApplicationSettings({
         login_logo: null as File | null,
         favicon: null as File | null,
         login_background: null as File | null,
+    });
+
+    const preferencesForm = useForm({
         primary_color: preferences.primary_color ?? '#6366f1',
         accent_color: preferences.accent_color ?? '#8b5cf6',
         sidebar_compact_default: preferences.sidebar_compact_default ?? false,
@@ -134,6 +137,13 @@ export default function ApplicationSettings({
         brandingForm.post('/settings/application/branding', {
             preserveScroll: true,
             forceFormData: true,
+        });
+    }
+
+    function submitPreferences(e: React.FormEvent) {
+        e.preventDefault();
+        preferencesForm.post('/settings/application/branding', {
+            preserveScroll: true,
         });
     }
 
@@ -666,7 +676,7 @@ export default function ApplicationSettings({
                                 <CardDescription>Theme accents and default UI behavior.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <form onSubmit={submitBranding} className="grid max-w-md gap-5">
+                                <form onSubmit={submitPreferences} className="grid max-w-md gap-5">
                                     <div className="space-y-2">
                                         <Label htmlFor="primary_color">Primary color</Label>
                                         <div className="flex items-center gap-3">
@@ -674,12 +684,16 @@ export default function ApplicationSettings({
                                                 id="primary_color"
                                                 type="color"
                                                 className="h-11 w-14 cursor-pointer p-1"
-                                                value={brandingForm.data.primary_color}
-                                                onChange={(e) => brandingForm.setData('primary_color', e.target.value)}
+                                                value={preferencesForm.data.primary_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData('primary_color', e.target.value)
+                                                }
                                             />
                                             <Input
-                                                value={brandingForm.data.primary_color}
-                                                onChange={(e) => brandingForm.setData('primary_color', e.target.value)}
+                                                value={preferencesForm.data.primary_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData('primary_color', e.target.value)
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -691,12 +705,16 @@ export default function ApplicationSettings({
                                                 id="accent_color"
                                                 type="color"
                                                 className="h-11 w-14 cursor-pointer p-1"
-                                                value={brandingForm.data.accent_color}
-                                                onChange={(e) => brandingForm.setData('accent_color', e.target.value)}
+                                                value={preferencesForm.data.accent_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData('accent_color', e.target.value)
+                                                }
                                             />
                                             <Input
-                                                value={brandingForm.data.accent_color}
-                                                onChange={(e) => brandingForm.setData('accent_color', e.target.value)}
+                                                value={preferencesForm.data.accent_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData('accent_color', e.target.value)
+                                                }
                                             />
                                         </div>
                                     </div>
@@ -704,9 +722,12 @@ export default function ApplicationSettings({
                                     <div className="flex items-center gap-2">
                                         <Checkbox
                                             id="sidebar_compact_default"
-                                            checked={brandingForm.data.sidebar_compact_default}
+                                            checked={preferencesForm.data.sidebar_compact_default}
                                             onCheckedChange={(checked) =>
-                                                brandingForm.setData('sidebar_compact_default', checked === true)
+                                                preferencesForm.setData(
+                                                    'sidebar_compact_default',
+                                                    checked === true,
+                                                )
                                             }
                                         />
                                         <Label htmlFor="sidebar_compact_default" className="cursor-pointer font-normal">
@@ -714,8 +735,8 @@ export default function ApplicationSettings({
                                         </Label>
                                     </div>
 
-                                    <Button type="submit" disabled={brandingForm.processing}>
-                                        {brandingForm.processing ? <Spinner /> : null}
+                                    <Button type="submit" disabled={preferencesForm.processing}>
+                                        {preferencesForm.processing ? <Spinner /> : null}
                                         Save preferences
                                     </Button>
                                 </form>

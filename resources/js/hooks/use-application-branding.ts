@@ -31,22 +31,19 @@ export function useApplicationBrandingSync(): void {
 
         const faviconUrl = settings?.branding?.favicon_url;
 
-        if (! faviconUrl) {
-            return;
+        if (faviconUrl) {
+            let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+
+            if (! link) {
+                link = document.createElement('link');
+                link.rel = 'icon';
+                document.head.appendChild(link);
+            }
+
+            link.href = faviconUrl;
         }
-
-        let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-
-        if (! link) {
-            link = document.createElement('link');
-            link.rel = 'icon';
-            document.head.appendChild(link);
-        }
-
-        link.href = faviconUrl;
 
         const preferences = settings?.preferences;
-
         const primary = preferences?.primary_color ?? '#6366f1';
         const accent = preferences?.accent_color ?? '#8b5cf6';
 
