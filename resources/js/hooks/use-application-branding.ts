@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { setApplicationAppName } from '@/lib/application-app-name';
 import { applyBrandTheme } from '@/lib/theme/apply-brand-theme';
 
 export function useApplicationSettings() {
@@ -15,10 +16,11 @@ export function useApplicationSettings() {
 /** Keeps document title meta and favicon in sync after Inertia navigations. */
 export function useApplicationBrandingSync(): void {
     const { settings, name } = usePage().props;
+    const appName = settings?.app_name ?? name;
+
+    setApplicationAppName(appName);
 
     useEffect(() => {
-        const appName = settings?.app_name ?? name;
-
         if (appName) {
             const meta = document.querySelector('meta[name="app-name"]');
 
@@ -49,7 +51,7 @@ export function useApplicationBrandingSync(): void {
         const accent = preferences?.accent_color ?? '#8b5cf6';
 
         applyBrandTheme(primary, accent);
-    }, [settings, name]);
+    }, [appName, settings, name]);
 }
 
 export function useSidebarDefaultOpen(): boolean {

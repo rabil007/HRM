@@ -6,7 +6,6 @@ import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { cn } from '@/lib/utils';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import type {
@@ -14,6 +13,7 @@ import type {
     CreatableMasterDataKey,
 } from '@/lib/master-data/creatable-registry';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
+import { cn } from '@/lib/utils';
 
 type Option = {
     id: number | string;

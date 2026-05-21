@@ -131,3 +131,22 @@ test('app settings seeder creates defaults', function () {
     expect(AppSetting::query()->where('key', SettingKey::AppName)->value('value'))
         ->toBe(config('app.name', 'Laravel'));
 });
+
+test('inertia shared name and app-name meta use configured application name', function () {
+    AppSetting::query()->updateOrCreate(
+        ['key' => SettingKey::AppName],
+        ['value' => 'Herd OMS', 'type' => 'string'],
+    );
+    Cache::forget('app.settings.all');
+
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('name', 'Herd OMS')
+            ->where('settings.app_name', 'Herd OMS'),
+        )
+        ->assertSee('meta name="app-name" content="Herd OMS"', false);
+});

@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { TabsContent } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
