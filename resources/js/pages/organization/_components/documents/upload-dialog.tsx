@@ -3,7 +3,6 @@ import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
-import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -30,6 +29,7 @@ import {
     
 } from '@/features/organization/documents/upload/upload-draft';
 import type {UploadDraft, UploadDraftFieldErrors, UploadDraftMetadata} from '@/features/organization/documents/upload/upload-draft';
+import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
 
 const DOCUMENTS_RELOAD = {

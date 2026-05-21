@@ -1,7 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
-import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -11,6 +10,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import { actions } from '@/lib/design-system';
 export function ReplaceDocumentDialog({
     document,
     employeeId,

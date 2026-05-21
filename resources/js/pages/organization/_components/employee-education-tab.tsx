@@ -7,7 +7,6 @@ import {
     update,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +21,7 @@ import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {

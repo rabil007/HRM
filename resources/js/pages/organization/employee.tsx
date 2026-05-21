@@ -15,9 +15,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { actions, tabs as dsTabs } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
-import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';

@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
@@ -12,8 +14,6 @@ import {
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
-import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
-import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';

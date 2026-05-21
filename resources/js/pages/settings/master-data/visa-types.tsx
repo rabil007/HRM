@@ -2,6 +2,13 @@ import { Head, router, useForm } from '@inertiajs/react';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
+    MasterDataActiveToggle,
+    MasterDataField,
+    MasterDataFormSheet,
+    MasterDataFormSheetFooter,
+    masterDataInputClass,
+} from '@/components/settings/master-data-form-sheet';
+import {
     AlertDialog,
     AlertDialogAction,
     AlertDialogCancel,
@@ -14,13 +21,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
-import {
-    MasterDataActiveToggle,
-    MasterDataField,
-    MasterDataFormSheet,
-    MasterDataFormSheetFooter,
-    masterDataInputClass,
-} from '@/components/settings/master-data-form-sheet';
 
 type VisaType = {
     id: number;

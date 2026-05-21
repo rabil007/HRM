@@ -1,7 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
-import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -13,6 +12,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import { actions } from '@/lib/design-system';
 export function EditDocumentDialog({
     document,
     employeeId,

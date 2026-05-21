@@ -7,7 +7,6 @@ import {
     update as updateWorkExperience,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -22,6 +21,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {

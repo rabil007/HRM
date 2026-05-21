@@ -7,7 +7,6 @@ import {
     update as updateLanguage,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeLanguageController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
-import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -21,6 +20,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {

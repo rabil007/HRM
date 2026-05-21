@@ -8,7 +8,6 @@ import {
     update as updateContract,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -22,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 import {
     EmployeeRecordsActionsHeader,

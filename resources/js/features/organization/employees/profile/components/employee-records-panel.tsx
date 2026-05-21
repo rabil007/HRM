@@ -1,7 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
-import { EmptyState } from '@/components/design-system/empty-state';
 import { recordsTableTdClass, recordsTableThClass } from '@/components/data-table';
-import { surfaces, tables, typography } from '@/lib/design-system';
+import { EmptyState } from '@/components/design-system/empty-state';
+import { surfaces, typography } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 
 export type EmployeeRecordsPanelProps = {
