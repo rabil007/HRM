@@ -16,6 +16,7 @@ import {
     Wallet,
     Palette,
     Settings,
+    SlidersHorizontal,
     BriefcaseBusiness,
     FileText,
     IdCard,
@@ -59,6 +60,11 @@ const baseSidebarData: SidebarData = {
                     title: 'Settings',
                     icon: Settings,
                     items: [
+                        {
+                            title: 'Application',
+                            url: '/settings/application',
+                            icon: SlidersHorizontal,
+                        },
                         {
                             title: 'Security',
                             url: editSecurity.url(),
@@ -206,6 +212,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                     if ('items' in item && item.items) {
                         const filteredSub = item.items.filter((sub) => {
+                            if (sub.url === '/settings/application') {
+                                return has(permissions, 'settings.application.view');
+                            }
+
                             if (sub.url === editSecurity.url()) {
                                 return has(permissions, 'settings.security.view');
                             }

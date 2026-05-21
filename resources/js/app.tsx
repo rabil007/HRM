@@ -7,10 +7,24 @@ import AppLayout from '@/layouts/app-layout';
 import AuthLayout from '@/layouts/auth-layout';
 import SettingsLayout from '@/layouts/settings/layout';
 
-const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
+function resolveAppName(): string {
+    if (typeof document !== 'undefined') {
+        const fromMeta = document.querySelector('meta[name="app-name"]')?.getAttribute('content');
+
+        if (fromMeta?.trim()) {
+            return fromMeta.trim();
+        }
+    }
+
+    return import.meta.env.VITE_APP_NAME || 'Laravel';
+}
 
 createInertiaApp({
-    title: (title) => (title ? `${title} - ${appName}` : appName),
+    title: (title) => {
+        const appName = resolveAppName();
+
+        return title ? `${title} - ${appName}` : appName;
+    },
     layout: (name) => {
         switch (true) {
             case name === 'welcome':

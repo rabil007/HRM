@@ -1,4 +1,5 @@
 import { usePage } from '@inertiajs/react';
+import { ApplicationBrandingSync } from '@/components/application-branding-sync';
 import { Breadcrumbs } from '@/components/breadcrumbs';
 import { ConfigDrawer } from '@/components/config-drawer';
 import { AuthenticatedLayout } from '@/components/layout/authenticated-layout';
@@ -63,6 +64,7 @@ export default function AppLayout({
     return (
         <AuthenticatedLayout>
             <>
+                <ApplicationBrandingSync />
                 <Header>
                     {breadcrumbs.length > 0 && (
                         <div className="mr-4 hidden md:block">

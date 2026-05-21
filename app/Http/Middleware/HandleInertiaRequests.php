@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Services\Settings\SettingService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -116,9 +117,13 @@ class HandleInertiaRequests extends Middleware
             });
         }
 
+        $settingService = app(SettingService::class);
+        $applicationSettings = $settingService->forInertia();
+
         return [
             ...parent::share($request),
-            'name' => config('app.name'),
+            'name' => $applicationSettings['app_name'],
+            'settings' => $applicationSettings,
             'flash' => [
                 'success' => $request->session()->get('success'),
                 'error' => $request->session()->get('error'),

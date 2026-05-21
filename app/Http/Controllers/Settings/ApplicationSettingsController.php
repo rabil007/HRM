@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Http\Controllers\Settings;
+
+use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
+use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
+use App\Models\Currency;
+use App\Services\Settings\SettingService;
+use App\Support\Settings\SettingKey;
+use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
+
+class ApplicationSettingsController extends Controller
+{
+    public function __construct(private SettingService $settings) {}
+
+    public function edit(): Response
+    {
+        $currencies = Currency::query()
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['code', 'name', 'symbol']);
+
+        return Inertia::render('settings/application', [
+            'general' => [
+                'app_name' => $this->settings->get(SettingKey::AppName),
+                'company_name' => $this->settings->get(SettingKey::CompanyName),
+                'support_email' => $this->settings->get(SettingKey::SupportEmail, ''),
+                'support_phone' => $this->settings->get(SettingKey::SupportPhone, ''),
+                'company_address' => $this->settings->get(SettingKey::CompanyAddress, ''),
+                'timezone' => $this->settings->get(SettingKey::Timezone, 'UTC'),
+                'currency' => $this->settings->get(SettingKey::Currency, 'USD'),
+                'date_format' => $this->settings->get(SettingKey::DateFormat, 'Y-m-d'),
+            ],
+            'branding' => $this->settings->brandingUrls(),
+            'preferences' => [
+                'primary_color' => $this->settings->get(SettingKey::PrimaryColor, '#6366f1'),
+                'accent_color' => $this->settings->get(SettingKey::AccentColor, '#8b5cf6'),
+                'sidebar_compact_default' => $this->settings->get(SettingKey::SidebarCompactDefault, '0') === '1',
+            ],
+            'timezones' => timezone_identifiers_list(),
+            'date_formats' => [
+                ['value' => 'Y-m-d', 'label' => '2026-05-21'],
+                ['value' => 'd/m/Y', 'label' => '21/05/2026'],
+                ['value' => 'm/d/Y', 'label' => '05/21/2026'],
+                ['value' => 'd-m-Y', 'label' => '21-05-2026'],
+                ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
+            ],
+            'currencies' => $currencies,
+        ]);
+    }
+
+    public function updateGeneral(UpdateApplicationGeneralRequest $request): RedirectResponse
+    {
+        $this->settings->setMany($request->settingPayload());
+
+        return back()->with('success', 'General settings saved.');
+    }
+
+    public function updateBranding(UpdateApplicationBrandingRequest $request): RedirectResponse
+    {
+        foreach ($request->uploadFiles() as $key => $file) {
+            $this->settings->storeUpload($key, $file);
+        }
+
+        $colors = $request->colorPayload();
+
+        if ($colors !== []) {
+            $this->settings->setMany($colors);
+        }
+
+        return back()->with('success', 'Branding settings saved.');
+    }
+
+    public function removeBranding(string $asset): RedirectResponse
+    {
+        if (! in_array($asset, SettingKey::fileKeys(), true)) {
+            abort(404);
+        }
+
+        $this->settings->deleteFile($asset);
+
+        return back()->with('success', 'Image removed.');
+    }
+}

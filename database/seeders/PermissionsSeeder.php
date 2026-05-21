@@ -19,6 +19,8 @@ class PermissionsSeeder extends Seeder
             'settings.security.view',
             'settings.security.update',
             'settings.appearance.view',
+            'settings.application.view',
+            'settings.application.update',
             'settings.master-data.countries.view',
             'settings.master-data.countries.create',
             'settings.master-data.countries.update',

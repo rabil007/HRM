@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\ApplicationSettingsController;
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
@@ -31,6 +32,23 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::inertia('settings/appearance', 'settings/appearance')
         ->middleware('can:settings.appearance.view')
         ->name('appearance.edit');
+
+    Route::get('settings/application', [ApplicationSettingsController::class, 'edit'])
+        ->middleware('can:settings.application.view')
+        ->name('application.edit');
+
+    Route::put('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
+        ->middleware('can:settings.application.update')
+        ->name('application.general.update');
+
+    Route::post('settings/application/branding', [ApplicationSettingsController::class, 'updateBranding'])
+        ->middleware('can:settings.application.update')
+        ->name('application.branding.update');
+
+    Route::delete('settings/application/branding/{asset}', [ApplicationSettingsController::class, 'removeBranding'])
+        ->middleware('can:settings.application.update')
+        ->where('asset', '[a-z_]+')
+        ->name('application.branding.remove');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])

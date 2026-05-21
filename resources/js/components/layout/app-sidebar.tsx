@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
 import { getSidebarData } from './data/sidebar-data';
+import ApplicationLogo from '@/components/application-logo';
 import { NavGroup } from './nav-group';
 import { NavUser } from './nav-user';
 import { TeamSwitcher } from './team-switcher';
@@ -30,7 +31,14 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>
-            <SidebarHeader>
+            <SidebarHeader className="gap-3">
+                <div className="flex items-center px-2 py-1">
+                    <ApplicationLogo
+                        variant="sidebar"
+                        imageClassName="h-7 w-auto max-w-[140px]"
+                        iconClassName="size-6 text-sidebar-foreground"
+                    />
+                </div>
                 <TeamSwitcher teams={teams} />
             </SidebarHeader>
             <SidebarContent>
