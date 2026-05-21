@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\CompaniesExport;
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Requests\Organization\Company\StoreCompanyRequest;
 use App\Http\Requests\Organization\Company\UpdateCompanyRequest;
 use App\Http\Requests\Organization\Company\UpdateCompanyStatusRequest;
@@ -65,37 +66,44 @@ class CompanyController extends Controller
             ->paginate($perPage)
             ->withQueryString();
 
-        $companies = $paginator->through(fn (Company $company) => [
-            'id' => $company->id,
-            'name' => $company->name,
-            'slug' => $company->slug,
-            'logo_url' => $company->logo ? $publicDisk->url($company->logo) : null,
-            'industry' => $company->industry,
-            'city' => $company->city,
-            'country' => [
-                'id' => $company->country_id,
-                'code' => $company->country?->code,
-                'name' => $company->country?->name,
-            ],
-            'company_size' => $company->company_size,
-            'registration_number' => $company->registration_number,
-            'tax_id' => $company->tax_id,
-            'address' => $company->address,
-            'phone' => $company->phone,
-            'email' => $company->email,
-            'website' => $company->website,
-            'currency' => [
-                'id' => $company->currency_id,
-                'code' => $company->currency?->code,
-            ],
-            'timezone' => $company->timezone,
-            'payroll_cycle' => $company->payroll_cycle,
-            'working_days' => $company->working_days,
-            'wps_agent_code' => $company->wps_agent_code,
-            'wps_mol_uid' => $company->wps_mol_uid,
-            'status' => $company->status,
-            'created_at' => $company->created_at,
-        ]);
+        $companies = $paginator->through(function (Company $company) use ($publicDisk) {
+            $logoPath = $company->logo;
+            $logoUrl = $logoPath && $publicDisk->exists($logoPath)
+                ? $publicDisk->url($logoPath)
+                : null;
+
+            return [
+                'id' => $company->id,
+                'name' => $company->name,
+                'slug' => $company->slug,
+                'logo_url' => $logoUrl,
+                'industry' => $company->industry,
+                'city' => $company->city,
+                'country' => [
+                    'id' => $company->country_id,
+                    'code' => $company->country?->code,
+                    'name' => $company->country?->name,
+                ],
+                'company_size' => $company->company_size,
+                'registration_number' => $company->registration_number,
+                'tax_id' => $company->tax_id,
+                'address' => $company->address,
+                'phone' => $company->phone,
+                'email' => $company->email,
+                'website' => $company->website,
+                'currency' => [
+                    'id' => $company->currency_id,
+                    'code' => $company->currency?->code,
+                ],
+                'timezone' => $company->timezone,
+                'payroll_cycle' => $company->payroll_cycle,
+                'working_days' => $company->working_days,
+                'wps_agent_code' => $company->wps_agent_code,
+                'wps_mol_uid' => $company->wps_mol_uid,
+                'status' => $company->status,
+                'created_at' => $company->created_at,
+            ];
+        });
 
         return Inertia::render('organization/companies', [
             'companies' => $companies->items(),
@@ -277,6 +285,8 @@ class CompanyController extends Controller
             $user->assignRole($role);
         }
 
+        HandleInertiaRequests::forgetCompanySwitcherCacheForCompany($company);
+
         return redirect()
             ->route('organization.companies')
             ->with('success', 'Company created successfully.');
@@ -318,6 +328,8 @@ class CompanyController extends Controller
         }
 
         $company->update($data);
+
+        HandleInertiaRequests::forgetCompanySwitcherCacheForCompany($company);
 
         return redirect()
             ->route('organization.companies')

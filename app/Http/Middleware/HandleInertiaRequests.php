@@ -7,6 +7,7 @@ use App\Services\Settings\SettingService;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Middleware;
 use Inertia\Support\Header;
 use Spatie\Permission\PermissionRegistrar;
@@ -82,18 +83,30 @@ class HandleInertiaRequests extends Middleware
 
         if ($user) {
             $companiesCacheKey = "inertia:shared:{$user->id}:companies";
-            $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($user) {
-                $companies = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name'])->all();
+            $cachedCompanies = Cache::get($companiesCacheKey);
 
-                if (empty($companies) && $user->company_id) {
-                    return Company::query()->whereKey($user->company_id)->get(['id', 'name'])->all();
+            if ($this->isValidCompanySwitcherCache($cachedCompanies)) {
+                $companies = $cachedCompanies;
+            } else {
+                if ($cachedCompanies !== null) {
+                    Cache::forget($companiesCacheKey);
                 }
 
-                return $companies;
-            });
+                $companies = Cache::remember($companiesCacheKey, now()->addSeconds(60), function () use ($user): array {
+                    $models = $user->companies()->orderBy('name')->get(['companies.id', 'companies.name', 'companies.logo']);
+
+                    if ($models->isEmpty() && $user->company_id) {
+                        $models = Company::query()->whereKey($user->company_id)->get(['id', 'name', 'logo']);
+                    }
+
+                    return $models
+                        ->map(fn (Company $company): array => $this->formatCompanySwitcherEntry($company))
+                        ->all();
+                });
+            }
 
             if (! $currentCompanyId) {
-                $currentCompanyId = $user->company_id ?: ($companies[0]->id ?? null);
+                $currentCompanyId = $user->company_id ?: ($companies[0]['id'] ?? null);
             }
 
             $companyKeyPart = $currentCompanyId ? (int) $currentCompanyId : 'none';
@@ -138,5 +151,50 @@ class HandleInertiaRequests extends Middleware
             'current_company_id' => $currentCompanyId,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
         ];
+    }
+
+    /**
+     * @param  array<int, array{id: int, name: string, logo_url: string|null}>|null  $cached
+     */
+    private function isValidCompanySwitcherCache(?array $cached): bool
+    {
+        if (! is_array($cached)) {
+            return false;
+        }
+
+        if ($cached === []) {
+            return true;
+        }
+
+        $first = $cached[0] ?? null;
+
+        return is_array($first)
+            && array_key_exists('id', $first)
+            && array_key_exists('name', $first)
+            && array_key_exists('logo_url', $first);
+    }
+
+    /**
+     * @return array{id: int, name: string, logo_url: string|null}
+     */
+    private function formatCompanySwitcherEntry(Company $company): array
+    {
+        $publicDisk = Storage::disk('public');
+        $logoPath = $company->logo;
+
+        return [
+            'id' => $company->id,
+            'name' => $company->name,
+            'logo_url' => $logoPath && $publicDisk->exists($logoPath)
+                ? $publicDisk->url($logoPath)
+                : null,
+        ];
+    }
+
+    public static function forgetCompanySwitcherCacheForCompany(Company $company): void
+    {
+        $company->users()->pluck('users.id')->each(function (int $userId): void {
+            Cache::forget("inertia:shared:{$userId}:companies");
+        });
     }
 }

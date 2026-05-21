@@ -15,30 +15,81 @@ import {
     SidebarMenuItem,
     useSidebar,
 } from '@/components/ui/sidebar';
+import { cn } from '@/lib/utils';
 
-type TeamSwitcherProps = {
-    teams: {
-        id?: number;
-        name?: string | null;
-    }[];
+type Team = {
+    id?: number;
+    name?: string | null;
+    logo_url?: string | null;
 };
 
-export function TeamSwitcher({ teams }: TeamSwitcherProps) {
-    const { isMobile } = useSidebar();
-    const [activeTeam, setActiveTeam] = React.useState(teams[0] ?? { id: undefined, name: 'No company' });
-    const { props } = usePage();
-    const currentCompanyId = (props as any)?.current_company_id ? Number((props as any).current_company_id) : null;
+type TeamSwitcherProps = {
+    teams: Team[];
+};
 
-    React.useEffect(() => {
-        if (!currentCompanyId) {
-            return;
-        }
-
+function resolveActiveTeam(teams: Team[], currentCompanyId: number | null): Team {
+    if (currentCompanyId) {
         const match = teams.find((t) => t.id === currentCompanyId);
 
         if (match) {
-            setActiveTeam(match);
+            return match;
         }
+    }
+
+    return teams[0] ?? { id: undefined, name: 'No company' };
+}
+
+function TeamAvatar({
+    team,
+    size = 'md',
+}: {
+    team: Team;
+    size?: 'md' | 'sm';
+}) {
+    const [failed, setFailed] = React.useState(false);
+    const initial = (team.name ?? 'C').slice(0, 1);
+    const showLogo = Boolean(team.logo_url) && !failed;
+    const sizeClass = size === 'sm' ? 'size-6' : 'size-8';
+
+    return (
+        <div
+            className={cn(
+                'flex shrink-0 items-center justify-center overflow-hidden rounded-lg',
+                sizeClass,
+                showLogo
+                    ? 'bg-transparent'
+                    : 'bg-sidebar-primary text-sidebar-primary-foreground',
+            )}
+        >
+            {showLogo ? (
+                <img
+                    src={team.logo_url!}
+                    alt=""
+                    className="size-full object-contain"
+                    onError={() => setFailed(true)}
+                />
+            ) : (
+                <span className={cn('font-bold', size === 'sm' ? 'text-xs' : 'text-sm')}>
+                    {initial}
+                </span>
+            )}
+        </div>
+    );
+}
+
+export function TeamSwitcher({ teams }: TeamSwitcherProps) {
+    const { isMobile } = useSidebar();
+    const { props } = usePage();
+    const currentCompanyId = (props as { current_company_id?: number })?.current_company_id
+        ? Number((props as { current_company_id?: number }).current_company_id)
+        : null;
+
+    const [activeTeam, setActiveTeam] = React.useState<Team>(() =>
+        resolveActiveTeam(teams, currentCompanyId),
+    );
+
+    React.useEffect(() => {
+        setActiveTeam(resolveActiveTeam(teams, currentCompanyId));
     }, [currentCompanyId, teams]);
 
     React.useEffect(() => {
@@ -56,9 +107,7 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
                             size="lg"
                             className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
                         >
-                            <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                                <span className="text-sm font-bold">{activeTeam?.name?.slice(0, 1) ?? 'C'}</span>
-                            </div>
+                            <TeamAvatar team={activeTeam} />
                             <div className="grid flex-1 text-start text-sm leading-tight">
                                 <span className="truncate font-semibold">
                                     {activeTeam.name}
@@ -95,9 +144,7 @@ export function TeamSwitcher({ teams }: TeamSwitcherProps) {
                                 }}
                                 className="gap-2 p-2"
                             >
-                                <div className="flex size-6 items-center justify-center rounded-sm border">
-                                    <span className="text-xs font-semibold">{(team.name ?? 'C').slice(0, 1)}</span>
-                                </div>
+                                <TeamAvatar team={team} size="sm" />
                                 {team.name ?? 'Company'}
                                 <DropdownMenuShortcut>
                                     ⌘{index + 1}

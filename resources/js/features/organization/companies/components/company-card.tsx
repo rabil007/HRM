@@ -75,7 +75,11 @@ export function CompanyCard({
                 <div className="flex items-start gap-4">
                     <div className="h-12 w-12 rounded-2xl bg-muted/40 flex items-center justify-center border border-border/60 text-foreground/80 overflow-hidden shrink-0 dark:bg-white/6 dark:border-white/10">
                         {company.logo_url ? (
-                            <img src={company.logo_url} alt={company.name} className="h-full w-full object-cover" />
+                            <img
+                                src={company.logo_url}
+                                alt={company.name}
+                                className="h-full w-full object-cover"
+                            />
                         ) : (
                             <span className="text-sm font-extrabold tracking-tight">{initials || '—'}</span>
                         )}

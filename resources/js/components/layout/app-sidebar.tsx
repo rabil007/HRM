@@ -16,7 +16,7 @@ import { TeamSwitcher } from './team-switcher';
 export function AppSidebar() {
     const { collapsible, variant } = useLayout();
     const { company_switcher_companies: companies = [], auth } = usePage().props as unknown as {
-        company_switcher_companies?: { id: number; name: string }[];
+        company_switcher_companies?: { id: number; name: string; logo_url?: string | null }[];
         auth?: { permissions?: string[] };
     };
     const sidebarData = useMemo(
@@ -24,7 +24,7 @@ export function AppSidebar() {
         [auth?.permissions],
     );
     const teams = useMemo(
-        () => companies.map((c) => ({ id: c.id, name: c.name })),
+        () => companies.map((c) => ({ id: c.id, name: c.name, logo_url: c.logo_url ?? null })),
         [companies],
     );
 

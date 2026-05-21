@@ -6,6 +6,7 @@ use App\Models\Currency;
 use App\Models\User;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('shared inertia sidebar props are cached per user and company', function () {
     Cache::flush();
@@ -49,10 +50,21 @@ test('shared inertia sidebar props are cached per user and company', function ()
         'updated_at' => now(),
     ]);
 
-    $this->get('/dashboard')->assertOk();
+    $this->get('/dashboard')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('company_switcher_companies', 1)
+            ->where('company_switcher_companies.0.id', $company->id)
+            ->where('company_switcher_companies.0.name', 'Acme')
+            ->where('company_switcher_companies.0.logo_url', null)
+        );
 
     expect(Cache::has("inertia:shared:{$user->id}:companies"))->toBeTrue();
+
+    $cached = Cache::get("inertia:shared:{$user->id}:companies");
+    expect($cached)->toBeArray()
+        ->and($cached[0])->toBeArray()
+        ->and($cached[0])->toMatchArray(['id' => $company->id, 'name' => 'Acme', 'logo_url' => null]);
     expect(Cache::has("inertia:shared:{$user->id}:company:{$company->id}:permissions"))->toBeTrue();
     expect(Cache::has("inertia:shared:{$user->id}:company:{$company->id}:roles"))->toBeTrue();
 });
-
