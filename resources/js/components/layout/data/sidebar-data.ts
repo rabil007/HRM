@@ -27,6 +27,7 @@ import {
     Sailboat,
     Award,
     Handshake,
+    GraduationCap,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
 import { edit as editAppearance } from '@/routes/appearance';
@@ -92,6 +93,11 @@ const baseSidebarData: SidebarData = {
                             title: 'Genders',
                             url: '/settings/master-data/genders',
                             icon: Users,
+                        },
+                        {
+                            title: 'Courses',
+                            url: '/settings/master-data/courses',
+                            icon: GraduationCap,
                         },
                         {
                             title: 'Banks',
@@ -226,6 +232,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/genders') {
                                 return has(permissions, 'settings.master-data.genders.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/courses') {
+                                return has(permissions, 'settings.master-data.courses.view');
                             }
 
                             if (sub.url === '/settings/master-data/banks') {

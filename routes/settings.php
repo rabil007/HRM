@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
+use App\Http\Controllers\Settings\MasterData\CourseController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
@@ -96,6 +97,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('genders/{gender}', [GenderController::class, 'destroy'])
             ->middleware('can:settings.master-data.genders.delete')
             ->name('genders.destroy');
+
+        Route::get('courses/import/template', [CourseController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.courses.view')
+            ->name('courses.import.template');
+        Route::post('courses/import', [CourseController::class, 'import'])
+            ->middleware('can:settings.master-data.courses.create')
+            ->name('courses.import');
+        Route::get('courses', [CourseController::class, 'index'])
+            ->middleware('can:settings.master-data.courses.view')
+            ->name('courses.index');
+        Route::post('courses', [CourseController::class, 'store'])
+            ->middleware('can:settings.master-data.courses.create')
+            ->name('courses.store');
+        Route::put('courses/{course}', [CourseController::class, 'update'])
+            ->middleware('can:settings.master-data.courses.update')
+            ->name('courses.update');
+        Route::delete('courses/{course}', [CourseController::class, 'destroy'])
+            ->middleware('can:settings.master-data.courses.delete')
+            ->name('courses.destroy');
 
         Route::get('banks', [BankController::class, 'index'])
             ->middleware('can:settings.master-data.banks.view')

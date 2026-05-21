@@ -12,6 +12,7 @@ import {
     Sailboat,
     Award,
     Handshake,
+    GraduationCap,
     ChevronRight,
     Settings as SettingsIcon,
     Database
@@ -37,6 +38,7 @@ const SETTINGS_GROUPS = [
             { title: 'Visa Types', href: '/settings/master-data/visa-types', icon: IdCard, color: 'bg-cyan-500/10 text-cyan-600' },
             { title: 'Religions', href: '/settings/master-data/religions', icon: BadgeCheck, color: 'bg-indigo-500/10 text-indigo-600' },
             { title: 'Genders', href: '/settings/master-data/genders', icon: Users, color: 'bg-rose-500/10 text-rose-600' },
+            { title: 'Courses', href: '/settings/master-data/courses', icon: GraduationCap, color: 'bg-lime-500/10 text-lime-600' },
             { title: 'Banks', href: '/settings/master-data/banks', icon: PiggyBank, color: 'bg-orange-500/10 text-orange-600' },
             { title: 'Vessel types', href: '/settings/master-data/vessel-types', icon: Sailboat, color: 'bg-sky-500/10 text-sky-600' },
             { title: 'Ranks', href: '/settings/master-data/ranks', icon: Award, color: 'bg-violet-500/10 text-violet-600' },

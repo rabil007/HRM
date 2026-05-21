@@ -43,6 +43,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.genders.update',
             'settings.master-data.genders.delete',
 
+            'settings.master-data.courses.view',
+            'settings.master-data.courses.create',
+            'settings.master-data.courses.update',
+            'settings.master-data.courses.delete',
+
             'settings.master-data.banks.view',
             'settings.master-data.banks.create',
             'settings.master-data.banks.update',
