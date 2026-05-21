@@ -38,11 +38,11 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                         href={home()}
                         className="flex items-center gap-3 transition-opacity hover:opacity-80"
                     >
-                        <div className="flex size-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm ring-1 ring-primary/20">
+                        <div className="flex size-11 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-transparent">
                             <ApplicationLogo
                                 variant="login"
-                                imageClassName="h-7 w-auto max-w-[140px]"
-                                iconClassName="size-5"
+                                imageClassName="size-11 object-contain"
+                                iconClassName="size-5 text-primary"
                             />
                         </div>
                         <span className="text-lg font-bold tracking-tight text-foreground">{name}</span>
