@@ -45,9 +45,10 @@ export function useApplicationBrandingSync(): void {
 
         const preferences = settings?.preferences;
 
-        if (preferences?.primary_color && preferences?.accent_color) {
-            applyBrandTheme(preferences.primary_color, preferences.accent_color);
-        }
+        const primary = preferences?.primary_color ?? '#6366f1';
+        const accent = preferences?.accent_color ?? '#8b5cf6';
+
+        applyBrandTheme(primary, accent);
     }, [settings, name]);
 }
 
