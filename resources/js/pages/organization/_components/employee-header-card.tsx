@@ -12,6 +12,8 @@ import {
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
+import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
@@ -111,25 +113,7 @@ export function EmployeeHeaderCard({
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
 
-    const initials = useMemo(() => {
-        return (
-            String(form.data.name ?? '')
-                .split(' ')
-                .filter(Boolean)
-                .slice(0, 2)
-                .map((part) => part[0])
-                .join('')
-                .toUpperCase() ||
-            'E'
-        );
-    }, [form.data.name]);
-
-    const imageSrc = employee.image
-        ? employee.image.startsWith('http')
-            ? employee.image
-            : `/storage/${employee.image.replace(/^\/+/, '')}`
-        : null;
-
+    const imageSrc = resolveEmployeeImageUrl(employee.image);
     const displayImageSrc = showOptimisticPreview ? photoPreview : imageSrc;
 
     const handlePhotoChange = (file: File | undefined) => {
@@ -169,36 +153,36 @@ export function EmployeeHeaderCard({
 
         if (status === 'inactive') {
             return {
-                container: 'border-zinc-500/20 bg-zinc-500/10 text-zinc-300',
-                dot: 'bg-zinc-400',
+                container: 'border-border bg-muted/50 text-muted-foreground',
+                dot: 'bg-muted-foreground',
             };
         }
 
         if (status === 'on_leave') {
             return {
-                container: 'border-amber-500/20 bg-amber-500/10 text-amber-300',
-                dot: 'bg-amber-400',
+                container: 'border-warning/30 bg-warning/10 text-warning',
+                dot: 'bg-warning',
             };
         }
 
         if (status === 'terminated') {
             return {
-                container: 'border-rose-500/20 bg-rose-500/10 text-rose-400',
-                dot: 'bg-rose-500',
+                container: 'border-destructive/30 bg-destructive/10 text-destructive',
+                dot: 'bg-destructive',
             };
         }
 
         return {
-            container: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-            dot: 'bg-emerald-400',
+            container: 'border-success/30 bg-success/10 text-success',
+            dot: 'bg-success',
         };
     }, [employee.status]);
 
     return (
-        <div className="relative overflow-hidden rounded-[2rem] border border-white/[0.08] bg-zinc-950 p-6 shadow-[0_24px_48px_-8px_rgba(0,0,0,0.6),0_0_0_1px_rgba(255,255,255,0.04)] md:p-8">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_-5%_-10%,rgba(99,102,241,0.22),transparent_55%),radial-gradient(ellipse_55%_55%_at_110%_110%,rgba(16,185,129,0.13),transparent_55%)]" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-indigo-400/60 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-indigo-500/[0.06] to-transparent" />
+        <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-lg md:p-8">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_-5%_-10%,color-mix(in_oklch,var(--primary)_20%,transparent),transparent_55%),radial-gradient(ellipse_55%_55%_at_110%_110%,color-mix(in_oklch,var(--success)_12%,transparent),transparent_55%)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-primary/5 to-transparent" />
 
             <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
                 <div className="relative mx-auto shrink-0 md:mx-0">
@@ -215,11 +199,11 @@ export function EmployeeHeaderCard({
                         }}
                     />
                     {/* Glow halo behind avatar */}
-                    <div className="absolute -inset-3 rounded-[2rem] bg-gradient-to-br from-indigo-500/30 via-violet-500/10 to-emerald-500/20 opacity-60 blur-xl" />
+                    <div className="absolute -inset-3 rounded-2xl bg-gradient-to-br from-primary/25 via-accent/10 to-success/15 opacity-60 blur-xl" />
                     <button
                         type="button"
                         className={cn(
-                            'group relative h-28 w-28 overflow-hidden rounded-[1.75rem] border border-white/[0.12] bg-zinc-900 shadow-2xl shadow-black/50 ring-1 ring-white/[0.06] md:h-32 md:w-32 lg:h-36 lg:w-36',
+                            'group relative overflow-hidden rounded-2xl border border-border/80 shadow-xl ring-1 ring-border/50',
                             canUpdate ? 'cursor-pointer' : 'cursor-default',
                         )}
                         onClick={() => {
@@ -230,17 +214,13 @@ export function EmployeeHeaderCard({
                         disabled={!canUpdate || isUploadingPhoto}
                         aria-label={canUpdate ? 'Change employee photo' : 'Employee photo'}
                     >
-                        {displayImageSrc ? (
-                            <img
-                                src={displayImageSrc}
-                                alt={displayName}
-                                className="h-full w-full object-cover"
-                            />
-                        ) : (
-                            <div className="flex h-full w-full select-none items-center justify-center bg-gradient-to-br from-indigo-500/30 via-violet-500/20 to-emerald-500/20 text-3xl font-black leading-none text-white md:text-4xl lg:text-5xl">
-                                {initials}
-                            </div>
-                        )}
+                        <EmployeeAvatar
+                            name={displayName}
+                            image={employee.image}
+                            src={displayImageSrc}
+                            size="lg"
+                            className="rounded-2xl"
+                        />
                         {canUpdate ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
                                 {isUploadingPhoto ? (
@@ -258,7 +238,7 @@ export function EmployeeHeaderCard({
                     </button>
                     {/* Live status dot */}
                     <div className={cn(
-                        'absolute -bottom-1.5 -right-1.5 h-5 w-5 rounded-full border-[3px] border-zinc-950 shadow-lg',
+                        'absolute -bottom-1.5 -right-1.5 h-5 w-5 rounded-full border-[3px] border-card shadow-lg',
                         statusBadge.dot,
                     )} />
                 </div>
@@ -266,12 +246,12 @@ export function EmployeeHeaderCard({
                 <div className="min-w-0 flex-1 text-center md:text-left">
                     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
                         <div className="min-w-0 space-y-3">
-                            <div className="inline-flex items-center gap-1.5 rounded-full border border-indigo-400/25 bg-indigo-400/[0.08] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-300">
+                            <div className="inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
                                 <UserRound className="h-2.5 w-2.5" />
                                 Employee profile
                             </div>
 
-                            <h1 className="truncate text-3xl font-black tracking-tight text-white md:text-4xl">
+                            <h1 className="truncate text-3xl font-black tracking-tight text-foreground md:text-4xl">
                                 <EditableHeaderNameField
                                     field="name"
                                     value={form.data.name}
@@ -292,7 +272,7 @@ export function EmployeeHeaderCard({
                                     </Badge>
                                 ) : null}
                                 {employee.department?.name ? (
-                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300 md:mx-0">
+                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-muted-foreground md:mx-0">
                                         <Building2 className="h-3.5 w-3.5" />
                                         {employee.department.name}
                                     </Badge>
@@ -416,14 +396,14 @@ export function EmployeeHeaderCard({
                 </div>
             </div>
 
-            <div className="relative mt-6 overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.05] to-transparent shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]">
-                <div className="border-b border-white/[0.06] px-5 py-3">
-                    <h2 className="text-xs font-semibold uppercase tracking-widest text-zinc-500">
+            <div className="relative mt-6 overflow-hidden rounded-2xl border border-border/80 bg-muted/20 shadow-sm">
+                <div className="border-b border-border/60 px-5 py-3">
+                    <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                         Details
                     </h2>
                 </div>
 
-                <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.05] md:grid-cols-4">
+                <div className="grid grid-cols-2 divide-x divide-y divide-border/50 md:grid-cols-4">
                     {/* Work email */}
                     {showField('work_email') && (
                         <EditableDetailTextField
@@ -446,7 +426,7 @@ export function EmployeeHeaderCard({
 
                     {/* Mobile (UAE) */}
                     {showField('phone') && (
-                        <div className="group px-4 py-4 transition-colors hover:bg-white/[0.03]">
+                        <div className="group px-4 py-4 transition-colors hover:bg-muted/30">
                             <EmployeeInlinePhoneField
                                 fieldKey="phone"
                                 label="Mobile (UAE)"
@@ -461,7 +441,7 @@ export function EmployeeHeaderCard({
                                 defaultDialCode="+971"
                                 canEdit={canUpdate}
                                 rowClassName="flex flex-col gap-1.5"
-                                labelClassName="text-[10px] font-semibold uppercase tracking-wider text-zinc-500"
+                                labelClassName="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                             />
                         </div>
                     )}

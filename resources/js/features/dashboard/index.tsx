@@ -85,7 +85,7 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                         hint="Last 30 days"
                         icon={UserPlus}
                         trend="+3 new today"
-                        glow="glow-green"
+                        glow="glow-success"
                     />
                     <Metric
                         title="On leave"
@@ -93,7 +93,7 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                         hint="Approved today"
                         icon={CalendarOff}
                         trend="2 emergency"
-                        glow="glow-orange"
+                        glow="glow-accent"
                     />
                     <Metric
                         title="Action items"
@@ -101,12 +101,12 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                         hint="Pending requests"
                         icon={ClipboardCheck}
                         trend="4 high priority"
-                        glow="glow-blue"
+                        glow="glow-info"
                     />
                 </div>
 
                 <div className="grid gap-6 lg:grid-cols-3 mb-6">
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl lg:col-span-2">
+                    <Card className="glass-card lg:col-span-2">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0">
                             <div>
                                 <CardTitle className="text-xl font-bold tracking-tight">Growth & Headcount</CardTitle>
@@ -126,7 +126,7 @@ export function DashboardContent({ documentCompliance }: { documentCompliance: D
                         </CardContent>
                     </Card>
 
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl shrink-0 overflow-hidden relative flex flex-col">
+                    <Card className="glass-card shrink-0 overflow-hidden relative flex flex-col">
                         <div className="absolute -top-12 -right-12 p-8 opacity-5 pointer-events-none">
                             <LayoutGrid className="h-64 w-64 rotate-12 text-white" />
                         </div>

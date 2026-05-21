@@ -36,7 +36,7 @@ const SETTINGS_GROUPS = [
             { title: 'Countries', href: '/settings/master-data/countries', icon: Globe2, color: 'bg-emerald-500/10 text-emerald-600' },
             { title: 'Currencies', href: '/settings/master-data/currencies', icon: Wallet, color: 'bg-amber-500/10 text-amber-600' },
             { title: 'Visa Types', href: '/settings/master-data/visa-types', icon: IdCard, color: 'bg-cyan-500/10 text-cyan-600' },
-            { title: 'Religions', href: '/settings/master-data/religions', icon: BadgeCheck, color: 'bg-indigo-500/10 text-indigo-600' },
+            { title: 'Religions', href: '/settings/master-data/religions', icon: BadgeCheck, color: 'bg-primary/10 text-primary' },
             { title: 'Genders', href: '/settings/master-data/genders', icon: Users, color: 'bg-rose-500/10 text-rose-600' },
             { title: 'Courses', href: '/settings/master-data/courses', icon: GraduationCap, color: 'bg-lime-500/10 text-lime-600' },
             { title: 'Banks', href: '/settings/master-data/banks', icon: PiggyBank, color: 'bg-orange-500/10 text-orange-600' },

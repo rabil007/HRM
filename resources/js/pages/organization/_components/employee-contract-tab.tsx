@@ -8,6 +8,7 @@ import {
     update as updateContract,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeContractController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -100,7 +101,7 @@ function contractStatusClass(status: string | null | undefined): string {
         return 'border-amber-500/25 bg-amber-500/10 text-amber-300';
     }
 
-    return 'border-zinc-500/25 bg-zinc-500/10 text-zinc-400';
+    return 'border-zinc-500/25 bg-zinc-500/10 text-muted-foreground';
 }
 
 export function EmployeeContractTab({
@@ -275,7 +276,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'font-medium text-zinc-100',
+                                        'font-medium text-foreground',
                                     )}
                                 >
                                     {formatContractType(row.contract_type)}
@@ -293,7 +294,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[160px] truncate font-mono text-xs text-zinc-300',
+                                        'max-w-[160px] truncate font-mono text-xs text-muted-foreground',
                                     )}
                                     title={row.labor_contract_id ?? undefined}
                                 >
@@ -302,7 +303,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-zinc-400',
+                                        'whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatIsoDateDisplay(row.start_date)}
@@ -310,7 +311,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-zinc-400',
+                                        'whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatIsoDateDisplay(row.end_date)}
@@ -318,7 +319,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'tabular-nums text-zinc-300',
+                                        'tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {formatMoney(row.basic_salary)}
@@ -326,7 +327,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'tabular-nums text-zinc-300',
+                                        'tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {formatMoney(row.housing_allowance)}
@@ -334,7 +335,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'tabular-nums text-zinc-300',
+                                        'tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {formatMoney(row.transport_allowance)}
@@ -342,7 +343,7 @@ export function EmployeeContractTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'tabular-nums text-zinc-300',
+                                        'tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {formatMoney(row.other_allowances)}
@@ -383,7 +384,7 @@ export function EmployeeContractTab({
                         <DialogTitle>
                             {editingContract ? 'Edit contract' : 'Add contract'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Fill in the contract details. Salary fields are optional.
                         </p>
                     </DialogHeader>
@@ -391,8 +392,8 @@ export function EmployeeContractTab({
                     {/* Section: Contract details */}
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Contract details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Contract details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
@@ -407,7 +408,7 @@ export function EmployeeContractTab({
                                     <AppSelectItem value="part_time">Part time</AppSelectItem>
                                     <AppSelectItem value="contract">Contract</AppSelectItem>
                                 </AppSelect>
-                                <p className="text-[11px] text-zinc-500">The nature of the employment term</p>
+                                <p className="text-[11px] text-muted-foreground">The nature of the employment term</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_status" className="text-xs">Status</Label>
@@ -420,27 +421,27 @@ export function EmployeeContractTab({
                                     <AppSelectItem value="ended">Ended</AppSelectItem>
                                     <AppSelectItem value="draft">Draft</AppSelectItem>
                                 </AppSelect>
-                                <p className="text-[11px] text-zinc-500">Current state of this contract</p>
+                                <p className="text-[11px] text-muted-foreground">Current state of this contract</p>
                             </div>
                         </div>
                         <div className="space-y-1.5">
                             <Label htmlFor="contract_labor_contract_id" className="text-xs">Labor contract ID</Label>
                             <Input
                                 id="contract_labor_contract_id"
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                 placeholder="e.g. MOL-2024-00123"
                                 value={contractForm.data.labor_contract_id}
                                 onChange={(e) => contractForm.setData('labor_contract_id', e.target.value)}
                             />
-                            <p className="text-[11px] text-zinc-500">Reference number from the labor authority (optional)</p>
+                            <p className="text-[11px] text-muted-foreground">Reference number from the labor authority (optional)</p>
                         </div>
                     </div>
 
                     {/* Section: Duration */}
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Duration</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
@@ -448,14 +449,14 @@ export function EmployeeContractTab({
                                 <Input
                                     id="contract_start_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.start_date}
                                     onChange={(e) => contractForm.setData('start_date', e.target.value)}
                                 />
                                 {contractForm.errors.start_date ? (
                                     <p className="text-xs text-destructive">{contractForm.errors.start_date}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">When the contract becomes effective</p>
+                                    <p className="text-[11px] text-muted-foreground">When the contract becomes effective</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -463,11 +464,11 @@ export function EmployeeContractTab({
                                 <Input
                                     id="contract_end_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.end_date}
                                     onChange={(e) => contractForm.setData('end_date', e.target.value)}
                                 />
-                                <p className="text-[11px] text-zinc-500">Leave blank for unlimited contracts</p>
+                                <p className="text-[11px] text-muted-foreground">Leave blank for unlimited contracts</p>
                             </div>
                         </div>
                     </div>
@@ -475,8 +476,8 @@ export function EmployeeContractTab({
                     {/* Section: Compensation */}
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Compensation</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Compensation</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
@@ -485,11 +486,11 @@ export function EmployeeContractTab({
                                     id="contract_basic_salary"
                                     inputMode="decimal"
                                     placeholder="e.g. 5000.00"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.basic_salary}
                                     onChange={(e) => contractForm.setData('basic_salary', e.target.value)}
                                 />
-                                <p className="text-[11px] text-zinc-500">Monthly base salary in local currency</p>
+                                <p className="text-[11px] text-muted-foreground">Monthly base salary in local currency</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_housing_allowance" className="text-xs">Housing allowance</Label>
@@ -497,11 +498,11 @@ export function EmployeeContractTab({
                                     id="contract_housing_allowance"
                                     inputMode="decimal"
                                     placeholder="e.g. 1500.00"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.housing_allowance}
                                     onChange={(e) => contractForm.setData('housing_allowance', e.target.value)}
                                 />
-                                <p className="text-[11px] text-zinc-500">Monthly housing benefit (optional)</p>
+                                <p className="text-[11px] text-muted-foreground">Monthly housing benefit (optional)</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_transport_allowance" className="text-xs">Transport allowance</Label>
@@ -509,11 +510,11 @@ export function EmployeeContractTab({
                                     id="contract_transport_allowance"
                                     inputMode="decimal"
                                     placeholder="e.g. 500.00"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.transport_allowance}
                                     onChange={(e) => contractForm.setData('transport_allowance', e.target.value)}
                                 />
-                                <p className="text-[11px] text-zinc-500">Monthly transport benefit (optional)</p>
+                                <p className="text-[11px] text-muted-foreground">Monthly transport benefit (optional)</p>
                             </div>
                             <div className="space-y-1.5">
                                 <Label htmlFor="contract_other_allowances" className="text-xs">Other allowances</Label>
@@ -521,21 +522,21 @@ export function EmployeeContractTab({
                                     id="contract_other_allowances"
                                     inputMode="decimal"
                                     placeholder="e.g. 200.00"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={contractForm.data.other_allowances}
                                     onChange={(e) => contractForm.setData('other_allowances', e.target.value)}
                                 />
-                                <p className="text-[11px] text-zinc-500">Any additional monthly allowances (optional)</p>
+                                <p className="text-[11px] text-muted-foreground">Any additional monthly allowances (optional)</p>
                             </div>
                         </div>
                     </div>
 
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             type="button"
                             variant="outline"
                             size="sm"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -543,7 +544,7 @@ export function EmployeeContractTab({
                         <Button
                             type="button"
                             size="sm"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={contractForm.processing}
                             onClick={submitContract}
                         >

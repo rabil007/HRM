@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Cake, Eye, Mail, Phone, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Employee } from '../types';
@@ -12,8 +13,8 @@ const STATUS_CONFIG = {
         label: 'Active',
     },
     inactive: {
-        dot: 'bg-zinc-400',
-        badge: 'border-zinc-500/25 bg-zinc-500/10 text-zinc-400',
+        dot: 'bg-muted-foreground',
+        badge: 'border-border bg-muted/50 text-muted-foreground',
         label: 'Inactive',
     },
     on_leave: {
@@ -37,20 +38,6 @@ const POSITION_COLORS = [
     'border-rose-500/20 bg-rose-500/10 text-rose-400',
 ];
 
-function getAvatarGradient(name: string): string {
-    const gradients = [
-        'from-violet-600 to-indigo-600',
-        'from-sky-600 to-cyan-600',
-        'from-emerald-600 to-teal-600',
-        'from-amber-600 to-orange-600',
-        'from-rose-600 to-pink-600',
-        'from-fuchsia-600 to-purple-600',
-    ];
-    const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
-
-    return gradients[hash % gradients.length];
-}
-
 export function EmployeeCard({
     employee,
     showUrl,
@@ -60,22 +47,6 @@ export function EmployeeCard({
     showUrl: string;
     onDelete?: (employee: Employee) => void;
 }) {
-    const imageSrc = employee.image
-        ? employee.image.startsWith('http')
-            ? employee.image
-            : `/storage/${employee.image.replace(/^\/+/, '')}`
-        : null;
-
-    const initials =
-        employee.name
-            .split(' ')
-            .filter(Boolean)
-            .slice(0, 2)
-            .map((part) => part[0])
-            .join('')
-            .toUpperCase() || 'E';
-
-    const avatarGradient = getAvatarGradient(employee.name);
     const statusCfg = STATUS_CONFIG[employee.status] ?? STATUS_CONFIG.inactive;
     const positionColor = POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
     const birthdayDisplay = formatDisplayDate(employee.date_of_birth);
@@ -83,28 +54,15 @@ export function EmployeeCard({
 
     return (
         <div
-            className="group relative flex overflow-hidden rounded-2xl border border-white/8 bg-card/50 shadow-[0_4px_24px_rgba(0,0,0,0.3)] backdrop-blur-sm transition-all duration-200 hover:border-primary/30 hover:shadow-[0_8px_32px_rgba(0,0,0,0.4)] hover:-translate-y-0.5 cursor-pointer"
+            className="group relative flex cursor-pointer overflow-hidden rounded-2xl border border-border/80 bg-card/80 shadow-sm backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             onClick={() => router.visit(showUrl)}
         >
-            {/* ── Left: Photo panel ── */}
-            <div
-                className={cn(
-                    'w-28 shrink-0 self-stretch overflow-hidden bg-gradient-to-br',
-                    avatarGradient,
-                )}
-            >
-                {imageSrc ? (
-                    <img
-                        src={imageSrc}
-                        alt={employee.name}
-                        className="h-full w-full object-cover object-top"
-                    />
-                ) : (
-                    <div className="flex h-full w-full select-none items-center justify-center text-3xl font-bold text-white/80">
-                        {initials}
-                    </div>
-                )}
-            </div>
+            <EmployeeAvatar
+                name={employee.name}
+                image={employee.image}
+                size="card"
+                className="w-28 shrink-0 self-stretch rounded-none border-0"
+            />
 
             {/* ── Right: Details panel ── */}
             <div className="flex min-w-0 flex-1 flex-col justify-between p-3">

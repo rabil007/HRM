@@ -3,6 +3,7 @@
 @import 'tw-animate-css';
 
 @import './theme.css';
+@import './design-system.css';
 
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
@@ -67,16 +68,16 @@
     @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-primary/20 before:blur-2xl before:content-[''];
 }
 
-@utility glow-blue {
-    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-blue-500/10 before:blur-2xl before:content-[''];
+@utility glow-accent {
+    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-accent/20 before:blur-2xl before:content-[''];
 }
 
-@utility glow-green {
-    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-green-500/10 before:blur-2xl before:content-[''];
+@utility glow-success {
+    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-success/15 before:blur-2xl before:content-[''];
 }
 
-@utility glow-orange {
-    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-orange-500/10 before:blur-2xl before:content-[''];
+@utility glow-info {
+    @apply relative overflow-hidden before:absolute before:-inset-px before:-z-10 before:translate-y-1/2 before:rounded-full before:bg-info/15 before:blur-2xl before:content-[''];
 }
 
 .CollapsibleContent {

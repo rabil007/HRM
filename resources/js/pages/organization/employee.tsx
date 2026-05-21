@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { actions, tabs as dsTabs } from '@/lib/design-system';
+import { cn } from '@/lib/utils';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
@@ -353,21 +355,21 @@ export default function EmployeeDetails({
                                         <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-amber-500/10 text-amber-400">
                                             <AlertTriangle className="size-4" />
                                         </span>
-                                        <AlertDialogTitle className="text-zinc-100">
+                                        <AlertDialogTitle>
                                             Unsaved changes
                                         </AlertDialogTitle>
                                     </div>
-                                    <AlertDialogDescription className="text-zinc-400">
+                                    <AlertDialogDescription>
                                         You have unsaved changes. What would you
                                         like to do?
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
-                                    <AlertDialogCancel className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100">
+                                    <AlertDialogCancel className={actions.dialogSecondary}>
                                         Stay
                                     </AlertDialogCancel>
                                     <AlertDialogAction
-                                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                                        className={actions.dialogSecondary}
                                         onClick={() => {
                                             const nextEmployeeId = pendingEmployeeId;
 
@@ -389,7 +391,7 @@ export default function EmployeeDetails({
                                         Discard
                                     </AlertDialogAction>
                                     <AlertDialogAction
-                                        className="bg-indigo-600 text-white hover:bg-indigo-500"
+                                        className={actions.dialogPrimary}
                                         onClick={() => {
                                             const nextEmployeeId = pendingEmployeeId;
 
@@ -446,16 +448,16 @@ export default function EmployeeDetails({
                                 className="w-full"
                             >
                                 <div className="hide-scrollbar overflow-x-auto">
-                                    <TabsList className="inline-flex h-auto min-w-full flex-nowrap items-center gap-1 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-1.5 shadow-inner shadow-black/20 backdrop-blur-xl">
+                                    <TabsList className={cn(dsTabs.list, 'min-w-full flex-nowrap')}>
                                         {tabs.map((tab) => (
                                             <TabsTrigger
                                                 key={tab.id}
                                                 value={tab.id}
-                                                className="group relative shrink-0 cursor-pointer rounded-xl border border-transparent bg-transparent px-4 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-zinc-500 transition-all duration-200 hover:border-white/10 hover:bg-white/[0.06] hover:text-zinc-300 data-[state=active]:border-indigo-500/20 data-[state=active]:bg-indigo-500/10 data-[state=active]:text-indigo-300 data-[state=active]:shadow-md data-[state=active]:shadow-indigo-950/40"
+                                                className={cn(dsTabs.trigger, 'group')}
                                             >
                                                 {tab.label}
                                                 {tab.count !== null && (
-                                                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-white/[0.08] px-1 text-[10px] font-bold tabular-nums text-zinc-500 group-data-[state=active]:bg-indigo-500/20 group-data-[state=active]:text-indigo-300">
+                                                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold tabular-nums text-muted-foreground group-data-[state=active]:bg-primary/20 group-data-[state=active]:text-primary">
                                                         {tab.count}
                                                     </span>
                                                 )}

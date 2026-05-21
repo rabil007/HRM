@@ -7,6 +7,7 @@ import {
     update,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeEducationQualificationController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -110,7 +111,7 @@ export function EmployeeEducationTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'font-medium text-zinc-100',
+                                        'font-medium text-foreground',
                                     )}
                                 >
                                     {row.certificate}
@@ -118,7 +119,7 @@ export function EmployeeEducationTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'font-mono text-xs text-zinc-400',
+                                        'font-mono text-xs text-muted-foreground',
                                     )}
                                 >
                                     {formatDisplayDate(row.issue_date)}
@@ -126,7 +127,7 @@ export function EmployeeEducationTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-zinc-300',
+                                        'text-muted-foreground',
                                     )}
                                 >
                                     {row.university ?? '—'}
@@ -134,7 +135,7 @@ export function EmployeeEducationTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-xs text-zinc-400',
+                                        'text-xs text-muted-foreground',
                                     )}
                                 >
                                     {row.country_name ?? '—'}
@@ -189,20 +190,20 @@ export function EmployeeEducationTab({
                         <DialogTitle>
                             {editingEducation ? 'Edit qualification' : 'Add qualification'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Enter the details of the educational qualification.
                         </p>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Qualification details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Qualification details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Certificate / Degree <span className="text-red-400">*</span></Label>
                             <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                 placeholder="e.g. Bachelor of Science in Marine Engineering"
                                 value={educationForm.data.certificate}
                                 onChange={(e) => educationForm.setData('certificate', e.target.value)}
@@ -210,14 +211,14 @@ export function EmployeeEducationTab({
                             {educationForm.errors.certificate ? (
                                 <p className="text-xs text-destructive">{educationForm.errors.certificate}</p>
                             ) : (
-                                <p className="text-[11px] text-zinc-500">The title of the obtained qualification</p>
+                                <p className="text-[11px] text-muted-foreground">The title of the obtained qualification</p>
                             )}
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">University / Institution</Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. Maritime Academy"
                                     value={educationForm.data.university}
                                     onChange={(e) => educationForm.setData('university', e.target.value)}
@@ -225,7 +226,7 @@ export function EmployeeEducationTab({
                                 {educationForm.errors.university ? (
                                     <p className="text-xs text-destructive">{educationForm.errors.university}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">The awarding institution (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">The awarding institution (optional)</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -246,31 +247,31 @@ export function EmployeeEducationTab({
                                 {educationForm.errors.country_id ? (
                                     <p className="text-xs text-destructive">{educationForm.errors.country_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Country of the institution (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">Country of the institution (optional)</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Issue date</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={educationForm.data.issue_date}
                                     onChange={(e) => educationForm.setData('issue_date', e.target.value)}
                                 />
                                 {educationForm.errors.issue_date ? (
                                     <p className="text-xs text-destructive">{educationForm.errors.issue_date}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">When the certificate was issued (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">When the certificate was issued (optional)</p>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setEducationDialogOpen(false)}
                         >
                             Cancel
@@ -278,7 +279,7 @@ export function EmployeeEducationTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={educationForm.processing}
                             onClick={() => {
                                 educationForm.clearErrors();

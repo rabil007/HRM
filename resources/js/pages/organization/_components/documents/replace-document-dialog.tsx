@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -43,18 +44,18 @@ export function ReplaceDocumentDialog({
                         <p className="text-xs text-destructive">{replaceForm.errors.file}</p>
                     ) : null}
                 </div>
-                <DialogFooter className="border-t border-white/5 pt-4">
+                <DialogFooter className="border-t border-border/60 pt-4">
                     <Button
                         variant="outline"
                         size="sm"
-                        className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                        className={actions.dialogSecondary}
                         onClick={() => onOpenChange(false)}
                     >
                         Cancel
                     </Button>
                     <Button
                         size="sm"
-                        className="bg-indigo-600 text-white hover:bg-indigo-500"
+                        className={actions.dialogPrimary}
                         disabled={replaceForm.processing}
                         onClick={() => {
                             if (!document) {

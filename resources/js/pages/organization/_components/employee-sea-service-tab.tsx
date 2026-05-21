@@ -7,6 +7,7 @@ import {
     update as updateSeaService,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CreatableSelect } from '@/components/ui/creatable-select';
@@ -192,19 +193,19 @@ export function EmployeeSeaServiceTab({
     return (
         <TabsContent value="sea_service" className="mt-6">
             <div className="mb-4 grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
-                    <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
+                <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
+                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                         Total experience in the applied rank (in years)
                     </div>
-                    <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
+                    <div className="mt-1 font-mono text-sm font-semibold text-foreground">
                         {appliedRankTotals}
                     </div>
                 </div>
-                <div className="rounded-xl border border-white/5 bg-black/10 px-4 py-3">
-                    <div className="text-[11px] font-medium tracking-wide text-zinc-500 uppercase">
+                <div className="rounded-xl border border-border/60 bg-black/10 px-4 py-3">
+                    <div className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">
                         Offshore experience (in years)
                     </div>
-                    <div className="mt-1 font-mono text-sm font-semibold text-zinc-100">
+                    <div className="mt-1 font-mono text-sm font-semibold text-foreground">
                         {offshoreTotals}
                     </div>
                 </div>
@@ -284,7 +285,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                        'max-w-[200px] truncate font-medium text-foreground',
                                     )}
                                     title={row.vessel_type_name ?? ''}
                                 >
@@ -293,7 +294,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate text-zinc-300',
+                                        'max-w-[200px] truncate text-muted-foreground',
                                     )}
                                     title={row.vessel_name ?? ''}
                                 >
@@ -302,7 +303,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[180px] truncate text-zinc-300',
+                                        'max-w-[180px] truncate text-muted-foreground',
                                     )}
                                     title={row.rank_name ?? ''}
                                 >
@@ -311,7 +312,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-zinc-400',
+                                        'whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatIsoDateDisplay(row.start_date)}
@@ -319,7 +320,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-zinc-400',
+                                        'whitespace-nowrap text-muted-foreground',
                                     )}
                                 >
                                     {formatIsoDateDisplay(row.end_date)}
@@ -327,7 +328,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right tabular-nums text-zinc-300',
+                                        'text-right tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {row.total_months}
@@ -335,7 +336,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right tabular-nums text-zinc-300',
+                                        'text-right tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {row.total_days}
@@ -343,7 +344,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right text-xs tabular-nums text-zinc-400',
+                                        'text-right text-xs tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {row.grt ?? '—'}
@@ -351,7 +352,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'text-right text-xs tabular-nums text-zinc-400',
+                                        'text-right text-xs tabular-nums text-muted-foreground',
                                     )}
                                 >
                                     {row.bhp ?? '—'}
@@ -359,7 +360,7 @@ export function EmployeeSeaServiceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[160px] truncate text-xs text-zinc-400',
+                                        'max-w-[160px] truncate text-xs text-muted-foreground',
                                     )}
                                     title={row.client_name ?? ''}
                                 >
@@ -369,7 +370,7 @@ export function EmployeeSeaServiceTab({
                                     {row.is_offshore ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
                                 {canManage ? (
@@ -424,7 +425,7 @@ export function EmployeeSeaServiceTab({
                         <DialogTitle>
                             {editingRow ? 'Edit sea service' : 'Add sea service'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Enter the details of the vessel and the time served.
                         </p>
                     </DialogHeader>
@@ -432,14 +433,14 @@ export function EmployeeSeaServiceTab({
                     <div className="space-y-4 py-1">
                         {/* Section: Vessel & role */}
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Vessel & Role</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vessel & Role</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Vessel name <span className="text-red-400">*</span></Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. BES SINCERE"
                                     value={employeeForm.data.vessel_name}
                                     onChange={(e) => employeeForm.setData('vessel_name', e.target.value)}
@@ -447,7 +448,7 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.vessel_name ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_name}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Name of the ship</p>
+                                    <p className="text-[11px] text-muted-foreground">Name of the ship</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -480,7 +481,7 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.vessel_type_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Category of the vessel</p>
+                                    <p className="text-[11px] text-muted-foreground">Category of the vessel</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -513,7 +514,7 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.rank_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Position held on board</p>
+                                    <p className="text-[11px] text-muted-foreground">Position held on board</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -546,15 +547,15 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.client_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Client or charterer (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">Client or charterer (optional)</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Section: Duration */}
                         <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Duration</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
@@ -564,7 +565,7 @@ export function EmployeeSeaServiceTab({
                                 <Input
                                     id="sea_service_start_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={employeeForm.data.start_date}
                                     onChange={(e) =>
                                         employeeForm.setData('start_date', e.target.value)
@@ -575,7 +576,7 @@ export function EmployeeSeaServiceTab({
                                         {employeeForm.errors.start_date}
                                     </p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">
+                                    <p className="text-[11px] text-muted-foreground">
                                         First day of service on board
                                     </p>
                                 )}
@@ -587,7 +588,7 @@ export function EmployeeSeaServiceTab({
                                 <Input
                                     id="sea_service_end_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={employeeForm.data.end_date}
                                     onChange={(e) =>
                                         employeeForm.setData('end_date', e.target.value)
@@ -598,7 +599,7 @@ export function EmployeeSeaServiceTab({
                                         {employeeForm.errors.end_date}
                                     </p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">
+                                    <p className="text-[11px] text-muted-foreground">
                                         Last day of service on board
                                     </p>
                                 )}
@@ -609,10 +610,10 @@ export function EmployeeSeaServiceTab({
                                     type="number"
                                     readOnly
                                     tabIndex={-1}
-                                    className="h-10 cursor-default rounded-xl border-white/5 bg-white/[0.02] text-sm tabular-nums text-zinc-400"
+                                    className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm tabular-nums text-muted-foreground"
                                     value={displayedDuration.months}
                                 />
-                                <p className="text-[11px] text-zinc-500">
+                                <p className="text-[11px] text-muted-foreground">
                                     Calculated from service dates
                                 </p>
                             </div>
@@ -622,10 +623,10 @@ export function EmployeeSeaServiceTab({
                                     type="number"
                                     readOnly
                                     tabIndex={-1}
-                                    className="h-10 cursor-default rounded-xl border-white/5 bg-white/[0.02] text-sm tabular-nums text-zinc-400"
+                                    className="h-10 cursor-default rounded-xl border-border/60 bg-muted/30 text-sm tabular-nums text-muted-foreground"
                                     value={displayedDuration.days}
                                 />
-                                <p className="text-[11px] text-zinc-500">
+                                <p className="text-[11px] text-muted-foreground">
                                     Total days in the service period (inclusive)
                                 </p>
                             </div>
@@ -633,8 +634,8 @@ export function EmployeeSeaServiceTab({
 
                         {/* Section: Specs & Settings */}
                         <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Specs & Settings</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Specs & Settings</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
@@ -644,7 +645,7 @@ export function EmployeeSeaServiceTab({
                                     min={0}
                                     step="any"
                                     inputMode="decimal"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm tabular-nums"
                                     placeholder="e.g. 15000"
                                     value={employeeForm.data.grt}
                                     onChange={(e) => employeeForm.setData('grt', e.target.value)}
@@ -652,7 +653,7 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.grt ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.grt}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Gross Register Tonnage (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">Gross Register Tonnage (optional)</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -661,7 +662,7 @@ export function EmployeeSeaServiceTab({
                                     type="number"
                                     min={0}
                                     inputMode="numeric"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm tabular-nums"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm tabular-nums"
                                     placeholder="e.g. 8000"
                                     value={employeeForm.data.bhp}
                                     onChange={(e) => employeeForm.setData('bhp', e.target.value)}
@@ -669,31 +670,31 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.bhp ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.bhp}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Brake Horsepower (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">Brake Horsepower (optional)</p>
                                 )}
                             </div>
                             <div className="sm:col-span-2">
-                                <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                                    <label className="flex items-center gap-3 text-sm text-zinc-200">
+                                <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                    <label className="flex items-center gap-3 text-sm text-foreground">
                                         <Checkbox
                                             checked={employeeForm.data.is_offshore}
                                             onCheckedChange={(v) => employeeForm.setData('is_offshore', v === true)}
                                         />
                                         <div>
                                             <div className="font-medium">Offshore experience</div>
-                                            <div className="mt-0.5 text-[11px] text-zinc-500">Mark if this sea service was completed offshore</div>
+                                            <div className="mt-0.5 text-[11px] text-muted-foreground">Mark if this sea service was completed offshore</div>
                                         </div>
                                     </label>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -701,7 +702,7 @@ export function EmployeeSeaServiceTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={employeeForm.processing}
                             onClick={() => {
                                 employeeForm.clearErrors();

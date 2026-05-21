@@ -7,6 +7,7 @@ import {
     update as updateTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { CreatableSelect } from '@/components/ui/creatable-select';
@@ -187,28 +188,28 @@ export function EmployeeTrainingTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[280px] truncate font-medium text-zinc-100',
+                                        'max-w-[280px] truncate font-medium text-foreground',
                                     )}
                                     title={row.course_name ?? undefined}
                                 >
                                     {row.course_name ?? '—'}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.issue_date)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.expiry_date)}
                                 </td>
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate text-zinc-300',
+                                        'max-w-[200px] truncate text-muted-foreground',
                                     )}
                                     title={row.institute_center}
                                 >
                                     {row.institute_center}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -279,15 +280,15 @@ export function EmployeeTrainingTab({
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{editingTraining ? 'Edit training' : 'Add training'}</DialogTitle>
-                        <DialogDescription className="text-xs text-zinc-500">
+                        <DialogDescription className="text-xs text-muted-foreground">
                             Record a course completion, dates, and optional certificate.
                         </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Course details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Course details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5 sm:col-span-2">
@@ -322,7 +323,7 @@ export function EmployeeTrainingTab({
                                 {trainingForm.errors.course_id ? (
                                     <p className="text-xs text-destructive">{trainingForm.errors.course_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">From master data courses</p>
+                                    <p className="text-[11px] text-muted-foreground">From master data courses</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -331,7 +332,7 @@ export function EmployeeTrainingTab({
                                 </Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={trainingForm.data.issue_date}
                                     onChange={(e) => trainingForm.setData('issue_date', e.target.value)}
                                 />
@@ -343,7 +344,7 @@ export function EmployeeTrainingTab({
                                 <Label className="text-xs">Expiry date</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={trainingForm.data.expiry_date}
                                     onChange={(e) => trainingForm.setData('expiry_date', e.target.value)}
                                 />
@@ -356,7 +357,7 @@ export function EmployeeTrainingTab({
                                     Institute/Center <span className="text-red-400">*</span>
                                 </Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. BINA SENA MTC"
                                     value={trainingForm.data.institute_center}
                                     onChange={(e) => trainingForm.setData('institute_center', e.target.value)}
@@ -390,13 +391,13 @@ export function EmployeeTrainingTab({
                                     ref={certificateInputRef}
                                     type="file"
                                     accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:text-zinc-200"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:text-foreground"
                                     onChange={(e) =>
                                         trainingForm.setData('certificate', e.target.files?.[0] ?? null)
                                     }
                                 />
                                 {editingTraining?.certificate_url ? (
-                                    <p className="text-[11px] text-zinc-500">
+                                    <p className="text-[11px] text-muted-foreground">
                                         Leave empty to keep the current file.{' '}
                                         <a
                                             href={editingTraining.certificate_url}
@@ -411,17 +412,17 @@ export function EmployeeTrainingTab({
                                 {trainingForm.errors.certificate ? (
                                     <p className="text-xs text-destructive">{trainingForm.errors.certificate}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">PDF or image, max 5 MB (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">PDF or image, max 5 MB (optional)</p>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setTrainingDialogOpen(false)}
                         >
                             Cancel
@@ -429,7 +430,7 @@ export function EmployeeTrainingTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={trainingForm.processing}
                             onClick={submitTraining}
                         >

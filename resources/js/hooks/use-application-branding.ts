@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useEffect } from 'react';
+import { applyBrandTheme } from '@/lib/theme/apply-brand-theme';
 
 export function useApplicationSettings() {
     const { settings, name } = usePage().props;
@@ -41,5 +42,22 @@ export function useApplicationBrandingSync(): void {
         }
 
         link.href = faviconUrl;
+
+        const preferences = settings?.preferences;
+
+        if (preferences?.primary_color && preferences?.accent_color) {
+            applyBrandTheme(preferences.primary_color, preferences.accent_color);
+        }
     }, [settings, name]);
+}
+
+export function useSidebarDefaultOpen(): boolean {
+    const { settings, sidebarOpen } = usePage().props;
+    const compactDefault = settings?.preferences?.sidebar_compact_default;
+
+    if (compactDefault === true) {
+        return false;
+    }
+
+    return sidebarOpen ?? true;
 }

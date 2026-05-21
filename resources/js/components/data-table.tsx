@@ -1,6 +1,7 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHead, TableRow } from '@/components/ui/table';
+import { tables } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 
 /** Shared table chrome for organization list views (shadcn Table inside glass card). */
@@ -23,30 +24,27 @@ export function OrganizationDataTable({
 }
 
 export function dataTableHeaderRowClass(): string {
-    return 'border-b border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.03]';
+    return tables.headRowLegacy;
 }
 
 export function dataTableHeadClass(): string {
-    return 'h-10 px-4 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80 whitespace-nowrap';
+    return tables.headCell;
 }
 
 export function dataTableBodyRowClass(interactive = true): string {
-    return cn(
-        'border-b border-white/[0.04] transition-colors duration-150',
-        interactive && 'hover:bg-white/[0.03]',
-    );
+    return cn(tables.bodyRow, !interactive && 'hover:bg-transparent');
 }
 
 export function dataTableCellClass(): string {
-    return 'px-4 py-4 align-middle text-sm text-muted-foreground/80';
+    return tables.cell;
 }
 
 export function dataTableCellPrimaryClass(): string {
-    return 'px-4 py-4 align-middle text-sm font-medium text-foreground';
+    return tables.cellPrimary;
 }
 
 export function dataTableActionsCellClass(): string {
-    return 'px-4 py-3.5 align-middle text-right last:pr-5';
+    return tables.actionsCell;
 }
 
 export function DataTableHeaderRow({
@@ -71,17 +69,17 @@ export function DataTableHead({
 
 /** Employee profile / records tables (native table element). */
 export function recordsTableHeadRowClass(): string {
-    return 'border-b border-white/[0.08] bg-white/[0.03] text-[11px] font-semibold uppercase tracking-wider text-zinc-500';
+    return tables.headRow;
 }
 
 export function recordsTableThClass(): string {
-    return 'px-5 py-3.5 font-medium first:pl-5 last:pr-5';
+    return tables.th;
 }
 
 export function recordsTableRowClass(): string {
-    return 'border-b border-white/[0.05] transition-colors last:border-0 hover:bg-white/[0.03]';
+    return tables.row;
 }
 
 export function recordsTableTdClass(): string {
-    return 'px-5 py-4 align-middle text-zinc-300 first:pl-5 last:pr-5';
+    return tables.td;
 }

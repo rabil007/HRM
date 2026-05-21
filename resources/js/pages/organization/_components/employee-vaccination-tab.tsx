@@ -7,6 +7,7 @@ import {
     update as updateVaccination,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeVaccinationController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { actions } from '@/lib/design-system';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
@@ -127,25 +128,25 @@ export function EmployeeVaccinationTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                        'max-w-[200px] truncate font-medium text-foreground',
                                     )}
                                     title={row.vaccination_name}
                                 >
                                     {row.vaccination_name}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                     {row.country_name ?? '—'}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.first_dose_date)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.second_dose_date)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.booster_dose_date)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -189,21 +190,21 @@ export function EmployeeVaccinationTab({
                         <DialogTitle>
                             {editingVaccination ? 'Edit vaccination' : 'Add vaccination'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Log a vaccination record and dose dates.
                         </p>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Vaccine details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vaccine details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Vaccination name <span className="text-red-400">*</span></Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. COVID-19 (Pfizer), Yellow Fever"
                                     value={vaccinationForm.data.vaccination_name}
                                     onChange={(e) => vaccinationForm.setData('vaccination_name', e.target.value)}
@@ -211,7 +212,7 @@ export function EmployeeVaccinationTab({
                                 {vaccinationForm.errors.vaccination_name ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.vaccination_name}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">The name or type of the vaccine</p>
+                                    <p className="text-[11px] text-muted-foreground">The name or type of the vaccine</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
@@ -232,66 +233,66 @@ export function EmployeeVaccinationTab({
                                 {vaccinationForm.errors.country_id ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.country_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Where the vaccination was administered (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">Where the vaccination was administered (optional)</p>
                                 )}
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Dose dates</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Dose dates</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-3">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">1st dose</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={vaccinationForm.data.first_dose_date}
                                     onChange={(e) => vaccinationForm.setData('first_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.first_dose_date ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.first_dose_date}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Date of first dose</p>
+                                    <p className="text-[11px] text-muted-foreground">Date of first dose</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">2nd dose</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={vaccinationForm.data.second_dose_date}
                                     onChange={(e) => vaccinationForm.setData('second_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.second_dose_date ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.second_dose_date}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Date of second dose</p>
+                                    <p className="text-[11px] text-muted-foreground">Date of second dose</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Booster</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={vaccinationForm.data.booster_dose_date}
                                     onChange={(e) => vaccinationForm.setData('booster_dose_date', e.target.value)}
                                 />
                                 {vaccinationForm.errors.booster_dose_date ? (
                                     <p className="text-xs text-destructive">{vaccinationForm.errors.booster_dose_date}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Date of booster dose</p>
+                                    <p className="text-[11px] text-muted-foreground">Date of booster dose</p>
                                 )}
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setVaccinationDialogOpen(false)}
                         >
                             Cancel
@@ -299,7 +300,7 @@ export function EmployeeVaccinationTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={vaccinationForm.processing}
                             onClick={() => {
                                 vaccinationForm.clearErrors();

@@ -31,16 +31,16 @@ function IconInput({
                     'group relative flex items-center overflow-hidden rounded-xl border bg-white/[0.04] transition-all duration-200',
                     error
                         ? 'border-red-500/40 focus-within:border-red-500/60 focus-within:ring-2 focus-within:ring-red-500/15 focus-within:bg-red-500/[0.03]'
-                        : 'border-white/8 focus-within:border-indigo-500/60 focus-within:ring-2 focus-within:ring-indigo-500/15 focus-within:bg-indigo-500/[0.04]',
+                        : 'border-border focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/15 focus-within:bg-primary/5',
                 )}
             >
                 {/* Icon column */}
-                <div className="flex h-full shrink-0 items-center justify-center px-3.5 text-white/25 transition-colors duration-200 group-focus-within:text-indigo-400">
+                <div className="flex h-full shrink-0 items-center justify-center px-3.5 text-white/25 transition-colors duration-200 group-focus-within:text-primary">
                     {icon}
                 </div>
 
                 {/* Vertical separator */}
-                <div className="h-5 w-px shrink-0 bg-white/8 transition-colors duration-200 group-focus-within:bg-indigo-500/30" />
+                <div className="h-5 w-px shrink-0 bg-border transition-colors duration-200 group-focus-within:bg-primary/30" />
 
                 {/* Input slot */}
                 <div className="flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:shadow-none [&_input]:ring-0 [&_input]:h-12 [&_input]:px-3.5 [&_input]:text-[0.9rem] [&_input]:text-white/90 [&_input]:placeholder:text-white/20 [&_input]:outline-none [&_input]:focus-visible:ring-0 [&_input]:focus-visible:border-0 [&_button]:text-white/25 [&_button:hover]:text-white/70 [&_button]:transition-colors [&_button]:duration-200">
@@ -121,7 +121,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                 {canResetPassword && (
                                     <TextLink
                                         href={request()}
-                                        className="text-[11px] font-medium text-indigo-400/80 hover:text-indigo-300 transition-colors"
+                                        className="text-[11px] font-medium text-primary/80 hover:text-primary transition-colors"
                                         tabIndex={5}
                                     >
                                         Forgot password?
@@ -149,7 +149,7 @@ export default function Login({ status, canResetPassword }: Props) {
                                 id="remember"
                                 checked={remember}
                                 tabIndex={3}
-                                className="border-white/15 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                className="border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                 onCheckedChange={(checked) => setRemember(checked === true)}
                             />
                             {remember ? <input type="hidden" name="remember" value="1" /> : null}
@@ -172,9 +172,9 @@ export default function Login({ status, canResetPassword }: Props) {
                             data-test="login-button"
                             className={cn(
                                 'group relative flex h-12 w-full items-center justify-center gap-2.5 overflow-hidden rounded-xl text-[0.9rem] font-semibold text-white transition-all duration-300',
-                                'bg-gradient-to-r from-indigo-600 via-indigo-600 to-violet-600',
-                                'shadow-[0_0_28px_rgba(99,102,241,0.4)]',
-                                'hover:shadow-[0_0_40px_rgba(99,102,241,0.6)] hover:from-indigo-500 hover:to-violet-500',
+                                'bg-gradient-to-r from-primary via-primary to-accent',
+                                'shadow-[0_0_28px_color-mix(in_oklch,var(--primary)_40%,transparent)]',
+                                'hover:shadow-[0_0_40px_color-mix(in_oklch,var(--primary)_55%,transparent)] hover:brightness-110',
                                 'active:scale-[0.98]',
                                 'disabled:opacity-50 disabled:pointer-events-none',
                                 // shimmer sweep

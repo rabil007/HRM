@@ -3,6 +3,7 @@ import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -388,8 +389,8 @@ export function UploadDocumentDialog({
                     </div>
                 </div>
 
-                <DialogFooter className="items-center border-t border-white/5 pt-4 sm:justify-between">
-                    <div className="text-xs text-zinc-500">
+                <DialogFooter className="items-center border-t border-border/60 pt-4 sm:justify-between">
+                    <div className="text-xs text-muted-foreground">
                         {drafts.length === 0
                             ? 'Select at least one file to upload.'
                             : drafts.length > 1
@@ -400,14 +401,14 @@ export function UploadDocumentDialog({
                         <Button
                             variant="outline"
                             size="sm"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => onOpenChange(false)}
                         >
                             Cancel
                         </Button>
                         <Button
                             size="sm"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={!canUpload}
                             onClick={submitUpload}
                         >

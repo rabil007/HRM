@@ -69,7 +69,7 @@ export function EmployeeInlinePhoneField({
         editor = (
             <button
                 type="button"
-                className="min-w-0 text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200"
+                className="min-w-0 text-left text-sm font-medium text-foreground hover:text-white disabled:cursor-default disabled:hover:text-foreground"
                 onClick={() => beginEdit(fieldKey)}
                 disabled={!canEdit}
             >

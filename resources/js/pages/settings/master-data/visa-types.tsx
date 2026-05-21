@@ -13,9 +13,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import {
+    MasterDataActiveToggle,
+    MasterDataField,
+    MasterDataFormSheet,
+    MasterDataFormSheetFooter,
+    masterDataInputClass,
+} from '@/components/settings/master-data-form-sheet';
 
 type VisaType = {
     id: number;
@@ -125,15 +130,16 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
                             placeholder="Search visa types..."
+                            className={masterDataInputClass}
                         />
                     </div>
                     <Button onClick={openCreate}>Add visa type</Button>
                 </div>
 
-                <div className="rounded-xl border border-border/60 overflow-hidden">
+                <div className="overflow-hidden rounded-xl border border-border/60">
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
-                            <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
+                            <div className="grid grid-cols-12 gap-2 whitespace-nowrap bg-muted/30 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                                 <div className="col-span-7">Title</div>
                                 <div className="col-span-2">Active</div>
                                 <div className="col-span-3 text-right">Actions</div>
@@ -142,13 +148,13 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                             {rows.map((v) => (
                                 <div
                                     key={v.id}
-                                    className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap"
+                                    className="grid grid-cols-12 gap-2 whitespace-nowrap border-t border-border/60 px-4 py-3"
                                 >
-                                    <div className="col-span-7 text-sm truncate">{v.name}</div>
+                                    <div className="col-span-7 truncate text-sm">{v.name}</div>
                                     <div className="col-span-2 flex items-center">
                                         <Switch checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
                                     </div>
-                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
+                                    <div className="col-span-3 flex flex-nowrap justify-end gap-2">
                                         <Button variant="outline" size="sm" onClick={() => openEdit(v)}>
                                             Edit
                                         </Button>
@@ -167,59 +173,35 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                 </div>
             </div>
 
-            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent
-                    side="right"
-                    className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col"
-                >
-                    <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                        <SheetTitle className="text-xl font-bold tracking-tight text-white">
-                            {current ? 'Edit visa type' : 'New visa type'}
-                        </SheetTitle>
-                        <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                            Enter the visa type title only.
-                        </SheetDescription>
-                    </SheetHeader>
+            <MasterDataFormSheet
+                open={sheetOpen}
+                onOpenChange={setSheetOpen}
+                title={current ? 'Edit visa type' : 'New visa type'}
+                description="Enter the visa type title only."
+                footer={
+                    <MasterDataFormSheetFooter
+                        onCancel={() => setSheetOpen(false)}
+                        onSubmit={submit}
+                        processing={form.processing}
+                        submitLabel={current ? 'Save changes' : 'Create visa type'}
+                    />
+                }
+            >
+                <MasterDataField id="title" label="Title" error={form.errors.name}>
+                    <Input
+                        id="title"
+                        value={form.data.name}
+                        onChange={(e) => form.setData('name', e.target.value)}
+                        placeholder="Residential Visa"
+                        className={masterDataInputClass}
+                    />
+                </MasterDataField>
 
-                    <div className="flex-1 overflow-y-auto p-8 space-y-5">
-                        <div className="space-y-2">
-                            <Label
-                                htmlFor="title"
-                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
-                            >
-                                Title
-                            </Label>
-                            <Input
-                                id="title"
-                                value={form.data.name}
-                                onChange={(e) => form.setData('name', e.target.value)}
-                                placeholder="Residential Visa"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
-                            />
-                            {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
-                        </div>
-
-                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
-                            <div>
-                                <div className="text-sm font-semibold text-white">Active</div>
-                                <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
-                            </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
-                        </div>
-                    </div>
-
-                    <div className="p-6 border-t border-white/5 bg-black/40">
-                        <div className="flex items-center justify-end gap-3">
-                            <Button variant="outline" onClick={() => setSheetOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={submit} disabled={form.processing}>
-                                {form.processing ? 'Saving…' : 'Save'}
-                            </Button>
-                        </div>
-                    </div>
-                </SheetContent>
-            </Sheet>
+                <MasterDataActiveToggle
+                    checked={form.data.is_active}
+                    onCheckedChange={(value) => form.setData('is_active', value)}
+                />
+            </MasterDataFormSheet>
 
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent className="glass-card">
@@ -240,4 +222,3 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
         </>
     );
 }
-

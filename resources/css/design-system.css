@@ -1,0 +1,111 @@
+/**
+ * OMS-HRM design system utilities.
+ * Prefer these over one-off zinc/indigo classes in feature pages.
+ */
+
+:root {
+    --ds-transition: 200ms;
+    --ds-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+    --ds-space-xs: 0.25rem;
+    --ds-space-sm: 0.5rem;
+    --ds-space-md: 1rem;
+    --ds-space-lg: 1.5rem;
+    --ds-space-xl: 2rem;
+
+    --ds-radius-control: var(--radius-md);
+    --ds-radius-surface: var(--radius-lg);
+    --ds-radius-modal: var(--radius-xl);
+
+    --brand-primary: var(--primary);
+    --brand-accent: var(--accent);
+
+    --surface-elevated: var(--card);
+    --surface-muted: color-mix(in oklch, var(--muted) 50%, transparent);
+    --border-subtle: color-mix(in oklch, var(--border) 70%, transparent);
+    --border-strong: var(--border);
+
+    --success: oklch(0.62 0.17 155);
+    --success-foreground: oklch(0.98 0.02 155);
+    --warning: oklch(0.75 0.15 85);
+    --warning-foreground: oklch(0.2 0.04 85);
+    --info: oklch(0.62 0.14 250);
+    --info-foreground: oklch(0.98 0.02 250);
+}
+
+.dark {
+    --surface-muted: color-mix(in oklch, var(--card) 85%, var(--background));
+    --border-subtle: color-mix(in oklch, var(--border) 100%, transparent);
+}
+
+@theme inline {
+    --color-success: var(--success);
+    --color-success-foreground: var(--success-foreground);
+    --color-warning: var(--warning);
+    --color-warning-foreground: var(--warning-foreground);
+    --color-info: var(--info);
+    --color-info-foreground: var(--info-foreground);
+    --color-surface-elevated: var(--surface-elevated);
+    --color-surface-muted: var(--surface-muted);
+    --color-border-subtle: var(--border-subtle);
+}
+
+@utility ds-panel {
+    @apply overflow-hidden rounded-2xl border border-border/80 bg-card shadow-sm dark:border-border-subtle dark:bg-card/90 dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)];
+}
+
+@utility ds-panel-header {
+    @apply flex flex-col gap-4 border-b border-border/60 px-5 py-4 sm:flex-row sm:items-center sm:justify-between dark:border-border-subtle;
+}
+
+@utility ds-panel-title {
+    @apply text-sm font-semibold tracking-tight text-foreground;
+}
+
+@utility ds-panel-badge {
+    @apply inline-flex items-center rounded-full border border-border/80 bg-muted/50 px-2.5 py-0.5 text-xs font-medium text-muted-foreground;
+}
+
+@utility ds-empty-state {
+    @apply flex flex-col items-center justify-center px-6 py-16 text-center;
+}
+
+@utility ds-tab-list {
+    @apply inline-flex h-auto min-w-full flex-nowrap items-center gap-1 rounded-2xl border border-border/80 bg-muted/40 p-1.5 shadow-sm dark:bg-muted/30;
+}
+
+@utility ds-tab-trigger {
+    @apply relative shrink-0 cursor-pointer rounded-xl border border-transparent bg-transparent px-4 py-2 text-xs font-semibold tracking-wide whitespace-nowrap text-muted-foreground transition-all duration-200 ease-out hover:border-border hover:bg-accent/50 hover:text-foreground data-[state=active]:border-primary/25 data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:shadow-sm;
+}
+
+@utility ds-table-head-row {
+    @apply border-b border-border/80 bg-muted/30 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground;
+}
+
+@utility ds-table-th {
+    @apply px-5 py-3.5 font-medium first:pl-5 last:pr-5;
+}
+
+@utility ds-table-row {
+    @apply border-b border-border/50 transition-colors duration-150 last:border-0 hover:bg-muted/30;
+}
+
+@utility ds-table-td {
+    @apply px-5 py-4 align-middle text-sm text-muted-foreground first:pl-5 last:pr-5;
+}
+
+@utility ds-table-td-primary {
+    @apply px-5 py-4 align-middle text-sm font-medium text-foreground first:pl-5 last:pr-5;
+}
+
+@utility ds-input-surface {
+    @apply rounded-xl border border-input bg-background/80 shadow-xs transition-[color,box-shadow,border-color] duration-200 focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/30;
+}
+
+@utility ds-page-stack {
+    @apply flex flex-col gap-6;
+}
+
+@utility ds-section-stack {
+    @apply flex flex-col gap-4;
+}

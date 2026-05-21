@@ -7,6 +7,7 @@ import {
     update as updateWorkExperience,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -125,7 +126,7 @@ export function EmployeeWorkExperienceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                        'max-w-[200px] truncate font-medium text-foreground',
                                     )}
                                     title={row.company_name}
                                 >
@@ -134,28 +135,28 @@ export function EmployeeWorkExperienceTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[160px] truncate text-zinc-300',
+                                        'max-w-[160px] truncate text-muted-foreground',
                                     )}
                                     title={row.job_title}
                                 >
                                     {row.job_title}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.date_from)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatIsoDateDisplay(row.date_to)}
                                 </td>
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[220px] truncate text-xs text-zinc-400',
+                                        'max-w-[220px] truncate text-xs text-muted-foreground',
                                     )}
                                     title={row.responsibility ?? ''}
                                 >
                                     {row.responsibility?.trim() ? row.responsibility : '—'}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -199,21 +200,21 @@ export function EmployeeWorkExperienceTab({
                         <DialogTitle>
                             {editingWorkExperience ? 'Edit work experience' : 'Add work experience'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Add details about the employee's previous employment.
                         </p>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Role details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Role details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Company name <span className="text-red-400">*</span></Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. Ocean Maritime LLC"
                                     value={workExperienceForm.data.company_name}
                                     onChange={(e) => workExperienceForm.setData('company_name', e.target.value)}
@@ -221,13 +222,13 @@ export function EmployeeWorkExperienceTab({
                                 {workExperienceForm.errors.company_name ? (
                                     <p className="text-xs text-destructive">{workExperienceForm.errors.company_name}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">The employer's name</p>
+                                    <p className="text-[11px] text-muted-foreground">The employer's name</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Job title <span className="text-red-400">*</span></Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. Chief Engineer"
                                     value={workExperienceForm.data.job_title}
                                     onChange={(e) => workExperienceForm.setData('job_title', e.target.value)}
@@ -235,65 +236,65 @@ export function EmployeeWorkExperienceTab({
                                 {workExperienceForm.errors.job_title ? (
                                     <p className="text-xs text-destructive">{workExperienceForm.errors.job_title}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">The held position or rank</p>
+                                    <p className="text-[11px] text-muted-foreground">The held position or rank</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Start date <span className="text-red-400">*</span></Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={workExperienceForm.data.date_from}
                                     onChange={(e) => workExperienceForm.setData('date_from', e.target.value)}
                                 />
                                 {workExperienceForm.errors.date_from ? (
                                     <p className="text-xs text-destructive">{workExperienceForm.errors.date_from}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">When the employment started</p>
+                                    <p className="text-[11px] text-muted-foreground">When the employment started</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">End date</Label>
                                 <Input
                                     type="date"
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     value={workExperienceForm.data.date_to}
                                     onChange={(e) => workExperienceForm.setData('date_to', e.target.value)}
                                 />
                                 {workExperienceForm.errors.date_to ? (
                                     <p className="text-xs text-destructive">{workExperienceForm.errors.date_to}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Leave empty if currently employed</p>
+                                    <p className="text-[11px] text-muted-foreground">Leave empty if currently employed</p>
                                 )}
                             </div>
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Responsibilities</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Responsibilities</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Description</Label>
                             <textarea
                                 rows={4}
                                 placeholder="Describe the main tasks, responsibilities, and achievements..."
-                                className="min-h-[88px] w-full resize-y rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-200 outline-none focus:ring-1 focus:ring-primary"
+                                className="min-h-[88px] w-full resize-y rounded-xl border border-border bg-muted/50 px-3 py-2 text-sm text-foreground outline-none focus:ring-1 focus:ring-primary"
                                 value={workExperienceForm.data.responsibility}
                                 onChange={(e) => workExperienceForm.setData('responsibility', e.target.value)}
                             />
                             {workExperienceForm.errors.responsibility ? (
                                 <p className="text-xs text-destructive">{workExperienceForm.errors.responsibility}</p>
                             ) : (
-                                <p className="text-[11px] text-zinc-500">Optional description of the role</p>
+                                <p className="text-[11px] text-muted-foreground">Optional description of the role</p>
                             )}
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setWorkExperienceDialogOpen(false)}
                         >
                             Cancel
@@ -301,7 +302,7 @@ export function EmployeeWorkExperienceTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={workExperienceForm.processing}
                             onClick={() => {
                                 workExperienceForm.clearErrors();

@@ -7,6 +7,7 @@ import {
     update as updateBankAccount,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeBankAccountController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CreatableSelect } from '@/components/ui/creatable-select';
@@ -122,7 +123,7 @@ export function EmployeeBankTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate font-medium text-zinc-100',
+                                        'max-w-[200px] truncate font-medium text-foreground',
                                     )}
                                 >
                                     {row.bank_name ?? '—'}
@@ -137,10 +138,10 @@ export function EmployeeBankTab({
                                     {row.is_primary ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -183,7 +184,7 @@ export function EmployeeBankTab({
                         <DialogTitle>
                             {editingRow ? 'Edit bank account' : 'Add bank account'}
                         </DialogTitle>
-                        <DialogDescription className="text-xs text-zinc-500">
+                        <DialogDescription className="text-xs text-muted-foreground">
                             Enter the account details used for payroll disbursement.
                         </DialogDescription>
                     </DialogHeader>
@@ -191,8 +192,8 @@ export function EmployeeBankTab({
                     <div className="space-y-4 py-1">
                         {/* Section: Account details */}
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Account details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Account details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Bank <span className="text-red-400">*</span></Label>
@@ -224,14 +225,14 @@ export function EmployeeBankTab({
                             {bankForm.errors.bank_id ? (
                                 <p className="text-xs text-destructive">{bankForm.errors.bank_id}</p>
                             ) : (
-                                <p className="text-[11px] text-zinc-500">The financial institution holding this account</p>
+                                <p className="text-[11px] text-muted-foreground">The financial institution holding this account</p>
                             )}
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Account holder <span className="text-red-400">*</span></Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                     placeholder="e.g. John M. Doe"
                                     value={bankForm.data.account_name}
                                     onChange={(e) => bankForm.setData('account_name', e.target.value)}
@@ -239,13 +240,13 @@ export function EmployeeBankTab({
                                 {bankForm.errors.account_name ? (
                                     <p className="text-xs text-destructive">{bankForm.errors.account_name}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">Full name as shown on the account</p>
+                                    <p className="text-[11px] text-muted-foreground">Full name as shown on the account</p>
                                 )}
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">IBAN</Label>
                                 <Input
-                                    className="h-10 rounded-xl border-white/5 bg-white/5 font-mono text-sm"
+                                    className="h-10 rounded-xl border-border/60 bg-muted/50 font-mono text-sm"
                                     placeholder="e.g. AE07 0331 2345 6789 0123 456"
                                     value={bankForm.data.iban}
                                     onChange={(e) => bankForm.setData('iban', e.target.value)}
@@ -253,18 +254,18 @@ export function EmployeeBankTab({
                                 {bankForm.errors.iban ? (
                                     <p className="text-xs text-destructive">{bankForm.errors.iban}</p>
                                 ) : (
-                                    <p className="text-[11px] text-zinc-500">International bank account number (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">International bank account number (optional)</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Section: Settings */}
                         <div className="flex items-center gap-2 pt-1">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Settings</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Settings</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
-                        <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                            <label className="flex items-center gap-3 text-sm text-zinc-200">
+                        <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                            <label className="flex items-center gap-3 text-sm text-foreground">
                                 <Checkbox
                                     checked={bankForm.data.is_primary}
                                     disabled={editingRow !== null && bank_accounts.length === 1}
@@ -272,18 +273,18 @@ export function EmployeeBankTab({
                                 />
                                 <div>
                                     <div className="font-medium">Primary payroll account</div>
-                                    <div className="mt-0.5 text-[11px] text-zinc-500">Salary will be deposited to this account by default</div>
+                                    <div className="mt-0.5 text-[11px] text-muted-foreground">Salary will be deposited to this account by default</div>
                                 </div>
                             </label>
                         </div>
                     </div>
 
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setDialogOpen(false)}
                         >
                             Cancel
@@ -291,7 +292,7 @@ export function EmployeeBankTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={bankForm.processing}
                             onClick={() => {
                                 bankForm.clearErrors();

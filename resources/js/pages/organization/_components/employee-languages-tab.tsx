@@ -7,6 +7,7 @@ import {
     update as updateLanguage,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeLanguageController';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
+import { actions } from '@/lib/design-system';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -115,7 +116,7 @@ export function EmployeeLanguagesTab({
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[220px] truncate font-medium text-zinc-100',
+                                        'max-w-[220px] truncate font-medium text-foreground',
                                     )}
                                     title={row.language_name}
                                 >
@@ -125,31 +126,31 @@ export function EmployeeLanguagesTab({
                                     {row.is_spoken ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
                                     {row.is_written ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
                                     {row.is_understood ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
                                 <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
                                     {row.is_mother_tongue ? (
                                         <span className="text-emerald-400">✓</span>
                                     ) : (
-                                        <span className="text-zinc-600">—</span>
+                                        <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -193,20 +194,20 @@ export function EmployeeLanguagesTab({
                         <DialogTitle>
                             {editingLanguage ? 'Edit language' : 'Add language'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-muted-foreground">
                             Specify the language and the employee's proficiency.
                         </p>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Language details</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Language details</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Language <span className="text-red-400">*</span></Label>
                             <Input
-                                className="h-10 rounded-xl border-white/5 bg-white/5 text-sm"
+                                className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
                                 value={languageForm.data.language_name}
                                 onChange={(e) => languageForm.setData('language_name', e.target.value)}
                                 placeholder="e.g. English, Arabic, Spanish"
@@ -214,71 +215,71 @@ export function EmployeeLanguagesTab({
                             {languageForm.errors.language_name ? (
                                 <p className="text-xs text-destructive">{languageForm.errors.language_name}</p>
                             ) : (
-                                <p className="text-[11px] text-zinc-500">The name of the language</p>
+                                <p className="text-[11px] text-muted-foreground">The name of the language</p>
                             )}
                         </div>
 
                         <div className="flex items-center gap-2 pt-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-zinc-500">Proficiencies</span>
-                            <div className="h-px flex-1 bg-white/5" />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Proficiencies</span>
+                            <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-3 sm:grid-cols-2">
-                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-foreground">
                                     <Checkbox
                                         checked={languageForm.data.is_spoken}
                                         onCheckedChange={(v) => languageForm.setData('is_spoken', v === true)}
                                     />
                                     <div>
                                         <div className="font-medium">Spoken</div>
-                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can converse in this language</div>
+                                        <div className="mt-0.5 text-[11px] text-muted-foreground">Can converse in this language</div>
                                     </div>
                                 </label>
                             </div>
-                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-foreground">
                                     <Checkbox
                                         checked={languageForm.data.is_written}
                                         onCheckedChange={(v) => languageForm.setData('is_written', v === true)}
                                     />
                                     <div>
                                         <div className="font-medium">Written</div>
-                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can write in this language</div>
+                                        <div className="mt-0.5 text-[11px] text-muted-foreground">Can write in this language</div>
                                     </div>
                                 </label>
                             </div>
-                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-foreground">
                                     <Checkbox
                                         checked={languageForm.data.is_understood}
                                         onCheckedChange={(v) => languageForm.setData('is_understood', v === true)}
                                     />
                                     <div>
                                         <div className="font-medium">Understood</div>
-                                        <div className="mt-0.5 text-[11px] text-zinc-500">Can understand this language</div>
+                                        <div className="mt-0.5 text-[11px] text-muted-foreground">Can understand this language</div>
                                     </div>
                                 </label>
                             </div>
-                            <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3">
-                                <label className="flex items-center gap-3 text-sm text-zinc-200">
+                            <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
+                                <label className="flex items-center gap-3 text-sm text-foreground">
                                     <Checkbox
                                         checked={languageForm.data.is_mother_tongue}
                                         onCheckedChange={(v) => languageForm.setData('is_mother_tongue', v === true)}
                                     />
                                     <div>
                                         <div className="font-medium">Mother tongue</div>
-                                        <div className="mt-0.5 text-[11px] text-zinc-500">Native language</div>
+                                        <div className="mt-0.5 text-[11px] text-muted-foreground">Native language</div>
                                     </div>
                                 </label>
                             </div>
                         </div>
                     </div>
-                    <DialogFooter className="border-t border-white/5 pt-4">
+                    <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"
                             size="sm"
                             type="button"
-                            className="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className={actions.dialogSecondary}
                             onClick={() => setLanguageDialogOpen(false)}
                         >
                             Cancel
@@ -286,7 +287,7 @@ export function EmployeeLanguagesTab({
                         <Button
                             size="sm"
                             type="button"
-                            className="bg-indigo-600 text-white hover:bg-indigo-500"
+                            className={actions.dialogPrimary}
                             disabled={languageForm.processing}
                             onClick={() => {
                                 languageForm.clearErrors();

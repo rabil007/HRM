@@ -47,13 +47,13 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
     const loginBackground = settings?.branding?.login_background_url;
 
     return (
-        <div className="relative flex min-h-dvh w-full overflow-hidden bg-[#06060f]">
+        <div className="relative flex min-h-dvh w-full overflow-hidden bg-background">
             {/* ── Left panel ── */}
             <div className="relative hidden lg:flex lg:w-[52%] xl:w-[55%] flex-col justify-between overflow-hidden p-10 xl:p-14">
                 {/* Background layers */}
                 <div className="pointer-events-none absolute inset-0" aria-hidden>
                     {/* Base gradient */}
-                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-[#0c0c22] to-violet-950" />
+                    <div className="absolute inset-0 bg-gradient-to-br from-background via-card to-background" />
                     {loginBackground ? (
                         <div
                             className="absolute inset-0 bg-cover bg-center opacity-30"
@@ -61,9 +61,9 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                         />
                     ) : null}
                     {/* Animated blobs */}
-                    <div className="absolute -top-24 -left-24 h-[500px] w-[500px] rounded-full bg-indigo-600/20 blur-[120px] animate-pulse" style={{ animationDuration: '6s' }} />
-                    <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-violet-600/15 blur-[100px] animate-pulse" style={{ animationDuration: '8s', animationDelay: '2s' }} />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[300px] rounded-full bg-indigo-500/10 blur-[80px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
+                    <div className="absolute -top-24 -left-24 h-[500px] w-[500px] rounded-full bg-primary/20 blur-[120px] animate-pulse" style={{ animationDuration: '6s' }} />
+                    <div className="absolute bottom-0 right-0 h-[400px] w-[400px] rounded-full bg-accent/15 blur-[100px] animate-pulse" style={{ animationDuration: '8s', animationDelay: '2s' }} />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[300px] w-[300px] rounded-full bg-primary/10 blur-[80px] animate-pulse" style={{ animationDuration: '10s', animationDelay: '1s' }} />
                     {/* Grid pattern */}
                     <div
                         className="absolute inset-0 opacity-[0.035]"
@@ -74,7 +74,7 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                         }}
                     />
                     {/* Vignette overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-[#06060f]/60" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background/60" />
                 </div>
 
                 {/* Logo */}
@@ -82,7 +82,7 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                     href={home()}
                     className="relative z-10 flex items-center gap-3 w-fit transition-opacity hover:opacity-80"
                 >
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 shadow-[0_0_24px_rgba(99,102,241,0.5)]">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-[0_0_24px_color-mix(in_oklch,var(--primary)_50%,transparent)]">
                         <ApplicationLogo variant="login" imageClassName="h-6 w-auto max-w-[120px]" iconClassName="size-5 text-white" />
                     </div>
                     <span className="text-base font-bold tracking-tight text-white">{name}</span>
@@ -92,12 +92,12 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                 <div className="relative z-10 flex flex-col gap-10">
                     <div className="flex flex-col gap-5">
                         {/* Badge */}
-                        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-indigo-500/25 bg-indigo-500/10 px-3 py-1.5">
+                        <div className="inline-flex w-fit items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5">
                             <span className="relative flex size-1.5">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                                <span className="relative inline-flex size-1.5 rounded-full bg-indigo-400" />
+                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
+                                <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
                             </span>
-                            <span className="text-[10px] font-bold tracking-[0.15em] text-indigo-300 uppercase">
+                            <span className="text-[10px] font-bold tracking-[0.15em] text-primary uppercase">
                                 HR & Workforce Platform
                             </span>
                         </div>
@@ -106,7 +106,7 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                             <h2 className="text-4xl xl:text-5xl font-bold leading-[1.1] tracking-tight text-white">
                                 Manage your team
                                 <br />
-                                <span className="bg-gradient-to-r from-indigo-400 to-violet-400 bg-clip-text text-transparent">
+                                <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                                     with confidence.
                                 </span>
                             </h2>
@@ -121,9 +121,9 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                         {features.map((feature) => (
                             <div
                                 key={feature.title}
-                                className="group flex flex-col gap-3 rounded-2xl border border-white/6 bg-white/4 p-4 backdrop-blur-sm transition-all duration-300 hover:border-indigo-500/30 hover:bg-white/6"
+                                className="group flex flex-col gap-3 rounded-2xl border border-border/60 bg-card/40 p-4 backdrop-blur-sm transition-all duration-300 hover:border-primary/30 hover:bg-card/60"
                             >
-                                <div className="flex size-9 items-center justify-center rounded-lg bg-indigo-500/15 text-indigo-400 ring-1 ring-indigo-500/20 transition-colors group-hover:bg-indigo-500/25">
+                                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/15 text-primary ring-1 ring-primary/20 transition-colors group-hover:bg-primary/25">
                                     {feature.icon}
                                 </div>
                                 <div>
@@ -140,10 +140,10 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                     <div className="flex items-center gap-3">
                         {/* Avatar stack */}
                         <div className="flex -space-x-2">
-                            {['bg-indigo-500', 'bg-violet-500', 'bg-pink-500', 'bg-blue-500'].map((bg, i) => (
+                            {['bg-primary', 'bg-accent', 'bg-info', 'bg-success'].map((bg, i) => (
                                 <div
                                     key={i}
-                                    className={`flex size-7 items-center justify-center rounded-full ${bg} ring-2 ring-[#0c0c22] text-[10px] font-bold text-white`}
+                                    className={`flex size-7 items-center justify-center rounded-full ${bg} ring-2 ring-background text-[10px] font-bold text-primary-foreground`}
                                 >
                                     {String.fromCharCode(65 + i)}
                                 </div>
@@ -169,7 +169,7 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
             <div className="relative flex flex-1 flex-col items-center justify-center px-5 py-10 sm:px-8">
                 {/* Background glow for right side */}
                 <div className="pointer-events-none absolute inset-0" aria-hidden>
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-indigo-600/12 blur-[100px]" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[400px] rounded-full bg-primary/12 blur-[100px]" />
                 </div>
 
                 {/* Mobile-only logo */}
@@ -177,7 +177,7 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                     href={home()}
                     className="relative z-10 mb-8 flex flex-col items-center gap-3 transition-opacity hover:opacity-80 lg:hidden"
                 >
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600 shadow-[0_0_24px_rgba(99,102,241,0.5)]">
+                    <div className="flex size-10 items-center justify-center rounded-xl bg-primary shadow-[0_0_24px_color-mix(in_oklch,var(--primary)_50%,transparent)]">
                         <ApplicationLogo variant="login" imageClassName="h-6 w-auto max-w-[120px]" iconClassName="size-5 text-white" />
                     </div>
                     <span className="text-sm font-bold tracking-tight text-white/80">{name}</span>
@@ -190,12 +190,12 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                 >
                     {/* Header */}
                     <div className="mb-7 text-center">
-                        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-indigo-500/20 bg-indigo-500/8 px-3 py-1 lg:hidden">
+                        <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 lg:hidden">
                             <span className="relative flex size-1.5">
-                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-indigo-400 opacity-75" />
-                                <span className="relative inline-flex size-1.5 rounded-full bg-indigo-400" />
+                                <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75" />
+                                <span className="relative inline-flex size-1.5 rounded-full bg-primary" />
                             </span>
-                            <span className="text-[10px] font-bold tracking-[0.12em] text-indigo-300 uppercase">
+                            <span className="text-[10px] font-bold tracking-[0.12em] text-primary uppercase">
                                 HR & Workforce
                             </span>
                         </div>
@@ -206,16 +206,13 @@ export default function AuthSplitLayout({ children, title, description }: AuthLa
                     {/* Card */}
                     <div
                         className="rounded-2xl p-px"
-                        style={{
-                            background:
-                                'linear-gradient(145deg, rgba(99,102,241,0.5) 0%, rgba(139,92,246,0.25) 40%, rgba(255,255,255,0.06) 100%)',
-                        }}
+                        className="bg-gradient-to-br from-primary/40 via-accent/20 to-border/30"
                     >
-                        <div className="relative rounded-[calc(1rem-1px)] bg-[#0d0d1e] px-6 py-7 backdrop-blur-2xl sm:px-7">
+                        <div className="relative rounded-[calc(1rem-1px)] bg-card px-6 py-7 backdrop-blur-2xl sm:px-7">
                             {/* Inner glow top */}
                             <div className="pointer-events-none absolute inset-0 rounded-[calc(1rem-1px)] bg-gradient-to-b from-white/[0.05] to-transparent" />
                             {/* Inner glow corner */}
-                            <div className="pointer-events-none absolute -top-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+                            <div className="pointer-events-none absolute -top-px left-10 right-10 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
                             <div className="relative z-10">{children}</div>
                         </div>
                     </div>

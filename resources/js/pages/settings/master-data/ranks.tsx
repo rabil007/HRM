@@ -464,9 +464,9 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
             </Dialog>
 
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-                <SheetContent side="right" className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col">
-                    <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                        <SheetTitle className="text-xl font-bold tracking-tight text-white">{current ? 'Edit rank' : 'New rank'}</SheetTitle>
+                <SheetContent side="right" className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md">
+                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                        <SheetTitle className="text-xl font-bold tracking-tight">{current ? 'Edit rank' : 'New rank'}</SheetTitle>
                         <SheetDescription className="text-sm text-muted-foreground/80 mt-1">Keep names short and consistent.</SheetDescription>
                     </SheetHeader>
 
@@ -480,29 +480,27 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                                 placeholder="Chief Engineer"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                             />
                             {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 p-4">
+                        <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                             <div>
-                                <div className="text-sm font-semibold text-white">Active</div>
+                                <div className="text-sm font-semibold text-foreground">Active</div>
                                 <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
                             </div>
                             <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
                     </div>
 
-                    <div className="p-6 border-t border-white/5 bg-black/40">
-                        <div className="flex items-center justify-end gap-3">
-                            <Button variant="outline" onClick={() => setSheetOpen(false)}>
-                                Cancel
-                            </Button>
-                            <Button onClick={submit} disabled={form.processing}>
-                                {form.processing ? 'Saving…' : 'Save'}
-                            </Button>
-                        </div>
+                    <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
+                        <Button type="button" variant="ghost" className="h-11 flex-1 rounded-xl px-6 text-muted-foreground" onClick={() => setSheetOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button type="button" className="h-11 flex-1 rounded-xl px-6 font-semibold" onClick={submit} disabled={form.processing}>
+                            {form.processing ? 'Saving…' : 'Save'}
+                        </Button>
                     </div>
                 </SheetContent>
             </Sheet>

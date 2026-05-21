@@ -70,7 +70,7 @@ export function EmployeeDocumentsTab({
                             asChild
                             variant="outline"
                             size="sm"
-                            className="h-8 gap-1.5 border-white/10 bg-white/5 text-xs text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                            className="h-8 gap-1.5 border-border bg-muted/50 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
                         >
                             <Link href={employeeDocumentsBrowse.url({ employee: employee.id })}>
                                 <FolderOpen className="h-3.5 w-3.5" />
@@ -101,7 +101,7 @@ export function EmployeeDocumentsTab({
                     <tbody>
                         {documents.map((doc) => (
                             <tr key={doc.id} className={employeeRecordsTableRowClass()}>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                     {doc.document_type_label ??
                                         document_types.find(
                                             (t) =>
@@ -112,21 +112,21 @@ export function EmployeeDocumentsTab({
                                         doc.type ??
                                         '—'}
                                     {doc.current_version && doc.current_version > 1 ? (
-                                        <span className="ml-1 text-[10px] text-zinc-500">
+                                        <span className="ml-1 text-[10px] text-muted-foreground">
                                             v{doc.current_version}
                                         </span>
                                     ) : null}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-zinc-100')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-foreground')}>
                                     {doc.title || '—'}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-muted-foreground')}>
                                     {doc.document_number || '—'}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                     {formatDisplayDate(doc.issue_date)}
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-400')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                     {formatDisplayDate(doc.expiry_date)}
                                 </td>
                                 <td className={employeeRecordsTableTdClass()}>
@@ -135,7 +135,7 @@ export function EmployeeDocumentsTab({
                                         className="text-xs capitalize"
                                     />
                                 </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-zinc-500')}>
+                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                     {doc.uploaded_by || '—'}
                                 </td>
                                 <td className={employeeRecordsActionsTdClass('min-w-[13.5rem]')}>

@@ -197,10 +197,10 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
             <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
                 <SheetContent
                     side="right"
-                    className="w-full sm:max-w-md border-white/5 bg-black/60 backdrop-blur-3xl p-0 flex flex-col"
+                    className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
                 >
-                    <SheetHeader className="p-8 pb-6 border-b border-white/5">
-                        <SheetTitle className="text-xl font-bold tracking-tight text-white">
+                    <SheetHeader className="p-8 pb-6 border-b border-border/60">
+                        <SheetTitle className="text-xl font-bold tracking-tight">
                             {current ? 'Edit currency' : 'New currency'}
                         </SheetTitle>
                         <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
@@ -221,7 +221,7 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                                 value={form.data.code}
                                 onChange={(e) => form.setData('code', e.target.value)}
                                 placeholder="AED"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                             />
                             {form.errors.code ? (
                                 <div className="text-xs font-medium text-destructive">{form.errors.code}</div>
@@ -240,7 +240,7 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                                 value={form.data.name}
                                 onChange={(e) => form.setData('name', e.target.value)}
                                 placeholder="UAE Dirham"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                             />
                             {form.errors.name ? (
                                 <div className="text-xs font-medium text-destructive">{form.errors.name}</div>
@@ -259,7 +259,7 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                                 value={form.data.symbol}
                                 onChange={(e) => form.setData('symbol', e.target.value)}
                                 placeholder="د.إ"
-                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 transition-all"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                             />
                             {form.errors.symbol ? (
                                 <div className="text-xs font-medium text-destructive">{form.errors.symbol}</div>
@@ -267,7 +267,7 @@ export default function Currencies({ currencies }: { currencies: Currency[] }) {
                         </div>
                     </div>
 
-                    <div className="p-6 border-t border-white/5 bg-black/20 flex gap-3">
+                    <div className="p-6 border-t border-border/60 bg-background/40 flex gap-3">
                         <Button
                             variant="ghost"
                             onClick={() => setSheetOpen(false)}

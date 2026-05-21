@@ -108,16 +108,16 @@ export default function ApplicationSettings({
                 />
 
                 <Tabs value={tab} onValueChange={setTab} className="w-full">
-                    <TabsList className="grid w-full max-w-lg grid-cols-3">
-                        <TabsTrigger value="general" className="gap-2">
+                    <TabsList className="grid h-10 w-full max-w-lg grid-cols-3">
+                        <TabsTrigger value="general" className="gap-2 data-[state=active]:shadow-none">
                             <Building2 className="size-4" />
                             General
                         </TabsTrigger>
-                        <TabsTrigger value="branding" className="gap-2">
+                        <TabsTrigger value="branding" className="gap-2 data-[state=active]:shadow-none">
                             <ImageIcon className="size-4" />
                             Branding
                         </TabsTrigger>
-                        <TabsTrigger value="preferences" className="gap-2">
+                        <TabsTrigger value="preferences" className="gap-2 data-[state=active]:shadow-none">
                             <Settings2 className="size-4" />
                             System
                         </TabsTrigger>
