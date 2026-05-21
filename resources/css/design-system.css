@@ -109,3 +109,19 @@
 @utility ds-section-stack {
     @apply flex flex-col gap-4;
 }
+
+/**
+ * Neutralize Chrome/Safari autofill inset “shadow” on dark custom input shells.
+ */
+@utility input-autofill-reset {
+    &:-webkit-autofill,
+    &:-webkit-autofill:hover,
+    &:-webkit-autofill:focus,
+    &:-webkit-autofill:active {
+        -webkit-text-fill-color: var(--foreground) !important;
+        caret-color: var(--foreground);
+        -webkit-box-shadow: 0 0 0 1000px color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
+        box-shadow: 0 0 0 1000px color-mix(in oklch, var(--muted) 30%, transparent) inset !important;
+        transition: background-color 99999s ease-out 0s;
+    }
+}

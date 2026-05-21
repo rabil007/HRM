@@ -39,7 +39,7 @@ function IconInput({
                     {icon}
                 </div>
                 <div className="h-5 w-px shrink-0 bg-border transition-colors duration-200 group-focus-within:bg-primary/30" />
-                <div className="flex-1 [&_button]:text-muted-foreground [&_button:hover]:text-foreground [&_button]:transition-colors [&_input]:h-11 [&_input]:border-0 [&_input]:bg-transparent [&_input]:px-3.5 [&_input]:text-sm [&_input]:text-foreground [&_input]:shadow-none [&_input]:ring-0 [&_input]:outline-none [&_input]:placeholder:text-muted-foreground/60 [&_input]:focus-visible:border-0 [&_input]:focus-visible:ring-0">
+                <div className="flex-1 [&_button]:text-muted-foreground [&_button:hover]:text-foreground [&_button]:transition-colors [&_input]:input-autofill-reset [&_input]:h-11 [&_input]:border-0 [&_input]:bg-transparent [&_input]:px-3.5 [&_input]:text-sm [&_input]:text-foreground [&_input]:shadow-none [&_input]:ring-0 [&_input]:outline-none [&_input]:placeholder:text-muted-foreground/60 [&_input]:focus-visible:border-0 [&_input]:focus-visible:ring-0">
                     {children}
                 </div>
             </div>
