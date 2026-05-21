@@ -1,5 +1,6 @@
 import { AtSign, Lock } from 'lucide-react';
 import { Form, Head } from '@inertiajs/react';
+import { useState } from 'react';
 import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
@@ -60,6 +61,8 @@ function IconInput({
 }
 
 export default function Login({ status, canResetPassword }: Props) {
+    const [remember, setRemember] = useState(false);
+
     return (
         <>
             <Head title="Sign in" />
@@ -145,10 +148,12 @@ export default function Login({ status, canResetPassword }: Props) {
                         <div className="flex items-center gap-2.5 pt-0.5">
                             <Checkbox
                                 id="remember"
-                                name="remember"
+                                checked={remember}
                                 tabIndex={3}
                                 className="border-white/15 data-[state=checked]:bg-indigo-600 data-[state=checked]:border-indigo-600"
+                                onCheckedChange={(checked) => setRemember(checked === true)}
                             />
+                            {remember ? <input type="hidden" name="remember" value="1" /> : null}
                             <label
                                 htmlFor="remember"
                                 className="cursor-pointer text-[13px] text-white/35 select-none"
