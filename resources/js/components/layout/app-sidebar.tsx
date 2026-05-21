@@ -1,6 +1,5 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
-import ApplicationLogo from '@/components/application-logo';
 import {
     Sidebar,
     SidebarContent,
@@ -31,14 +30,7 @@ export function AppSidebar() {
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>
-            <SidebarHeader className="gap-3">
-                <div className="flex items-center px-2 py-1">
-                    <ApplicationLogo
-                        variant="sidebar"
-                        imageClassName="h-7 w-auto max-w-[140px]"
-                        iconClassName="size-6 text-sidebar-foreground"
-                    />
-                </div>
+            <SidebarHeader>
                 <TeamSwitcher teams={teams} />
             </SidebarHeader>
             <SidebarContent>

@@ -34,7 +34,6 @@ type Props = {
     };
     branding: {
         main_logo_url: string | null;
-        sidebar_logo_url: string | null;
         login_logo_url: string | null;
         favicon_url: string | null;
         login_background_url: string | null;
@@ -73,7 +72,6 @@ export default function ApplicationSettings({
 
     const brandingForm = useForm({
         main_logo: null as File | null,
-        sidebar_logo: null as File | null,
         login_logo: null as File | null,
         favicon: null as File | null,
         login_background: null as File | null,
@@ -261,7 +259,7 @@ export default function ApplicationSettings({
                             <CardHeader>
                                 <CardTitle>Branding</CardTitle>
                                 <CardDescription>
-                                    Upload logos and favicon. Changes apply immediately across login, sidebar, and browser tab.
+                                    Upload logos and favicon. Changes apply immediately across login and the browser tab.
                                 </CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -272,14 +270,6 @@ export default function ApplicationSettings({
                                         currentUrl={branding.main_logo_url}
                                         onFileChange={(file) => brandingForm.setData('main_logo', file)}
                                         error={brandingForm.errors.main_logo}
-                                    />
-                                    <BrandingUploadField
-                                        label="Sidebar logo"
-                                        assetKey="sidebar_logo"
-                                        currentUrl={branding.sidebar_logo_url}
-                                        hint="Shown in the app sidebar. Falls back to main logo if empty."
-                                        onFileChange={(file) => brandingForm.setData('sidebar_logo', file)}
-                                        error={brandingForm.errors.sidebar_logo}
                                     />
                                     <BrandingUploadField
                                         label="Login page logo"

@@ -2,7 +2,7 @@ import { usePage } from '@inertiajs/react';
 import AppLogoIcon from '@/components/app-logo-icon';
 import { cn } from '@/lib/utils';
 
-type Variant = 'main' | 'sidebar' | 'login';
+type Variant = 'main' | 'login';
 
 type Props = {
     variant?: Variant;
@@ -21,11 +21,9 @@ export default function ApplicationLogo({
     const branding = settings?.branding;
 
     const url =
-        variant === 'sidebar'
-            ? branding?.sidebar_logo_url ?? branding?.main_logo_url
-            : variant === 'login'
-              ? branding?.login_logo_url ?? branding?.main_logo_url
-              : branding?.main_logo_url;
+        variant === 'login'
+            ? branding?.login_logo_url ?? branding?.main_logo_url
+            : branding?.main_logo_url;
 
     if (url) {
         return (
