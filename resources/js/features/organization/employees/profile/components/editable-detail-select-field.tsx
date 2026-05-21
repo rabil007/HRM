@@ -1,6 +1,9 @@
 import type { ReactElement, ReactNode } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { useEffect, useState } from 'react';
+import { CreatableSelect, type CreatableOption } from '@/components/ui/creatable-select';
 import { EditableDetailField } from '@/features/organization/employees/profile/components/editable-detail-field';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import type { CreatableMasterDataContext, CreatableMasterDataKey } from '@/lib/master-data/creatable-registry';
 
 export type EditableSelectOption = {
     id: number;
@@ -14,6 +17,9 @@ export type EditableDetailSelectFieldProps = {
     value: string;
     displayValue: string;
     options: EditableSelectOption[];
+    onOptionsChange?: (options: EditableSelectOption[]) => void;
+    creatableKey?: CreatableMasterDataKey;
+    creatableContext?: CreatableMasterDataContext;
     activeField: string | null;
     setActiveField: (value: string | null) => void;
     beginEdit: (field: string) => void;
@@ -29,6 +35,9 @@ export function EditableDetailSelectField({
     value,
     displayValue,
     options,
+    onOptionsChange,
+    creatableKey,
+    creatableContext,
     activeField,
     setActiveField,
     beginEdit,
@@ -37,6 +46,28 @@ export function EditableDetailSelectField({
     placeholder = '—',
     size = 'sm',
 }: EditableDetailSelectFieldProps): ReactElement {
+    const [localOptions, setLocalOptions] = useState<CreatableOption[]>(options);
+    const creatable = Boolean(creatableKey);
+    const { canCreate, createConfig } = useCreatableMasterData(
+        creatableKey ?? 'bank',
+        creatableContext,
+    );
+
+    useEffect(() => {
+        setLocalOptions(options);
+    }, [options]);
+
+    const handleOptionsChange = (next: CreatableOption[]): void => {
+        setLocalOptions(next);
+        onOptionsChange?.(
+            next.map((option) => ({
+                id: Number(option.id),
+                label: option.label,
+                value: option.value,
+            })),
+        );
+    };
+
     return (
         <EditableDetailField
             label={label}
@@ -46,7 +77,7 @@ export function EditableDetailSelectField({
             beginEdit={beginEdit}
             canEdit={canEdit}
             editControl={
-                <AppSelect
+                <CreatableSelect
                     value={value}
                     onValueChange={(next) => {
                         onChange(next);
@@ -56,14 +87,12 @@ export function EditableDetailSelectField({
                     variant="dark"
                     placeholder={placeholder}
                     size={size}
-                >
-                    <AppSelectItem value="">{placeholder}</AppSelectItem>
-                    {options.map((option) => (
-                        <AppSelectItem key={option.id} value={option.value}>
-                            {option.label}
-                        </AppSelectItem>
-                    ))}
-                </AppSelect>
+                    options={localOptions}
+                    onOptionsChange={handleOptionsChange}
+                    creatable={creatable}
+                    canCreate={creatable && canCreate}
+                    createConfig={creatable ? createConfig : undefined}
+                />
             }
         />
     );

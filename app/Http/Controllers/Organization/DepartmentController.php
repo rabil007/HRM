@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Exports\DepartmentsExport;
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Department\StoreDepartmentRequest;
 use App\Http\Requests\Organization\Department\UpdateDepartmentRequest;
@@ -13,6 +14,8 @@ use App\Models\Position;
 use App\Models\User;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
@@ -23,6 +26,7 @@ use Spatie\Activitylog\Models\Activity;
 class DepartmentController extends Controller
 {
     use ResolvesPerPage;
+    use ReturnsQuickCreateJson;
 
     public function index()
     {
@@ -210,10 +214,11 @@ class DepartmentController extends Controller
         ]);
     }
 
-    public function store(StoreDepartmentRequest $request)
+    public function store(StoreDepartmentRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
-        $data['company_id'] = (int) $request->attributes->get('current_company_id');
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $data['company_id'] = $companyId;
 
         foreach (['code'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -223,11 +228,16 @@ class DepartmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        Department::create($data);
-
-        return redirect()
-            ->route('organization.departments')
-            ->with('success', 'Department created successfully.');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Department::class,
+            $data,
+            redirect()
+                ->route('organization.departments')
+                ->with('success', 'Department created successfully.'),
+            'name',
+            ['company_id' => $companyId],
+        );
     }
 
     public function update(UpdateDepartmentRequest $request, Department $department)

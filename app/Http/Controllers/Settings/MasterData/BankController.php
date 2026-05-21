@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\StoreBankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateBankRequest;
 use App\Models\Bank;
 use App\Models\Country;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 class BankController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index()
     {
         $countries = Country::query()
@@ -34,14 +39,17 @@ class BankController extends Controller
         ]);
     }
 
-    public function store(StoreBankRequest $request)
+    public function store(StoreBankRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Bank::create($data);
-
-        return redirect()->route('settings.master-data.banks.index');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Bank::class,
+            $data,
+            redirect()->route('settings.master-data.banks.index'),
+        );
     }
 
     public function update(UpdateBankRequest $request, Bank $bank)

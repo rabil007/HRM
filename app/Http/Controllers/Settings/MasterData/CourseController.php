@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportCoursesRequest;
 use App\Http\Requests\Settings\MasterData\StoreCourseRequest;
 use App\Http\Requests\Settings\MasterData\UpdateCourseRequest;
 use App\Models\Course;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
@@ -14,6 +16,8 @@ use Inertia\Response as InertiaResponse;
 
 class CourseController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index(): InertiaResponse
     {
         $courses = Course::query()
@@ -25,14 +29,17 @@ class CourseController extends Controller
         ]);
     }
 
-    public function store(StoreCourseRequest $request): RedirectResponse
+    public function store(StoreCourseRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Course::query()->create($data);
-
-        return redirect()->route('settings.master-data.courses.index');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Course::class,
+            $data,
+            redirect()->route('settings.master-data.courses.index'),
+        );
     }
 
     public function update(UpdateCourseRequest $request, Course $course): RedirectResponse

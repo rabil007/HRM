@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportDocumentTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreDocumentTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateDocumentTypeRequest;
 use App\Models\DocumentType;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
 
 class DocumentTypeController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index()
     {
         $documentTypes = DocumentType::query()
@@ -23,14 +28,18 @@ class DocumentTypeController extends Controller
         ]);
     }
 
-    public function store(StoreDocumentTypeRequest $request)
+    public function store(StoreDocumentTypeRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        DocumentType::query()->create($data);
-
-        return redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            DocumentType::class,
+            $data,
+            redirect()->route('settings.master-data.document-types.index')->with('success', 'Document type created successfully.'),
+            'title',
+        );
     }
 
     public function update(UpdateDocumentTypeRequest $request, DocumentType $document_type)

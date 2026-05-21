@@ -6,13 +6,16 @@ import {
     store as storeBankAccount,
     update as updateBankAccount,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeBankAccountController';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -65,6 +68,11 @@ export function EmployeeBankTab({
         account_name: '',
         is_primary: false,
     });
+
+    const { selectOptions: bankSelectOptions, appendOption: appendBankOption } =
+        useMutableSelectOptions(banks);
+    const { canCreate: canCreateBank, createConfig: bankCreateConfig } =
+        useCreatableMasterData('bank');
 
     return (
         <TabsContent value="bank" className="mt-6">
@@ -175,9 +183,9 @@ export function EmployeeBankTab({
                         <DialogTitle>
                             {editingRow ? 'Edit bank account' : 'Add bank account'}
                         </DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <DialogDescription className="text-xs text-zinc-500">
                             Enter the account details used for payroll disbursement.
-                        </p>
+                        </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
@@ -188,19 +196,31 @@ export function EmployeeBankTab({
                         </div>
                         <div className="space-y-1.5">
                             <Label className="text-xs">Bank <span className="text-red-400">*</span></Label>
-                            <AppSelect
+                            <CreatableSelect
                                 value={bankForm.data.bank_id}
                                 onValueChange={(v) => bankForm.setData('bank_id', v)}
                                 variant="dark"
                                 placeholder="— Select a bank —"
-                            >
-                                <AppSelectItem value="">— Select a bank —</AppSelectItem>
-                                {banks.map((bank) => (
-                                    <AppSelectItem key={bank.id} value={String(bank.id)}>
-                                        {bank.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
+                                options={bankSelectOptions}
+                                onOptionsChange={(next) => {
+                                    const added = next.find(
+                                        (option) =>
+                                            !bankSelectOptions.some(
+                                                (existing) => existing.value === option.value,
+                                            ),
+                                    );
+
+                                    if (added) {
+                                        appendBankOption({
+                                            id: added.id,
+                                            label: added.label,
+                                        });
+                                    }
+                                }}
+                                creatable
+                                canCreate={canCreateBank}
+                                createConfig={bankCreateConfig}
+                            />
                             {bankForm.errors.bank_id ? (
                                 <p className="text-xs text-destructive">{bankForm.errors.bank_id}</p>
                             ) : (

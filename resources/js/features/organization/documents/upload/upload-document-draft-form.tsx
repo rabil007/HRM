@@ -1,6 +1,8 @@
 import { Copy } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -28,6 +30,17 @@ export function UploadDocumentDraftForm({
     onApplyToAll,
     showApplyToAll,
 }: UploadDocumentDraftFormProps): ReactElement {
+    const { selectOptions: documentTypeOptions, appendOption: appendDocumentType } =
+        useMutableSelectOptions(
+            documentTypes.map((type) => ({
+                id: type.id,
+                title: type.title,
+            })),
+            'title',
+        );
+    const { canCreate: canCreateDocumentType, createConfig: documentTypeCreateConfig } =
+        useCreatableMasterData('documentType');
+
     return (
         <div className="space-y-4">
             <div className="flex items-start justify-between gap-2">
@@ -57,19 +70,31 @@ export function UploadDocumentDraftForm({
                     <Label className="text-xs">
                         Document Type <span className="text-destructive">*</span>
                     </Label>
-                    <AppSelect
+                    <CreatableSelect
                         value={draft.document_type_id}
                         onValueChange={(value) => onChange({ document_type_id: value })}
                         variant="card"
                         placeholder="Select type…"
-                    >
-                        <AppSelectItem value="">Select type…</AppSelectItem>
-                        {documentTypes.map((type) => (
-                            <AppSelectItem key={type.id} value={String(type.id)}>
-                                {type.title}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
+                        options={documentTypeOptions}
+                        onOptionsChange={(next) => {
+                            const added = next.find(
+                                (option) =>
+                                    !documentTypeOptions.some(
+                                        (existing) => existing.value === option.value,
+                                    ),
+                            );
+
+                            if (added) {
+                                appendDocumentType({
+                                    id: added.id,
+                                    label: added.label,
+                                });
+                            }
+                        }}
+                        creatable
+                        canCreate={canCreateDocumentType}
+                        createConfig={documentTypeCreateConfig}
+                    />
                     {fieldErrors.document_type_id ? (
                         <p className="text-xs text-destructive">{fieldErrors.document_type_id}</p>
                     ) : null}

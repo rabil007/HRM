@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import {
     EditableHeaderNameField,
     EditableHeaderPillTextField,
@@ -149,44 +150,18 @@ export function EmployeeHeaderCard({
         onPhotoSelect(file);
     };
 
-    const rankOptions = useMemo(
-        () =>
-            ranks.map((rank) => ({
-                id: rank.id,
-                label: rank.name ?? `#${rank.id}`,
-                value: String(rank.id),
-            })),
-        [ranks],
-    );
+    const { sourceItems: departmentItems } = useMutableSelectOptions(departments);
+    const { sourceItems: positionItems } = useMutableSelectOptions(positions, 'title');
+    const { selectOptions: rankOptions } = useMutableSelectOptions(ranks);
+    const { selectOptions: genderOptions } = useMutableSelectOptions(genders);
+    const { selectOptions: religionOptions } = useMutableSelectOptions(religions);
+    const { selectOptions: visaTypeOptions } = useMutableSelectOptions(visa_types);
 
-    const genderOptions = useMemo(
-        () =>
-            genders.map((gender) => ({
-                id: gender.id,
-                label: gender.name ?? `#${gender.id}`,
-                value: String(gender.id),
-            })),
-        [genders],
-    );
-
-    const religionOptions = useMemo(
-        () =>
-            religions.map((religion) => ({
-                id: religion.id,
-                label: religion.name ?? `#${religion.id}`,
-                value: String(religion.id),
-            })),
-        [religions],
-    );
-
-    const visaTypeOptions = useMemo(
-        () =>
-            visa_types.map((visaType) => ({
-                id: visaType.id,
-                label: visaType.name ?? `#${visaType.id}`,
-                value: String(visaType.id),
-            })),
-        [visa_types],
+    const positionCreatableContext = useMemo(
+        () => ({
+            departmentId: form.data.department_id || employee.department?.id || null,
+        }),
+        [employee.department?.id, form.data.department_id],
     );
 
     const statusBadge = useMemo(() => {
@@ -330,10 +305,15 @@ export function EmployeeHeaderCard({
                                         field: 'department_id',
                                         label: 'Department',
                                         current:
-                                            departments.find((d) => String(d.id) === String(form.data.department_id || employee.department?.id || ''))?.name ??
+                                            departmentItems.find((d) => String(d.id) === String(form.data.department_id || employee.department?.id || ''))?.name ??
                                             employee.department?.name ??
                                             '—',
-                                        items: departments.map((d) => ({ id: d.id, label: d.name ?? `#${d.id}`, value: String(d.id) })),
+                                        items: departmentItems.map((d) => ({
+                                            id: d.id,
+                                            label: d.name ?? `#${d.id}`,
+                                            value: String(d.id),
+                                        })),
+                                        creatableKey: 'department' as const,
                                         title: 'Select department',
                                         description: 'Search departments...',
                                     },
@@ -341,10 +321,16 @@ export function EmployeeHeaderCard({
                                         field: 'position_id',
                                         label: 'Position',
                                         current:
-                                            positions.find((p) => String(p.id) === String(form.data.position_id || employee.position?.id || ''))?.title ??
+                                            positionItems.find((p) => String(p.id) === String(form.data.position_id || employee.position?.id || ''))?.title ??
                                             employee.position?.title ??
                                             '—',
-                                        items: positions.map((p) => ({ id: p.id, label: p.title ?? `#${p.id}`, value: String(p.id) })),
+                                        items: positionItems.map((p) => ({
+                                            id: p.id,
+                                            label: p.title ?? `#${p.id}`,
+                                            value: String(p.id),
+                                        })),
+                                        creatableKey: 'position' as const,
+                                        creatableContext: positionCreatableContext,
                                         title: 'Select position',
                                         description: 'Search positions...',
                                     },
@@ -374,6 +360,10 @@ export function EmployeeHeaderCard({
                                         title={item.title}
                                         description={item.description}
                                         items={item.items}
+                                        creatableKey={'creatableKey' in item ? item.creatableKey : undefined}
+                                        creatableContext={
+                                            'creatableContext' in item ? item.creatableContext : undefined
+                                        }
                                         activeField={activeField}
                                         setActiveField={setActiveField}
                                         beginEdit={beginEdit}
@@ -506,6 +496,7 @@ export function EmployeeHeaderCard({
                                 employee.rank?.name,
                             )}
                             options={rankOptions}
+                            creatableKey="rank"
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
@@ -540,6 +531,7 @@ export function EmployeeHeaderCard({
                                 form.data.gender_id || employee.gender_id,
                             )}
                             options={genderOptions}
+                            creatableKey="gender"
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
@@ -558,6 +550,7 @@ export function EmployeeHeaderCard({
                                 form.data.religion_id || employee.religion_id,
                             )}
                             options={religionOptions}
+                            creatableKey="religion"
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
@@ -577,6 +570,7 @@ export function EmployeeHeaderCard({
                                 employee.visa_type_ref?.name,
                             )}
                             options={visaTypeOptions}
+                            creatableKey="visaType"
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}

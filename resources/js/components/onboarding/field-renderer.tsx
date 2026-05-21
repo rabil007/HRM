@@ -2,9 +2,16 @@ import { UserPlus } from 'lucide-react';
 import React from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
+import type {
+    CreatableMasterDataContext,
+    CreatableMasterDataKey,
+} from '@/lib/master-data/creatable-registry';
 
 type Option = {
     id: number | string;
@@ -19,6 +26,67 @@ const PHONE_FIELD_KEYS = new Set([
     'emergency_phone',
     'phone_home_country',
 ]);
+
+function CreatableMasterDataFieldSelect({
+    id,
+    label,
+    isRequired,
+    value,
+    error,
+    onChange,
+    options,
+    placeholder,
+    creatableKey,
+    creatableContext,
+    labelKey = 'name',
+}: {
+    id: string;
+    label: string;
+    isRequired: boolean;
+    value: unknown;
+    error?: string;
+    onChange: (value: string) => void;
+    options: Option[];
+    placeholder: string;
+    creatableKey: CreatableMasterDataKey;
+    creatableContext?: CreatableMasterDataContext;
+    labelKey?: 'name' | 'title';
+}): React.ReactElement {
+    const { selectOptions, appendOption } = useMutableSelectOptions(options, labelKey);
+    const { canCreate, createConfig } = useCreatableMasterData(creatableKey, creatableContext);
+
+    return (
+        <div className="space-y-1.5">
+            <Label htmlFor={id} className="text-xs font-medium text-foreground">
+                {label} {isRequired && <span className="text-destructive">*</span>}
+            </Label>
+            <CreatableSelect
+                value={String(value ?? '')}
+                onValueChange={onChange}
+                variant="card"
+                placeholder={placeholder}
+                options={selectOptions}
+                onOptionsChange={(next) => {
+                    const added = next.find(
+                        (option) =>
+                            !selectOptions.some((existing) => existing.value === option.value),
+                    );
+
+                    if (added) {
+                        appendOption({
+                            id: added.id,
+                            label: added.label,
+                        });
+                    }
+                }}
+                creatable
+                canCreate={canCreate}
+                createConfig={createConfig}
+            />
+            {error ? <p className="text-[10px] text-destructive">{error}</p> : null}
+        </div>
+    );
+}
 
 interface FieldRendererProps {
     fieldKey: string;
@@ -134,19 +202,57 @@ export function FieldRenderer({
     }
 
     if (fieldKey === 'department_id') {
-        return renderSelect(options.departments, 'Select Department');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.departments}
+                placeholder="Select Department"
+                creatableKey="department"
+            />
+        );
     }
 
     if (fieldKey === 'position_id') {
         const filteredPositions = options.positions.filter(
-            (p) => !formDepartmentId || String((p as any).department_id) === String(formDepartmentId)
+            (p) => !formDepartmentId || String((p as Option & { department_id?: number }).department_id) === String(formDepartmentId),
         );
 
-        return renderSelect(filteredPositions, 'Select Position');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={filteredPositions}
+                placeholder="Select Position"
+                creatableKey="position"
+                creatableContext={{ departmentId: formDepartmentId }}
+                labelKey="title"
+            />
+        );
     }
 
     if (fieldKey === 'rank_id') {
-        return renderSelect(options.ranks, 'Select Rank');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.ranks}
+                placeholder="Select Rank"
+                creatableKey="rank"
+            />
+        );
     }
 
     if (fieldKey === 'manager_id') {
@@ -156,19 +262,67 @@ export function FieldRenderer({
     }
 
     if (fieldKey === 'gender_id') {
-        return renderSelect(options.genders, 'Select Gender');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.genders}
+                placeholder="Select Gender"
+                creatableKey="gender"
+            />
+        );
     }
 
     if (fieldKey === 'religion_id') {
-        return renderSelect(options.religions, 'Select Religion');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.religions}
+                placeholder="Select Religion"
+                creatableKey="religion"
+            />
+        );
     }
 
     if (fieldKey === 'visa_type_id') {
-        return renderSelect(options.visa_types, 'Select visa type');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.visa_types}
+                placeholder="Select visa type"
+                creatableKey="visaType"
+            />
+        );
     }
 
     if (fieldKey === 'bank_id') {
-        return renderSelect(options.banks, 'Select Bank');
+        return (
+            <CreatableMasterDataFieldSelect
+                id={id}
+                label={label}
+                isRequired={isRequired}
+                value={value}
+                error={error}
+                onChange={onChange}
+                options={options.banks}
+                placeholder="Select Bank"
+                creatableKey="bank"
+            />
+        );
     }
     
     if (fieldKey === 'nationality_id') {

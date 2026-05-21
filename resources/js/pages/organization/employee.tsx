@@ -1,6 +1,6 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { Main } from '@/components/layout/main';
 import {
@@ -16,7 +16,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
+import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
+import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
+import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
+import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
+import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
+import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
+import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
+import { EmployeeWorkExperienceTab } from '@/pages/organization/_components/employee-work-experience-tab';
+import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import {
     useEmployeeProfileForm,
 } from '@/pages/organization/_hooks/use-employee-profile-form';
@@ -25,68 +35,6 @@ import type {
     EmployeePageProps,
     EmployeeTab,
 } from '@/pages/organization/employee-page.types';
-
-const EmployeePersonalTab = lazy(() =>
-    import('@/pages/organization/_components/employee-personal-tab').then((module) => ({
-        default: module.EmployeePersonalTab,
-    })),
-);
-
-const EmployeeContractTab = lazy(() =>
-    import('@/pages/organization/_components/employee-contract-tab').then((module) => ({
-        default: module.EmployeeContractTab,
-    })),
-);
-
-const EmployeeBankTab = lazy(() =>
-    import('@/pages/organization/_components/employee-bank-tab').then((module) => ({
-        default: module.EmployeeBankTab,
-    })),
-);
-
-const EmployeeEducationTab = lazy(() =>
-    import('@/pages/organization/_components/employee-education-tab').then((module) => ({
-        default: module.EmployeeEducationTab,
-    })),
-);
-
-const EmployeeWorkExperienceTab = lazy(() =>
-    import('@/pages/organization/_components/employee-work-experience-tab').then((module) => ({
-        default: module.EmployeeWorkExperienceTab,
-    })),
-);
-
-const EmployeeVaccinationTab = lazy(() =>
-    import('@/pages/organization/_components/employee-vaccination-tab').then((module) => ({
-        default: module.EmployeeVaccinationTab,
-    })),
-);
-
-const EmployeeLanguagesTab = lazy(() =>
-    import('@/pages/organization/_components/employee-languages-tab').then((module) => ({
-        default: module.EmployeeLanguagesTab,
-    })),
-);
-
-const EmployeeTrainingTab = lazy(() =>
-    import('@/pages/organization/_components/employee-training-tab').then((module) => ({
-        default: module.EmployeeTrainingTab,
-    })),
-);
-
-const EmployeeSeaServiceTab = lazy(() =>
-    import('@/pages/organization/_components/employee-sea-service-tab').then((module) => ({
-        default: module.EmployeeSeaServiceTab,
-    })),
-);
-
-const EmployeeDocumentsTab = lazy(() =>
-    import('@/pages/organization/_components/documents/employee-documents-tab').then(
-        (module) => ({
-            default: module.EmployeeDocumentsTab,
-        }),
-    ),
-);
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#documents': 'documents',
@@ -516,7 +464,7 @@ export default function EmployeeDetails({
                                     </TabsList>
                                 </div>
 
-                                <Suspense fallback={<EmployeeTabSkeleton />}>
+                                <div>
                                     {employee_tabs.personal && activeTab === 'personal' ? (
                                         <EmployeePersonalTab
                                             employee={employee}
@@ -646,7 +594,7 @@ export default function EmployeeDetails({
                                             />
                                         )
                                     ) : null}
-                                </Suspense>
+                                </div>
                             </Tabs>
                         </div>
                     </div>

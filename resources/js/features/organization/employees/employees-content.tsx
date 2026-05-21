@@ -1,6 +1,8 @@
 import { router, usePage } from '@inertiajs/react';
 import { Filter, FolderTree, Plus, Upload } from 'lucide-react';
-import { Suspense, lazy, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
+import { EmployeeDeleteDialog } from '@/features/organization/employees/components/employee-delete-dialog';
+import { EmployeeFiltersSheet } from '@/features/organization/employees/components/employee-filters-sheet';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -44,18 +46,6 @@ import type {
     ReligionOption,
     UserOption,
 } from './types';
-
-const EmployeeFiltersSheet = lazy(() =>
-    import('./components/employee-filters-sheet').then((m) => ({
-        default: m.EmployeeFiltersSheet,
-    })),
-);
-
-const EmployeeDeleteDialog = lazy(() =>
-    import('./components/employee-delete-dialog').then((m) => ({
-        default: m.EmployeeDeleteDialog,
-    })),
-);
 
 export function EmployeesContent({
     employees,
@@ -448,24 +438,22 @@ params.set('status', initialFilters.status);
                 </SheetContent>
             </Sheet>
 
-            <Suspense fallback={null}>
-                <EmployeeFiltersSheet
-                    open={isFiltersOpen}
-                    onOpenChange={setIsFiltersOpen}
-                    value={filters}
-                    onChange={handleFiltersChange}
-                    onReset={() => handleFiltersChange({ branch_id: '', department_id: '', position_id: '', status: '' })}
-                    branches={branches}
-                    positions={positions}
-                />
+            <EmployeeFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                value={filters}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ branch_id: '', department_id: '', position_id: '', status: '' })}
+                branches={branches}
+                positions={positions}
+            />
 
-                <EmployeeDeleteDialog
-                    open={isDeleteOpen}
-                    onOpenChange={setIsDeleteOpen}
-                    employee={currentEmployee}
-                    onConfirm={confirmDelete}
-                />
-            </Suspense>
+            <EmployeeDeleteDialog
+                open={isDeleteOpen}
+                onOpenChange={setIsDeleteOpen}
+                employee={currentEmployee}
+                onConfirm={confirmDelete}
+            />
         </Main>
     );
 }

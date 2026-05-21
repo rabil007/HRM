@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportVesselTypesRequest;
 use App\Http\Requests\Settings\MasterData\StoreVesselTypeRequest;
 use App\Http\Requests\Settings\MasterData\UpdateVesselTypeRequest;
 use App\Models\EmployeeSeaService;
 use App\Models\VesselType;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
@@ -15,6 +17,8 @@ use Inertia\Response as InertiaResponse;
 
 class VesselTypeController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index(): InertiaResponse
     {
         $vesselTypes = VesselType::query()
@@ -26,14 +30,17 @@ class VesselTypeController extends Controller
         ]);
     }
 
-    public function store(StoreVesselTypeRequest $request): RedirectResponse
+    public function store(StoreVesselTypeRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        VesselType::query()->create($data);
-
-        return redirect()->route('settings.master-data.vessel-types.index');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            VesselType::class,
+            $data,
+            redirect()->route('settings.master-data.vessel-types.index'),
+        );
     }
 
     public function update(UpdateVesselTypeRequest $request, VesselType $vesselType): RedirectResponse

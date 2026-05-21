@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Exports\PositionsExport;
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Position\StorePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionRequest;
@@ -11,6 +12,8 @@ use App\Models\Department;
 use App\Models\Position;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -20,6 +23,7 @@ use Spatie\Activitylog\Models\Activity;
 class PositionController extends Controller
 {
     use ResolvesPerPage;
+    use ReturnsQuickCreateJson;
 
     public function index()
     {
@@ -150,10 +154,11 @@ class PositionController extends Controller
         ]);
     }
 
-    public function store(StorePositionRequest $request)
+    public function store(StorePositionRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
-        $data['company_id'] = (int) $request->attributes->get('current_company_id');
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $data['company_id'] = $companyId;
 
         foreach (['grade', 'min_salary', 'max_salary'] as $key) {
             if (($data[$key] ?? null) === '') {
@@ -163,11 +168,21 @@ class PositionController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
-        Position::create($data);
+        $scopeAttributes = ['company_id' => $companyId];
+        if (isset($data['department_id'])) {
+            $scopeAttributes['department_id'] = $data['department_id'];
+        }
 
-        return redirect()
-            ->route('organization.positions')
-            ->with('success', 'Position created successfully.');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Position::class,
+            $data,
+            redirect()
+                ->route('organization.positions')
+                ->with('success', 'Position created successfully.'),
+            'title',
+            $scopeAttributes,
+        );
     }
 
     public function update(UpdatePositionRequest $request, Position $position)

@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\ImportRanksRequest;
 use App\Http\Requests\Settings\MasterData\StoreRankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateRankRequest;
 use App\Models\Rank;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Response;
 use Inertia\Inertia;
@@ -14,6 +16,8 @@ use Inertia\Response as InertiaResponse;
 
 class RankController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index(): InertiaResponse
     {
         $ranks = Rank::query()
@@ -25,14 +29,17 @@ class RankController extends Controller
         ]);
     }
 
-    public function store(StoreRankRequest $request): RedirectResponse
+    public function store(StoreRankRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Rank::query()->create($data);
-
-        return redirect()->route('settings.master-data.ranks.index');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Rank::class,
+            $data,
+            redirect()->route('settings.master-data.ranks.index'),
+        );
     }
 
     public function update(UpdateRankRequest $request, Rank $rank): RedirectResponse

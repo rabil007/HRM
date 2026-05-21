@@ -7,11 +7,15 @@ import {
     update as updateTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -80,6 +84,11 @@ export function EmployeeTrainingTab({
     });
 
     const trainingImport = trainingImportConfig(employeeId);
+
+    const { selectOptions: courseSelectOptions, appendOption: appendCourseOption } =
+        useMutableSelectOptions(courses);
+    const { canCreate: canCreateCourse, createConfig: courseCreateConfig } =
+        useCreatableMasterData('course');
 
     const submitTraining = () => {
         trainingForm.clearErrors();
@@ -270,9 +279,9 @@ export function EmployeeTrainingTab({
                 <DialogContent className="sm:max-w-xl">
                     <DialogHeader>
                         <DialogTitle>{editingTraining ? 'Edit training' : 'Add training'}</DialogTitle>
-                        <p className="text-xs text-zinc-500">
+                        <DialogDescription className="text-xs text-zinc-500">
                             Record a course completion, dates, and optional certificate.
-                        </p>
+                        </DialogDescription>
                     </DialogHeader>
 
                     <div className="space-y-4 py-1">
@@ -285,19 +294,31 @@ export function EmployeeTrainingTab({
                                 <Label className="text-xs">
                                     Course <span className="text-red-400">*</span>
                                 </Label>
-                                <AppSelect
+                                <CreatableSelect
                                     value={trainingForm.data.course_id}
                                     onValueChange={(v) => trainingForm.setData('course_id', v)}
                                     variant="dark"
                                     placeholder="— Select a course —"
-                                >
-                                    <AppSelectItem value="">— Select a course —</AppSelectItem>
-                                    {courses.map((course) => (
-                                        <AppSelectItem key={course.id} value={String(course.id)}>
-                                            {course.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
+                                    options={courseSelectOptions}
+                                    onOptionsChange={(next) => {
+                                        const added = next.find(
+                                            (option) =>
+                                                !courseSelectOptions.some(
+                                                    (existing) => existing.value === option.value,
+                                                ),
+                                        );
+
+                                        if (added) {
+                                            appendCourseOption({
+                                                id: added.id,
+                                                label: added.label,
+                                            });
+                                        }
+                                    }}
+                                    creatable
+                                    canCreate={canCreateCourse}
+                                    createConfig={courseCreateConfig}
+                                />
                                 {trainingForm.errors.course_id ? (
                                     <p className="text-xs text-destructive">{trainingForm.errors.course_id}</p>
                                 ) : (

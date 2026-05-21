@@ -2,14 +2,19 @@
 
 namespace App\Http\Controllers\Settings\MasterData;
 
+use App\Http\Controllers\Concerns\ReturnsQuickCreateJson;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\MasterData\StoreGenderRequest;
 use App\Http\Requests\Settings\MasterData\UpdateGenderRequest;
 use App\Models\Gender;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 
 class GenderController extends Controller
 {
+    use ReturnsQuickCreateJson;
+
     public function index()
     {
         $genders = Gender::query()
@@ -21,14 +26,17 @@ class GenderController extends Controller
         ]);
     }
 
-    public function store(StoreGenderRequest $request)
+    public function store(StoreGenderRequest $request): JsonResponse|RedirectResponse
     {
         $data = $request->validated();
         $data['is_active'] = $data['is_active'] ?? true;
 
-        Gender::create($data);
-
-        return redirect()->route('settings.master-data.genders.index');
+        return $this->createOrReturnExistingQuickCreate(
+            $request,
+            Gender::class,
+            $data,
+            redirect()->route('settings.master-data.genders.index'),
+        );
     }
 
     public function update(UpdateGenderRequest $request, Gender $gender)

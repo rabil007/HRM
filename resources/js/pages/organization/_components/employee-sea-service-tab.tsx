@@ -6,7 +6,9 @@ import {
     store as storeSeaService,
     update as updateSeaService,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -143,6 +145,21 @@ export function EmployeeSeaServiceTab({
         client_id: '',
         is_offshore: false,
     });
+
+    const {
+        selectOptions: vesselTypeSelectOptions,
+        appendOption: appendVesselTypeOption,
+    } = useMutableSelectOptions(vessel_types);
+    const { selectOptions: rankSelectOptions, appendOption: appendRankOption } =
+        useMutableSelectOptions(ranks);
+    const { selectOptions: clientSelectOptions, appendOption: appendClientOption } =
+        useMutableSelectOptions(clients);
+    const { canCreate: canCreateVesselType, createConfig: vesselTypeCreateConfig } =
+        useCreatableMasterData('vesselType');
+    const { canCreate: canCreateRank, createConfig: rankCreateConfig } =
+        useCreatableMasterData('rank');
+    const { canCreate: canCreateClient, createConfig: clientCreateConfig } =
+        useCreatableMasterData('client');
 
     const displayedDuration = useMemo(
         () =>
@@ -435,19 +452,31 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Vessel type <span className="text-red-400">*</span></Label>
-                                <AppSelect
+                                <CreatableSelect
                                     value={employeeForm.data.vessel_type_id}
                                     onValueChange={(v) => employeeForm.setData('vessel_type_id', v)}
                                     variant="dark"
                                     placeholder="— Select a type —"
-                                >
-                                    <AppSelectItem value="">— Select a type —</AppSelectItem>
-                                    {vessel_types.map((v) => (
-                                        <AppSelectItem key={v.id} value={String(v.id)}>
-                                            {v.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
+                                    options={vesselTypeSelectOptions}
+                                    onOptionsChange={(next) => {
+                                        const added = next.find(
+                                            (option) =>
+                                                !vesselTypeSelectOptions.some(
+                                                    (existing) => existing.value === option.value,
+                                                ),
+                                        );
+
+                                        if (added) {
+                                            appendVesselTypeOption({
+                                                id: added.id,
+                                                label: added.label,
+                                            });
+                                        }
+                                    }}
+                                    creatable
+                                    canCreate={canCreateVesselType}
+                                    createConfig={vesselTypeCreateConfig}
+                                />
                                 {employeeForm.errors.vessel_type_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
                                 ) : (
@@ -456,19 +485,31 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Rank <span className="text-red-400">*</span></Label>
-                                <AppSelect
+                                <CreatableSelect
                                     value={employeeForm.data.rank_id}
                                     onValueChange={(v) => employeeForm.setData('rank_id', v)}
                                     variant="dark"
                                     placeholder="— Select a rank —"
-                                >
-                                    <AppSelectItem value="">— Select a rank —</AppSelectItem>
-                                    {ranks.map((r) => (
-                                        <AppSelectItem key={r.id} value={String(r.id)}>
-                                            {r.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
+                                    options={rankSelectOptions}
+                                    onOptionsChange={(next) => {
+                                        const added = next.find(
+                                            (option) =>
+                                                !rankSelectOptions.some(
+                                                    (existing) => existing.value === option.value,
+                                                ),
+                                        );
+
+                                        if (added) {
+                                            appendRankOption({
+                                                id: added.id,
+                                                label: added.label,
+                                            });
+                                        }
+                                    }}
+                                    creatable
+                                    canCreate={canCreateRank}
+                                    createConfig={rankCreateConfig}
+                                />
                                 {employeeForm.errors.rank_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
                                 ) : (
@@ -477,19 +518,31 @@ export function EmployeeSeaServiceTab({
                             </div>
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Client</Label>
-                                <AppSelect
+                                <CreatableSelect
                                     value={employeeForm.data.client_id}
                                     onValueChange={(v) => employeeForm.setData('client_id', v)}
                                     variant="dark"
                                     placeholder="— Select a client —"
-                                >
-                                    <AppSelectItem value="">— Select a client —</AppSelectItem>
-                                    {clients.map((c) => (
-                                        <AppSelectItem key={c.id} value={String(c.id)}>
-                                            {c.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
+                                    options={clientSelectOptions}
+                                    onOptionsChange={(next) => {
+                                        const added = next.find(
+                                            (option) =>
+                                                !clientSelectOptions.some(
+                                                    (existing) => existing.value === option.value,
+                                                ),
+                                        );
+
+                                        if (added) {
+                                            appendClientOption({
+                                                id: added.id,
+                                                label: added.label,
+                                            });
+                                        }
+                                    }}
+                                    creatable
+                                    canCreate={canCreateClient}
+                                    createConfig={clientCreateConfig}
+                                />
                                 {employeeForm.errors.client_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
                                 ) : (
