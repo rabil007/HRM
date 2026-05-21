@@ -92,6 +92,9 @@ export function useEmployeeProfileForm(
             religion_id: employee.religion_id
                 ? String(employee.religion_id)
                 : '',
+            visa_type_id: employee.visa_type_id
+                ? String(employee.visa_type_id)
+                : '',
             nationality_id: employee.nationality_id
                 ? String(employee.nationality_id)
                 : '',
@@ -121,6 +124,7 @@ export function useEmployeeProfileForm(
             employee.place_of_birth,
             employee.gender_id,
             employee.religion_id,
+            employee.visa_type_id,
             employee.nationality_id,
             employee.marital_status,
             employee.spouse_name,
