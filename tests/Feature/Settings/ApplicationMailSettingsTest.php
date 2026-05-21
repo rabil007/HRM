@@ -52,7 +52,7 @@ test('outgoing email views render the branding footer and inline logo', function
 
     Cache::forget('app.settings.all');
 
-    $html = view('mail.smtp-test', ['body' => 'Hello'])->render();
+    $html = view('mail.smtp-test', ['subject' => 'Test', 'body' => 'Hello'])->render();
 
     expect($html)
         ->toContain('Overseas Marine Services Sole Proprietorship LLC')
@@ -70,7 +70,7 @@ test('outgoing email views render the branding footer and inline logo', function
 
     config(['mail.default' => 'array']);
 
-    Mail::send('mail.smtp-test', ['body' => 'Checking inline logo.'], function ($message): void {
+    Mail::send('mail.smtp-test', ['subject' => 'Logo test', 'body' => 'Checking inline logo.'], function ($message): void {
         $message->to('recipient@example.com')->subject('Logo test');
     });
 
@@ -140,7 +140,7 @@ test('test email can be sent from smtp settings', function () {
     $this->mock(MailSettingsService::class, function ($mock): void {
         $mock->shouldReceive('sendTestEmail')
             ->once()
-            ->with('test@example.com', Mockery::type('array'));
+            ->with('test@example.com', Mockery::type('array'), '', '', null);
     });
 
     $user = User::factory()->create();
@@ -150,7 +150,8 @@ test('test email can be sent from smtp settings', function () {
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('application.smtp.test'), [
+        ->withHeaders(['Accept' => 'application/json'])
+        ->post(route('application.smtp.test'), [
             'recipient' => 'test@example.com',
             'host' => 'smtp.hostinger.com',
             'port' => 587,
@@ -162,6 +163,41 @@ test('test email can be sent from smtp settings', function () {
         ])
         ->assertOk()
         ->assertJson(['message' => 'Test email sent to test@example.com.']);
+});
+
+test('test email accepts custom subject and body', function () {
+    $this->mock(MailSettingsService::class, function ($mock): void {
+        $mock->shouldReceive('sendTestEmail')
+            ->once()
+            ->with(
+                'test@example.com',
+                Mockery::type('array'),
+                'Custom subject',
+                'Custom body text',
+                null,
+            );
+    });
+
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.view',
+        'settings.application.update',
+    ]);
+
+    $this->actingAs($user)
+        ->withHeaders(['Accept' => 'application/json'])
+        ->post(route('application.smtp.test'), [
+            'recipient' => 'test@example.com',
+            'host' => 'smtp.hostinger.com',
+            'port' => 587,
+            'username' => 'user',
+            'encryption' => 'tls',
+            'from_address' => 'hr@example.com',
+            'from_name' => 'HRM Test',
+            'subject' => 'Custom subject',
+            'body' => 'Custom body text',
+        ])
+        ->assertOk();
 });
 
 test('smtp settings can save email footer text', function () {

@@ -116,7 +116,13 @@ class ApplicationSettingsController extends Controller
         $recipient = $request->validated('recipient');
 
         try {
-            $this->mailSettings->sendTestEmail($recipient, $request->smtpOverride());
+            $this->mailSettings->sendTestEmail(
+                $recipient,
+                $request->smtpOverride(),
+                (string) $request->validated('subject', ''),
+                (string) $request->validated('body', ''),
+                $request->file('attachment'),
+            );
         } catch (Throwable $exception) {
             report($exception);
 

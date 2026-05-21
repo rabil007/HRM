@@ -3,6 +3,7 @@
 namespace App\Services\Settings;
 
 use App\Support\Settings\SettingKey;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Mail;
 use Throwable;
@@ -55,16 +56,33 @@ class MailSettingsService
         ]);
     }
 
-    public function sendTestEmail(string $recipient, ?array $override = null): void
-    {
+    public function sendTestEmail(
+        string $recipient,
+        ?array $override = null,
+        string $subject = '',
+        string $body = '',
+        ?UploadedFile $attachment = null,
+    ): void {
         $this->applyToRuntimeConfig($override);
 
         $appName = $this->settings->appName();
+        $subject = trim($subject) !== '' ? trim($subject) : "{$appName} — SMTP test";
+        $body = trim($body) !== ''
+            ? trim($body)
+            : "This is a test email from {$appName}.\n\nSent at: ".now()->toDateTimeString();
 
         Mail::send('mail.smtp-test', [
-            'body' => "This is a test email from {$appName}.\n\nSent at: ".now()->toDateTimeString(),
-        ], function ($message) use ($recipient, $appName): void {
-            $message->to($recipient)->subject("{$appName} — SMTP test");
+            'subject' => $subject,
+            'body' => $body,
+        ], function ($message) use ($recipient, $subject, $attachment): void {
+            $message->to($recipient)->subject($subject);
+
+            if ($attachment !== null) {
+                $message->attach($attachment->getRealPath(), [
+                    'as' => $attachment->getClientOriginalName(),
+                    'mime' => $attachment->getMimeType(),
+                ]);
+            }
         });
     }
 

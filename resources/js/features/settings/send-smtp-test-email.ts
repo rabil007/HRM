@@ -14,20 +14,16 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
     return firstError ?? fallback;
 }
 
-export async function sendSmtpTestEmail(
-    url: string,
-    payload: Record<string, unknown>,
-): Promise<string> {
+export async function sendSmtpTestEmail(url: string, formData: FormData): Promise<string> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
     const response = await fetch(url, {
         method: 'POST',
         headers: {
-            'Content-Type': 'application/json',
             Accept: 'application/json',
             ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
         },
-        body: JSON.stringify(payload),
+        body: formData,
     });
 
     const contentType = response.headers.get('Content-Type') ?? '';

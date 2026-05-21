@@ -26,6 +26,9 @@ class TestApplicationMailRequest extends FormRequest
             'encryption' => ['nullable', 'string', Rule::in(['ssl', 'tls', 'none'])],
             'from_address' => ['nullable', 'email', 'max:255'],
             'from_name' => ['nullable', 'string', 'max:255'],
+            'subject' => ['nullable', 'string', 'max:255'],
+            'body' => ['nullable', 'string', 'max:10000'],
+            'attachment' => ['nullable', 'file', 'max:20480', 'mimes:pdf,jpg,jpeg,png,doc,docx'],
         ];
     }
 

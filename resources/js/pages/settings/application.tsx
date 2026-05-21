@@ -79,6 +79,13 @@ export default function ApplicationSettings({
 }: Props) {
     const [tab, setTab] = useState('general');
     const [testRecipient, setTestRecipient] = useState('');
+    const [testSubject, setTestSubject] = useState(
+        () => `${general.app_name || 'HRM'} — SMTP test`,
+    );
+    const [testBody, setTestBody] = useState(
+        () => `This is a test email from ${general.app_name || 'HRM'}.`,
+    );
+    const [testAttachment, setTestAttachment] = useState<File | null>(null);
     const [isSendingTest, setIsSendingTest] = useState(false);
     const authUser = usePage().props.auth?.user as { email?: string } | undefined;
 
@@ -150,16 +157,26 @@ export default function ApplicationSettings({
         setIsSendingTest(true);
 
         try {
-            const message = await sendSmtpTestEmail('/settings/application/smtp/test', {
-                recipient,
-                host: smtpForm.data.host,
-                port: smtpForm.data.port,
-                username: smtpForm.data.username,
-                password: smtpForm.data.password || undefined,
-                encryption: smtpForm.data.encryption,
-                from_address: smtpForm.data.from_address,
-                from_name: smtpForm.data.from_name,
-            });
+            const formData = new FormData();
+            formData.append('recipient', recipient);
+            formData.append('subject', testSubject.trim());
+            formData.append('body', testBody);
+            formData.append('host', smtpForm.data.host);
+            formData.append('port', String(smtpForm.data.port));
+            formData.append('username', smtpForm.data.username);
+            formData.append('encryption', smtpForm.data.encryption);
+            formData.append('from_address', smtpForm.data.from_address);
+            formData.append('from_name', smtpForm.data.from_name);
+
+            if (smtpForm.data.password) {
+                formData.append('password', smtpForm.data.password);
+            }
+
+            if (testAttachment) {
+                formData.append('attachment', testAttachment);
+            }
+
+            const message = await sendSmtpTestEmail('/settings/application/smtp/test', formData);
             toast.success(message);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Failed to send test email.');
@@ -569,12 +586,12 @@ export default function ApplicationSettings({
                                 <div className="rounded-lg border border-dashed p-5">
                                     <h3 className="text-sm font-semibold">Send test email</h3>
                                     <p className="mt-1 text-sm text-muted-foreground">
-                                        Uses the values above (saved or unsaved). Check inbox and junk after
-                                        sending.
+                                        Uses SMTP settings above (saved or unsaved). Customize the message
+                                        below. Check inbox and junk after sending.
                                     </p>
-                                    <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-                                        <div className="flex-1 space-y-2">
-                                            <Label htmlFor="test_recipient">Test recipient</Label>
+                                    <div className="mt-4 grid max-w-2xl gap-4">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="test_recipient">Recipient</Label>
                                             <Input
                                                 id="test_recipient"
                                                 type="email"
@@ -583,15 +600,59 @@ export default function ApplicationSettings({
                                                 placeholder={authUser?.email ?? 'you@company.com'}
                                             />
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            disabled={isSendingTest || smtpForm.data.host.trim() === ''}
-                                            onClick={() => void handleSendTestEmail()}
-                                        >
-                                            {isSendingTest ? <Spinner /> : null}
-                                            Send test email
-                                        </Button>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="test_subject">Subject</Label>
+                                            <Input
+                                                id="test_subject"
+                                                value={testSubject}
+                                                onChange={(e) => setTestSubject(e.target.value)}
+                                                placeholder="SMTP test"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="test_body">Body</Label>
+                                            <Textarea
+                                                id="test_body"
+                                                rows={5}
+                                                value={testBody}
+                                                onChange={(e) => setTestBody(e.target.value)}
+                                                placeholder="Message shown in the email body…"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="test_attachment">Attachment (optional)</Label>
+                                            <Input
+                                                id="test_attachment"
+                                                type="file"
+                                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,image/*"
+                                                onChange={(e) =>
+                                                    setTestAttachment(e.target.files?.[0] ?? null)
+                                                }
+                                            />
+                                            {testAttachment ? (
+                                                <p className="text-xs text-muted-foreground">
+                                                    {testAttachment.name} (
+                                                    {(testAttachment.size / 1024).toFixed(1)} KB)
+                                                </p>
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground">
+                                                    PDF, PNG, JPG, or Word — max 20 MB
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div>
+                                            <Button
+                                                type="button"
+                                                variant="secondary"
+                                                disabled={
+                                                    isSendingTest || smtpForm.data.host.trim() === ''
+                                                }
+                                                onClick={() => void handleSendTestEmail()}
+                                            >
+                                                {isSendingTest ? <Spinner /> : null}
+                                                Send test email
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>
