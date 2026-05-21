@@ -1,7 +1,6 @@
-import { AtSign, Lock } from 'lucide-react';
 import { Form, Head } from '@inertiajs/react';
+import { AtSign, Lock } from 'lucide-react';
 import { useState } from 'react';
-import InputError from '@/components/input-error';
 import PasswordInput from '@/components/password-input';
 import TextLink from '@/components/text-link';
 import { Checkbox } from '@/components/ui/checkbox';

@@ -1,8 +1,6 @@
 import { router, usePage } from '@inertiajs/react';
 import { Filter, FolderTree, Plus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { EmployeeDeleteDialog } from '@/features/organization/employees/components/employee-delete-dialog';
-import { EmployeeFiltersSheet } from '@/features/organization/employees/components/employee-filters-sheet';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -25,6 +23,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Switch } from '@/components/ui/switch';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
+import { EmployeeDeleteDialog } from '@/features/organization/employees/components/employee-delete-dialog';
+import { EmployeeFiltersSheet } from '@/features/organization/employees/components/employee-filters-sheet';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';

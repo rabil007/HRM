@@ -1,5 +1,6 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
+import ApplicationLogo from '@/components/application-logo';
 import {
     Sidebar,
     SidebarContent,
@@ -9,7 +10,6 @@ import {
 } from '@/components/ui/sidebar';
 import { useLayout } from '@/context/layout-provider';
 import { getSidebarData } from './data/sidebar-data';
-import ApplicationLogo from '@/components/application-logo';
 import { NavGroup } from './nav-group';
 import { NavUser } from './nav-user';
 import { TeamSwitcher } from './team-switcher';

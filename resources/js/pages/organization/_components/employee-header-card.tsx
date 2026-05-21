@@ -6,12 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
 import { EditableDetailTextField } from '@/features/organization/employees/profile/components/editable-detail-field';
 import { EditableDetailSelectField } from '@/features/organization/employees/profile/components/editable-detail-select-field';
-import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import {
     EditableHeaderNameField,
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';

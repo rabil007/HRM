@@ -1,10 +1,11 @@
 import { usePage } from '@inertiajs/react';
 import { useMemo } from 'react';
 import {
-    creatableRegistry,
-    type CreatableMasterDataContext,
-    type CreatableMasterDataKey,
+    creatableRegistry
+    
+    
 } from '@/lib/master-data/creatable-registry';
+import type {CreatableMasterDataContext, CreatableMasterDataKey} from '@/lib/master-data/creatable-registry';
 import { postQuickCreate } from '@/lib/master-data/quick-create-post';
 
 export type QuickCreateResult = {
@@ -31,12 +32,14 @@ export function useCreatableMasterData(
     const permissions = auth?.permissions ?? [];
     const canCreate = permissions.includes(entry.permission);
 
-    const createConfig = useMemo(
-        () => ({
+    const createConfig = useMemo(() => {
+        const registryEntry = creatableRegistry[key];
+
+        return {
             submit: async (query: string): Promise<QuickCreateResult> => {
                 const payload = await postQuickCreate(
-                    entry.url(),
-                    entry.body(query.trim(), context),
+                    registryEntry.url(),
+                    registryEntry.body(query.trim(), context),
                 );
 
                 const label =
@@ -50,9 +53,8 @@ export function useCreatableMasterData(
                     label,
                 };
             },
-        }),
-        [context?.departmentId, entry],
-    );
+        };
+    }, [key, context]);
 
     return {
         canCreate,

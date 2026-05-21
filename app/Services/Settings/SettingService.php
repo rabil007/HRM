@@ -7,6 +7,7 @@ use App\Support\Settings\SettingKey;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -19,7 +20,13 @@ class SettingService
 
     public function isReady(): bool
     {
-        return Schema::hasTable('app_settings');
+        try {
+            DB::connection()->getPdo();
+
+            return Schema::hasTable('app_settings');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     public function get(string $key, ?string $default = null): ?string

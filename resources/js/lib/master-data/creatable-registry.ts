@@ -1,3 +1,5 @@
+import { store as storeDepartment } from '@/actions/App/Http/Controllers/Organization/DepartmentController';
+import { store as storePosition } from '@/actions/App/Http/Controllers/Organization/PositionController';
 import { store as storeBank } from '@/actions/App/Http/Controllers/Settings/MasterData/BankController';
 import { store as storeClient } from '@/actions/App/Http/Controllers/Settings/MasterData/ClientController';
 import { store as storeCourse } from '@/actions/App/Http/Controllers/Settings/MasterData/CourseController';
@@ -7,8 +9,6 @@ import { store as storeRank } from '@/actions/App/Http/Controllers/Settings/Mast
 import { store as storeReligion } from '@/actions/App/Http/Controllers/Settings/MasterData/ReligionController';
 import { store as storeVesselType } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselTypeController';
 import { store as storeVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/VisaTypeController';
-import { store as storeDepartment } from '@/actions/App/Http/Controllers/Organization/DepartmentController';
-import { store as storePosition } from '@/actions/App/Http/Controllers/Organization/PositionController';
 
 export type CreatableMasterDataKey =
     | 'bank'

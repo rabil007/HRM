@@ -7,11 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
-import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import type {
     CreatableMasterDataContext,
     CreatableMasterDataKey,
 } from '@/lib/master-data/creatable-registry';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 
 type Option = {
     id: number | string;

@@ -16,6 +16,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
+import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
@@ -26,7 +27,6 @@ import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee
 import { EmployeeTrainingTab } from '@/pages/organization/_components/employee-training-tab';
 import { EmployeeVaccinationTab } from '@/pages/organization/_components/employee-vaccination-tab';
 import { EmployeeWorkExperienceTab } from '@/pages/organization/_components/employee-work-experience-tab';
-import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import {
     useEmployeeProfileForm,
 } from '@/pages/organization/_hooks/use-employee-profile-form';

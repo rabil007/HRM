@@ -4,13 +4,13 @@ import {
     importTemplate as seaServiceImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
 import {
-    importMethod as importVaccination,
-    importTemplate as vaccinationImportTemplate,
-} from '@/actions/App/Http/Controllers/Organization/EmployeeVaccinationController';
-import {
     importMethod as importTraining,
     importTemplate as trainingImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import {
+    importMethod as importVaccination,
+    importTemplate as vaccinationImportTemplate,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeVaccinationController';
 import {
     importMethod as importWorkExperience,
     importTemplate as workExperienceImportTemplate,

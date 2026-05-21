@@ -1,6 +1,6 @@
+import { Loader2, PlusIcon } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useEffect, useMemo, useState } from 'react';
-import { Loader2, PlusIcon } from 'lucide-react';
 import {
     CommandDialog,
     CommandEmpty,

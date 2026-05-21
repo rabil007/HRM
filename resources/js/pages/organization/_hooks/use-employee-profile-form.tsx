@@ -121,7 +121,6 @@ export function useEmployeeProfileForm(
             employee.place_of_birth,
             employee.gender_id,
             employee.religion_id,
-            employee.visa_type_ref,
             employee.nationality_id,
             employee.marital_status,
             employee.spouse_name,

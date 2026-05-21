@@ -7,11 +7,9 @@ import {
     update as updateTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { CreatableSelect } from '@/components/ui/creatable-select';
-import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
-import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import {
     Dialog,
     DialogContent,
@@ -27,6 +25,8 @@ import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/pr
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { trainingImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import type { CountryOption } from '@/features/organization/employees/types';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import {
