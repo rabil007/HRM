@@ -38,6 +38,28 @@ final class SettingKey
 
     public const EmailBrandingLogo = 'email_branding_logo';
 
+    public const MailHost = 'mail_host';
+
+    public const MailPort = 'mail_port';
+
+    public const MailUsername = 'mail_username';
+
+    public const MailPassword = 'mail_password';
+
+    public const MailEncryption = 'mail_encryption';
+
+    public const MailFromAddress = 'mail_from_address';
+
+    public const MailFromName = 'mail_from_name';
+
+    /** @return list<string> */
+    public static function encryptedKeys(): array
+    {
+        return [
+            self::MailPassword,
+        ];
+    }
+
     /** @return list<string> */
     public static function fileKeys(): array
     {

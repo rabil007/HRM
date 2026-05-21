@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
@@ -92,6 +93,8 @@ class AppServiceProvider extends ServiceProvider
                 'app.name' => $settings->appName(),
                 'mail.from.name' => $settings->appName(),
             ]);
+
+            app(MailSettingsService::class)->applyToRuntimeConfig();
         } catch (\Throwable) {
             //
         }

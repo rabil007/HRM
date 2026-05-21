@@ -24,7 +24,7 @@ import { email as emailDocuments } from '@/routes/organization/documents/employe
 type EmailDocumentsModalProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    employee: { id: number; name: string };
+    employee: { id: number; name: string; email?: string | null };
     organizationName: string;
     documents: EmailDocumentItem[];
     onSendComplete: () => void;
@@ -51,12 +51,12 @@ export function EmailDocumentsModal({
 
     useEffect(() => {
         if (open) {
-            setRecipient('');
+            setRecipient(employee.email?.trim() ?? '');
             setCc('');
             setSubject(buildDefaultEmailSubject(employee.name, organizationName));
             setMessage('');
         }
-    }, [employee.name, open, organizationName]);
+    }, [employee.email, employee.name, open, organizationName]);
 
     const handleSend = async () => {
         if (attachmentSizeExceeded) {
@@ -78,9 +78,10 @@ export function EmailDocumentsModal({
                     message: message.trim() || undefined,
                 },
             );
+            const sentTo = recipient.trim();
             onOpenChange(false);
             onSendComplete();
-            toast.success(successMessage);
+            toast.success(`${successMessage} Sent to ${sentTo}.`);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : 'Failed to send email.');
         } finally {
@@ -106,16 +107,25 @@ export function EmailDocumentsModal({
                     ) : null}
 
                     <div className="space-y-2">
-                        <Label htmlFor="email-recipient">Recipient email</Label>
+                        <Label htmlFor="email-recipient">
+                            Recipient email <span className="text-red-400">*</span>
+                        </Label>
                         <Input
                             id="email-recipient"
                             type="email"
                             value={recipient}
                             onChange={(event) => setRecipient(event.target.value)}
-                            placeholder="recipient@example.com"
+                            placeholder="your.email@company.com"
+                            autoComplete="email"
+                            required
                             disabled={isSending}
                             className="rounded-lg border-white/10 bg-zinc-950/60"
                         />
+                        <p className="text-xs text-muted-foreground">
+                            {employee.email
+                                ? 'Prefilled from the employee work/personal email. Change it if you want documents sent elsewhere.'
+                                : 'Required. Enter the inbox that should receive these files (e.g. your Outlook address).'}
+                        </p>
                     </div>
 
                     <div className="space-y-2">

@@ -30,6 +30,8 @@ class DocumentEmailService
         string $subject,
         ?string $message,
     ): void {
+        $ccRecipients = $this->normalizeCcRecipients($recipient, $ccRecipients);
+
         $attachments = $this->resolveAttachments($documents, (int) $company->id);
         $this->assertAttachmentSizeWithinLimit($attachments);
 
@@ -251,6 +253,22 @@ class DocumentEmailService
     private function isExternalUrl(string $filePath): bool
     {
         return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
+    }
+
+    /**
+     * @param  list<string>  $ccRecipients
+     * @return list<string>
+     */
+    private function normalizeCcRecipients(string $recipient, array $ccRecipients): array
+    {
+        $recipientNormalized = strtolower(trim($recipient));
+
+        return collect($ccRecipients)
+            ->map(fn (string $email) => trim($email))
+            ->filter(fn (string $email) => $email !== '' && strtolower($email) !== $recipientNormalized)
+            ->unique(fn (string $email) => strtolower($email))
+            ->values()
+            ->all();
     }
 
     private function validatedDiskPath(string $filePath, int $companyId): ?string

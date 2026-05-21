@@ -1,9 +1,6 @@
 <?php
 
 use App\Models\AppSetting;
-use App\Models\Company;
-use App\Models\Country;
-use App\Models\Currency;
 use App\Models\User;
 use App\Support\Settings\SettingKey;
 use Database\Seeders\AppSettingsSeeder;
@@ -11,36 +8,6 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
-
-function setupCompanyWithApplicationSettingsPermissions(User $user, array $permissions): void
-{
-    $country = Country::query()->create([
-        'code' => 'APP',
-        'name' => 'AppLand',
-        'dial_code' => '+998',
-        'is_active' => true,
-    ]);
-
-    $currency = Currency::query()->create([
-        'code' => 'USD',
-        'name' => 'US Dollar',
-        'symbol' => '$',
-        'is_active' => true,
-    ]);
-
-    $company = Company::query()->create([
-        'name' => 'Acme',
-        'slug' => 'acme-app-settings',
-        'working_days' => [1, 2, 3, 4, 5],
-        'country_id' => $country->id,
-        'currency_id' => $currency->id,
-        'timezone' => 'Asia/Dubai',
-        'payroll_cycle' => 'monthly',
-        'status' => 'active',
-    ]);
-
-    grantCompanyPermissions($user, $company, $permissions);
-}
 
 test('application settings page is displayed', function () {
     $user = User::factory()->create();

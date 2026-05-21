@@ -50,6 +50,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->where('asset', '[a-z_]+')
         ->name('application.branding.remove');
 
+    Route::put('settings/application/smtp', [ApplicationSettingsController::class, 'updateSmtp'])
+        ->middleware('can:settings.application.update')
+        ->name('application.smtp.update');
+
+    Route::post('settings/application/smtp/test', [ApplicationSettingsController::class, 'sendTestMail'])
+        ->middleware('can:settings.application.update')
+        ->name('application.smtp.test');
+
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])
             ->middleware('can:settings.master-data.countries.view')

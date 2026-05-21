@@ -61,6 +61,35 @@ test('users can email selected employee documents as attachments', function () {
         ->and($activity->properties->get('document_count'))->toBe(2);
 });
 
+test('duplicate cc matching recipient is not sent twice', function () {
+    Mail::fake();
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');
+    $doc->update(['size_bytes' => Storage::disk('public')->size($path)]);
+
+    $this->postJson(route('organization.documents.employee.files.email', $employee), [
+        'document_ids' => [$doc->id],
+        'recipient' => 'recipient@example.com',
+        'cc' => 'recipient@example.com, other@example.com',
+        'subject' => 'Employee documents',
+    ])->assertOk();
+
+    Mail::assertSent(DocumentsSharedMail::class, function (DocumentsSharedMail $mail) {
+        return $mail->hasTo('recipient@example.com')
+            && $mail->hasCc('other@example.com')
+            && ! $mail->hasCc('recipient@example.com');
+    });
+});
+
 test('email requires at least one document id', function () {
     Storage::fake('public');
 

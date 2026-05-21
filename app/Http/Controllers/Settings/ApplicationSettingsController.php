@@ -3,18 +3,27 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\TestApplicationMailRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
 use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
+use App\Http\Requests\Settings\UpdateApplicationSmtpRequest;
 use App\Models\Currency;
+use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Settings\SettingKey;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class ApplicationSettingsController extends Controller
 {
-    public function __construct(private SettingService $settings) {}
+    public function __construct(
+        private SettingService $settings,
+        private MailSettingsService $mailSettings,
+    ) {}
 
     public function edit(): Response
     {
@@ -49,6 +58,7 @@ class ApplicationSettingsController extends Controller
                 ['value' => 'M d, Y', 'label' => 'May 21, 2026'],
             ],
             'currencies' => $currencies,
+            'smtp' => $this->mailSettings->forSettingsPage(),
         ]);
     }
 
@@ -83,5 +93,33 @@ class ApplicationSettingsController extends Controller
         $this->settings->deleteFile($asset);
 
         return back()->with('success', 'Image removed.');
+    }
+
+    public function updateSmtp(UpdateApplicationSmtpRequest $request): RedirectResponse
+    {
+        $this->mailSettings->storeFromPayload($request->smtpPayload());
+
+        return back()->with('success', 'SMTP settings saved.');
+    }
+
+    public function sendTestMail(TestApplicationMailRequest $request): JsonResponse
+    {
+        $request->assertCanSend();
+
+        $recipient = $request->validated('recipient');
+
+        try {
+            $this->mailSettings->sendTestEmail($recipient, $request->smtpOverride());
+        } catch (Throwable $exception) {
+            report($exception);
+
+            throw ValidationException::withMessages([
+                'recipient' => 'Unable to send test email: '.$exception->getMessage(),
+            ]);
+        }
+
+        return response()->json([
+            'message' => "Test email sent to {$recipient}.",
+        ]);
     }
 }
