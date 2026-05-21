@@ -60,7 +60,16 @@ function initialEmployeeTabFromLocation(): EmployeeTab {
     return EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash] ?? 'personal';
 }
 
-export default function EmployeeDetails({
+export default function EmployeeDetails(props: EmployeePageProps) {
+    return (
+        <EmployeeDetailsPage
+            key={`${props.employee.id}-${props.employee.updated_at}`}
+            {...props}
+        />
+    );
+}
+
+function EmployeeDetailsPage({
     employee_navigation,
     employee,
     contracts,
@@ -155,7 +164,7 @@ export default function EmployeeDetails({
                 count:
                     bank_accounts === undefined
                         ? null
-                        : form.data.bank_id || form.data.iban
+                        : employee.bank_id || employee.iban
                           ? 1
                           : (bank_accounts.length || null),
             },
@@ -247,8 +256,8 @@ export default function EmployeeDetails({
         documents,
         education_qualifications,
         bank_accounts,
-        form.data.bank_id,
-        form.data.iban,
+        employee.bank_id,
+        employee.iban,
         languages,
         trainings,
         sea_services,
