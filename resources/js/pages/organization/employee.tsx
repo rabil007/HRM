@@ -68,6 +68,12 @@ const EmployeeLanguagesTab = lazy(() =>
     })),
 );
 
+const EmployeeTrainingTab = lazy(() =>
+    import('@/pages/organization/_components/employee-training-tab').then((module) => ({
+        default: module.EmployeeTrainingTab,
+    })),
+);
+
 const EmployeeSeaServiceTab = lazy(() =>
     import('@/pages/organization/_components/employee-sea-service-tab').then((module) => ({
         default: module.EmployeeSeaServiceTab,
@@ -88,6 +94,7 @@ const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#work-experience': 'work_experience',
     '#vaccination': 'vaccination',
     '#languages': 'languages',
+    '#training': 'training',
     '#sea-service': 'sea_service',
 };
 
@@ -112,6 +119,8 @@ export default function EmployeeDetails({
     work_experiences,
     vaccinations,
     languages,
+    trainings,
+    courses,
     bank_accounts,
     sea_services,
     document_types,
@@ -231,6 +240,12 @@ export default function EmployeeDetails({
                     languages === undefined ? null : (languages.length || null),
             },
             {
+                id: 'training' as const,
+                label: 'Training',
+                count:
+                    trainings === undefined ? null : (trainings.length || null),
+            },
+            {
                 id: 'sea_service' as const,
                 label: 'Sea Service',
                 count:
@@ -264,6 +279,8 @@ export default function EmployeeDetails({
                     return employee_tabs.sea_service;
                 case 'vaccination':
                     return employee_tabs.vaccination;
+                case 'training':
+                    return employee_tabs.training;
                 default:
                     return true;
             }
@@ -275,6 +292,7 @@ export default function EmployeeDetails({
         employee_tabs.personal,
         employee_tabs.sea_service,
         employee_tabs.vaccination,
+        employee_tabs.training,
         contracts,
         documents,
         education_qualifications,
@@ -282,6 +300,7 @@ export default function EmployeeDetails({
         form.data.bank_id,
         form.data.iban,
         languages,
+        trainings,
         sea_services,
         vaccinations,
         work_experiences,
@@ -577,6 +596,19 @@ export default function EmployeeDetails({
                                                 employeeId={employee.id}
                                                 languages={languages ?? []}
                                                 canManage={can.languages_manage}
+                                            />
+                                        )
+                                    ) : null}
+                                    {employee_tabs.training && activeTab === 'training' ? (
+                                        recordsLoading ? (
+                                            <EmployeeTabSkeleton />
+                                        ) : (
+                                            <EmployeeTrainingTab
+                                                employeeId={employee.id}
+                                                trainings={trainings ?? []}
+                                                courses={courses ?? []}
+                                                countries={countries}
+                                                canManage={can.training_manage}
                                             />
                                         )
                                     ) : null}

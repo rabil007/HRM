@@ -182,4 +182,9 @@ class Employee extends Model
     {
         return $this->hasMany(EmployeeSeaService::class)->orderBy('sort_order')->orderByDesc('id');
     }
+
+    public function trainings(): HasMany
+    {
+        return $this->hasMany(EmployeeTraining::class)->orderBy('sort_order')->orderByDesc('issue_date')->orderByDesc('id');
+    }
 }

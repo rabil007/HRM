@@ -9,7 +9,7 @@ final class OnboardingTemplateTabVisibility
 
     /**
      * @param  array<string, mixed>|null  $tasks
-     * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool}
+     * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool, training: bool}
      */
     public static function fromTasks(?array $tasks): array
     {
@@ -20,6 +20,7 @@ final class OnboardingTemplateTabVisibility
             'documents' => true,
             'sea_service' => true,
             'vaccination' => true,
+            'training' => true,
         ];
 
         if ($tasks === null || ! is_array($tasks)) {
@@ -35,7 +36,7 @@ final class OnboardingTemplateTabVisibility
 
     /**
      * @param  array<int|string, mixed>  $stages
-     * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool}
+     * @return array{personal: bool, contract: bool, bank: bool, documents: bool, sea_service: bool, vaccination: bool, training: bool}
      */
     private static function fromStages(array $stages): array
     {
@@ -45,6 +46,7 @@ final class OnboardingTemplateTabVisibility
         $aggregateDocsNonEmpty = false;
         $aggregateSeaNonEmpty = false;
         $aggregateVacNonEmpty = false;
+        $aggregateTrainingNonEmpty = false;
 
         foreach ($stages as $stage) {
             if (! is_array($stage)) {
@@ -77,6 +79,9 @@ final class OnboardingTemplateTabVisibility
             if (self::fieldsNonEmpty($stage['vaccination_fields'] ?? null)) {
                 $aggregateVacNonEmpty = true;
             }
+            if (self::fieldsNonEmpty($stage['training_fields'] ?? null)) {
+                $aggregateTrainingNonEmpty = true;
+            }
         }
 
         $hadEmployeeFieldKeyEver = collect($stages)->contains(fn ($s) => is_array($s) && array_key_exists('employee_fields', $s));
@@ -92,6 +97,7 @@ final class OnboardingTemplateTabVisibility
             'documents' => $aggregateDocsNonEmpty,
             'sea_service' => $aggregateSeaNonEmpty,
             'vaccination' => $aggregateVacNonEmpty,
+            'training' => $aggregateTrainingNonEmpty,
         ];
     }
 

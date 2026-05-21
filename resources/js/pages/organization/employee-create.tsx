@@ -15,7 +15,11 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { toast } from '@/lib/toast';
-import { seaServiceFieldOptions, vaccinationFieldOptions } from '@/pages/onboarding/template-form';
+import {
+    seaServiceFieldOptions,
+    trainingFieldOptions,
+    vaccinationFieldOptions,
+} from '@/pages/onboarding/template-form';
 
 type Option = { id: number | string; name: string; title?: string };
 
@@ -114,6 +118,7 @@ continue;
         contract_fields: Array<{ key: string; required: boolean }>;
         sea_service_fields: Array<{ key: string; required: boolean }>;
         vaccination_fields: Array<{ key: string; required: boolean }>;
+        training_fields: Array<{ key: string; required: boolean }>;
         documents: any[];
     };
 
@@ -130,6 +135,7 @@ continue;
             contract_fields: normalizeFieldList(Array.isArray(s?.contract_fields) ? s.contract_fields : []),
             sea_service_fields: normalizeFieldList(Array.isArray(s?.sea_service_fields) ? s.sea_service_fields : []),
             vaccination_fields: normalizeFieldList(Array.isArray(s?.vaccination_fields) ? s.vaccination_fields : []),
+            training_fields: normalizeFieldList(Array.isArray(s?.training_fields) ? s.training_fields : []),
             documents: Array.isArray(s?.documents) ? s.documents : [],
         }));
     };
@@ -145,6 +151,7 @@ continue;
             s.contract_fields.length > 0 ||
             s.sea_service_fields.length > 0 ||
             s.vaccination_fields.length > 0 ||
+            s.training_fields.length > 0 ||
             docsConfigured
         );
     };
@@ -157,6 +164,7 @@ continue;
         contract_fields: [],
         sea_service_fields: [],
         vaccination_fields: [],
+        training_fields: [],
         documents: [],
     };
 
@@ -324,6 +332,9 @@ return;
 
     const vaccinationOnboardingLabel = (fieldKey: string) =>
         vaccinationFieldOptions.find((o) => o.key === fieldKey)?.label ?? labelFromKey(fieldKey);
+
+    const trainingOnboardingLabel = (fieldKey: string) =>
+        trainingFieldOptions.find((o) => o.key === fieldKey)?.label ?? labelFromKey(fieldKey);
 
     const isEmpty = (value: unknown) => value === null || value === undefined || String(value).trim() === '';
 
@@ -720,6 +731,26 @@ missingFields.push(labelFromKey(key));
                                             {activeStage.vaccination_fields.map((f) => (
                                                 <li key={f.key}>
                                                     {vaccinationOnboardingLabel(f.key)}
+                                                    {f.required ? ' — required when adding entries' : ''}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+
+                                {activeStage.key !== '__no_template_fields__' && activeStage.training_fields.length > 0 && (
+                                    <div className="space-y-4 rounded-xl border border-border/60 bg-muted/10 px-4 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-sm font-medium text-foreground">Training</span>
+                                            <div className="flex-1 h-px bg-border" />
+                                        </div>
+                                        <p className="text-sm text-muted-foreground">
+                                            Add training records from the employee profile after this employee is created. This template expects the following fields to be maintained there:
+                                        </p>
+                                        <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                                            {activeStage.training_fields.map((f) => (
+                                                <li key={f.key}>
+                                                    {trainingOnboardingLabel(f.key)}
                                                     {f.required ? ' — required when adding entries' : ''}
                                                 </li>
                                             ))}

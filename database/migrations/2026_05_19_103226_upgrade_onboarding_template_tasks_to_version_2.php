@@ -72,6 +72,7 @@ return new class extends Migration
                     : [],
                 'sea_service_fields' => [],
                 'vaccination_fields' => [],
+                'training_fields' => [],
                 'documents' => in_array('documents', $mods, true)
                     ? $this->mapDocumentsToVersion2($requiredDocs)
                     : [],

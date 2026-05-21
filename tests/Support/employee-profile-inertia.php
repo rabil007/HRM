@@ -5,7 +5,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 /**
  * Assert deferred employee profile record props (loaded after initial paint).
  */
-function assertEmployeeProfileRecords(Assert $page, ?\Closure $callback = null): Assert
+function assertEmployeeProfileRecords(Assert $page, ?Closure $callback = null): Assert
 {
     return $page->loadDeferredProps(
         'employee_profile_records',
@@ -16,6 +16,8 @@ function assertEmployeeProfileRecords(Assert $page, ?\Closure $callback = null):
                 ->has('work_experiences')
                 ->has('vaccinations')
                 ->has('languages')
+                ->has('trainings')
+                ->has('courses')
                 ->has('bank_accounts')
                 ->has('sea_services')
                 ->has('document_types')

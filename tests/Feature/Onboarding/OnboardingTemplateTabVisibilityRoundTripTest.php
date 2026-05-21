@@ -56,6 +56,7 @@ test('saving template with empty contract fields hides contract tab on employee 
                 'contract_fields' => [],
                 'sea_service_fields' => [],
                 'vaccination_fields' => [],
+                'training_fields' => [],
                 'documents' => [],
             ],
         ],

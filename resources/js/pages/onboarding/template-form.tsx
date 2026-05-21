@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import {
     FileStack,
+    GraduationCap,
     Info,
     Landmark,
     LayoutTemplate,
@@ -85,6 +86,7 @@ export type StageBuilder = {
     contract_fields: FieldRequirement[];
     sea_service_fields: FieldRequirement[];
     vaccination_fields: FieldRequirement[];
+    training_fields: FieldRequirement[];
     documents: DocsRequirement[];
 };
 
@@ -159,6 +161,15 @@ export const vaccinationFieldOptions = [
     { key: 'booster_dose_date', label: 'Booster dose date' },
 ] as const;
 
+export const trainingFieldOptions = [
+    { key: 'course_id', label: 'Course' },
+    { key: 'issue_date', label: 'Issue date' },
+    { key: 'expiry_date', label: 'Expiry date' },
+    { key: 'institute_center', label: 'Institute/Center' },
+    { key: 'country_id', label: 'Country' },
+    { key: 'certificate', label: 'Certificate' },
+] as const;
+
 export type DocumentTypeModel = {
     id: number;
     title: string;
@@ -216,6 +227,7 @@ return false;
                 contract_fields: [],
                 sea_service_fields: [],
                 vaccination_fields: [],
+                training_fields: [],
                 documents: []
             },
             { 
@@ -227,6 +239,7 @@ return false;
                 contract_fields: mapFields(['contract_type', 'start_date']),
                 sea_service_fields: [],
                 vaccination_fields: [],
+                training_fields: [],
                 documents: []
             },
         ],
@@ -252,6 +265,7 @@ return false;
                 contract_fields: mapFields(s.contract_fields),
                 sea_service_fields: mapFields(s.sea_service_fields),
                 vaccination_fields: mapFields(s.vaccination_fields),
+                training_fields: mapFields(s.training_fields),
                 documents: Array.isArray(s.documents)
                     ? s.documents.map((d: any) => ({
                           type: String(d?.type ?? ''),
@@ -308,6 +322,7 @@ export function buildTasksFromBuilder(builder: BuilderState) {
             contract_fields: s.contract_fields,
             sea_service_fields: s.sea_service_fields,
             vaccination_fields: s.vaccination_fields,
+            training_fields: s.training_fields,
             documents: s.documents
                 .filter((d) => String(d.type).trim() !== '')
                 .map((d) => ({
@@ -360,6 +375,10 @@ return seaServiceFieldOptions.find((o) => o.key === key)?.label ?? key;
 
         if (kind === 'vaccination') {
 return vaccinationFieldOptions.find((o) => o.key === key)?.label ?? key;
+}
+
+        if (kind === 'training') {
+return trainingFieldOptions.find((o) => o.key === key)?.label ?? key;
 }
 
         return profileFieldOptions.find((o) => o.key === key)?.label ?? key;
@@ -444,6 +463,11 @@ return;
 
     const otherVacFields = useMemo(
         () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.vaccination_fields),
+        [builder.stages, activeStageId],
+    );
+
+    const otherTrainingFields = useMemo(
+        () => otherStageFieldUsage(builder.stages, activeStageId, (stage) => stage.training_fields),
         [builder.stages, activeStageId],
     );
 
@@ -625,6 +649,16 @@ return;
                                             </span>
                                         </TabsTrigger>
                                         <TabsTrigger
+                                            value="training"
+                                            className="gap-2 rounded-lg px-3 py-2 text-xs data-[state=active]:shadow-md sm:text-sm"
+                                        >
+                                            <GraduationCap className="size-3.5 opacity-70" />
+                                            Training
+                                            <span className="ml-0.5 rounded-full bg-primary/15 px-1.5 py-0 text-[10px] font-semibold tabular-nums text-primary">
+                                                {s.training_fields.length}
+                                            </span>
+                                        </TabsTrigger>
+                                        <TabsTrigger
                                             value="documents"
                                             className="gap-2 rounded-lg px-3 py-2 text-xs data-[state=active]:shadow-md sm:text-sm"
                                         >
@@ -762,6 +796,25 @@ return;
                                         />
                                     </TabsContent>
 
+                                    <TabsContent value="training" className="mt-4 focus-visible:outline-none">
+                                        <FieldSelector
+                                            title="Training (profile after hire)"
+                                            options={trainingFieldOptions}
+                                            selectedFields={s.training_fields}
+                                            otherStagesFields={otherTrainingFields.fields}
+                                            otherStageLabels={otherTrainingFields.labels}
+                                            onUpdate={(fields) => updateStage({ training_fields: fields })}
+                                            onSortClick={() =>
+                                                setSortFieldsDialog({
+                                                    open: true,
+                                                    kind: 'training',
+                                                    list: [...s.training_fields],
+                                                    draggingKey: null,
+                                                })
+                                            }
+                                        />
+                                    </TabsContent>
+
                                     <TabsContent value="documents" className="mt-4 focus-visible:outline-none">
                                         <DocumentSelector
                                             selectedDocs={s.documents}
@@ -853,7 +906,9 @@ return;
                                 ? { sea_service_fields: list }
                                 : kind === 'vaccination'
                                   ? { vaccination_fields: list }
-                                  : { employee_fields: list },
+                                  : kind === 'training'
+                                    ? { training_fields: list }
+                                    : { employee_fields: list },
                     );
                     setSortFieldsDialog({
                         open: false,
@@ -862,7 +917,7 @@ return;
                         draggingKey: null,
                     });
                     toast.success(
-                        `${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : kind === 'sea_service' ? 'Sea service' : kind === 'vaccination' ? 'Vaccination' : 'Employee'} field order saved.`,
+                        `${kind === 'contract' ? 'Contract' : kind === 'bank' ? 'Bank' : kind === 'sea_service' ? 'Sea service' : kind === 'vaccination' ? 'Vaccination' : kind === 'training' ? 'Training' : 'Employee'} field order saved.`,
                     );
                 }}
             />

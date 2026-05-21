@@ -3,6 +3,7 @@
 namespace App\Support\Employees\Services;
 
 use App\Models\Client;
+use App\Models\Course;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
@@ -11,6 +12,7 @@ use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeLanguage;
 use App\Models\EmployeeSeaService;
+use App\Models\EmployeeTraining;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\VesselType;
@@ -23,6 +25,7 @@ use App\Support\Employees\Resources\EmployeeDocumentResource;
 use App\Support\OnboardingTemplateTabVisibility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 final class EmployeeProfilePageData
@@ -77,6 +80,7 @@ final class EmployeeProfilePageData
                 'languages_manage' => $request->user()?->can('employees.languages.manage'),
                 'bank_accounts_manage' => $request->user()?->can('employees.bank_accounts.manage'),
                 'sea_service_manage' => $request->user()?->can('employees.sea_service.manage'),
+                'training_manage' => $request->user()?->can('employees.training.manage'),
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
@@ -133,6 +137,14 @@ final class EmployeeProfilePageData
                 fn () => self::seaServiceBundle($companyId, $employee->id)['clients'],
                 self::DEFER_GROUP,
             ),
+            'trainings' => Inertia::defer(
+                fn () => self::trainings($companyId, $employee->id),
+                self::DEFER_GROUP,
+            ),
+            'courses' => Inertia::defer(
+                fn () => self::courseOptions(),
+                self::DEFER_GROUP,
+            ),
         ];
     }
 
@@ -148,6 +160,7 @@ final class EmployeeProfilePageData
             'documents' => true,
             'sea_service' => true,
             'vaccination' => true,
+            'training' => true,
         ];
 
         $enabledProfileFields = null;
@@ -279,6 +292,52 @@ final class EmployeeProfilePageData
                 'second_dose_date' => $row->second_dose_date?->toDateString(),
                 'booster_dose_date' => $row->booster_dose_date?->toDateString(),
                 'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function trainings(int $companyId, int $employeeId): array
+    {
+        return EmployeeTraining::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->with(['course:id,name', 'country:id,name'])
+            ->orderBy('sort_order')
+            ->orderByDesc('issue_date')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (EmployeeTraining $row) => [
+                'id' => $row->id,
+                'course_id' => $row->course_id,
+                'course_name' => $row->course?->name,
+                'issue_date' => $row->issue_date?->toDateString(),
+                'expiry_date' => $row->expiry_date?->toDateString(),
+                'institute_center' => $row->institute_center,
+                'country_id' => $row->country_id,
+                'country_name' => $row->country?->name,
+                'certificate_url' => $row->certificate_path
+                    ? Storage::disk('public')->url($row->certificate_path)
+                    : null,
+                'created_at' => $row->created_at?->toDateTimeString(),
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private static function courseOptions(): array
+    {
+        return Course::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->map(fn (Course $course) => [
+                'id' => $course->id,
+                'name' => $course->name,
             ])
             ->all();
     }

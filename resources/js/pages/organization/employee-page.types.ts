@@ -163,6 +163,24 @@ export type VesselTypeOption = {
     name: string;
 };
 
+export type CourseOption = {
+    id: number;
+    name: string;
+};
+
+export type TrainingItem = {
+    id: number;
+    course_id: number;
+    course_name: string | null;
+    issue_date: string;
+    expiry_date: string | null;
+    institute_center: string;
+    country_id: number | null;
+    country_name: string | null;
+    certificate_url: string | null;
+    created_at: string;
+};
+
 export type SeaServiceItem = {
     id: number;
     vessel_type_id: number;
@@ -190,6 +208,7 @@ export type EmployeeTab =
     | 'work_experience'
     | 'vaccination'
     | 'languages'
+    | 'training'
     | 'sea_service'
     | 'documents';
 
@@ -208,6 +227,7 @@ export type EmployeeProfileTabVisibility = {
     documents: boolean;
     sea_service: boolean;
     vaccination: boolean;
+    training: boolean;
     /** null = no template assigned, show all fields; string[] = only these field keys are enabled */
     profile_fields: string[] | null;
 };
@@ -223,6 +243,8 @@ export type EmployeePageProps = {
     languages?: LanguageItem[];
     bank_accounts?: EmployeeBankAccountItem[];
     sea_services?: SeaServiceItem[];
+    trainings?: TrainingItem[];
+    courses?: CourseOption[];
     document_types?: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
@@ -234,6 +256,7 @@ export type EmployeePageProps = {
         languages_manage: boolean;
         bank_accounts_manage: boolean;
         sea_service_manage: boolean;
+        training_manage: boolean;
     };
     branches: BranchOption[];
     departments: DepartmentOption[];

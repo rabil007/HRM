@@ -10,7 +10,8 @@ it('defaults to all tabs visible when tasks are null', function () {
         ->and($tabs['bank'])->toBeTrue()
         ->and($tabs['documents'])->toBeTrue()
         ->and($tabs['sea_service'])->toBeTrue()
-        ->and($tabs['vaccination'])->toBeTrue();
+        ->and($tabs['vaccination'])->toBeTrue()
+        ->and($tabs['training'])->toBeTrue();
 });
 
 it('aggregates version 2 visibility from non-empty field groups', function () {
@@ -25,6 +26,7 @@ it('aggregates version 2 visibility from non-empty field groups', function () {
                 'contract_fields' => [],
                 'sea_service_fields' => [],
                 'vaccination_fields' => [],
+                'training_fields' => [],
                 'documents' => [],
             ],
             [
@@ -35,6 +37,7 @@ it('aggregates version 2 visibility from non-empty field groups', function () {
                 'contract_fields' => [['key' => 'start_date', 'required' => true]],
                 'sea_service_fields' => [['key' => 'vessel_type_id', 'required' => true]],
                 'vaccination_fields' => [['key' => 'vaccination_name', 'required' => true]],
+                'training_fields' => [['key' => 'course_id', 'required' => true]],
                 'documents' => [['type' => '1', 'min' => 1]],
             ],
         ],
@@ -47,7 +50,8 @@ it('aggregates version 2 visibility from non-empty field groups', function () {
         ->and($tabs['contract'])->toBeTrue()
         ->and($tabs['documents'])->toBeTrue()
         ->and($tabs['sea_service'])->toBeTrue()
-        ->and($tabs['vaccination'])->toBeTrue();
+        ->and($tabs['vaccination'])->toBeTrue()
+        ->and($tabs['training'])->toBeTrue();
 });
 
 it('hides sea service and vaccination when their keys are absent in every version 2 stage', function () {
@@ -68,7 +72,8 @@ it('hides sea service and vaccination when their keys are absent in every versio
     $tabs = OnboardingTemplateTabVisibility::fromTasks($tasks);
 
     expect($tabs['sea_service'])->toBeFalse()
-        ->and($tabs['vaccination'])->toBeFalse();
+        ->and($tabs['vaccination'])->toBeFalse()
+        ->and($tabs['training'])->toBeFalse();
 });
 
 it('hides contract when explicitly empty in every version 2 stage', function () {
@@ -83,6 +88,7 @@ it('hides contract when explicitly empty in every version 2 stage', function () 
                 'contract_fields' => [],
                 'sea_service_fields' => [],
                 'vaccination_fields' => [],
+                'training_fields' => [],
                 'documents' => [],
             ],
         ],
@@ -124,6 +130,7 @@ it('hides sea service and vaccination when explicitly empty in every version 2 s
                 'contract_fields' => [],
                 'sea_service_fields' => [],
                 'vaccination_fields' => [],
+                'training_fields' => [],
                 'documents' => [],
             ],
         ],
@@ -132,5 +139,6 @@ it('hides sea service and vaccination when explicitly empty in every version 2 s
     $tabs = OnboardingTemplateTabVisibility::fromTasks($tasks);
 
     expect($tabs['sea_service'])->toBeFalse()
-        ->and($tabs['vaccination'])->toBeFalse();
+        ->and($tabs['vaccination'])->toBeFalse()
+        ->and($tabs['training'])->toBeFalse();
 });

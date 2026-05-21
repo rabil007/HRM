@@ -8,6 +8,10 @@ import {
     importTemplate as vaccinationImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeVaccinationController';
 import {
+    importMethod as importTraining,
+    importTemplate as trainingImportTemplate,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import {
     importMethod as importWorkExperience,
     importTemplate as workExperienceImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
@@ -63,6 +67,26 @@ export function vaccinationImportConfig(employeeId: number): RecordImportConfig 
                 'first_dose, second_dose, booster_dose',
                 'optional dates (YYYY-MM-DD or locale formats Carbon accepts)',
             ),
+        ]),
+    };
+}
+
+export function trainingImportConfig(employeeId: number): RecordImportConfig {
+    return {
+        inputId: `training-import-${employeeId}`,
+        title: 'Import training',
+        description:
+            'Rows are appended to this employee’s training history. Course names must match active courses in master data.',
+        templateHint: 'Use the sample headers and date format (YYYY-MM-DD or common locale dates).',
+        reloadOnly: ['trainings'],
+        importUrl: (id) => importTraining.url({ employee: id }),
+        templateUrl: (id) => trainingImportTemplate.url({ employee: id }),
+        columnHelp: columnList([
+            columnItem('course', 'required (aliases: name, title, course name)'),
+            columnItem('issue_date', 'required (aliases: Issue date, Issued)'),
+            columnItem('expiry_date', 'optional (aliases: Expiry date, Valid until)'),
+            columnItem('institute_center', 'required (aliases: Institute, Center, Training center)'),
+            columnItem('country', 'optional; must match an active country name'),
         ]),
     };
 }

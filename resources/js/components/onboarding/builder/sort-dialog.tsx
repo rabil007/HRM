@@ -9,7 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 
-export type SortDialogKind = 'employee' | 'contract' | 'bank' | 'sea_service' | 'vaccination' | null;
+export type SortDialogKind = 'employee' | 'contract' | 'bank' | 'sea_service' | 'vaccination' | 'training' | null;
 
 export type SortDialogItem = { key: string; required: boolean };
 

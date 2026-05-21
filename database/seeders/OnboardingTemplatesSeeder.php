@@ -36,6 +36,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                     [
@@ -46,6 +47,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [
                             [
                                 'type' => 'passport_copy',
@@ -75,6 +77,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         ],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                     [
@@ -85,6 +88,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                 ],
@@ -110,6 +114,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                     [
@@ -124,6 +129,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         ],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                     [
@@ -134,6 +140,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [
                             [
                                 'type' => 'passport_copy',
@@ -159,6 +166,7 @@ class OnboardingTemplatesSeeder extends Seeder
                         'contract_fields' => [],
                         'sea_service_fields' => [],
                         'vaccination_fields' => [],
+                        'training_fields' => [],
                         'documents' => [],
                     ],
                 ],

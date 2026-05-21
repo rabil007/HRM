@@ -25,6 +25,7 @@ export function SidebarStages({
         cf: typeof builder.stages[0]['contract_fields'],
         sf: typeof builder.stages[0]['sea_service_fields'],
         vf: typeof builder.stages[0]['vaccination_fields'],
+        tf: typeof builder.stages[0]['training_fields'],
         docs: typeof builder.stages[0]['documents'],
     ) =>
         ef.length +
@@ -32,6 +33,7 @@ export function SidebarStages({
         cf.length +
         sf.length +
         vf.length +
+        tf.length +
         docs.filter((d) => String(d?.type ?? '').trim() !== '').length;
 
     return (
@@ -64,6 +66,7 @@ export function SidebarStages({
                                 contract_fields: [],
                                 sea_service_fields: [],
                                 vaccination_fields: [],
+                                training_fields: [],
                                 documents: [],
                             };
 
@@ -134,6 +137,7 @@ export function SidebarStages({
                                                 st.contract_fields,
                                                 st.sea_service_fields,
                                                 st.vaccination_fields,
+                                                st.training_fields,
                                                 st.documents,
                                             )}{' '}
                                             items
@@ -150,6 +154,7 @@ export function SidebarStages({
                                     </span>
                                     <span>S {st.sea_service_fields?.length ?? 0}</span>
                                     <span>V {st.vaccination_fields?.length ?? 0}</span>
+                                    <span>T {st.training_fields?.length ?? 0}</span>
                                 </div>
                             </button>
                         );

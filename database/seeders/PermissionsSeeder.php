@@ -127,6 +127,7 @@ class PermissionsSeeder extends Seeder
             'employees.languages.manage',
             'employees.bank_accounts.manage',
             'employees.sea_service.manage',
+            'employees.training.manage',
 
             'audit.view',
 
