@@ -25,10 +25,13 @@ class MailSettingsService
             'username' => $this->settings->get(SettingKey::MailUsername) ?? (string) env('MAIL_USERNAME', ''),
             'encryption' => $this->settings->get(SettingKey::MailEncryption) ?? $this->guessEncryptionFromEnv(),
             'from_address' => $this->settings->get(SettingKey::MailFromAddress) ?? (string) env('MAIL_FROM_ADDRESS', ''),
-            'from_name' => $this->settings->get(SettingKey::MailFromName) ?? (string) env('MAIL_FROM_NAME', config('app.name', 'Laravel')),
+            'from_name' => $this->settings->get(SettingKey::MailFromName)
+                ?: $this->settings->appName(),
             'has_password' => $this->hasStoredPassword(),
             'is_configured' => $this->isConfigured(),
             'uses_env_fallback' => ! $this->isConfigured(),
+            'email_branding_logo_url' => $this->settings->fileUrl(SettingKey::EmailBrandingLogo),
+            'email_footer' => $this->settings->emailFooterSettings(),
         ];
     }
 
@@ -58,12 +61,11 @@ class MailSettingsService
 
         $appName = $this->settings->appName();
 
-        Mail::raw(
-            "This is a test email from {$appName}.\n\nSent at: ".now()->toDateTimeString(),
-            function ($message) use ($recipient, $appName): void {
-                $message->to($recipient)->subject("{$appName} — SMTP test");
-            },
-        );
+        Mail::send('mail.smtp-test', [
+            'body' => "This is a test email from {$appName}.\n\nSent at: ".now()->toDateTimeString(),
+        ], function ($message) use ($recipient, $appName): void {
+            $message->to($recipient)->subject("{$appName} — SMTP test");
+        });
     }
 
     /**
@@ -78,7 +80,7 @@ class MailSettingsService
         $username = (string) ($override['username'] ?? $this->settings->get(SettingKey::MailUsername) ?? env('MAIL_USERNAME', ''));
         $encryption = (string) ($override['encryption'] ?? $this->settings->get(SettingKey::MailEncryption) ?? $this->guessEncryptionFromEnv());
         $fromAddress = (string) ($override['from_address'] ?? $this->settings->get(SettingKey::MailFromAddress) ?? env('MAIL_FROM_ADDRESS', ''));
-        $fromName = (string) ($override['from_name'] ?? $this->settings->get(SettingKey::MailFromName) ?? env('MAIL_FROM_NAME', config('app.name', 'Laravel')));
+        $fromName = (string) ($override['from_name'] ?? $this->settings->get(SettingKey::MailFromName) ?: $this->settings->appName());
 
         $password = array_key_exists('password', $override)
             ? ($override['password'] !== '' && $override['password'] !== null ? (string) $override['password'] : $this->decryptStoredPassword())
@@ -100,24 +102,32 @@ class MailSettingsService
         ];
     }
 
-    public function storeFromPayload(array $payload): void
+    /**
+     * @param  array<string, mixed>  $smtp
+     * @param  array<string, string|null>  $footer
+     */
+    public function storeFromPayload(array $smtp, array $footer = []): void
     {
         $values = [
-            SettingKey::MailHost => $payload['host'],
-            SettingKey::MailPort => (string) $payload['port'],
-            SettingKey::MailUsername => $payload['username'] ?? '',
-            SettingKey::MailEncryption => $payload['encryption'],
-            SettingKey::MailFromAddress => $payload['from_address'],
-            SettingKey::MailFromName => $payload['from_name'],
+            SettingKey::MailHost => $smtp['host'],
+            SettingKey::MailPort => (string) $smtp['port'],
+            SettingKey::MailUsername => $smtp['username'] ?? '',
+            SettingKey::MailEncryption => $smtp['encryption'],
+            SettingKey::MailFromAddress => $smtp['from_address'],
+            SettingKey::MailFromName => $smtp['from_name'],
         ];
 
-        if (filled($payload['password'] ?? null)) {
-            $values[SettingKey::MailPassword] = Crypt::encryptString((string) $payload['password']);
+        if (filled($smtp['password'] ?? null)) {
+            $values[SettingKey::MailPassword] = Crypt::encryptString((string) $smtp['password']);
         }
 
         foreach ($values as $key => $value) {
             $type = $key === SettingKey::MailPassword ? 'encrypted' : 'string';
             $this->settings->set($key, $value, $type);
+        }
+
+        if ($footer !== []) {
+            $this->settings->setMany($footer);
         }
 
         $this->applyToRuntimeConfig();

@@ -59,6 +59,12 @@ type Props = {
         has_password: boolean;
         is_configured: boolean;
         uses_env_fallback: boolean;
+        email_branding_logo_url: string | null;
+        email_footer: {
+            tagline: string;
+            website: string;
+            certifications: string;
+        };
     };
 };
 
@@ -95,6 +101,10 @@ export default function ApplicationSettings({
         encryption: smtp.encryption ?? 'tls',
         from_address: smtp.from_address ?? '',
         from_name: smtp.from_name ?? '',
+        email_branding_logo: null as File | null,
+        mail_footer_tagline: smtp.email_footer?.tagline ?? '',
+        mail_footer_website: smtp.email_footer?.website ?? '',
+        mail_footer_certifications: smtp.email_footer?.certifications ?? '',
     });
 
     const brandingForm = useForm({
@@ -102,7 +112,6 @@ export default function ApplicationSettings({
         login_logo: null as File | null,
         favicon: null as File | null,
         login_background: null as File | null,
-        email_branding_logo: null as File | null,
         primary_color: preferences.primary_color ?? '#6366f1',
         accent_color: preferences.accent_color ?? '#8b5cf6',
         sidebar_compact_default: preferences.sidebar_compact_default ?? false,
@@ -123,7 +132,10 @@ export default function ApplicationSettings({
 
     function submitSmtp(e: React.FormEvent) {
         e.preventDefault();
-        smtpForm.put('/settings/application/smtp', { preserveScroll: true });
+        smtpForm.post('/settings/application/smtp', {
+            preserveScroll: true,
+            forceFormData: true,
+        });
     }
 
     async function handleSendTestEmail() {
@@ -360,13 +372,6 @@ export default function ApplicationSettings({
                                         onFileChange={(file) => brandingForm.setData('login_background', file)}
                                         error={brandingForm.errors.login_background}
                                     />
-                                    <BrandingUploadField
-                                        label="Email branding logo"
-                                        assetKey="email_branding_logo"
-                                        currentUrl={branding.email_branding_logo_url}
-                                        onFileChange={(file) => brandingForm.setData('email_branding_logo', file)}
-                                        error={brandingForm.errors.email_branding_logo}
-                                    />
 
                                     <Button type="submit" disabled={brandingForm.processing}>
                                         {brandingForm.processing ? <Spinner /> : null}
@@ -382,8 +387,9 @@ export default function ApplicationSettings({
                             <CardHeader>
                                 <CardTitle>SMTP / Email</CardTitle>
                                 <CardDescription>
-                                    Configure outbound mail for document sharing and notifications. Settings
-                                    here override <code className="text-xs">.env</code> when saved.
+                                    Configure SMTP, email footer branding, and test delivery. Saved settings
+                                    override <code className="text-xs">.env</code>. Company name, phone, and
+                                    address in the footer come from the General tab.
                                     {smtp.uses_env_fallback ? (
                                         <span className="mt-1 block text-amber-600 dark:text-amber-400">
                                             Currently using values from .env until you save SMTP settings.
@@ -496,10 +502,66 @@ export default function ApplicationSettings({
                                         ) : null}
                                     </div>
 
+                                    <div className="space-y-4 rounded-lg border border-dashed p-4 sm:col-span-2">
+                                        <BrandingUploadField
+                                            label="Email branding logo"
+                                            assetKey="email_branding_logo"
+                                            currentUrl={smtp.email_branding_logo_url}
+                                            hint="Used in the footer of all outgoing emails (recommended: transparent PNG)."
+                                            onFileChange={(file) =>
+                                                smtpForm.setData('email_branding_logo', file)
+                                            }
+                                            error={smtpForm.errors.email_branding_logo}
+                                        />
+                                        <div>
+                                            <h3 className="text-sm font-semibold">Email footer text</h3>
+                                            <p className="mt-1 text-sm text-muted-foreground">
+                                                Shown below the message body on every email. Company name,
+                                                phone, email, and address come from General settings.
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="mail_footer_tagline">Tagline</Label>
+                                            <Input
+                                                id="mail_footer_tagline"
+                                                value={smtpForm.data.mail_footer_tagline}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('mail_footer_tagline', e.target.value)
+                                                }
+                                                placeholder="Your Complete Marine Solutions"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="mail_footer_website">Website</Label>
+                                            <Input
+                                                id="mail_footer_website"
+                                                value={smtpForm.data.mail_footer_website}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('mail_footer_website', e.target.value)
+                                                }
+                                                placeholder="www.overseas-ms.com"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="mail_footer_certifications">Certifications bar</Label>
+                                            <Input
+                                                id="mail_footer_certifications"
+                                                value={smtpForm.data.mail_footer_certifications}
+                                                onChange={(e) =>
+                                                    smtpForm.setData(
+                                                        'mail_footer_certifications',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                placeholder="ISO 9001:2015 | ISO 14001:2015 | ISO 45001:2018 | ICV Certified"
+                                            />
+                                        </div>
+                                    </div>
+
                                     <div className="sm:col-span-2">
                                         <Button type="submit" disabled={smtpForm.processing}>
                                             {smtpForm.processing ? <Spinner /> : null}
-                                            Save SMTP settings
+                                            Save email settings
                                         </Button>
                                     </div>
                                 </form>

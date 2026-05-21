@@ -115,6 +115,121 @@ class SettingService
         ];
     }
 
+    /** @return array<string, string|null> */
+    public function emailFooterSettings(): array
+    {
+        return [
+            'tagline' => (string) $this->get(SettingKey::MailFooterTagline, ''),
+            'website' => (string) $this->get(SettingKey::MailFooterWebsite, ''),
+            'certifications' => (string) $this->get(SettingKey::MailFooterCertifications, ''),
+        ];
+    }
+
+    /** @return array<string, string|null> */
+    public function mailBranding(): array
+    {
+        if (! $this->isReady()) {
+            return [
+                'logo_src' => null,
+                'brand_name' => (string) config('app.name', 'Laravel'),
+                'company_name' => (string) config('app.name', 'Laravel'),
+                'tagline' => '',
+                'support_email' => '',
+                'support_phone' => '',
+                'company_address' => '',
+                'website' => '',
+                'website_url' => null,
+                'certifications' => '',
+            ];
+        }
+
+        $website = (string) $this->get(SettingKey::MailFooterWebsite, '');
+        $supportEmail = (string) $this->get(SettingKey::SupportEmail, '');
+
+        return [
+            'logo_src' => $this->resolveMailLogoSrc(),
+            'brand_name' => $this->appName(),
+            'company_name' => (string) $this->get(SettingKey::CompanyName, ''),
+            'tagline' => (string) $this->get(SettingKey::MailFooterTagline, ''),
+            'support_email' => $supportEmail,
+            'support_phone' => (string) $this->get(SettingKey::SupportPhone, ''),
+            'company_address' => (string) $this->get(SettingKey::CompanyAddress, ''),
+            'website' => $website,
+            'website_url' => $this->externalUrl($website),
+            'certifications' => (string) $this->get(SettingKey::MailFooterCertifications, ''),
+        ];
+    }
+
+    private function resolveMailLogoSrc(): ?string
+    {
+        $publicUrl = $this->mailLogoPublicUrl();
+
+        if ($publicUrl !== null) {
+            return $publicUrl;
+        }
+
+        $path = $this->get(SettingKey::EmailBrandingLogo);
+
+        if (! $path || ! $this->disk()->exists($path)) {
+            return null;
+        }
+
+        $mime = $this->disk()->mimeType($path) ?: 'image/png';
+
+        if (! str_starts_with($mime, 'image/')) {
+            $mime = 'image/png';
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) $this->disk()->get($path));
+    }
+
+    private function mailLogoPublicUrl(): ?string
+    {
+        $path = $this->get(SettingKey::EmailBrandingLogo);
+
+        if (! $path || ! $this->disk()->exists($path)) {
+            return null;
+        }
+
+        $url = $this->disk()->url($path);
+
+        if (str_starts_with($url, '/')) {
+            $url = rtrim((string) config('app.url'), '/').$url;
+        }
+
+        return $this->isPublicHttpsAssetUrl($url) ? $url : null;
+    }
+
+    private function isPublicHttpsAssetUrl(string $url): bool
+    {
+        if (! str_starts_with($url, 'https://')) {
+            return false;
+        }
+
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST));
+
+        if ($host === '' || in_array($host, ['localhost', '127.0.0.1'], true)) {
+            return false;
+        }
+
+        return ! str_ends_with($host, '.test') && ! str_ends_with($host, '.local');
+    }
+
+    private function externalUrl(string $value): ?string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        return 'https://'.ltrim($value, '/');
+    }
+
     public function fileUrl(string $key): ?string
     {
         $path = $this->get($key);

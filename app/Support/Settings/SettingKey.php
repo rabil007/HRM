@@ -52,6 +52,12 @@ final class SettingKey
 
     public const MailFromName = 'mail_from_name';
 
+    public const MailFooterTagline = 'mail_footer_tagline';
+
+    public const MailFooterWebsite = 'mail_footer_website';
+
+    public const MailFooterCertifications = 'mail_footer_certifications';
+
     /** @return list<string> */
     public static function encryptedKeys(): array
     {
@@ -88,6 +94,9 @@ final class SettingKey
             self::PrimaryColor => '#6366f1',
             self::AccentColor => '#8b5cf6',
             self::SidebarCompactDefault => '0',
+            self::MailFooterTagline => 'Your Complete Marine Solutions',
+            self::MailFooterWebsite => 'www.overseas-ms.com',
+            self::MailFooterCertifications => 'ISO 9001:2015 | ISO 14001:2015 | ISO 45001:2018 | ICV Certified',
         ];
     }
 }

@@ -50,7 +50,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->where('asset', '[a-z_]+')
         ->name('application.branding.remove');
 
-    Route::put('settings/application/smtp', [ApplicationSettingsController::class, 'updateSmtp'])
+    Route::post('settings/application/smtp', [ApplicationSettingsController::class, 'updateSmtp'])
         ->middleware('can:settings.application.update')
         ->name('application.smtp.update');
 

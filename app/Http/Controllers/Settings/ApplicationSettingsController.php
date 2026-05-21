@@ -97,9 +97,16 @@ class ApplicationSettingsController extends Controller
 
     public function updateSmtp(UpdateApplicationSmtpRequest $request): RedirectResponse
     {
-        $this->mailSettings->storeFromPayload($request->smtpPayload());
+        if ($request->hasFile('email_branding_logo')) {
+            $this->settings->storeUpload(SettingKey::EmailBrandingLogo, $request->file('email_branding_logo'));
+        }
 
-        return back()->with('success', 'SMTP settings saved.');
+        $this->mailSettings->storeFromPayload(
+            $request->smtpPayload(),
+            $request->emailFooterPayload(),
+        );
+
+        return back()->with('success', 'Email settings saved.');
     }
 
     public function sendTestMail(TestApplicationMailRequest $request): JsonResponse

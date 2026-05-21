@@ -48,6 +48,14 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->configureDefaults();
         $this->configureApplicationSettings();
+        $this->configureMailViews();
+    }
+
+    protected function configureMailViews(): void
+    {
+        View::composer('mail.layout', function ($view): void {
+            $view->with('mailBranding', app(SettingService::class)->mailBranding());
+        });
     }
 
     protected function configureApplicationSettings(): void

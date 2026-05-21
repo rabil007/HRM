@@ -24,7 +24,6 @@ class UpdateApplicationBrandingRequest extends FormRequest
             'login_logo' => $imageRule,
             'favicon' => ['nullable', 'file', 'max:512', 'mimes:png,jpg,jpeg,svg,ico'],
             'login_background' => $imageRule,
-            'email_branding_logo' => $imageRule,
             'primary_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'accent_color' => ['nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'sidebar_compact_default' => ['nullable', 'boolean'],
@@ -60,7 +59,6 @@ class UpdateApplicationBrandingRequest extends FormRequest
             'login_logo' => SettingKey::LoginLogo,
             'favicon' => SettingKey::Favicon,
             'login_background' => SettingKey::LoginBackground,
-            'email_branding_logo' => SettingKey::EmailBrandingLogo,
         ];
 
         $files = [];
