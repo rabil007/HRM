@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { actions } from '@/lib/design-system';
@@ -126,6 +127,7 @@ export function EmployeeContractTab({
         housing_allowance: '',
         transport_allowance: '',
         other_allowances: '',
+        note: '',
     });
 
     const openCreateDialog = () => {
@@ -141,6 +143,7 @@ export function EmployeeContractTab({
             housing_allowance: '',
             transport_allowance: '',
             other_allowances: '',
+            note: '',
         });
         setEditingContract(null);
         setDialogOpen(true);
@@ -173,6 +176,7 @@ export function EmployeeContractTab({
                 row.other_allowances === undefined
                     ? ''
                     : String(row.other_allowances),
+            note: row.note ?? '',
         });
         setEditingContract(row);
         setDialogOpen(true);
@@ -196,6 +200,7 @@ export function EmployeeContractTab({
                 data.transport_allowance === '' ? null : data.transport_allowance,
             other_allowances:
                 data.other_allowances === '' ? null : data.other_allowances,
+            note: data.note.trim() === '' ? null : data.note.trim(),
         }));
 
         const url = editingContract
@@ -242,7 +247,7 @@ export function EmployeeContractTab({
                     ) : undefined
                 }
             >
-                <EmployeeRecordsTable className="min-w-[1280px]">
+                <EmployeeRecordsTable className="min-w-[1480px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
                             <th className={employeeRecordsTableThClass()}>Type</th>
@@ -264,6 +269,7 @@ export function EmployeeContractTab({
                             <th className={employeeRecordsTableThClass()}>
                                 Other allowances
                             </th>
+                            <th className={employeeRecordsTableThClass()}>Note</th>
                             {canManage ? <EmployeeRecordsActionsHeader /> : null}
                         </tr>
                     </thead>
@@ -347,6 +353,17 @@ export function EmployeeContractTab({
                                     )}
                                 >
                                     {formatMoney(row.other_allowances)}
+                                </td>
+                                <td
+                                    className={cn(
+                                        employeeRecordsTableTdClass(),
+                                        'max-w-[220px] text-muted-foreground',
+                                    )}
+                                    title={row.note ?? undefined}
+                                >
+                                    <span className="line-clamp-2 text-xs">
+                                        {row.note || '—'}
+                                    </span>
                                 </td>
                                 {canManage ? (
                                     <td
@@ -528,6 +545,32 @@ export function EmployeeContractTab({
                                 />
                                 <p className="text-[11px] text-muted-foreground">Any additional monthly allowances (optional)</p>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* Section: Note */}
+                    <div className="space-y-4 pt-2">
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Note</span>
+                            <div className="h-px flex-1 bg-muted/50" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <Label htmlFor="contract_note" className="text-xs">Note</Label>
+                            <Textarea
+                                id="contract_note"
+                                rows={3}
+                                placeholder="Reason for this contract or contract change…"
+                                className="min-h-[88px] resize-y rounded-xl border-border/60 bg-muted/50 text-sm"
+                                value={contractForm.data.note}
+                                onChange={(e) => contractForm.setData('note', e.target.value)}
+                            />
+                            {contractForm.errors.note ? (
+                                <p className="text-xs text-destructive">{contractForm.errors.note}</p>
+                            ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                    Optional context for new contracts or amendments (e.g. promotion, renewal, correction).
+                                </p>
+                            )}
                         </div>
                     </div>
 

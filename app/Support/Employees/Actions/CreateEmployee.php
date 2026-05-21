@@ -48,6 +48,9 @@ final class CreateEmployee
             'housing_allowance' => $data['housing_allowance'] ?? null,
             'transport_allowance' => $data['transport_allowance'] ?? null,
             'other_allowances' => $data['other_allowances'] ?? null,
+            'note' => isset($data['note']) && trim((string) $data['note']) !== ''
+                ? trim((string) $data['note'])
+                : null,
             'status' => 'active',
         ];
 
@@ -60,6 +63,7 @@ final class CreateEmployee
             $data['housing_allowance'],
             $data['transport_allowance'],
             $data['other_allowances'],
+            $data['note'],
         );
 
         if (($data['religion_id'] ?? null) === '') {

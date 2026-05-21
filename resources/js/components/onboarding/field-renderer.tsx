@@ -5,6 +5,8 @@ import { PhoneInputWithCountry } from '@/components/phone-input-with-country';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import type {
@@ -344,6 +346,26 @@ export function FieldRenderer({
                         </AppSelectItem>
                     ))}
                 </AppSelect>
+                {error && <p className="text-[10px] text-destructive">{error}</p>}
+            </div>
+        );
+    }
+
+    if (fieldKey === 'note') {
+        return (
+            <div className="space-y-1.5 sm:col-span-2">
+                <Label htmlFor={id} className="text-xs font-medium text-foreground">
+                    {label} {isRequired && <span className="text-destructive">*</span>}
+                </Label>
+                <Textarea
+                    id={id}
+                    rows={3}
+                    placeholder="Reason for this contract or contract change…"
+                    value={value ?? ''}
+                    onChange={(e) => onChange(e.target.value)}
+                    className={cn(inputClass, 'min-h-[88px] resize-y')}
+                    required={isRequired}
+                />
                 {error && <p className="text-[10px] text-destructive">{error}</p>}
             </div>
         );

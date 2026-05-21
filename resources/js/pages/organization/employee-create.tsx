@@ -223,6 +223,7 @@ continue;
         housing_allowance: '',
         transport_allowance: '',
         other_allowances: '',
+        note: '',
         documents: [],
     });
 

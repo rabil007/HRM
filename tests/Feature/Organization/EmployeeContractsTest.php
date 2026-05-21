@@ -187,6 +187,7 @@ test('users with permission can add update and delete contracts', function () {
         'end_date' => '2027-01-01',
         'status' => 'active',
         'basic_salary' => 8000,
+        'note' => 'Renewal after probation completion.',
     ])->assertRedirect();
 
     $active = EmployeeContract::query()
@@ -195,7 +196,8 @@ test('users with permission can add update and delete contracts', function () {
         ->first();
 
     expect($active)->not->toBeNull()
-        ->and($active->contract_type)->toBe('limited');
+        ->and($active->contract_type)->toBe('limited')
+        ->and($active->note)->toBe('Renewal after probation completion.');
 
     $this->put(route('organization.employees.contracts.update', [$employee, $active]), [
         'contract_type' => 'limited',
@@ -203,9 +205,11 @@ test('users with permission can add update and delete contracts', function () {
         'end_date' => '2028-01-01',
         'status' => 'active',
         'basic_salary' => 9000,
+        'note' => 'Salary adjustment and contract extension.',
     ])->assertRedirect();
 
-    expect($active->fresh()->basic_salary)->toBe('9000.00');
+    expect($active->fresh()->basic_salary)->toBe('9000.00')
+        ->and($active->fresh()->note)->toBe('Salary adjustment and contract extension.');
 
     $this->delete(route('organization.employees.contracts.destroy', [$employee, $active]))
         ->assertRedirect();

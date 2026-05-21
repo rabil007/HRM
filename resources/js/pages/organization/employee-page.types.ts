@@ -97,6 +97,7 @@ export type EmployeeContractDetails = {
     housing_allowance: number | null;
     transport_allowance: number | null;
     other_allowances: number | null;
+    note: string | null;
     created_at: string;
     updated_at: string;
 };

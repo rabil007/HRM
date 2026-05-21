@@ -59,6 +59,7 @@ final class OnboardingTemplateImportFields
         'housing_allowance',
         'transport_allowance',
         'other_allowances',
+        'note',
     ];
 
     /** @var list<string> */

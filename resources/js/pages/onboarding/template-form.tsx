@@ -139,6 +139,7 @@ export const contractFieldOptions = [
     { key: 'housing_allowance', label: 'Housing Allowance' },
     { key: 'transport_allowance', label: 'Transport Allowance' },
     { key: 'other_allowances', label: 'Other Allowances' },
+    { key: 'note', label: 'Note' },
 ] as const;
 
 export const seaServiceFieldOptions = [

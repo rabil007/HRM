@@ -53,6 +53,7 @@ class EmployeesImport
         'housing_allowance' => ['housing_allowance', 'housing allowance', 'housing'],
         'transport_allowance' => ['transport_allowance', 'transport allowance', 'transport'],
         'other_allowances' => ['other_allowances', 'other allowances', 'allowances'],
+        'note' => ['note', 'contract note', 'contract reason', 'contract change reason'],
         'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'hire date'],
         'end_date' => ['end_date', 'end date', 'termination date'],
         'contract_type' => ['contract_type', 'contract type', 'contract'],
@@ -139,6 +140,7 @@ class EmployeesImport
         'housing_allowance',
         'transport_allowance',
         'other_allowances',
+        'note',
         'bank',
         'iban',
         'account_name',
@@ -380,6 +382,7 @@ class EmployeesImport
                 'housing_allowance' => ['nullable', 'numeric', 'min:0'],
                 'transport_allowance' => ['nullable', 'numeric', 'min:0'],
                 'other_allowances' => ['nullable', 'numeric', 'min:0'],
+                'note' => ['nullable', 'string', 'max:2000'],
             ];
 
             $validator = Validator::make($shaped, $rules);
@@ -526,6 +529,9 @@ class EmployeesImport
                         'housing_allowance' => $row['housing_allowance'] !== '' ? $row['housing_allowance'] : null,
                         'transport_allowance' => $row['transport_allowance'] !== '' ? $row['transport_allowance'] : null,
                         'other_allowances' => $row['other_allowances'] !== '' ? $row['other_allowances'] : null,
+                        'note' => isset($row['note']) && trim((string) $row['note']) !== ''
+                            ? trim((string) $row['note'])
+                            : null,
                         'status' => 'active',
                     ]);
 

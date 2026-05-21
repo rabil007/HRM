@@ -22,6 +22,7 @@ final class EmployeeContractResource
             'housing_allowance' => $contract->housing_allowance,
             'transport_allowance' => $contract->transport_allowance,
             'other_allowances' => $contract->other_allowances,
+            'note' => $contract->note,
             'created_at' => $contract->created_at?->toDateTimeString(),
         ];
     }

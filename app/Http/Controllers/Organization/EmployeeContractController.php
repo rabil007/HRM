@@ -84,6 +84,7 @@ class EmployeeContractController extends Controller
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:2000'],
         ]);
     }
 
@@ -105,6 +106,9 @@ class EmployeeContractController extends Controller
             'housing_allowance' => $validated['housing_allowance'] ?? null,
             'transport_allowance' => $validated['transport_allowance'] ?? null,
             'other_allowances' => $validated['other_allowances'] ?? null,
+            'note' => isset($validated['note']) && trim((string) $validated['note']) !== ''
+                ? trim((string) $validated['note'])
+                : null,
         ];
     }
 
