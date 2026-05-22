@@ -317,7 +317,7 @@ test('user update can copy avatar from linked employee photo', function () {
         ->image('employee.jpg', 200, 200)
         ->store("employees/{$company->id}/images", 'public');
 
-    Employee::factory()
+    $employee = Employee::factory()
         ->forCompany($company)
         ->create([
             'user_id' => $targetUser->id,
@@ -334,6 +334,7 @@ test('user update can copy avatar from linked employee photo', function () {
         'password' => '',
         'role_id' => '',
         'status' => 'active',
+        'employee_id' => $employee->id,
         'use_employee_avatar' => true,
     ])->assertRedirect('/organization/users');
 
@@ -343,4 +344,74 @@ test('user update can copy avatar from linked employee photo', function () {
         ->and($targetUser->avatar)->not->toBe($employeeImagePath)
         ->and(Storage::disk('public')->exists($targetUser->avatar))->toBeTrue()
         ->and(Storage::disk('public')->exists($employeeImagePath))->toBeTrue();
+});
+
+test('user update can link and unlink an employee', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'LNK',
+        'name' => 'Linkland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'LNK',
+        'name' => 'Link Currency',
+        'symbol' => 'L$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Link Co',
+        'slug' => 'link-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $targetUser = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Link User',
+        'email' => 'link-user@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'user_id' => null,
+            'employee_no' => 'EMP-LINK-1',
+            'name' => 'Linkable Employee',
+        ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->put("/organization/users/{$targetUser->id}", [
+        'name' => 'Link User',
+        'email' => 'link-user@example.com',
+        'password' => '',
+        'role_id' => '',
+        'status' => 'active',
+        'employee_id' => $employee->id,
+    ])->assertRedirect('/organization/users');
+
+    expect($employee->fresh()->user_id)->toBe($targetUser->id);
+
+    $this->put("/organization/users/{$targetUser->id}", [
+        'name' => 'Link User',
+        'email' => 'link-user@example.com',
+        'password' => '',
+        'role_id' => '',
+        'status' => 'active',
+        'employee_id' => '',
+    ])->assertRedirect('/organization/users');
+
+    expect($employee->fresh()->user_id)->toBeNull();
 });

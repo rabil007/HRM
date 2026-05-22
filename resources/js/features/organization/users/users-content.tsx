@@ -30,7 +30,7 @@ import { UserDeleteDialog } from './components/user-delete-dialog';
 import { UserFiltersSheet } from './components/user-filters-sheet';
 import type { UserFilters } from './components/user-filters-sheet';
 import { UserFormSheet } from './components/user-form-sheet';
-import type { User, UserFormData } from './types';
+import type { EmployeeForLinking, User, UserFormData } from './types';
 
 export function UsersContent({
     users,
@@ -38,12 +38,14 @@ export function UsersContent({
     search: initialSearch,
     filters: initialFilters,
     roles,
+    employeesForLinking,
 }: {
     users: User[];
     pagination: PaginationMeta;
     search: string;
     filters: { status: string };
     roles: { id: number; name: string }[];
+    employeesForLinking: EmployeeForLinking[];
 }) {
     const list = useServerPaginationFilters({
         url: '/organization/users',
@@ -69,6 +71,7 @@ export function UsersContent({
         password: '',
         avatar: null,
         use_employee_avatar: false,
+        employee_id: '',
         role_id: '',
         status: 'active',
     });
@@ -83,6 +86,7 @@ export function UsersContent({
             password: '',
             avatar: null,
             use_employee_avatar: false,
+            employee_id: '',
             role_id: '',
             status: 'active',
         });
@@ -99,6 +103,7 @@ export function UsersContent({
             password: '',
             avatar: null,
             use_employee_avatar: false,
+            employee_id: user.linked_employee?.id ?? '',
             role_id: user.role?.id ?? '',
             status: user.status ?? 'active',
         });
@@ -280,6 +285,7 @@ params.set('status', initialFilters.status);
                 onOpenChange={setIsSheetOpen}
                 user={currentUser}
                 roles={roles}
+                employeesForLinking={employeesForLinking}
                 form={form}
                 onSubmit={submit}
             />

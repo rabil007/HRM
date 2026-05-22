@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserFormSheet } from '@/features/organization/users/components/user-form-sheet';
-import type { User, UserFormData } from '@/features/organization/users/types';
+import type { EmployeeForLinking, User, UserFormData } from '@/features/organization/users/types';
 import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
 
 type ActivityItem = {
@@ -51,10 +51,12 @@ export default function UserDetails({
     user,
     roles,
     recent_activity,
+    employees_for_linking,
 }: {
     user: User & { updated_at?: string };
     roles: { id: number; name: string }[];
     recent_activity: ActivityItem[];
+    employees_for_linking: EmployeeForLinking[];
 }) {
     const [open, setOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
@@ -64,6 +66,7 @@ export default function UserDetails({
         password: '',
         avatar: null,
         use_employee_avatar: false,
+        employee_id: user.linked_employee?.id ?? '',
         role_id: user.role?.id ?? '',
         status: user.status ?? 'active',
     });
@@ -232,6 +235,7 @@ export default function UserDetails({
                     onOpenChange={setOpen}
                     user={user}
                     roles={roles}
+                    employeesForLinking={employees_for_linking}
                     form={form}
                     onSubmit={() => {
                         form.put(`/organization/users/${user.id}`, {

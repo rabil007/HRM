@@ -10,6 +10,10 @@ export type LinkedEmployee = {
     image_url: string | null;
 };
 
+export type EmployeeForLinking = LinkedEmployee & {
+    user_id: number | null;
+};
+
 export type User = {
     id: number;
     company: { id: number; name: string | null } | null;
@@ -29,6 +33,7 @@ export type UserFormData = {
     password: string;
     avatar: File | null;
     use_employee_avatar: boolean;
+    employee_id: number | '';
     role_id: number | '';
     status: 'active' | 'inactive' | 'suspended';
 };

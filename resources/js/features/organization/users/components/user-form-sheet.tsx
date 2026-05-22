@@ -7,13 +7,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import type { User, UserFormData } from '../types';
+import { employeesAvailableForUser, formatEmployeeLinkLabel } from '../lib/employees-for-user-link';
+import type { EmployeeForLinking, User, UserFormData } from '../types';
 
 export function UserFormSheet({
     open,
     onOpenChange,
     user,
     roles,
+    employeesForLinking,
     form,
     onSubmit,
 }: {
@@ -21,12 +23,28 @@ export function UserFormSheet({
     onOpenChange: (open: boolean) => void;
     user: User | null;
     roles: { id: number; name: string }[];
+    employeesForLinking: EmployeeForLinking[];
     form: InertiaFormProps<UserFormData>;
     onSubmit: () => void;
 }) {
     const avatarId = useId();
-    const employeePhoto = user?.linked_employee?.image_url ?? null;
-    const canUseEmployeePhoto = Boolean(user && employeePhoto);
+    const userId = user?.id;
+
+    const selectableEmployees = useMemo(
+        () => employeesAvailableForUser(employeesForLinking, userId),
+        [employeesForLinking, userId],
+    );
+
+    const selectedEmployee = useMemo(() => {
+        if (!form.data.employee_id) {
+            return null;
+        }
+
+        return employeesForLinking.find((employee) => employee.id === form.data.employee_id) ?? null;
+    }, [employeesForLinking, form.data.employee_id]);
+
+    const employeePhoto = selectedEmployee?.image_url ?? null;
+    const canUseEmployeePhoto = Boolean(selectedEmployee?.image_url);
 
     const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
 
@@ -60,10 +78,8 @@ export function UserFormSheet({
             return `New upload: ${form.data.avatar.name}`;
         }
 
-        if (form.data.use_employee_avatar && user?.linked_employee) {
-            const employee = user.linked_employee;
-
-            return `Will copy photo from ${employee.name}${employee.employee_no ? ` (${employee.employee_no})` : ''} when you save.`;
+        if (form.data.use_employee_avatar && selectedEmployee) {
+            return `Will copy photo from ${formatEmployeeLinkLabel(selectedEmployee)} when you save.`;
         }
 
         if (user?.avatar) {
@@ -74,8 +90,12 @@ export function UserFormSheet({
             return 'No profile photo yet. Upload an image or use the linked employee photo.';
         }
 
+        if (!form.data.employee_id) {
+            return 'Link an employee below to enable “Use employee photo”, or upload an image.';
+        }
+
         return 'Upload a profile image (optional).';
-    }, [canUseEmployeePhoto, form.data.avatar?.name, form.data.use_employee_avatar, uploadPreviewUrl, user]);
+    }, [canUseEmployeePhoto, form.data.avatar?.name, form.data.employee_id, form.data.use_employee_avatar, selectedEmployee, uploadPreviewUrl, user?.avatar]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -103,6 +123,47 @@ export function UserFormSheet({
                                 <AppSelectItem value="suspended">Suspended</AppSelectItem>
                             </AppSelect>
                             {form.errors.status ? <div className="text-xs font-medium text-destructive">{form.errors.status}</div> : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="employee_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                Linked employee (optional)
+                            </Label>
+                            <AppSelect
+                                value={form.data.employee_id === '' ? '' : String(form.data.employee_id)}
+                                onValueChange={(value) => {
+                                    const nextId = value ? Number(value) : '';
+                                    const nextEmployee = value
+                                        ? (employeesForLinking.find((e) => e.id === Number(value)) ?? null)
+                                        : null;
+
+                                    form.setData((data) => ({
+                                        ...data,
+                                        employee_id: nextId,
+                                        use_employee_avatar:
+                                            data.use_employee_avatar && Boolean(nextEmployee?.image_url),
+                                    }));
+                                }}
+                                variant="card"
+                                placeholder={
+                                    selectableEmployees.length > 0
+                                        ? 'No employee linked'
+                                        : 'No employees available'
+                                }
+                            >
+                                <AppSelectItem value="">No employee linked</AppSelectItem>
+                                {selectableEmployees.map((employee) => (
+                                    <AppSelectItem key={employee.id} value={String(employee.id)}>
+                                        {formatEmployeeLinkLabel(employee)}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                            <p className="text-xs text-muted-foreground/80">
+                                Map this login to an employee record. Only unlinked employees (or the current link) are listed.
+                            </p>
+                            {form.errors.employee_id ? (
+                                <div className="text-xs font-medium text-destructive">{form.errors.employee_id}</div>
+                            ) : null}
                         </div>
 
                         <div className="space-y-2">

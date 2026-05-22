@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
+use App\Support\Users\Actions\SyncUserEmployeeLink;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -58,6 +59,25 @@ class UserController extends Controller
             'employee_no' => $employee->employee_no,
             'image_url' => $employee->image ? $this->avatarUrl($employee->image) : null,
         ];
+    }
+
+    /**
+     * @return list<array{id: int, name: string, employee_no: string, user_id: int|null, image_url: string|null}>
+     */
+    private function employeesForLinking(int $companyId): array
+    {
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no', 'user_id', 'image'])
+            ->map(fn (Employee $employee): array => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_no' => $employee->employee_no,
+                'user_id' => $employee->user_id,
+                'image_url' => $employee->image ? $this->avatarUrl($employee->image) : null,
+            ])
+            ->all();
     }
 
     public function index()
@@ -142,6 +162,7 @@ class UserController extends Controller
                 'status' => $status,
             ],
             'roles' => $roles,
+            'employees_for_linking' => $this->employeesForLinking($companyId),
         ]);
     }
 
@@ -221,6 +242,7 @@ class UserController extends Controller
             ],
             'roles' => $roles,
             'recent_activity' => $recentActivity,
+            'employees_for_linking' => $this->employeesForLinking($companyId),
         ]);
     }
 
@@ -230,7 +252,8 @@ class UserController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
         $roleId = $data['role_id'] ?? null;
-        unset($data['role_id']);
+        $employeeId = isset($data['employee_id']) && $data['employee_id'] !== '' ? (int) $data['employee_id'] : null;
+        unset($data['role_id'], $data['employee_id']);
 
         $validated = validator($data, [
             'email' => [
@@ -243,7 +266,7 @@ class UserController extends Controller
 
         $data['email'] = $validated['email'];
 
-        app(CreateOrganizationUser::class)->handle(
+        $createdUser = app(CreateOrganizationUser::class)->handle(
             $companyId,
             (string) $data['name'],
             (string) $data['email'],
@@ -252,6 +275,14 @@ class UserController extends Controller
             ['status' => $data['status'] ?? 'active'],
             $request->file('avatar'),
         );
+
+        if ($employeeId !== null) {
+            app(SyncUserEmployeeLink::class)->handle($createdUser, $companyId, $employeeId);
+
+            if ($request->boolean('use_employee_avatar')) {
+                app(CopyEmployeeAvatarToUser::class)->handle($createdUser->fresh(), $companyId);
+            }
+        }
 
         return redirect()
             ->route('organization.users')
@@ -266,7 +297,10 @@ class UserController extends Controller
         $data = $request->validated();
         $data['company_id'] = $companyId;
         $roleId = $data['role_id'] ?? null;
-        unset($data['role_id']);
+        $employeeId = isset($data['employee_id']) && $data['employee_id'] !== '' && $data['employee_id'] !== null
+            ? (int) $data['employee_id']
+            : null;
+        unset($data['role_id'], $data['employee_id']);
 
         $validated = validator($data, [
             'email' => [
@@ -281,6 +315,8 @@ class UserController extends Controller
 
         $data['email'] = $validated['email'];
         $data['status'] = $data['status'] ?? 'active';
+
+        app(SyncUserEmployeeLink::class)->handle($user, $companyId, $employeeId);
 
         if (! empty($data['password'] ?? null)) {
             $data['password'] = Hash::make((string) $data['password']);

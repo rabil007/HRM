@@ -24,6 +24,8 @@ class StoreUserRequest extends FormRequest
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'role_id' => ['nullable', 'integer', 'exists:spatie_roles,id'],
             'status' => ['nullable', 'in:active,inactive,suspended'],
+            'employee_id' => ['nullable', 'integer'],
+            'use_employee_avatar' => ['sometimes', 'boolean'],
         ];
     }
 }
