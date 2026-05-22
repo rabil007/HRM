@@ -60,7 +60,7 @@ export function CreateEmployeeUserDialog({
             form.clearErrors();
             form.setData(buildInitialForm(employee));
         }
-    }, [open, employee.id, employee.name, employee.work_email, employee.personal_email]);
+    }, [open, employee, form]);
 
     const submit = (): void => {
         form.post(`/organization/employees/${employee.id}/user`, {

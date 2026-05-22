@@ -1,6 +1,6 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { ImageDown, Upload, UserRound } from 'lucide-react';
-import { useEffect, useId, useMemo, useState } from 'react';
+import { useEffect, useId, useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -46,56 +46,44 @@ export function UserFormSheet({
     const employeePhoto = selectedEmployee?.image_url ?? null;
     const canUseEmployeePhoto = Boolean(selectedEmployee?.image_url);
 
-    const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
+    const avatarFile = form.data.avatar;
+
+    const uploadPreviewUrl = useMemo(() => {
+        if (!avatarFile) {
+            return null;
+        }
+
+        return URL.createObjectURL(avatarFile);
+    }, [avatarFile]);
 
     useEffect(() => {
-        if (!form.data.avatar) {
-            setUploadPreviewUrl(null);
-
+        if (!uploadPreviewUrl?.startsWith('blob:')) {
             return;
         }
 
-        const url = URL.createObjectURL(form.data.avatar);
-        setUploadPreviewUrl(url);
+        return () => URL.revokeObjectURL(uploadPreviewUrl);
+    }, [uploadPreviewUrl]);
 
-        return () => URL.revokeObjectURL(url);
-    }, [form.data.avatar]);
+    const previewSrc =
+        uploadPreviewUrl ??
+        (form.data.use_employee_avatar && employeePhoto ? employeePhoto : null) ??
+        user?.avatar ??
+        null;
 
-    const previewSrc = useMemo(() => {
-        if (uploadPreviewUrl) {
-            return uploadPreviewUrl;
-        }
+    const avatarFileName = avatarFile?.name?.trim();
+    let avatarHint = 'Upload a profile image (optional).';
 
-        if (form.data.use_employee_avatar && employeePhoto) {
-            return employeePhoto;
-        }
-
-        return user?.avatar ?? null;
-    }, [employeePhoto, form.data.use_employee_avatar, uploadPreviewUrl, user?.avatar]);
-
-    const avatarHint = useMemo(() => {
-        if (uploadPreviewUrl && form.data.avatar?.name) {
-            return `New upload: ${form.data.avatar.name}`;
-        }
-
-        if (form.data.use_employee_avatar && selectedEmployee) {
-            return `Will copy photo from ${formatEmployeeLinkLabel(selectedEmployee)} when you save.`;
-        }
-
-        if (user?.avatar) {
-            return 'Current profile photo. Upload a file or use the employee photo to replace it.';
-        }
-
-        if (canUseEmployeePhoto) {
-            return 'No profile photo yet. Upload an image or use the linked employee photo.';
-        }
-
-        if (!form.data.employee_id) {
-            return 'Link an employee below to enable “Use employee photo”, or upload an image.';
-        }
-
-        return 'Upload a profile image (optional).';
-    }, [canUseEmployeePhoto, form.data.avatar?.name, form.data.employee_id, form.data.use_employee_avatar, selectedEmployee, uploadPreviewUrl, user?.avatar]);
+    if (uploadPreviewUrl && avatarFileName) {
+        avatarHint = `New upload: ${avatarFileName}`;
+    } else if (form.data.use_employee_avatar && selectedEmployee) {
+        avatarHint = `Will copy photo from ${formatEmployeeLinkLabel(selectedEmployee)} when you save.`;
+    } else if (user?.avatar) {
+        avatarHint = 'Current profile photo. Upload a file or use the employee photo to replace it.';
+    } else if (canUseEmployeePhoto) {
+        avatarHint = 'No profile photo yet. Upload an image or use the linked employee photo.';
+    } else if (!form.data.employee_id) {
+        avatarHint = 'Link an employee below to enable “Use employee photo”, or upload an image.';
+    }
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
