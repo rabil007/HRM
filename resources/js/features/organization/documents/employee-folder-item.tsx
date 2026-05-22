@@ -10,11 +10,13 @@ export type { EmployeeFolder };
 
 export function EmployeeFolderItem({
     employee,
+    canDownload = false,
     selected = false,
     onSelectedChange,
     selectionMode = false,
 }: {
     employee: EmployeeFolder;
+    canDownload?: boolean;
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
@@ -73,7 +75,7 @@ export function EmployeeFolderItem({
                 </div>
             </Link>
 
-            {!selectionMode ? (
+            {!selectionMode && canDownload ? (
                 <Button
                     variant="ghost"
                     size="icon"

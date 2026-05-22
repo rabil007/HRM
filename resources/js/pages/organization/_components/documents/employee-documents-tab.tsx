@@ -40,6 +40,7 @@ export type EmployeeDocumentsTabProps = {
     document_types: DocumentTypeOption[];
     can: {
         documents_upload: boolean;
+        documents_download: boolean;
         documents_delete: boolean;
     };
 };
@@ -144,6 +145,7 @@ export function EmployeeDocumentsTab({
                                         canPreview={!!doc.can_preview}
                                         fileUrl={doc.file_url}
                                         onPreview={() => setPreviewDoc(doc)}
+                                        showDownload={can.documents_download}
                                         showVersions={can.documents_upload}
                                         onVersions={() => setVersionDoc(doc)}
                                         showReplace={can.documents_upload}
@@ -187,6 +189,7 @@ export function EmployeeDocumentsTab({
                 employeeId={employee.id}
                 documentId={versionDoc?.id ?? null}
                 documentTitle={versionDoc?.title ?? versionDoc?.document_type_label ?? null}
+                showDownload={can.documents_download}
             />
 
             <DocumentPreviewDialog

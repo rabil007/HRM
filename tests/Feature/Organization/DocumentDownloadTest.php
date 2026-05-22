@@ -9,6 +9,35 @@ test('guests cannot download employee document archives', function () {
         ->assertRedirect(route('login'));
 });
 
+test('users with documents view but without download cannot download files', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $path = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/report.pdf';
+    Storage::disk('public')->put($path, '%PDF-1.4 sample');
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => $path,
+        'original_filename' => 'Passport Copy.pdf',
+        'mime_type' => 'application/pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get(route('organization.documents.files.download', $document))
+        ->assertForbidden();
+});
+
 test('users can download a single document file with original filename', function () {
     Storage::fake('public');
 
@@ -17,7 +46,7 @@ test('users can download a single document file with original filename', functio
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/report.pdf';
     Storage::disk('public')->put($path, '%PDF-1.4 sample');
@@ -52,7 +81,7 @@ test('users can download employee folder as zip with expected filename', functio
         'employee_no' => '1009',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/a.pdf';
     $pathB = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/b.pdf';
@@ -106,7 +135,7 @@ test('zip download skips missing files and still returns archive', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $validPath = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/valid.pdf';
     Storage::disk('public')->put($validPath, 'valid-content');
@@ -158,7 +187,7 @@ test('single document download rejects unsafe storage paths', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $document = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -185,7 +214,7 @@ test('users cannot download documents from another company', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     ['company' => $otherCompany, 'employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = 'employee-documents/'.$otherCompany->id.'/'.$otherEmployee->id.'/passport/other.pdf';
     Storage::disk('public')->put($path, 'secret');
@@ -217,7 +246,7 @@ test('legacy employee documents download route still works', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/legacy.pdf';
     Storage::disk('public')->put($path, 'legacy');

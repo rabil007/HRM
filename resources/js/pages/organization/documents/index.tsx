@@ -40,6 +40,10 @@ type Props = {
     search: string;
     employees: EmployeeFolder[];
     complianceDocuments: PaginatedComplianceDocuments | null;
+    can: {
+        download: boolean;
+        delete: boolean;
+    };
 };
 
 export default function DocumentsIndex({
@@ -48,6 +52,7 @@ export default function DocumentsIndex({
     search: initialSearch,
     employees,
     complianceDocuments,
+    can,
 }: Props) {
     const [previewDoc, setPreviewDoc] = useState<ComplianceDocumentItem | null>(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
@@ -163,6 +168,7 @@ export default function DocumentsIndex({
                                         key={doc.id}
                                         doc={doc}
                                         onPreview={setPreviewDoc}
+                                        canDownload={can.download}
                                     />
                                 ))}
                             </TableBody>
@@ -212,21 +218,23 @@ export default function DocumentsIndex({
                             />
                         }
                         actions={
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                disabled={isBulkDownloading}
-                                onClick={handleBulkFolderDownload}
-                            >
-                                {isBulkDownloading ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <Download className="mr-2 h-4 w-4" />
-                                )}
-                                Download ZIP
-                            </Button>
+                            can.download ? (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={isBulkDownloading}
+                                    onClick={handleBulkFolderDownload}
+                                >
+                                    {isBulkDownloading ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="mr-2 h-4 w-4" />
+                                    )}
+                                    Download ZIP
+                                </Button>
+                            ) : null
                         }
                     />
 
@@ -243,6 +251,7 @@ export default function DocumentsIndex({
                                 <EmployeeFolderItem
                                     key={employee.employee_id}
                                     employee={employee}
+                                    canDownload={can.download}
                                     selectionMode
                                     selected={isFolderSelected(employee.employee_id)}
                                     onSelectedChange={() => toggleFolder(employee.employee_id)}

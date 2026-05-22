@@ -24,7 +24,7 @@ test('users can email selected employee documents as attachments', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -70,7 +70,7 @@ test('duplicate cc matching recipient is not sent twice', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');
@@ -98,7 +98,7 @@ test('email requires at least one document id', function () {
 
     ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $this->postJson(route('organization.documents.employee.files.email', $employee), [
         'document_ids' => [],
@@ -118,7 +118,7 @@ test('email rejects oversized total attachments', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -147,7 +147,7 @@ test('email rejects invalid cc addresses', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');
@@ -172,7 +172,7 @@ test('users cannot email documents for employees in another company', function (
     ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
     ['employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $pathA = "employee-documents/{$otherEmployee->company_id}/{$otherEmployee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$otherEmployee->company_id}/{$otherEmployee->id}/passport/b.pdf";
@@ -206,7 +206,7 @@ test('users cannot email documents belonging to another employee', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $ownPath = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $otherPath = "employee-documents/{$company->id}/{$otherEmployee->id}/passport/b.pdf";
@@ -231,7 +231,7 @@ test('bulk zip download still works after email endpoint is available', function
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Visa Front.pdf');

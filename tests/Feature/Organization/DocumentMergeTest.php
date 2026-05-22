@@ -22,7 +22,7 @@ test('users can merge selected employee pdfs into one download', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $employee->update(['name' => 'Test Employee']);
 
@@ -53,7 +53,7 @@ test('merge preserves document ids order from request', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -81,7 +81,7 @@ test('merge accepts custom download name', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -108,7 +108,7 @@ test('merge rejects invalid download name', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -131,7 +131,7 @@ test('merge requires at least two document ids', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Visa Front.pdf');
@@ -150,7 +150,7 @@ test('merge rejects non pdf selections', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pdfPath = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $imagePath = "employee-documents/{$company->id}/{$employee->id}/passport/b.jpg";
@@ -185,7 +185,7 @@ test('users cannot merge documents for employees in another company', function (
     ['company' => $company, 'passportType' => $passportType] = makeDocumentFixtures();
     ['employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = "employee-documents/{$otherEmployee->company_id}/{$otherEmployee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$otherEmployee->company_id}/{$otherEmployee->id}/passport/b.pdf";
@@ -214,7 +214,7 @@ test('users cannot merge documents belonging to another employee', function () {
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $ownPath = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $otherPath = "employee-documents/{$company->id}/{$otherEmployee->id}/passport/b.pdf";
@@ -235,7 +235,7 @@ test('merge returns validation error for unsupported pdf compression instead of 
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $pathB = "employee-documents/{$company->id}/{$employee->id}/passport/b.pdf";
@@ -281,7 +281,7 @@ test('bulk zip download still works after merge endpoint is available', function
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Visa Front.pdf');

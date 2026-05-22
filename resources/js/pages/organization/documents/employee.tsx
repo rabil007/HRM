@@ -44,15 +44,19 @@ type Props = {
     employee: EmployeeSummary;
     documents: DocumentBrowseItem[];
     summary: DocumentExpirySummary;
+    can: {
+        download: boolean;
+        delete: boolean;
+    };
 };
 
 export default function EmployeeDocumentsBrowse({
     employee,
     documents: allDocuments,
     summary,
+    can,
 }: Props) {
-    const { auth, company_switcher_companies, current_company_id } = usePage().props as unknown as {
-        auth?: { permissions?: string[]; user?: { name?: string } };
+    const { company_switcher_companies, current_company_id } = usePage().props as unknown as {
         company_switcher_companies?: Array<{ id: number; name: string }>;
         current_company_id?: number | null;
     };
@@ -61,7 +65,8 @@ export default function EmployeeDocumentsBrowse({
         company_switcher_companies?.find((company) => company.id === current_company_id)?.name ??
         'Organization';
 
-    const canDeleteDocuments = (auth?.permissions ?? []).includes('employees.documents.delete');
+    const canDeleteDocuments = can.delete;
+    const canDownloadDocuments = can.download;
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
@@ -230,31 +235,35 @@ export default function EmployeeDocumentsBrowse({
                 onClear={clearDocumentSelection}
                 actions={
                     <>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-lg"
-                            disabled={isBulkDownloading}
-                            onClick={handleBulkDownload}
-                        >
-                            {isBulkDownloading ? (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            ) : (
-                                <Download className="mr-2 h-4 w-4" />
-                            )}
-                            Download
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="rounded-lg"
-                            onClick={handleMergePdfs}
-                        >
-                            <FileStack className="mr-2 h-4 w-4" />
-                            Merge PDFs
-                        </Button>
+                        {canDownloadDocuments ? (
+                            <>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={isBulkDownloading}
+                                    onClick={handleBulkDownload}
+                                >
+                                    {isBulkDownloading ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <Download className="mr-2 h-4 w-4" />
+                                    )}
+                                    Download
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    onClick={handleMergePdfs}
+                                >
+                                    <FileStack className="mr-2 h-4 w-4" />
+                                    Merge PDFs
+                                </Button>
+                            </>
+                        ) : null}
                         <Button
                             type="button"
                             size="sm"
@@ -335,6 +344,7 @@ export default function EmployeeDocumentsBrowse({
                                 key={doc.id}
                                 doc={doc}
                                 onPreview={setPreviewDoc}
+                                canDownload={canDownloadDocuments}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}

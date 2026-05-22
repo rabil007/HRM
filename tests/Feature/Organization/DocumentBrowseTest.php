@@ -10,6 +10,17 @@ test('guests cannot access document browse pages', function () {
     $this->get('/organization/documents')->assertRedirect(route('login'));
 });
 
+test('users with employees view but without documents view cannot access documents module', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get('/organization/documents')->assertForbidden();
+});
+
 test('documents folder index returns only employees with document counts', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
@@ -24,7 +35,7 @@ test('documents folder index returns only employees with document counts', funct
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -70,7 +81,7 @@ test('documents folder index supports search', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -100,7 +111,7 @@ test('employee documents browse inertia page returns files with document type la
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -139,7 +150,7 @@ test('documents folder index expiry summary counts only tracked documents', func
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -193,7 +204,7 @@ test('expired filter excludes documents without expiry date', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -237,7 +248,7 @@ test('employee documents browse includes expiry fields when expiry is set', func
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -270,7 +281,7 @@ test('employee documents browse returns documents newest first', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $older = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -311,7 +322,7 @@ test('employee documents browse returns 404 when employee is outside company', f
     ['company' => $company] = makeDocumentFixtures();
     ['employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $this->get("/organization/documents/employees/{$otherEmployee->id}")
         ->assertNotFound();

@@ -18,9 +18,11 @@ import { documents } from '@/routes/organization';
 export function DocumentComplianceTableRow({
     doc,
     onPreview,
+    canDownload = false,
 }: {
     doc: ComplianceDocumentItem;
     onPreview: (doc: ComplianceDocumentItem) => void;
+    canDownload?: boolean;
 }) {
     return (
         <TableRow className={dataTableBodyRowClass(false)}>
@@ -76,6 +78,7 @@ export function DocumentComplianceTableRow({
                             label: 'Download',
                             icon: Download,
                             href: documents.files.download.url({ document: doc.id }),
+                            hidden: !canDownload,
                         },
                         {
                             label: 'Open file',

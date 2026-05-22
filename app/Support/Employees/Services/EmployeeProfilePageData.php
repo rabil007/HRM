@@ -15,6 +15,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
+use App\Models\User;
 use App\Models\VesselType;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -57,7 +58,9 @@ final class EmployeeProfilePageData
 
         $profileLookups = EmployeeFormOptions::forProfile($companyId, $employee, []);
 
-        $employeeTabsPayload = self::employeeTabsPayload($employee);
+        $authUser = $request->user();
+
+        $employeeTabsPayload = self::employeeTabsPayload($employee, $authUser);
 
         $directoryFilters = EmployeeDirectoryFilters::fromRequest($request);
         $employeeNavigation = (new ResolveEmployeeNavigation)->resolve(
@@ -73,16 +76,16 @@ final class EmployeeProfilePageData
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $authUser = $request->user();
-
         return [
             'employee_navigation' => $employeeNavigation,
             'employee' => EmployeeDetailResource::toArray($employee),
             'roles' => $roles,
             'can' => [
                 'create_user' => $authUser?->can('employees.update') && $authUser?->can('users.create'),
-                'documents_upload' => $authUser?->can('employees.documents.upload'),
-                'documents_delete' => $authUser?->can('employees.documents.delete'),
+                'documents_view' => $authUser?->can('documents.view'),
+                'documents_download' => $authUser?->can('documents.download'),
+                'documents_upload' => $authUser?->can('documents.upload'),
+                'documents_delete' => $authUser?->can('documents.delete'),
                 'education_manage' => $authUser?->can('employees.education.manage'),
                 'contracts_manage' => $authUser?->can('employees.contracts.manage'),
                 'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
@@ -161,7 +164,7 @@ final class EmployeeProfilePageData
     /**
      * @return array<string, mixed>
      */
-    private static function employeeTabsPayload(Employee $employee): array
+    private static function employeeTabsPayload(Employee $employee, ?User $authUser): array
     {
         $employeeTabsPayload = [
             'personal' => true,
@@ -198,6 +201,8 @@ final class EmployeeProfilePageData
             }
         }
 
+        $employeeTabsPayload['documents'] = ($employeeTabsPayload['documents'] ?? false)
+            && ($authUser?->can('documents.view') ?? false);
         $employeeTabsPayload['profile_fields'] = $enabledProfileFields;
 
         return $employeeTabsPayload;

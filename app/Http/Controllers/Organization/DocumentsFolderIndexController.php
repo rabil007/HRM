@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentExpiry;
+use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -28,6 +29,7 @@ class DocumentsFolderIndexController extends Controller
             'search' => $search,
             'employees' => [],
             'complianceDocuments' => null,
+            'can' => DocumentPagePermissions::for($request->user()),
         ];
 
         if ($expiry === 'all') {

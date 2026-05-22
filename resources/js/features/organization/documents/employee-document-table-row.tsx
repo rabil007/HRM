@@ -22,12 +22,14 @@ function formatOptionalDate(value: string | null): string {
 export function EmployeeDocumentTableRow({
     doc,
     onPreview,
+    canDownload = false,
     selected = false,
     onSelectedChange,
     selectionMode = false,
 }: {
     doc: DocumentBrowseItem;
     onPreview: (doc: DocumentBrowseItem) => void;
+    canDownload?: boolean;
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
@@ -84,7 +86,7 @@ export function EmployeeDocumentTableRow({
                 <DocumentUploadedDisplay doc={doc} />
             </TableCell>
             <TableCell className={dataTableActionsCellClass()}>
-                <BrowseDocumentActions doc={doc} onPreview={onPreview} />
+                <BrowseDocumentActions doc={doc} onPreview={onPreview} canDownload={canDownload} />
             </TableCell>
         </TableRow>
     );

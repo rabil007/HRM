@@ -20,6 +20,7 @@ type ManagementDocumentActionsProps = {
     onReplace?: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
+    showDownload?: boolean;
     showVersions?: boolean;
     showReplace?: boolean;
     showEdit?: boolean;
@@ -36,6 +37,7 @@ export function ManagementDocumentActions({
     onReplace,
     onEdit,
     onDelete,
+    showDownload = false,
     showVersions = false,
     showReplace = false,
     showEdit = false,
@@ -64,18 +66,20 @@ export function ManagementDocumentActions({
                     <Eye className="size-4" />
                 </Button>
             ) : null}
-            <Button
-                asChild
-                variant="ghost"
-                size="icon"
-                className={iconButtonClass}
-                title="Download"
-                aria-label="Download"
-            >
-                <a href={documents.files.download.url({ document: documentId })}>
-                    <Download className="size-4" />
-                </a>
-            </Button>
+            {showDownload ? (
+                <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className={iconButtonClass}
+                    title="Download"
+                    aria-label="Download"
+                >
+                    <a href={documents.files.download.url({ document: documentId })}>
+                        <Download className="size-4" />
+                    </a>
+                </Button>
+            ) : null}
             <Button
                 asChild
                 variant="ghost"

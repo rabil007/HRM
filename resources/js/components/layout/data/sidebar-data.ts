@@ -297,7 +297,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
                         case documents.url():
-                            return has(permissions, 'employees.view') ? item : null;
+                            return has(permissions, 'documents.view') ? item : null;
                         case '/organization/roles':
                             return has(permissions, 'roles.view') ? item : null;
                         case '/organization/users':

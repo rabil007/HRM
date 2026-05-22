@@ -441,7 +441,7 @@ function EmployeeDetailsPage({
                             )}
                             employeeNavigation={employee_navigation}
                             onNavigateEmployee={handleNavigateEmployee}
-                            showDocumentsButton={employee_tabs.documents}
+                            showDocumentsButton={employee_tabs.documents && can.documents_view}
                             documentCount={
                                 documents === undefined ? null : documents.length
                             }
@@ -635,6 +635,7 @@ function EmployeeDetailsPage({
                                                 document_types={document_types ?? []}
                                                 can={{
                                                     documents_upload: can.documents_upload,
+                                                    documents_download: can.documents_download,
                                                     documents_delete: can.documents_delete,
                                                 }}
                                             />

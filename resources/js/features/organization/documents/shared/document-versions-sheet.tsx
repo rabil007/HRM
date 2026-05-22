@@ -25,6 +25,7 @@ type Props = {
     employeeId: number | null;
     documentId: number | null;
     documentTitle: string | null;
+    showDownload?: boolean;
 };
 
 function mimeLabel(mime: string | null): string {
@@ -43,7 +44,14 @@ return mime.replace('image/', '').toUpperCase();
     return mime.split('/').pop()?.toUpperCase() ?? 'File';
 }
 
-export function DocumentVersionsSheet({ open, onOpenChange, employeeId, documentId, documentTitle }: Props) {
+export function DocumentVersionsSheet({
+    open,
+    onOpenChange,
+    employeeId,
+    documentId,
+    documentTitle,
+    showDownload = false,
+}: Props) {
     const [versions, setVersions] = useState<DocumentVersion[]>([]);
     const [loading, setLoading] = useState(false);
     const http = useHttp();
@@ -139,12 +147,14 @@ export function DocumentVersionsSheet({ open, onOpenChange, employeeId, document
                                                 View
                                             </a>
                                         </Button>
-                                        <Button asChild variant="ghost" size="sm" className="h-7 gap-1.5 rounded-lg px-2 text-[11px] text-muted-foreground">
-                                            <a href={v.file_url} download={v.original_filename ?? undefined}>
-                                                <Download className="h-3 w-3" />
-                                                Download
-                                            </a>
-                                        </Button>
+                                        {showDownload ? (
+                                            <Button asChild variant="ghost" size="sm" className="h-7 gap-1.5 rounded-lg px-2 text-[11px] text-muted-foreground">
+                                                <a href={v.file_url} download={v.original_filename ?? undefined}>
+                                                    <Download className="h-3 w-3" />
+                                                    Download
+                                                </a>
+                                            </Button>
+                                        ) : null}
                                     </div>
                                 </div>
                             </li>

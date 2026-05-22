@@ -27,7 +27,7 @@ test('users can bulk download multiple employee folders into one zip', function 
         'status' => 'active',
     ]);
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = 'employee-documents/'.$company->id.'/'.$employeeA->id.'/passport/a.pdf';
     $pathB = 'employee-documents/'.$company->id.'/'.$employeeB->id.'/passport/b.pdf';
@@ -83,7 +83,7 @@ test('users can bulk download selected files as zip', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.download']);
 
     $pathA = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/a.pdf';
     $pathB = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/b.pdf';
@@ -139,7 +139,7 @@ test('users with permission can bulk delete selected employee documents', functi
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.delete']);
+    grantCompanyPermissions($user, $company, ['documents.delete']);
 
     $pathA = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/a.pdf';
     $pathB = 'employee-documents/'.$company->id.'/'.$employee->id.'/passport/b.pdf';
@@ -192,7 +192,7 @@ test('bulk delete rejects documents from another company', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
     ['company' => $otherCompany, 'employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.delete']);
+    grantCompanyPermissions($user, $company, ['documents.delete']);
 
     $path = 'employee-documents/'.$otherCompany->id.'/'.$otherEmployee->id.'/passport/other.pdf';
     Storage::disk('public')->put($path, 'secret');
@@ -222,7 +222,7 @@ test('users without delete permission cannot bulk delete documents', function ()
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     $document = EmployeeDocument::query()->create([
         'company_id' => $company->id,

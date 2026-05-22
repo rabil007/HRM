@@ -15,7 +15,7 @@ test('users with permission can upload a document', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
         'document_type_id' => $passportType->id,
@@ -48,7 +48,7 @@ test('upload rejects inactive or unknown document types and unsupported files', 
 
     ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
         'document_type_id' => 999_999,
@@ -69,7 +69,7 @@ test('users with permission can bulk upload documents', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents/bulk", [
         'documents' => [
@@ -103,7 +103,7 @@ test('bulk upload persists distinct metadata per document index', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents/bulk", [
         'documents' => [
@@ -164,7 +164,7 @@ test('document status is derived correctly from expiry date', function () {
 
     ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $this->post("/organization/employees/{$employee->id}/documents", [
         'document_type_id' => $visaType->id,
@@ -184,7 +184,7 @@ test('users with permission can edit document metadata', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -218,7 +218,7 @@ test('users with permission can delete a document', function () {
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.delete']);
+    grantCompanyPermissions($user, $company, ['documents.delete']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -244,7 +244,7 @@ test('users with permission can replace a document file and keep version history
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload']);
+    grantCompanyPermissions($user, $company, ['documents.upload']);
 
     $doc = EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -279,7 +279,7 @@ test('documents folder index lists employees with uploads', function () {
 
     ['company' => $company, 'employee' => $employee, 'visaType' => $visaType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['documents.view']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
@@ -340,7 +340,7 @@ test('users cannot manage documents for employees in another company', function 
     ['company' => $company, 'visaType' => $visaType] = makeDocumentFixtures();
     ['employee' => $otherEmployee] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.documents.upload', 'employees.documents.delete']);
+    grantCompanyPermissions($user, $company, ['documents.upload', 'documents.delete']);
 
     $this->post("/organization/employees/{$otherEmployee->id}/documents", [
         'document_type_id' => $visaType->id,
@@ -356,7 +356,7 @@ test('employee profile documents include unified expiry serialization fields', f
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['employees.view']);
+    grantCompanyPermissions($user, $company, ['employees.view', 'documents.view', 'documents.download']);
 
     EmployeeDocument::query()->create([
         'company_id' => $company->id,
