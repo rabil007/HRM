@@ -2,9 +2,11 @@
 
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\Course;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
+use App\Models\EmployeeTraining;
 use App\Models\User;
 
 test('guests cannot print employee cv', function () {
@@ -61,6 +63,9 @@ test('authenticated users can open printable adnoc seafarer cv', function () {
         ->assertSee('ADNOC Logistics &amp; Services', false)
         ->assertSee('Standard CV Form (Seafarer)', false)
         ->assertSee('SECTION 7 - LAUNGAGES KNOWN', false)
+        ->assertSee('SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)', false)
+        ->assertSee('HRO REPRESENTATIVE', false)
+        ->assertSee('FRM-HRA-RMP-032- Rev. 00', false)
         ->assertSee('SECTION 1 - PERSONAL DATA', false)
         ->assertSee('CAPTAIN AHMED', false)
         ->assertSee('View A4 PDF', false);
@@ -162,6 +167,109 @@ test('adnoc cv includes sea service rows', function () {
         ->assertSuccessful()
         ->assertSee('MV Test Vessel', false)
         ->assertSee('SECTION 10 - SUMMARY OF WORK EXPERIENCE', false);
+});
+
+test('adnoc cv includes stcw training rows from employee training', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRN',
+        'name' => 'Training Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRN',
+        'name' => 'Training Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Co',
+        'slug' => 'training-co-cv',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Trained Seafarer',
+            'status' => 'active',
+        ]);
+
+    $course = Course::query()->create([
+        'name' => 'STCW Fire Fighting',
+        'is_active' => true,
+    ]);
+
+    EmployeeTraining::factory()
+        ->forEmployee($employee)
+        ->create([
+            'course_id' => $course->id,
+            'issue_date' => '2024-03-15',
+            'expiry_date' => '2029-03-15',
+            'institute_center' => 'Maritime Training Center',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('STCW FIRE FIGHTING', false)
+        ->assertSee('MARITIME TRAINING CENTER', false)
+        ->assertSee('SECTION 6 - STCW/OTHER TRAINING/PROFESSIONAL COURSES DETAILS', false)
+        ->assertDontSee('No training records', false);
+});
+
+test('adnoc cv shows message when employee has no stcw training', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'NTN',
+        'name' => 'No Training Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'NTN',
+        'name' => 'No Training Currency',
+        'symbol' => 'N$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'No Training Co',
+        'slug' => 'no-training-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'No Training Seafarer',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('No training records', false);
 });
 
 test('users cannot print cv for employees in another company', function () {

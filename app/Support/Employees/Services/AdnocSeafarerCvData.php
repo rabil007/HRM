@@ -185,7 +185,6 @@ final class AdnocSeafarerCvData
                 'understood' => self::languageLevel($row->is_understood),
                 'mother_tongue' => $row->is_mother_tongue ? strtoupper((string) $row->language_name) : '',
             ])->all(),
-            'stcw_display_rows' => 8,
             'health_questions' => [
                 [
                     'question' => 'Have you ever signed off from a ship due to medical reason?',

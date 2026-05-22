@@ -31,6 +31,11 @@
             vertical-align: top;
         }
 
+        .cv-page-header-repeat {
+            page-break-before: always;
+            margin-bottom: 2px;
+        }
+
         @media screen {
             body:not(.pdf-output) {
                 padding: 16px;
@@ -194,32 +199,40 @@
 
         .blank-compact td { height: 8px; padding: 2px 4px; }
 
-        .remarks-space td { height: 22px; vertical-align: top; }
+        .remarks-space td { height: 36px; vertical-align: top; }
+
+        .cv-bottom-spacer td {
+            border: none !important;
+            height: 14mm;
+            padding: 0;
+            line-height: 0;
+        }
 
         .declaration { font-size: 7pt; line-height: 1.35; padding: 4px; }
 
         .note { font-size: 6.5pt; font-weight: 700; text-align: center; padding: 2px; }
 
         .footer-rev td {
-            border: none;
+            border: none !important;
             font-size: 6pt;
             text-align: right;
             padding: 6px 2px 0;
         }
 
-        table.cv.sea td {
-            border: 1px solid #000;
-            padding: 2px 3px;
+        .footer-rev--final td {
+            padding-top: 2px;
+            padding-bottom: 4mm;
+        }
+
+        tr.section-row { page-break-after: avoid; }
+
+        tr.sea-data-row td {
             font-size: 7pt;
             text-align: center;
-            vertical-align: middle;
+            padding: 2px 3px;
         }
 
-        table.cv.sea .section {
-            font-size: 7.5pt;
-        }
-
-        tr { page-break-inside: avoid; }
+        tr.sea-data-row td.sea-company { text-align: left; }
     </style>
 </head>
 <body @class(['pdf-output' => $is_pdf ?? false])>
@@ -232,36 +245,11 @@
     @endif
 
     <div class="cv-shell">
-        @if ($is_pdf ?? false)
-            <table class="cv-margin-wrap"><tr><td class="cv-margin-cell">
-        @endif
+        <table class="cv-margin-wrap"><tr><td class="cv-margin-cell">
+
+        @include('employees.partials.adnoc-cv-header')
 
         {{-- PAGE 1 --}}
-        <table class="cv-head">
-            <colgroup>
-                @for ($i = 0; $i < 12; $i++)
-                    <col style="width:8.333%">
-                @endfor
-            </colgroup>
-            <tr>
-                <td colspan="2" class="head-spacer">&nbsp;</td>
-                <td colspan="8" class="head-title-cell">
-                    <div class="head-title">ADNOC Logistics &amp; Services</div>
-                    <div class="head-subtitle">Standard CV Form (Seafarer)</div>
-                </td>
-                <td colspan="2" class="head-logo-cell">
-                    @if (! empty($logo_url))
-                        <img src="{{ $logo_url }}" alt="ADNOC">
-                    @endif
-                </td>
-            </tr>
-            <tr class="head-meta">
-                <td colspan="2" class="lbl">SOURCE OF CV.</td>
-                <td colspan="8">&nbsp;</td>
-                <td colspan="2" class="head-source">{{ $source_of_cv }}</td>
-            </tr>
-        </table>
-
         <table class="cv">
             <colgroup>
                 @for ($i = 0; $i < 12; $i++)
@@ -435,21 +423,29 @@
                 <td colspan="2" class="col-h">EXPIRY DATE</td>
                 <td colspan="3" class="col-h">INSTITUTE/CENTER/COUNTRY</td>
             </tr>
-            @php($stcwRows = count($stcw_courses) > 0 ? count($stcw_courses) : min($stcw_display_rows ?? 8, 8))
-            @for ($i = 0; $i < $stcwRows; $i++)
-                @php($course = $stcw_courses[$i] ?? null)
-                <tr class="{{ $course ? '' : 'blank-compact' }}">
-                    <td colspan="5" class="val">{{ $course['name'] ?? '' }}</td>
-                    <td colspan="2" class="val center">{{ $course['issue_date'] ?? '' }}</td>
-                    <td colspan="2" class="val center">{{ $course['expiry_date'] ?? '' }}</td>
-                    <td colspan="3" class="val">{{ $course['institute'] ?? '' }}</td>
+            @forelse ($stcw_courses as $course)
+                <tr>
+                    <td colspan="5" class="val">{{ $course['name'] }}</td>
+                    <td colspan="2" class="val center">{{ $course['issue_date'] }}</td>
+                    <td colspan="2" class="val center">{{ $course['expiry_date'] }}</td>
+                    <td colspan="3" class="val">{{ $course['institute'] }}</td>
                 </tr>
-            @endfor
+            @empty
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No training records</td>
+                </tr>
+            @endforelse
 
             <tr class="footer-rev">
                 <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
             </tr>
         </table>
+
+        @if ($is_pdf ?? false)
+            <div class="cv-page-header-repeat">
+                @include('employees.partials.adnoc-cv-header')
+            </div>
+        @endif
 
         {{-- PAGE 2 --}}
         <table class="cv">
@@ -459,7 +455,7 @@
                 @endfor
             </colgroup>
 
-            <tr class="page-break-before"><td colspan="12" class="section section-start">SECTION 7 - LAUNGAGES KNOWN</td></tr>
+            <tr><td colspan="12" class="section section-start">SECTION 7 - LAUNGAGES KNOWN</td></tr>
             <tr>
                 <td colspan="2" class="col-h">LAUNGAGES</td>
                 <td colspan="2" class="col-h">SPOKEN</td>
@@ -517,60 +513,39 @@
                 </tr>
             @endforeach
 
-            <tr>
-                <td colspan="12" style="padding:0;">
-                    <table class="cv sea" style="width:100%; border-collapse:collapse; table-layout:fixed;">
-                        <colgroup>
-                            <col style="width:10%">
-                            <col style="width:10%">
-                            <col style="width:8%">
-                            <col style="width:8%">
-                            <col style="width:8%">
-                            <col style="width:6%">
-                            <col style="width:6%">
-                            <col style="width:8%">
-                            <col style="width:8%">
-                            <col style="width:28%">
-                        </colgroup>
-                        <tr>
-                            <td colspan="10" class="section">SECTION 10 - SUMMARY OF WORK EXPERIENCE (START FROM THE CURRENT/LAST VESSEL WORKED)</td>
-                        </tr>
-                        <tr>
-                            <td rowspan="2" class="col-h-wrap">VESSEL NAME</td>
-                            <td rowspan="2" class="col-h-wrap">VESSEL TYPE</td>
-                            <td rowspan="2" class="col-h">RANK</td>
-                            <td rowspan="2" class="col-h">FROM</td>
-                            <td rowspan="2" class="col-h">TO</td>
-                            <td colspan="2" class="col-h">TOTAL</td>
-                            <td rowspan="2" class="col-h">GRT</td>
-                            <td rowspan="2" class="col-h">BHP</td>
-                            <td rowspan="2" class="col-h-wrap">COMPANY NAME</td>
-                        </tr>
-                        <tr>
-                            <td class="col-h">MONTH</td>
-                            <td class="col-h">DAYS</td>
-                        </tr>
-                        @forelse ($sea_services as $svc)
-                            <tr>
-                                <td>{{ $svc['vessel_name'] }}</td>
-                                <td>{{ $svc['vessel_type'] }}</td>
-                                <td>{{ $svc['rank'] }}</td>
-                                <td>{{ $svc['from'] }}</td>
-                                <td>{{ $svc['to'] }}</td>
-                                <td>{{ $svc['months'] }}</td>
-                                <td>{{ $svc['days'] }}</td>
-                                <td>{{ $svc['grt'] }}</td>
-                                <td>{{ $svc['bhp'] }}</td>
-                                <td style="text-align:left;">{{ $svc['company'] }}</td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="10" class="center" style="padding:4px;">No work experience records</td>
-                            </tr>
-                        @endforelse
-                    </table>
-                </td>
-            </tr>
+            <tr class="section-row"><td colspan="12" class="section">SECTION 10 - SUMMARY OF WORK EXPERIENCE (START FROM THE CURRENT/LAST VESSEL WORKED)</td></tr>
+            @include('employees.partials.adnoc-cv-sea-service-columns')
+            @forelse ($sea_services as $index => $svc)
+                @if (($is_pdf ?? false) && $index > 0 && $index % 15 === 0)
+        </table>
+        <div class="cv-page-header-repeat">
+            @include('employees.partials.adnoc-cv-header')
+        </div>
+        <table class="cv">
+            <colgroup>
+                @for ($i = 0; $i < 12; $i++)
+                    <col style="width:8.333%">
+                @endfor
+            </colgroup>
+            @include('employees.partials.adnoc-cv-sea-service-columns')
+                @endif
+                <tr class="sea-data-row">
+                    <td colspan="2">{{ $svc['vessel_name'] }}</td>
+                    <td colspan="1">{{ $svc['vessel_type'] }}</td>
+                    <td colspan="1">{{ $svc['rank'] }}</td>
+                    <td colspan="1">{{ $svc['from'] }}</td>
+                    <td colspan="1">{{ $svc['to'] }}</td>
+                    <td colspan="1">{{ $svc['months'] }}</td>
+                    <td colspan="1">{{ $svc['days'] }}</td>
+                    <td colspan="1">{{ $svc['grt'] }}</td>
+                    <td colspan="1">{{ $svc['bhp'] }}</td>
+                    <td colspan="2" class="sea-company">{{ $svc['company'] }}</td>
+                </tr>
+            @empty
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No work experience records</td>
+                </tr>
+            @endforelse
             <tr>
                 <td colspan="3" class="lbl">TOTAL EXPERIENCE IN THE APPLIED RANK (IN YEARS)</td>
                 <td colspan="1" class="val center">{{ $experience_rank_years }}</td>
@@ -597,16 +572,18 @@
                     <td colspan="2" class="val">{{ $ref['email'] }}</td>
                 </tr>
             @empty
-                <tr class="blank-compact">
-                    <td colspan="3" class="val">&nbsp;</td>
-                    <td colspan="3" class="val">&nbsp;</td>
-                    <td colspan="2" class="val">&nbsp;</td>
-                    <td colspan="2" class="val">&nbsp;</td>
-                    <td colspan="2" class="val">&nbsp;</td>
-                </tr>
+                @for ($i = 0; $i < 2; $i++)
+                    <tr class="blank-compact">
+                        <td colspan="3" class="val">&nbsp;</td>
+                        <td colspan="3" class="val">&nbsp;</td>
+                        <td colspan="2" class="val">&nbsp;</td>
+                        <td colspan="2" class="val">&nbsp;</td>
+                        <td colspan="2" class="val">&nbsp;</td>
+                    </tr>
+                @endfor
             @endforelse
 
-            <tr><td colspan="12" class="section">SECTION 12 - DECLARATION</td></tr>
+            <tr class="section-row"><td colspan="12" class="section">SECTION 12 - DECLARATION</td></tr>
             <tr>
                 <td colspan="12" class="declaration">
                     I hereby declare that all statements and particulars written in this document are true and supplied to the best of my knowledge. In addition, I authorize you to contact the referees listed above.
@@ -622,21 +599,24 @@
                 <td colspan="12" class="note">PLEASE ATTACH ALL CERTIFICATES AND DOCUMENTS.</td>
             </tr>
 
-            <tr><td colspan="12" class="section">SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)</td></tr>
+            <tr class="section-row"><td colspan="12" class="section">SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)</td></tr>
             <tr>
-                <td colspan="12" class="lbl">RECOMMONDATION / REMARKS</td>
+                <td colspan="12" class="lbl">RECOMMENDATION / REMARKS</td>
             </tr>
             <tr class="remarks-space"><td colspan="12">&nbsp;</td></tr>
             <tr>
                 <td colspan="6" class="lbl">Evaluator Name &amp; Designation</td>
-                <td colspan="6" class="lbl">MPD REPRESENTATIVE</td>
+                <td colspan="6" class="lbl">HRO REPRESENTATIVE</td>
             </tr>
             <tr class="blank-compact"><td colspan="6">&nbsp;</td><td colspan="6">&nbsp;</td></tr>
+
+            <tr class="cv-bottom-spacer"><td colspan="12">&nbsp;</td></tr>
+            <tr class="footer-rev footer-rev--final">
+                <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
+            </tr>
         </table>
 
-        @if ($is_pdf ?? false)
-            </td></tr></table>
-        @endif
+        </td></tr></table>
     </div>
 </body>
 </html>
