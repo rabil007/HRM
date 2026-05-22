@@ -68,6 +68,7 @@ export function UsersContent({
         email: '',
         password: '',
         avatar: null,
+        use_employee_avatar: false,
         role_id: '',
         status: 'active',
     });
@@ -76,7 +77,15 @@ export function UsersContent({
         setCurrentUser(null);
         form.reset();
         form.clearErrors();
-        form.setData({ name: '', email: '', password: '', avatar: null, role_id: '', status: 'active' });
+        form.setData({
+            name: '',
+            email: '',
+            password: '',
+            avatar: null,
+            use_employee_avatar: false,
+            role_id: '',
+            status: 'active',
+        });
         setIsSheetOpen(true);
     };
 
@@ -89,6 +98,7 @@ export function UsersContent({
             email: user.email ?? '',
             password: '',
             avatar: null,
+            use_employee_avatar: false,
             role_id: user.role?.id ?? '',
             status: user.status ?? 'active',
         });

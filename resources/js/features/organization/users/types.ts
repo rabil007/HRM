@@ -3,6 +3,13 @@ export type Company = {
     name: string;
 };
 
+export type LinkedEmployee = {
+    id: number;
+    name: string;
+    employee_no: string;
+    image_url: string | null;
+};
+
 export type User = {
     id: number;
     company: { id: number; name: string | null } | null;
@@ -13,6 +20,7 @@ export type User = {
     status: 'active' | 'inactive' | 'suspended';
     last_login_at?: string | null;
     created_at?: string;
+    linked_employee?: LinkedEmployee | null;
 };
 
 export type UserFormData = {
@@ -20,6 +28,7 @@ export type UserFormData = {
     email: string;
     password: string;
     avatar: File | null;
+    use_employee_avatar: boolean;
     role_id: number | '';
     status: 'active' | 'inactive' | 'suspended';
 };

@@ -63,6 +63,7 @@ export default function UserDetails({
         email: user.email ?? '',
         password: '',
         avatar: null,
+        use_employee_avatar: false,
         role_id: user.role?.id ?? '',
         status: user.status ?? 'active',
     });

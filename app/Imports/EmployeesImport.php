@@ -73,17 +73,17 @@ class EmployeesImport
     public const REQUIRED_FIELDS = ['employee_no', 'name'];
 
     public const SENSITIVE_FIELD_PERMISSIONS = [
-        'passport_number' => 'employees.import.identity',
-        'emirates_id' => 'employees.import.identity',
-        'labor_card_number' => 'employees.import.identity',
-        'labor_contract_id' => 'employees.import.identity',
-        'basic_salary' => 'employees.import.payroll',
-        'housing_allowance' => 'employees.import.payroll',
-        'transport_allowance' => 'employees.import.payroll',
-        'other_allowances' => 'employees.import.payroll',
-        'bank' => 'employees.import.bank',
-        'iban' => 'employees.import.bank',
-        'account_name' => 'employees.import.bank',
+        'passport_number' => 'employees.identity.import',
+        'emirates_id' => 'employees.identity.import',
+        'labor_card_number' => 'employees.identity.import',
+        'labor_contract_id' => 'employees.identity.import',
+        'basic_salary' => 'employees.contracts.import',
+        'housing_allowance' => 'employees.contracts.import',
+        'transport_allowance' => 'employees.contracts.import',
+        'other_allowances' => 'employees.contracts.import',
+        'bank' => 'employees.bank_accounts.import',
+        'iban' => 'employees.bank_accounts.import',
+        'account_name' => 'employees.bank_accounts.import',
     ];
 
     public const IMPORT_MIME_TYPES = [

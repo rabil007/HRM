@@ -8,8 +8,10 @@ use App\Http\Requests\Organization\User\StoreUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserRequest;
 use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
+use App\Models\Employee;
 use App\Models\User;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -39,6 +41,23 @@ class UserController extends Controller
         }
 
         return Storage::url($value);
+    }
+
+    /**
+     * @return array{id: int, name: string, employee_no: string, image_url: string|null}|null
+     */
+    private function linkedEmployeePayload(?Employee $employee): ?array
+    {
+        if ($employee === null) {
+            return null;
+        }
+
+        return [
+            'id' => $employee->id,
+            'name' => $employee->name,
+            'employee_no' => $employee->employee_no,
+            'image_url' => $employee->image ? $this->avatarUrl($employee->image) : null,
+        ];
     }
 
     public function index()
@@ -79,8 +98,14 @@ class UserController extends Controller
             ->groupBy('user_id')
             ->map(fn ($rows) => $rows->first());
 
+        $employeeByUserId = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereIn('user_id', $users->getCollection()->pluck('id'))
+            ->get(['id', 'user_id', 'name', 'employee_no', 'image'])
+            ->keyBy('user_id');
+
         $users->setCollection(
-            $users->getCollection()->map(function (User $user) use ($roleByUserId) {
+            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId) {
                 $role = $roleByUserId->get($user->id);
 
                 return [
@@ -99,6 +124,7 @@ class UserController extends Controller
                     'status' => $user->status,
                     'last_login_at' => $user->last_login_at,
                     'created_at' => $user->created_at,
+                    'linked_employee' => $this->linkedEmployeePayload($employeeByUserId->get($user->id)),
                 ];
             })
         );
@@ -167,6 +193,11 @@ class UserController extends Controller
                 ->all();
         }
 
+        $linkedEmployee = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('user_id', $user->id)
+            ->first(['id', 'name', 'employee_no', 'image']);
+
         return Inertia::render('organization/user', [
             'user' => [
                 'id' => $user->id,
@@ -186,6 +217,7 @@ class UserController extends Controller
                 'last_login_at' => $user->last_login_at,
                 'created_at' => $user->created_at,
                 'updated_at' => $user->updated_at,
+                'linked_employee' => $this->linkedEmployeePayload($linkedEmployee),
             ],
             'roles' => $roles,
             'recent_activity' => $recentActivity,
@@ -257,7 +289,19 @@ class UserController extends Controller
         }
 
         if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                Storage::disk('public')->delete($user->avatar);
+            }
+
             $data['avatar'] = $request->file('avatar')->store('user-avatars', 'public');
+        } elseif ($request->boolean('use_employee_avatar')) {
+            unset($data['avatar']);
+
+            if (! app(CopyEmployeeAvatarToUser::class)->handle($user, $companyId)) {
+                return back()
+                    ->withErrors(['avatar' => 'No employee photo is available for this user.'])
+                    ->withInput();
+            }
         } else {
             unset($data['avatar']);
         }

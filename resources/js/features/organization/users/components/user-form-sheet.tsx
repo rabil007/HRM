@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { ImageDown } from 'lucide-react';
 import { useId, useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -23,11 +24,18 @@ export function UserFormSheet({
     onSubmit: () => void;
 }) {
     const avatarId = useId();
+    const employeePhoto = user?.linked_employee?.image_url ?? null;
+    const canUseEmployeePhoto = Boolean(user && employeePhoto);
+
     const avatarLabel = useMemo(() => {
+        if (form.data.use_employee_avatar && employeePhoto) {
+            return `Employee photo (${user?.linked_employee?.name ?? 'linked'})`;
+        }
+
         const name = form.data.avatar?.name?.trim();
 
         return name ? name : 'No file selected';
-    }, [form.data.avatar]);
+    }, [employeePhoto, form.data.avatar, form.data.use_employee_avatar, user?.linked_employee?.name]);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -69,21 +77,61 @@ export function UserFormSheet({
                                     className="sr-only"
                                     onChange={(e) => {
                                         const file = e.currentTarget.files?.[0] ?? null;
-                                        form.setData('avatar', file);
+                                        form.setData((data) => ({
+                                            ...data,
+                                            avatar: file,
+                                            use_employee_avatar: false,
+                                        }));
                                     }}
                                 />
-                                <div className="flex items-center gap-3">
-                                    <Button
-                                        asChild
-                                        type="button"
-                                        variant="secondary"
-                                        className="glass-card rounded-xl h-11 px-4 hover:bg-accent"
-                                    >
-                                        <label htmlFor={avatarId}>Upload</label>
-                                    </Button>
-                                    <div className="min-w-0 flex-1 rounded-xl border border-border bg-card h-11 px-3 text-sm flex items-center text-muted-foreground/80">
-                                        <span className="truncate">{avatarLabel}</span>
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center gap-3">
+                                        <Button
+                                            asChild
+                                            type="button"
+                                            variant="secondary"
+                                            className="glass-card rounded-xl h-11 px-4 hover:bg-accent"
+                                        >
+                                            <label htmlFor={avatarId}>Upload</label>
+                                        </Button>
+                                        {canUseEmployeePhoto ? (
+                                            <Button
+                                                type="button"
+                                                variant={form.data.use_employee_avatar ? 'default' : 'outline'}
+                                                className="h-11 shrink-0 rounded-xl px-4"
+                                                onClick={() => {
+                                                    form.setData((data) => ({
+                                                        ...data,
+                                                        avatar: null,
+                                                        use_employee_avatar: !data.use_employee_avatar,
+                                                    }));
+                                                }}
+                                            >
+                                                <ImageDown className="size-4" />
+                                                <span className="hidden sm:inline">Use employee photo</span>
+                                            </Button>
+                                        ) : null}
+                                        <div className="min-w-0 flex-1 rounded-xl border border-border bg-card h-11 px-3 text-sm flex items-center text-muted-foreground/80">
+                                            <span className="truncate">{avatarLabel}</span>
+                                        </div>
                                     </div>
+                                    {form.data.use_employee_avatar && employeePhoto ? (
+                                        <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/20 p-2">
+                                            <img
+                                                src={employeePhoto}
+                                                alt={user?.linked_employee?.name ?? 'Employee'}
+                                                className="size-12 rounded-lg object-cover"
+                                            />
+                                            <p className="text-xs text-muted-foreground">
+                                                Photo from linked employee{' '}
+                                                <span className="font-medium text-foreground">{user?.linked_employee?.name}</span>
+                                                {user?.linked_employee?.employee_no
+                                                    ? ` (${user.linked_employee.employee_no})`
+                                                    : null}{' '}
+                                                will be copied when you save.
+                                            </p>
+                                        </div>
+                                    ) : null}
                                 </div>
                                 {form.errors.avatar ? <div className="text-xs font-medium text-destructive">{form.errors.avatar}</div> : null}
                             </div>

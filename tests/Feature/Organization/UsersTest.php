@@ -3,7 +3,10 @@
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Employee;
 use App\Models\User;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
 
@@ -268,4 +271,76 @@ test('authenticated users can toggle user status', function () {
         'id' => $user->id,
         'status' => 'inactive',
     ]);
+});
+
+test('user update can copy avatar from linked employee photo', function () {
+    Storage::fake('public');
+
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'AVT',
+        'name' => 'Avatarland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'AVT',
+        'name' => 'Avatar Currency',
+        'symbol' => 'A$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Avatar Co',
+        'slug' => 'avatar-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $targetUser = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Linked User',
+        'email' => 'linked-user@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+        'avatar' => null,
+    ]);
+
+    $employeeImagePath = UploadedFile::fake()
+        ->image('employee.jpg', 200, 200)
+        ->store("employees/{$company->id}/images", 'public');
+
+    Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'user_id' => $targetUser->id,
+            'employee_no' => 'EMP-LINK',
+            'name' => 'Linked Employee',
+            'image' => $employeeImagePath,
+        ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->put("/organization/users/{$targetUser->id}", [
+        'name' => 'Linked User',
+        'email' => 'linked-user@example.com',
+        'password' => '',
+        'role_id' => '',
+        'status' => 'active',
+        'use_employee_avatar' => true,
+    ])->assertRedirect('/organization/users');
+
+    $targetUser->refresh();
+
+    expect($targetUser->avatar)->not->toBeNull()
+        ->and($targetUser->avatar)->not->toBe($employeeImagePath)
+        ->and(Storage::disk('public')->exists($targetUser->avatar))->toBeTrue()
+        ->and(Storage::disk('public')->exists($employeeImagePath))->toBeTrue();
 });
