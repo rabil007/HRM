@@ -134,6 +134,20 @@ class DocumentDownloadService
         );
     }
 
+    public function isShareable(EmployeeDocument $document): bool
+    {
+        $companyId = (int) $document->company_id;
+        $filePath = (string) $document->file_path;
+
+        if ($this->isExternalUrl($filePath)) {
+            return true;
+        }
+
+        $diskPath = $this->validatedDiskPath($filePath, $companyId);
+
+        return $diskPath !== null && Storage::disk('public')->exists($diskPath);
+    }
+
     public function downloadSingleDocument(EmployeeDocument $document, int $companyId): Response
     {
         $this->assertDocumentAccessible($document, $companyId);

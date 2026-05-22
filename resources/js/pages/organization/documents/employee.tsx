@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, FileStack, FolderOpen, Loader2, Mail, Trash2 } from 'lucide-react';
+import { Download, FileStack, FolderOpen, Loader2, Mail, MessageCircle, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -41,8 +41,13 @@ import type {
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
+import {
+    buildWhatsAppMessage,
+    fetchDocumentShareLinks,
+} from '@/features/organization/documents/whatsapp-share';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
+import { shareLinks } from '@/routes/organization/documents/employee/files';
 import { show } from '@/routes/organization/employees';
 
 type Props = {
@@ -51,6 +56,7 @@ type Props = {
     summary: DocumentExpirySummary;
     can: {
         download: boolean;
+        share: boolean;
         delete: boolean;
     };
 };
@@ -72,6 +78,7 @@ export default function EmployeeDocumentsBrowse({
 
     const canDeleteDocuments = can.delete;
     const canDownloadDocuments = can.download;
+    const canShareDocuments = can.share;
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
@@ -83,6 +90,7 @@ export default function EmployeeDocumentsBrowse({
     const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isWhatsAppSharing, setIsWhatsAppSharing] = useState(false);
 
     const filteredDocuments = useMemo(() => {
         const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
@@ -176,6 +184,41 @@ export default function EmployeeDocumentsBrowse({
             })),
         );
         setEmailModalOpen(true);
+    };
+
+    const handleWhatsAppShare = async () => {
+        if (selectedDocumentIds.length === 0) {
+            toast.error('Select at least one document to share.');
+
+            return;
+        }
+
+        setIsWhatsAppSharing(true);
+
+        try {
+            const { documents: shareDocuments } = await fetchDocumentShareLinks(
+                shareLinks.url({ employee: employee.id }),
+                selectedDocumentIds,
+            );
+
+            const message = buildWhatsAppMessage(employee.name, shareDocuments);
+
+            window.open(
+                `https://wa.me/?text=${encodeURIComponent(message)}`,
+                '_blank',
+                'noopener,noreferrer',
+            );
+
+            clearDocumentSelection();
+        } catch (error) {
+            toast.error(
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to generate share links. Please try again.',
+            );
+        } finally {
+            setIsWhatsAppSharing(false);
+        }
     };
 
     const handleBulkDelete = () => {
@@ -279,6 +322,23 @@ export default function EmployeeDocumentsBrowse({
                             <Mail className="mr-2 h-4 w-4" />
                             Email
                         </Button>
+                        {canShareDocuments ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg"
+                                disabled={isWhatsAppSharing || selectedDocumentCount === 0}
+                                onClick={handleWhatsAppShare}
+                            >
+                                {isWhatsAppSharing ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                )}
+                                WhatsApp
+                            </Button>
+                        ) : null}
                         {canDeleteDocuments ? (
                             <Button
                                 type="button"

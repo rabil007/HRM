@@ -12,9 +12,11 @@ use App\Http\Controllers\Organization\DocumentBulkFilesDeleteController;
 use App\Http\Controllers\Organization\DocumentBulkFilesDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkPdfMergeController;
+use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
+use App\Http\Controllers\Organization\DocumentShareController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeContractController;
 use App\Http\Controllers\Organization\EmployeeController;
@@ -37,6 +39,10 @@ use App\Http\Controllers\Organization\UserController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
+
+Route::get('organization/documents/share/{document}', DocumentShareController::class)
+    ->middleware('signed')
+    ->name('organization.documents.share');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -111,6 +117,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
+    Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
+        ->middleware('can:documents.share')
+        ->name('organization.documents.employee.files.share-links');
     Route::middleware('can:documents.download')->group(function () {
         Route::get('organization/documents/employees/{employee}/download', DocumentFolderDownloadController::class)->name('organization.documents.employee.download');
         Route::post('organization/documents/folders/bulk-download', DocumentBulkFolderDownloadController::class)->name('organization.documents.folders.bulk-download');

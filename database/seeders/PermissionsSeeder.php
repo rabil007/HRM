@@ -124,6 +124,7 @@ class PermissionsSeeder extends Seeder
 
             'documents.view',
             'documents.download',
+            'documents.share',
             'documents.upload',
             'documents.delete',
             'employees.contracts.manage',
