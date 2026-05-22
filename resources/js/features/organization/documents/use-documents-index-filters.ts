@@ -44,7 +44,9 @@ export function useDocumentsIndexFilters({
             router.get(url, cleanParams(params), {
                 preserveState: true,
                 replace: true,
-                only: only ?? ['summary', 'expiry', 'search', 'employees', 'complianceDocuments'],
+                only:
+                    only ??
+                    ['summary', 'expiry', 'search', 'employees', 'searchDocuments', 'complianceDocuments'],
                 onFinish: () => {
                     setIsSearching(false);
                     setDraftSearch(null);
@@ -67,7 +69,7 @@ export function useDocumentsIndexFilters({
                     search: value,
                     expiry: initialExpiry === 'all' ? undefined : initialExpiry,
                     page: null,
-                    per_page: initialExpiry === 'all' ? undefined : perPage,
+                    per_page: perPage,
                 });
             }, 400);
         },
@@ -80,7 +82,7 @@ export function useDocumentsIndexFilters({
                 search: initialSearch || undefined,
                 expiry: expiry === 'all' ? undefined : expiry,
                 page: null,
-                per_page: expiry === 'all' ? undefined : perPage,
+                per_page: perPage,
             });
         },
         [initialSearch, perPage, visit],

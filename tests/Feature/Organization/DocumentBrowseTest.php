@@ -102,7 +102,57 @@ test('documents folder index supports search', function () {
 
     $this->get('/organization/documents?search=missing')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('employees', 0));
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 0)
+            ->has('searchDocuments.data', 0)
+            ->where('searchDocuments.total', 0)
+        );
+});
+
+test('documents folder index returns matching files when searching document fields', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'title' => 'Emirates ID Card',
+        'document_number' => '784-1990-1234567-8',
+        'file_path' => 'employee-documents/test/eid.pdf',
+        'original_filename' => 'EID-scan.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get('/organization/documents?search=784-1990')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('search', '784-1990')
+            ->has('searchDocuments.data', 1)
+            ->where('searchDocuments.data.0.document_number', '784-1990-1234567-8')
+            ->where('searchDocuments.data.0.document_name', 'EID-scan.pdf')
+            ->has('employees', 1)
+        );
+
+    $this->get('/organization/documents?search=Emirates')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('searchDocuments.data', 1)
+            ->where('searchDocuments.data.0.document_type', $passportType->title)
+        );
+
+    $this->get('/organization/documents?search=EID-scan')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('searchDocuments.data', 1)
+            ->where('searchDocuments.data.0.document_name', 'EID-scan.pdf')
+        );
 });
 
 test('employee documents browse inertia page returns files with document type label', function () {

@@ -17,7 +17,7 @@ function resolveEmptyCopy(
             title: 'No results for your search.',
             description:
                 expiryFilter === 'all'
-                    ? 'Try a different name, number, or clear the search to browse all folders.'
+                    ? 'Try a different employee, document number, title, or type—or clear the search to browse all folders.'
                     : `Try a different term or switch to another expiry filter.`,
         };
     }

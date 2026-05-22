@@ -39,6 +39,7 @@ type Props = {
     expiry: ExpiryFilter;
     search: string;
     employees: EmployeeFolder[];
+    searchDocuments: PaginatedComplianceDocuments | null;
     complianceDocuments: PaginatedComplianceDocuments | null;
     can: {
         download: boolean;
@@ -51,6 +52,7 @@ export default function DocumentsIndex({
     expiry: initialExpiry,
     search: initialSearch,
     employees,
+    searchDocuments,
     complianceDocuments,
     can,
 }: Props) {
@@ -92,17 +94,25 @@ export default function DocumentsIndex({
         }
     };
 
+    const searchPerPage = searchDocuments?.per_page ?? complianceDocuments?.per_page ?? 25;
+
     const { searchInput, isSearching, onSearchChange, onExpiryChange, onPageChange } =
         useDocumentsIndexFilters({
             url: documents.url(),
             initialSearch,
             initialExpiry,
-            perPage: complianceDocuments?.per_page ?? 25,
+            perPage: searchPerPage,
         });
 
     const isComplianceView = initialExpiry !== 'all';
+    const hasSearchQuery = initialSearch.trim() !== '';
+    const hasSearchFileResults = (searchDocuments?.data.length ?? 0) > 0;
     const folderLabel =
         employees.length === 1 ? '1 employee folder' : `${employees.length} employee folders`;
+    const searchFilesLabel =
+        searchDocuments?.total === 1
+            ? '1 matching file'
+            : `${searchDocuments?.total ?? 0} matching files`;
 
     return (
         <Main>
@@ -125,14 +135,14 @@ export default function DocumentsIndex({
 
             <div className="mb-6 space-y-4">
                 <SearchBar
-                    placeholder={
-                        isComplianceView
-                            ? 'Search by employee, document name, or type…'
-                            : 'Search by employee name or number…'
-                    }
+                    placeholder="Search by employee, document number, title, or type…"
                     value={searchInput}
                     onChange={onSearchChange}
                 />
+
+                {!isComplianceView && hasSearchQuery && hasSearchFileResults ? (
+                    <span className="text-sm font-medium text-muted-foreground">{searchFilesLabel}</span>
+                ) : null}
 
                 {!isComplianceView && employees.length > 0 ? (
                     <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
@@ -156,6 +166,7 @@ export default function DocumentsIndex({
                                     <DataTableHead>Employee</DataTableHead>
                                     <DataTableHead className="min-w-[220px]">Document</DataTableHead>
                                     <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
+                                    <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
                                     <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
                                     <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
                                     <DataTableHead className="hidden sm:table-cell">Status</DataTableHead>
@@ -192,14 +203,58 @@ export default function DocumentsIndex({
                         hasSearch={initialSearch.trim() !== ''}
                     />
                 )
-            ) : employees.length === 0 ? (
+            ) : employees.length === 0 && !hasSearchFileResults ? (
                 <DocumentsEmptyState
                     context="index-folders"
                     expiryFilter={initialExpiry}
-                    hasSearch={initialSearch.trim() !== ''}
+                    hasSearch={hasSearchQuery}
                 />
             ) : (
                 <>
+                    {!isComplianceView && hasSearchQuery && searchDocuments && hasSearchFileResults ? (
+                        <div className="mb-8 space-y-4">
+                            <OrganizationDataTable minWidth="min-w-[1080px]" compact>
+                                <TableHeader>
+                                    <DataTableHeaderRow>
+                                        <DataTableHead>Employee</DataTableHead>
+                                        <DataTableHead className="min-w-[220px]">Document</DataTableHead>
+                                        <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
+                                        <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
+                                        <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
+                                        <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
+                                        <DataTableHead className="hidden sm:table-cell">Status</DataTableHead>
+                                        <DataTableHead className="text-right">Actions</DataTableHead>
+                                    </DataTableHeaderRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {searchDocuments.data.map((doc) => (
+                                        <DocumentComplianceTableRow
+                                            key={doc.id}
+                                            doc={doc}
+                                            onPreview={setPreviewDoc}
+                                            canDownload={can.download}
+                                        />
+                                    ))}
+                                </TableBody>
+                            </OrganizationDataTable>
+
+                            {searchDocuments.last_page > 1 ? (
+                                <Pagination
+                                    currentPage={searchDocuments.current_page}
+                                    lastPage={searchDocuments.last_page}
+                                    from={searchDocuments.from}
+                                    to={searchDocuments.to}
+                                    total={searchDocuments.total}
+                                    perPage={searchDocuments.per_page}
+                                    onPageChange={onPageChange}
+                                    label="files"
+                                />
+                            ) : null}
+                        </div>
+                    ) : null}
+
+                    {employees.length > 0 ? (
+                        <>
                     <DocumentsBulkToolbar
                         count={selectedFolderCount}
                         itemLabel="folders"
@@ -259,6 +314,8 @@ export default function DocumentsIndex({
                             ))}
                         </div>
                     </section>
+                        </>
+                    ) : null}
                 </>
             )}
 

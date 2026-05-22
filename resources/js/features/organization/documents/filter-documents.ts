@@ -5,6 +5,7 @@ export function matchesFileSearch(doc: DocumentBrowseItem, query: string): boole
     const haystack = [
         doc.document_name,
         doc.document_type,
+        doc.document_number,
         formatDisplayDate(doc.uploaded_at),
         formatDisplayDate(doc.issue_date),
         formatDisplayDate(doc.expiry_date),

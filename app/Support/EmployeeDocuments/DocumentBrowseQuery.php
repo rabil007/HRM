@@ -5,6 +5,7 @@ namespace App\Support\EmployeeDocuments;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
 class DocumentBrowseQuery
@@ -22,10 +23,17 @@ class DocumentBrowseQuery
             ->withCount([
                 'documents as document_count' => fn ($query) => $query->where('company_id', $companyId),
             ])
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($inner) use ($search) {
+            ->when($search !== '', function ($query) use ($search, $companyId) {
+                $query->where(function ($inner) use ($search, $companyId) {
                     $inner->where('name', 'like', "%{$search}%")
-                        ->orWhere('employee_no', 'like', "%{$search}%");
+                        ->orWhere('employee_no', 'like', "%{$search}%")
+                        ->orWhereHas('documents', function (Builder $docQuery) use ($search, $companyId) {
+                            $docQuery
+                                ->where('company_id', $companyId)
+                                ->where(function (Builder $documentQuery) use ($search) {
+                                    $this->applyDocumentFieldSearch($documentQuery, '%'.$search.'%');
+                                });
+                        });
                 });
             })
             ->orderBy('name')
@@ -108,21 +116,44 @@ class DocumentBrowseQuery
         DocumentExpiry::applyExpiryFilter($query, $expiryFilter);
 
         $query
-            ->when($search !== '', function ($query) use ($search) {
-                $query->where(function ($inner) use ($search) {
-                    $inner->whereHas('employee', function ($employeeQuery) use ($search) {
-                        $employeeQuery
-                            ->where('name', 'like', "%{$search}%")
-                            ->orWhere('employee_no', 'like', "%{$search}%");
-                    })
-                        ->orWhere('original_filename', 'like', "%{$search}%")
-                        ->orWhere('title', 'like', "%{$search}%")
-                        ->orWhereHas('documentType', fn ($typeQuery) => $typeQuery->where('title', 'like', "%{$search}%"));
-                });
-            })
+            ->when($search !== '', fn (Builder $documentQuery) => $this->applyBrowseSearch($documentQuery, $search))
             ->orderByRaw('CASE WHEN expiry_date < ? THEN 0 ELSE 1 END', [$today])
             ->orderBy('expiry_date');
 
+        return $this->paginateBrowseDocuments($query, $perPage);
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    public function documentsForSearch(
+        int $companyId,
+        string $search,
+        int $perPage = 25,
+    ): LengthAwarePaginator {
+        $search = trim($search);
+
+        $query = EmployeeDocument::query()
+            ->forCompany($companyId)
+            ->with([
+                'employee:id,name,employee_no,company_id',
+                'documentType:id,title',
+                'uploader:id,name',
+            ]);
+
+        $this->applyBrowseSearch($query, $search);
+
+        return $this->paginateBrowseDocuments(
+            $query->latestUpload(),
+            $perPage,
+        );
+    }
+
+    /**
+     * @return LengthAwarePaginator<int, array<string, mixed>>
+     */
+    private function paginateBrowseDocuments(Builder $query, int $perPage): LengthAwarePaginator
+    {
         return $query
             ->paginate($perPage)
             ->withQueryString()
@@ -132,6 +163,31 @@ class DocumentBrowseQuery
                 'employee_name' => $document->employee?->name ?? '',
                 'employee_no' => $document->employee?->employee_no ?? '',
             ]);
+    }
+
+    private function applyBrowseSearch(Builder $query, string $search): void
+    {
+        $like = '%'.$search.'%';
+
+        $query->where(function (Builder $inner) use ($like) {
+            $inner->whereHas('employee', function (Builder $employeeQuery) use ($like) {
+                $employeeQuery
+                    ->where('name', 'like', $like)
+                    ->orWhere('employee_no', 'like', $like);
+            })->orWhere(function (Builder $documentQuery) use ($like) {
+                $this->applyDocumentFieldSearch($documentQuery, $like);
+            });
+        });
+    }
+
+    private function applyDocumentFieldSearch(Builder $query, string $like): void
+    {
+        $query->where(function (Builder $inner) use ($like) {
+            $inner->where('original_filename', 'like', $like)
+                ->orWhere('title', 'like', $like)
+                ->orWhere('document_number', 'like', $like)
+                ->orWhereHas('documentType', fn (Builder $typeQuery) => $typeQuery->where('title', 'like', $like));
+        });
     }
 
     /**
