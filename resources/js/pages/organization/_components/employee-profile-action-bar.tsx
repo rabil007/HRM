@@ -1,11 +1,9 @@
+import { Link } from '@inertiajs/react';
 import { FileText, Printer } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { cn } from '@/lib/utils';
-import type {
-    EmployeeNavigation,
-    EmployeeTab,
-} from '@/pages/organization/employee-page.types';
+import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 
 type SmartButtonProps = {
     icon: ComponentType<{ className?: string }>;
@@ -53,15 +51,23 @@ function SmartButton({
     );
 
     if (href) {
+        if (target) {
+            return (
+                <a
+                    href={href}
+                    target={target}
+                    rel="noopener noreferrer"
+                    className={className}
+                >
+                    {content}
+                </a>
+            );
+        }
+
         return (
-            <a
-                href={href}
-                target={target}
-                rel={target === '_blank' ? 'noopener noreferrer' : undefined}
-                className={className}
-            >
+            <Link href={href} className={className}>
                 {content}
-            </a>
+            </Link>
         );
     }
 
@@ -78,16 +84,14 @@ export function EmployeeProfileActionBar({
     onNavigateEmployee,
     showDocumentsButton = false,
     documentCount,
-    activeTab,
-    onDocumentsSelect,
+    documentsBrowseUrl,
 }: {
     printCvUrl: string;
     employeeNavigation?: EmployeeNavigation | null;
     onNavigateEmployee?: (employeeId: number) => void;
     showDocumentsButton?: boolean;
     documentCount?: number | null;
-    activeTab?: EmployeeTab;
-    onDocumentsSelect?: () => void;
+    documentsBrowseUrl?: string;
 }): ReactElement {
     return (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-card/70 shadow-sm">
@@ -99,7 +103,7 @@ export function EmployeeProfileActionBar({
                         href={printCvUrl}
                         target="_blank"
                     />
-                    {showDocumentsButton ? (
+                    {showDocumentsButton && documentsBrowseUrl ? (
                         <SmartButton
                             icon={FileText}
                             label="Documents"
@@ -108,8 +112,7 @@ export function EmployeeProfileActionBar({
                                     ? null
                                     : documentCount
                             }
-                            active={activeTab === 'documents'}
-                            onClick={onDocumentsSelect}
+                            href={documentsBrowseUrl}
                         />
                     ) : null}
                 </div>

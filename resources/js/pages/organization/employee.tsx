@@ -39,6 +39,7 @@ import type {
     EmployeePageProps,
     EmployeeTab,
 } from '@/pages/organization/employee-page.types';
+import { employee as employeeDocumentsBrowse } from '@/routes/organization/documents';
 
 const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
     '#documents': 'documents',
@@ -438,8 +439,9 @@ function EmployeeDetailsPage({
                             documentCount={
                                 documents === undefined ? null : documents.length
                             }
-                            activeTab={activeTab}
-                            onDocumentsSelect={() => handleTabChange('documents')}
+                            documentsBrowseUrl={employeeDocumentsBrowse.url({
+                                employee: employee.id,
+                            })}
                         />
 
                         <EmployeeHeaderCard
