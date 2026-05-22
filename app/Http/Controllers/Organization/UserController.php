@@ -14,6 +14,7 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use App\Support\Users\Actions\SyncUserEmployeeLink;
+use App\Support\Users\UserAvatar;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -33,15 +34,7 @@ class UserController extends Controller
 
     private function avatarUrl(?string $value): ?string
     {
-        if (! $value) {
-            return null;
-        }
-
-        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
-            return $value;
-        }
-
-        return Storage::url($value);
+        return UserAvatar::url($value);
     }
 
     /**

@@ -3,7 +3,9 @@
 namespace App\Http\Middleware;
 
 use App\Models\Company;
+use App\Models\User;
 use App\Services\Settings\SettingService;
+use App\Support\Users\UserAvatar;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -143,7 +145,7 @@ class HandleInertiaRequests extends Middleware
                 'info' => $request->session()->get('info'),
             ],
             'auth' => [
-                'user' => $request->user(),
+                'user' => $this->formatAuthUser($request->user()),
                 'permissions' => $permissions,
                 'roles' => $roleNames,
             ],
@@ -156,6 +158,21 @@ class HandleInertiaRequests extends Middleware
     /**
      * @param  array<int, array{id: int, name: string, logo_url: string|null}>|null  $cached
      */
+    /**
+     * @return array<string, mixed>|null
+     */
+    private function formatAuthUser(?User $user): ?array
+    {
+        if ($user === null) {
+            return null;
+        }
+
+        $data = $user->toArray();
+        $data['avatar'] = UserAvatar::url($user->avatar);
+
+        return $data;
+    }
+
     private function isValidCompanySwitcherCache(?array $cached): bool
     {
         if (! is_array($cached)) {

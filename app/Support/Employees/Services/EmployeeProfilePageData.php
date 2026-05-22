@@ -45,7 +45,7 @@ final class EmployeeProfilePageData
             'position:id,title',
             'rank:id,name',
             'manager:id,name,employee_no',
-            'user:id,name,email',
+            'user:id,name,email,avatar',
             'religionRef:id,name',
             'genderRef:id,name',
             'visaTypeRef:id,name',

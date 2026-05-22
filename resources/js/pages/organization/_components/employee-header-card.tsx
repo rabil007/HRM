@@ -1,4 +1,7 @@
+import { Link } from '@inertiajs/react';
 import { Briefcase, Building2, Camera, ClipboardList, Loader2, UserRound } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useInitials } from '@/hooks/use-initials';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +71,8 @@ export function EmployeeHeaderCard({
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
 }) {
+    const getInitials = useInitials();
+
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
 
@@ -271,9 +276,28 @@ export function EmployeeHeaderCard({
                                     </Badge>
                                 ) : null}
                                 {employee.user ? (
-                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 md:mx-0">
-                                        User account created
-                                    </Badge>
+                                    <Link
+                                        href={`/organization/users/${employee.user.id}`}
+                                        className="mx-auto flex w-fit md:mx-0"
+                                        prefetch="click"
+                                    >
+                                        <Badge className="flex h-auto items-center gap-2 rounded-full border-emerald-500/30 bg-emerald-500/10 py-1 pe-3 ps-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/15 dark:text-emerald-400">
+                                            <Avatar className="size-6 rounded-full">
+                                                {employee.user.avatar ? (
+                                                    <AvatarImage
+                                                        src={employee.user.avatar}
+                                                        alt={employee.user.name ?? 'User'}
+                                                    />
+                                                ) : null}
+                                                <AvatarFallback className="rounded-full text-[10px]">
+                                                    {getInitials(employee.user.name ?? 'User')}
+                                                </AvatarFallback>
+                                            </Avatar>
+                                            <span className="max-w-[12rem] truncate">
+                                                {employee.user.name ?? 'User account'}
+                                            </span>
+                                        </Badge>
+                                    </Link>
                                 ) : null}
                             </div>
 

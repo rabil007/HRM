@@ -16,7 +16,7 @@ export type { DocumentTypeOption };
 
 export type EmployeeDetails = {
     id: number;
-    user: { id: number; name: string | null; email: string | null } | null;
+    user: { id: number; name: string | null; email: string | null; avatar: string | null } | null;
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
     position: { id: number; title: string | null } | null;

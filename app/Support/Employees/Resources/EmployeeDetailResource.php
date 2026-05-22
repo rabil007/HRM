@@ -3,6 +3,7 @@
 namespace App\Support\Employees\Resources;
 
 use App\Models\Employee;
+use App\Support\Users\UserAvatar;
 
 final class EmployeeDetailResource
 {
@@ -17,6 +18,7 @@ final class EmployeeDetailResource
                 'id' => $employee->user_id,
                 'name' => $employee->user?->name,
                 'email' => $employee->user?->email,
+                'avatar' => UserAvatar::url($employee->user?->avatar),
             ] : null,
             'branch' => $employee->branch_id ? [
                 'id' => $employee->branch_id,
