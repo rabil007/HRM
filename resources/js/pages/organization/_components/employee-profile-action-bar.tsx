@@ -91,7 +91,7 @@ export function EmployeeProfileActionBar({
 }): ReactElement {
     return (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-card/70 shadow-sm">
-            <div className="flex min-h-13 min-w-0 items-stretch divide-x divide-border/80">
+            <div className="flex h-13 min-h-13 min-w-0 items-center divide-x divide-border/80">
                 <div className="flex min-w-0 flex-1 overflow-x-auto">
                     <SmartButton
                         icon={Printer}

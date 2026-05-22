@@ -35,12 +35,16 @@ export function EmployeeProfileNavigation({
         );
     };
 
+    const embeddedSegmentClass = embedded
+        ? 'flex h-13 min-h-13 items-center justify-center'
+        : 'flex h-9 items-center justify-center';
+
     return (
         <div
             className={cn(
-                'inline-flex shrink-0 items-stretch',
+                'inline-flex shrink-0 items-center',
                 embedded
-                    ? 'h-full'
+                    ? 'h-13 min-h-13'
                     : 'group overflow-hidden rounded-2xl border border-white/8 bg-white/4 shadow-inner shadow-black/20 backdrop-blur-sm transition-colors hover:border-white/12 hover:bg-white/6',
                 className,
             )}
@@ -56,26 +60,28 @@ export function EmployeeProfileNavigation({
                     }
                 }}
                 className={cn(
-                    'flex w-10 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                    embeddedSegmentClass,
+                    'w-10 transition-colors disabled:cursor-not-allowed disabled:opacity-30',
                     embedded
                         ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                        : 'h-9 text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                        : 'text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
                 )}
             >
-                <ChevronLeft className="size-4" />
+                <ChevronLeft className="size-4 shrink-0" />
             </button>
 
             <div
                 className={cn(
-                    'flex min-w-18 items-center justify-center px-3',
+                    embeddedSegmentClass,
+                    'min-w-18 px-3',
                     embedded
                         ? 'border-x border-border/80'
-                        : 'h-9 border-x border-white/7',
+                        : 'border-x border-white/7',
                 )}
             >
                 <span
                     className={cn(
-                        'text-xs font-semibold tabular-nums',
+                        'text-xs font-semibold leading-none tabular-nums',
                         embedded ? 'text-foreground' : 'text-zinc-400',
                     )}
                 >
@@ -94,13 +100,14 @@ export function EmployeeProfileNavigation({
                     }
                 }}
                 className={cn(
-                    'flex w-10 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                    embeddedSegmentClass,
+                    'w-10 transition-colors disabled:cursor-not-allowed disabled:opacity-30',
                     embedded
                         ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                        : 'h-9 text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                        : 'text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
                 )}
             >
-                <ChevronRight className="size-4" />
+                <ChevronRight className="size-4 shrink-0" />
             </button>
         </div>
     );
