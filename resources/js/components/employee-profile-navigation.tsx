@@ -9,12 +9,14 @@ type EmployeeProfileNavigationProps = {
     navigation: EmployeeNavigation;
     onNavigate?: (employeeId: number) => void;
     className?: string;
+    embedded?: boolean;
 };
 
 export function EmployeeProfileNavigation({
     navigation,
     onNavigate,
     className,
+    embedded = false,
 }: EmployeeProfileNavigationProps): ReactElement | null {
     if (navigation.total <= 0) {
         return null;
@@ -36,11 +38,13 @@ export function EmployeeProfileNavigation({
     return (
         <div
             className={cn(
-                'group inline-flex items-center overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.04] shadow-inner shadow-black/20 backdrop-blur-sm transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]',
+                'inline-flex shrink-0 items-stretch',
+                embedded
+                    ? 'h-full'
+                    : 'group overflow-hidden rounded-2xl border border-white/8 bg-white/4 shadow-inner shadow-black/20 backdrop-blur-sm transition-colors hover:border-white/12 hover:bg-white/6',
                 className,
             )}
         >
-            {/* Prev button */}
             <button
                 type="button"
                 aria-label="Previous employee"
@@ -51,19 +55,34 @@ export function EmployeeProfileNavigation({
                         visitEmployee(navigation.previous_id);
                     }
                 }}
-                className="flex h-9 w-9 items-center justify-center text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
+                className={cn(
+                    'flex w-10 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                    embedded
+                        ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                        : 'h-9 text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                )}
             >
-                <ChevronLeft className="size-3.5" />
+                <ChevronLeft className="size-4" />
             </button>
 
-            {/* Counter */}
-            <div className="flex h-9 min-w-[3.25rem] items-center justify-center border-x border-white/[0.07] px-2">
-                <span className="text-[11px] font-semibold tabular-nums text-zinc-400">
+            <div
+                className={cn(
+                    'flex min-w-18 items-center justify-center px-3',
+                    embedded
+                        ? 'border-x border-border/80'
+                        : 'h-9 border-x border-white/7',
+                )}
+            >
+                <span
+                    className={cn(
+                        'text-xs font-semibold tabular-nums',
+                        embedded ? 'text-foreground' : 'text-zinc-400',
+                    )}
+                >
                     {navigation.position} / {navigation.total}
                 </span>
             </div>
 
-            {/* Next button */}
             <button
                 type="button"
                 aria-label="Next employee"
@@ -74,9 +93,14 @@ export function EmployeeProfileNavigation({
                         visitEmployee(navigation.next_id);
                     }
                 }}
-                className="flex h-9 w-9 items-center justify-center text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-30"
+                className={cn(
+                    'flex w-10 items-center justify-center transition-colors disabled:cursor-not-allowed disabled:opacity-30',
+                    embedded
+                        ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
+                        : 'h-9 text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                )}
             >
-                <ChevronRight className="size-3.5" />
+                <ChevronRight className="size-4" />
             </button>
         </div>
     );

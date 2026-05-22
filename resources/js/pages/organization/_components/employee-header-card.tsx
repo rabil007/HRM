@@ -1,7 +1,6 @@
 import { Briefcase, Building2, Camera, ClipboardList, Loader2, UserRound } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { Badge } from '@/components/ui/badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
@@ -17,8 +16,6 @@ import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
-import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
-
 type Option = { id: number; name?: string | null; title?: string | null };
 
 function optionLabel(
@@ -49,8 +46,6 @@ export function EmployeeHeaderCard({
     requiredDot,
     onPhotoSelect,
     isUploadingPhoto = false,
-    employeeNavigation = null,
-    onNavigateEmployee,
     templateProfileFields = null,
 }: {
     canUpdate: boolean;
@@ -70,8 +65,6 @@ export function EmployeeHeaderCard({
     requiredDot: (field: string) => ReactNode;
     onPhotoSelect?: (file: File) => void;
     isUploadingPhoto?: boolean;
-    employeeNavigation?: EmployeeNavigation | null;
-    onNavigateEmployee?: (employeeId: number) => void;
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
 }) {
@@ -355,12 +348,6 @@ export function EmployeeHeaderCard({
                         </div>
 
                         <div className="flex flex-col items-center gap-2 md:items-end">
-                            {employeeNavigation ? (
-                                <EmployeeProfileNavigation
-                                    navigation={employeeNavigation}
-                                    onNavigate={onNavigateEmployee}
-                                />
-                            ) : null}
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
                                 <EditableHeaderPillTextField
                                     field="employee_no"

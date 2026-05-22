@@ -2,6 +2,7 @@ import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
+import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -23,6 +24,7 @@ import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
@@ -425,11 +427,24 @@ function EmployeeDetailsPage({
                             </AlertDialogContent>
                         </AlertDialog>
 
+                        <EmployeeProfileActionBar
+                            printCvUrl={printEmployeeCv.url(
+                                { employee: employee.id },
+                                { query: { format: 'pdf', inline: 1 } },
+                            )}
+                            employeeNavigation={employee_navigation}
+                            onNavigateEmployee={handleNavigateEmployee}
+                            showDocumentsButton={employee_tabs.documents}
+                            documentCount={
+                                documents === undefined ? null : documents.length
+                            }
+                            activeTab={activeTab}
+                            onDocumentsSelect={() => handleTabChange('documents')}
+                        />
+
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
                             employee={employee}
-                            employeeNavigation={employee_navigation}
-                            onNavigateEmployee={handleNavigateEmployee}
                             departments={departments}
                             positions={positions}
                             ranks={ranks}

@@ -18,6 +18,7 @@ use App\Http\Controllers\Organization\DocumentsFolderIndexController;
 use App\Http\Controllers\Organization\EmployeeBankAccountController;
 use App\Http\Controllers\Organization\EmployeeContractController;
 use App\Http\Controllers\Organization\EmployeeController;
+use App\Http\Controllers\Organization\EmployeeCvPrintController;
 use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentDownloadController;
 use App\Http\Controllers\Organization\EmployeeDocumentsBrowseController;
@@ -96,6 +97,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/employees/import/template', [EmployeeImportController::class, 'importTemplate'])->middleware('can:employees.import')->name('organization.employees.import.template');
     Route::post('organization/employees/import/preview', [EmployeeImportController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');
     Route::post('organization/employees/import', [EmployeeImportController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
+    Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
     Route::get('organization/employees/{employee}', [EmployeeController::class, 'show'])->middleware('can:employees.view')->name('organization.employees.show');
     Route::post('organization/employees', [EmployeeController::class, 'store'])->middleware('can:employees.create')->name('organization.employees.store');
     Route::put('organization/employees/{employee}', [EmployeeController::class, 'update'])->middleware('can:employees.update')->name('organization.employees.update');

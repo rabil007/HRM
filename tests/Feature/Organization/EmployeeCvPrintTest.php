@@ -1,0 +1,218 @@
+<?php
+
+use App\Models\Company;
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\Employee;
+use App\Models\EmployeeSeaService;
+use App\Models\User;
+
+test('guests cannot print employee cv', function () {
+    $employee = Employee::factory()->create();
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertRedirect(route('login'));
+});
+
+test('authenticated users can open printable adnoc seafarer cv', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CVP',
+        'name' => 'CV Print Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CVP',
+        'name' => 'CV Print Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Maritime Co',
+        'slug' => 'maritime-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0099',
+            'name' => 'Captain Ahmed',
+            'work_email' => 'ahmed@example.com',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('alt="ADNOC"', false)
+        ->assertSee('data:image/png;base64,', false)
+        ->assertSee('ADNOC Logistics &amp; Services', false)
+        ->assertSee('Standard CV Form (Seafarer)', false)
+        ->assertSee('SECTION 7 - LAUNGAGES KNOWN', false)
+        ->assertSee('SECTION 1 - PERSONAL DATA', false)
+        ->assertSee('CAPTAIN AHMED', false)
+        ->assertSee('View A4 PDF', false);
+});
+
+test('authenticated users can download adnoc cv as pdf', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'PDF',
+        'name' => 'PDF Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PDF',
+        'name' => 'PDF Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'OMS',
+        'slug' => 'oms',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP0200',
+            'name' => 'Test Seafarer',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv?format=pdf&inline=1")
+        ->assertSuccessful()
+        ->assertHeader('content-type', 'application/pdf');
+});
+
+test('adnoc cv includes sea service rows', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'SEA',
+        'name' => 'Sea Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'SEA',
+        'name' => 'Sea Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Sea Co',
+        'slug' => 'sea-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Sea Captain',
+            'status' => 'active',
+        ]);
+
+    EmployeeSeaService::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_name' => 'MV Test Vessel',
+        'start_date' => '2024-01-01',
+        'end_date' => '2024-06-01',
+        'total_months' => 5,
+        'total_days' => 0,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('MV Test Vessel', false)
+        ->assertSee('SECTION 10 - SUMMARY OF WORK EXPERIENCE', false);
+});
+
+test('users cannot print cv for employees in another company', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'OTH',
+        'name' => 'Other Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'OTH',
+        'name' => 'Other Currency',
+        'symbol' => 'O$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Allowed Co',
+        'slug' => 'allowed-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Co',
+        'slug' => 'other-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create([
+            'name' => 'Hidden Employee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertNotFound();
+});
