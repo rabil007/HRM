@@ -38,6 +38,22 @@ class UserController extends Controller
     }
 
     /**
+     * @return array{id: int, name: string, slug: string|null}|null
+     */
+    private function companyPayload(?Company $company): ?array
+    {
+        if ($company === null) {
+            return null;
+        }
+
+        return [
+            'id' => $company->id,
+            'name' => $company->name,
+            'slug' => $company->slug,
+        ];
+    }
+
+    /**
      * @return array{id: int, name: string, employee_no: string, image_url: string|null}|null
      */
     private function linkedEmployeePayload(?Employee $employee): ?array
@@ -117,16 +133,16 @@ class UserController extends Controller
             ->get(['id', 'user_id', 'name', 'employee_no', 'image'])
             ->keyBy('user_id');
 
+        $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
+        $companyPayload = $this->companyPayload($company);
+
         $users->setCollection(
-            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId) {
+            $users->getCollection()->map(function (User $user) use ($roleByUserId, $employeeByUserId, $companyPayload) {
                 $role = $roleByUserId->get($user->id);
 
                 return [
                     'id' => $user->id,
-                    'company' => $user->company_id ? [
-                        'id' => $user->company_id,
-                        'name' => null,
-                    ] : null,
+                    'company' => $user->company_id ? $companyPayload : null,
                     'role' => $role ? [
                         'id' => (int) $role->role_id,
                         'name' => (string) $role->role_name,
@@ -212,14 +228,12 @@ class UserController extends Controller
             ->where('user_id', $user->id)
             ->first(['id', 'name', 'employee_no', 'image']);
 
+        $company = Company::query()->whereKey($companyId)->first(['id', 'name', 'slug']);
+
         return Inertia::render('organization/user', [
             'user' => [
                 'id' => $user->id,
-                'company' => $user->company_id ? [
-                    'id' => $user->company_id,
-                    'name' => null,
-                    'slug' => null,
-                ] : null,
+                'company' => $user->company_id ? $this->companyPayload($company) : null,
                 'role' => $role ? [
                     'id' => (int) $role->role_id,
                     'name' => (string) $role->role_name,

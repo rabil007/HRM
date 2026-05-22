@@ -4,9 +4,12 @@ namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
+use App\Listeners\RecordUserLastLogin;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
@@ -30,6 +33,8 @@ class FortifyServiceProvider extends ServiceProvider
     public function boot(): void
     {
         Auth::guard('web')->setRememberDuration(60 * 24 * 30);
+
+        Event::listen(Login::class, RecordUserLastLogin::class);
 
         $this->configureActions();
         $this->configureViews();

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { UserFormSheet } from '@/features/organization/users/components/user-form-sheet';
 import type { EmployeeForLinking, User, UserFormData } from '@/features/organization/users/types';
-import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayDateTime, formatDisplayValue } from '@/lib/format-date';
 
 type ActivityItem = {
     id: number;
@@ -122,7 +122,7 @@ export default function UserDetails({
                             </div>
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-sm font-semibold text-muted-foreground/80">Last login</div>
-                                <div className="text-sm font-bold">{user.last_login_at ?? '—'}</div>
+                                <div className="text-sm font-bold">{formatDisplayDateTime(user.last_login_at)}</div>
                             </div>
                         </CardContent>
                     </Card>
