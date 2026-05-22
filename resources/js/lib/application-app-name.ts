@@ -39,6 +39,10 @@ export function syncApplicationAppNameFromInertiaPage(page: {
 }
 
 export function seedApplicationAppNameFromDom(): void {
+    if (typeof document === 'undefined') {
+        return;
+    }
+
     const pageJson = document.getElementById('app')?.dataset?.page;
 
     if (! pageJson) {
