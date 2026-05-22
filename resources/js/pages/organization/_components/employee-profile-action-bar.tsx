@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { FileText, Printer } from 'lucide-react';
+import { FileText, Printer, UserPlus } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
 import { cn } from '@/lib/utils';
@@ -85,6 +85,8 @@ export function EmployeeProfileActionBar({
     showDocumentsButton = false,
     documentCount,
     documentsBrowseUrl,
+    showCreateUserButton = false,
+    onCreateUser,
 }: {
     printCvUrl: string;
     employeeNavigation?: EmployeeNavigation | null;
@@ -92,6 +94,8 @@ export function EmployeeProfileActionBar({
     showDocumentsButton?: boolean;
     documentCount?: number | null;
     documentsBrowseUrl?: string;
+    showCreateUserButton?: boolean;
+    onCreateUser?: () => void;
 }): ReactElement {
     return (
         <div className="overflow-hidden rounded-xl border border-border/80 bg-card/70 shadow-sm">
@@ -113,6 +117,13 @@ export function EmployeeProfileActionBar({
                                     : documentCount
                             }
                             href={documentsBrowseUrl}
+                        />
+                    ) : null}
+                    {showCreateUserButton && onCreateUser ? (
+                        <SmartButton
+                            icon={UserPlus}
+                            label="Create User"
+                            onClick={onCreateUser}
                         />
                     ) : null}
                 </div>

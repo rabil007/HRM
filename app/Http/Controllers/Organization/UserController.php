@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
 use App\Models\User;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Users\Actions\CreateOrganizationUser;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -209,27 +210,16 @@ class UserController extends Controller
         ])->validate();
 
         $data['email'] = $validated['email'];
-        $data['status'] = $data['status'] ?? 'active';
-        $data['password'] = Hash::make((string) $data['password']);
 
-        if ($request->hasFile('avatar')) {
-            $data['avatar'] = $request->file('avatar')->store('user-avatars', 'public');
-        }
-
-        $user = User::create($data);
-
-        $user->companies()->syncWithoutDetaching([
-            $companyId => ['status' => 'active'],
-        ]);
-
-        app(PermissionRegistrar::class)->setPermissionsTeamId($companyId);
-        if (! empty($roleId)) {
-            $role = SpatieRole::query()->whereKey((int) $roleId)->firstOrFail();
-            abort_unless((int) $role->company_id === $companyId, 422);
-            $user->syncRoles([$role->name]);
-        } else {
-            $user->syncRoles([]);
-        }
+        app(CreateOrganizationUser::class)->handle(
+            $companyId,
+            (string) $data['name'],
+            (string) $data['email'],
+            (string) $data['password'],
+            $roleId ? (int) $roleId : null,
+            ['status' => $data['status'] ?? 'active'],
+            $request->file('avatar'),
+        );
 
         return redirect()
             ->route('organization.users')

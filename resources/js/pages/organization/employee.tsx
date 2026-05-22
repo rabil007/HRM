@@ -24,6 +24,7 @@ import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-
 import { EmployeeContractTab } from '@/pages/organization/_components/employee-contract-tab';
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
+import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
@@ -87,6 +88,7 @@ function EmployeeDetailsPage({
     sea_services,
     document_types,
     can,
+    roles,
     branches,
     departments,
     positions,
@@ -137,6 +139,10 @@ function EmployeeDetailsPage({
     const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
     const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(null);
     const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+    const [createUserOpen, setCreateUserOpen] = useState(false);
+
+    const canCreateUser =
+        can.create_user && !employee.user;
 
     const visitEmployeeProfile = useCallback(
         (employeeId: number) => {
@@ -442,6 +448,18 @@ function EmployeeDetailsPage({
                             documentsBrowseUrl={employeeDocumentsBrowse.url({
                                 employee: employee.id,
                             })}
+                            showCreateUserButton={canCreateUser}
+                            onCreateUser={() => setCreateUserOpen(true)}
+                        />
+
+                        <CreateEmployeeUserDialog
+                            open={createUserOpen}
+                            onOpenChange={setCreateUserOpen}
+                            employee={employee}
+                            roles={roles}
+                            onSuccess={() => {
+                                router.reload({ only: ['employee'] });
+                            }}
                         />
 
                         <EmployeeHeaderCard

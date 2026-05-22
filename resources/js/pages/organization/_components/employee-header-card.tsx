@@ -210,10 +210,10 @@ export function EmployeeHeaderCard({
                         <EmployeeAvatar
                             name={displayName}
                             image={employee.image}
-                            src={displayImageSrc}
+                                src={displayImageSrc}
                             size="lg"
                             className="rounded-2xl"
-                        />
+                            />
                         {canUpdate ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
                                 {isUploadingPhoto ? (
@@ -247,7 +247,7 @@ export function EmployeeHeaderCard({
                             <h1 className="truncate text-3xl font-black tracking-tight text-foreground md:text-4xl">
                                 <EditableHeaderNameField
                                     field="name"
-                                    value={form.data.name}
+                                        value={form.data.name}
                                     displayValue={displayName}
                                     activeField={activeField}
                                     setActiveField={setActiveField}
@@ -268,6 +268,11 @@ export function EmployeeHeaderCard({
                                     <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-muted-foreground md:mx-0">
                                         <Building2 className="h-3.5 w-3.5" />
                                         {employee.department.name}
+                                    </Badge>
+                                ) : null}
+                                {employee.user ? (
+                                    <Badge className="mx-auto flex w-fit items-center gap-2 rounded-full border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-600 dark:text-emerald-400 md:mx-0">
+                                        User account created
                                     </Badge>
                                 ) : null}
                             </div>
@@ -326,12 +331,12 @@ export function EmployeeHeaderCard({
                                     },
                                 ].map((item) => (
                                     <EditableCommandSelectCell
-                                        key={item.field}
+                                         key={item.field}
                                         field={item.field}
                                         label={item.label}
                                         currentLabel={item.current || '—'}
-                                        title={item.title}
-                                        description={item.description}
+                                            title={item.title}
+                                            description={item.description}
                                         items={item.items}
                                         creatableKey={'creatableKey' in item ? item.creatableKey : undefined}
                                         creatableContext={
@@ -351,7 +356,7 @@ export function EmployeeHeaderCard({
                             <div className="flex flex-wrap items-center justify-center gap-2 md:justify-end">
                                 <EditableHeaderPillTextField
                                     field="employee_no"
-                                    value={form.data.employee_no}
+                                        value={form.data.employee_no}
                                     displayValue={
                                         form.data.employee_no || employee.employee_no
                                     }
@@ -396,11 +401,11 @@ export function EmployeeHeaderCard({
                         <EditableDetailTextField
                             label={
                                 <>
-                                    Work email {requiredDot('work_email')}
+                                Work email {requiredDot('work_email')}
                                 </>
                             }
                             field="work_email"
-                            value={form.data.work_email}
+                                    value={form.data.work_email}
                             displayValue={form.data.work_email || employee.work_email || '—'}
                             activeField={activeField}
                             setActiveField={setActiveField}
@@ -438,7 +443,7 @@ export function EmployeeHeaderCard({
                         <EditableDetailTextField
                             label="Birthday"
                             field="date_of_birth"
-                            value={form.data.date_of_birth}
+                                    value={form.data.date_of_birth}
                             displayValue={formatDisplayDate(
                                 form.data.date_of_birth || employee.date_of_birth,
                             )}
@@ -456,7 +461,7 @@ export function EmployeeHeaderCard({
                         <EditableDetailSelectField
                             label="Rank"
                             field="rank_id"
-                            value={form.data.rank_id}
+                                    value={form.data.rank_id}
                             displayValue={optionLabel(
                                 ranks,
                                 form.data.rank_id || employee.rank_id,
@@ -476,7 +481,7 @@ export function EmployeeHeaderCard({
                         <EditableDetailTextField
                             label="Place of Birth"
                             field="place_of_birth"
-                            value={form.data.place_of_birth}
+                                    value={form.data.place_of_birth}
                             displayValue={
                                 form.data.place_of_birth || employee.place_of_birth || '—'
                             }
@@ -492,7 +497,7 @@ export function EmployeeHeaderCard({
                         <EditableDetailSelectField
                             label="Gender"
                             field="gender_id"
-                            value={form.data.gender_id}
+                                    value={form.data.gender_id}
                             displayValue={optionLabel(
                                 genders,
                                 form.data.gender_id || employee.gender_id,
@@ -511,7 +516,7 @@ export function EmployeeHeaderCard({
                         <EditableDetailSelectField
                             label="Religion"
                             field="religion_id"
-                            value={form.data.religion_id}
+                                    value={form.data.religion_id}
                             displayValue={optionLabel(
                                 religions,
                                 form.data.religion_id || employee.religion_id,

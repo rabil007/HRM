@@ -27,6 +27,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Spatie\Permission\Models\Role as SpatieRole;
 
 final class EmployeeProfilePageData
 {
@@ -67,20 +68,29 @@ final class EmployeeProfilePageData
 
         $formOptions = EmployeeFormOptions::for($companyId, $employee);
 
+        $roles = SpatieRole::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $authUser = $request->user();
+
         return [
             'employee_navigation' => $employeeNavigation,
             'employee' => EmployeeDetailResource::toArray($employee),
+            'roles' => $roles,
             'can' => [
-                'documents_upload' => $request->user()?->can('employees.documents.upload'),
-                'documents_delete' => $request->user()?->can('employees.documents.delete'),
-                'education_manage' => $request->user()?->can('employees.education.manage'),
-                'contracts_manage' => $request->user()?->can('employees.contracts.manage'),
-                'work_experience_manage' => $request->user()?->can('employees.work_experience.manage'),
-                'vaccination_manage' => $request->user()?->can('employees.vaccination.manage'),
-                'languages_manage' => $request->user()?->can('employees.languages.manage'),
-                'bank_accounts_manage' => $request->user()?->can('employees.bank_accounts.manage'),
-                'sea_service_manage' => $request->user()?->can('employees.sea_service.manage'),
-                'training_manage' => $request->user()?->can('employees.training.manage'),
+                'create_user' => $authUser?->can('employees.update') && $authUser?->can('users.create'),
+                'documents_upload' => $authUser?->can('employees.documents.upload'),
+                'documents_delete' => $authUser?->can('employees.documents.delete'),
+                'education_manage' => $authUser?->can('employees.education.manage'),
+                'contracts_manage' => $authUser?->can('employees.contracts.manage'),
+                'work_experience_manage' => $authUser?->can('employees.work_experience.manage'),
+                'vaccination_manage' => $authUser?->can('employees.vaccination.manage'),
+                'languages_manage' => $authUser?->can('employees.languages.manage'),
+                'bank_accounts_manage' => $authUser?->can('employees.bank_accounts.manage'),
+                'sea_service_manage' => $authUser?->can('employees.sea_service.manage'),
+                'training_manage' => $authUser?->can('employees.training.manage'),
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],

@@ -95,7 +95,7 @@ export function EmployeePersonalTab({
                             field="phone_home_country"
                             value={form.data.phone_home_country ?? ''}
                             fallbackValue={employee.phone_home_country}
-                            countries={countries}
+                                        countries={countries}
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
@@ -130,12 +130,12 @@ export function EmployeePersonalTab({
                             field="emergency_phone"
                             value={form.data.emergency_phone ?? ''}
                             fallbackValue={employee.emergency_phone}
-                            countries={countries}
+                                            countries={countries}
                             activeField={activeField}
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('emergency_phone', value)}
-                            defaultDialCode="+971"
+                                            defaultDialCode="+971"
                         />
                     </div>
                 </EmployeeSectionCard>

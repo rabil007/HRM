@@ -247,7 +247,9 @@ export type EmployeePageProps = {
     trainings?: TrainingItem[];
     courses?: CourseOption[];
     document_types?: DocumentTypeOption[];
+    roles: { id: number; name: string }[];
     can: {
+        create_user: boolean;
         documents_upload: boolean;
         documents_delete: boolean;
         education_manage: boolean;
