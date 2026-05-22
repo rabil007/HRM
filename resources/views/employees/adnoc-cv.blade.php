@@ -4,14 +4,15 @@
     <meta charset="utf-8">
     <title>ADNOC CV — {{ $full_name ?? 'Employee' }}</title>
     <style>
+        /* Sizing matched to resources/cv-templates/adnoc-seafarer-cv-reference.pdf (new.pdf) */
         @page { size: A4 portrait; margin: 0; }
 
         * { box-sizing: border-box; }
 
         html, body {
             font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
-            font-size: 7pt;
-            line-height: 1.2;
+            font-size: 6.2pt;
+            line-height: 1.15;
             color: #000;
             margin: 0;
             padding: 0;
@@ -27,7 +28,7 @@
 
         table.cv-margin-wrap td.cv-margin-cell {
             border: none;
-            padding: 14mm 12mm;
+            padding: 11mm 18mm;
             vertical-align: top;
         }
 
@@ -80,7 +81,7 @@
 
         table.cv td {
             border: 1px solid #000;
-            padding: 4px 6px;
+            padding: 2px 4px;
             vertical-align: middle;
             word-wrap: break-word;
         }
@@ -99,13 +100,13 @@
         }
 
         .section {
-            background: #e86c24;
+            background: #e36c0a;
             color: #fff;
             font-size: 7.5pt;
             font-weight: 700;
             text-align: left;
             text-transform: uppercase;
-            padding: 4px 6px;
+            padding: 3px 5px;
             border: 1px solid #000;
         }
 
@@ -126,7 +127,7 @@
         }
 
         .head-logo-cell img {
-            max-height: 52px;
+            max-height: 42px;
             max-width: 100%;
             object-fit: contain;
             display: block;
@@ -140,33 +141,33 @@
         }
 
         .head-title {
-            font-size: 11pt;
+            font-size: 12pt;
             font-weight: 700;
-            color: #004080;
-            line-height: 1.15;
+            color: #0070c0;
+            line-height: 1.1;
         }
 
         .head-subtitle {
-            font-size: 9pt;
+            font-size: 11pt;
             font-weight: 700;
-            color: #c41e3a;
-            line-height: 1.15;
+            color: #c00000;
+            line-height: 1.1;
         }
 
         .head-meta .lbl { border: none; padding-top: 4px; }
 
         .head-source {
             text-align: right;
-            font-size: 7pt;
+            font-size: 6.2pt;
             color: #666;
             text-transform: uppercase;
-            padding-top: 4px;
+            padding-top: 3px;
             vertical-align: bottom;
         }
 
         .lbl {
             font-weight: 700;
-            font-size: 6.5pt;
+            font-size: 6.2pt;
             text-transform: uppercase;
         }
 
@@ -174,7 +175,7 @@
 
         .col-h {
             font-weight: 700;
-            font-size: 6pt;
+            font-size: 5.5pt;
             text-align: center;
             text-transform: uppercase;
             white-space: nowrap;
@@ -185,32 +186,42 @@
             font-size: 5.5pt;
             text-align: center;
             text-transform: uppercase;
-            line-height: 1.1;
+            line-height: 1.05;
         }
 
         .center { text-align: center; }
 
-        .yn-h { font-weight: 700; font-size: 6.5pt; text-align: center; }
-        .yn-c { text-align: center; font-size: 10pt; }
+        .yn-h { font-weight: 700; font-size: 6.2pt; text-align: center; }
+        .yn-c { text-align: center; font-size: 9pt; }
 
-        .details-row td { font-size: 6.5pt; font-style: italic; color: #333; }
+        .details-row td { font-size: 6.2pt; font-style: italic; color: #333; }
 
         .blank td { height: 9px; padding: 2px 4px; }
 
         .blank-compact td { height: 8px; padding: 2px 4px; }
 
-        .remarks-space td { height: 36px; vertical-align: top; }
+        .remarks-space td { height: 28px; vertical-align: top; }
 
         .cv-bottom-spacer td {
             border: none !important;
-            height: 14mm;
+            height: 10mm;
             padding: 0;
             line-height: 0;
         }
 
-        .declaration { font-size: 7pt; line-height: 1.35; padding: 4px; }
+        .experience-summary td {
+            background: #fde9d9;
+        }
 
-        .note { font-size: 6.5pt; font-weight: 700; text-align: center; padding: 2px; }
+        .declaration { font-size: 6.2pt; line-height: 1.3; padding: 3px 4px; }
+
+        .note {
+            font-size: 6.2pt;
+            font-weight: 700;
+            text-align: center;
+            padding: 2px 4px;
+            background: #ffff00;
+        }
 
         .footer-rev td {
             border: none !important;
@@ -230,7 +241,7 @@
         }
 
         tr.sea-data-row td {
-            font-size: 7pt;
+            font-size: 6.2pt;
             text-align: center;
             padding: 2px 3px;
         }
@@ -557,7 +568,7 @@
                     <td colspan="12" class="center" style="padding:4px;">No work experience records</td>
                 </tr>
             @endforelse
-            <tr>
+            <tr class="experience-summary">
                 <td colspan="3" class="lbl">TOTAL EXPERIENCE IN THE APPLIED RANK (IN YEARS)</td>
                 <td colspan="1" class="val center">{{ $experience_rank_years }}</td>
                 <td colspan="3" class="lbl">OFFSHORE EXPERIENCE (IN YEARS)</td>

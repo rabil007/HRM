@@ -27,7 +27,7 @@ class EmployeeCvPrintController extends Controller
                 ->setOption('isRemoteEnabled', true)
                 ->setOption('isHtml5ParserEnabled', true)
                 ->setOption('defaultFont', 'DejaVu Sans')
-                ->setOption('dpi', 96)
+                ->setOption('dpi', 72)
                 ->setOption('defaultMediaType', 'print')
                 ->setOption('isFontSubsettingEnabled', true);
 
