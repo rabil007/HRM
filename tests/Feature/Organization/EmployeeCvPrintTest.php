@@ -63,6 +63,8 @@ test('authenticated users can open printable adnoc seafarer cv', function () {
         ->assertSee('ADNOC Logistics &amp; Services', false)
         ->assertSee('Standard CV Form (Seafarer)', false)
         ->assertSee('SECTION 7 - LAUNGAGES KNOWN', false)
+        ->assertSee('SECTION 11 - REFERENCES', false)
+        ->assertSee('SECTION 12 - DECLARATION', false)
         ->assertSee('SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)', false)
         ->assertSee('HRO REPRESENTATIVE', false)
         ->assertSee('FRM-HRA-RMP-032- Rev. 00', false)
@@ -270,6 +272,67 @@ test('adnoc cv shows message when employee has no stcw training', function () {
     $this->get("/organization/employees/{$employee->id}/cv")
         ->assertSuccessful()
         ->assertSee('No training records', false);
+});
+
+test('adnoc cv closing sections render after many sea service rows', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'MNY',
+        'name' => 'Many Sea Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'MNY',
+        'name' => 'Many Sea Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Many Sea Co',
+        'slug' => 'many-sea-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Long Career',
+            'status' => 'active',
+        ]);
+
+    foreach (range(1, 20) as $i) {
+        EmployeeSeaService::factory()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'vessel_name' => "MV Vessel {$i}",
+            'start_date' => '2020-01-01',
+            'end_date' => '2020-06-01',
+            'total_months' => 5,
+            'total_days' => 0,
+            'sort_order' => $i,
+        ]);
+    }
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $html = $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('SECTION 12 - DECLARATION', false)
+        ->assertSee('PLEASE ATTACH ALL CERTIFICATES AND DOCUMENTS.', false)
+        ->assertSee('SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)', false)
+        ->getContent();
+
+    expect(substr_count($html, 'SECTION 11 - REFERENCES'))->toBe(1);
 });
 
 test('users cannot print cv for employees in another company', function () {

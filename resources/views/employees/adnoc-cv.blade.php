@@ -224,7 +224,10 @@
             padding-bottom: 4mm;
         }
 
-        tr.section-row { page-break-after: avoid; }
+        .cv-closing-page {
+            page-break-before: always;
+            margin-bottom: 2px;
+        }
 
         tr.sea-data-row td {
             font-size: 7pt;
@@ -365,7 +368,9 @@
                     <td colspan="3" class="val">{{ $edu['country'] }}</td>
                 </tr>
             @empty
-                <tr class="blank"><td colspan="12">&nbsp;</td></tr>
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No education records</td>
+                </tr>
             @endforelse
 
             <tr><td colspan="12" class="section">SECTION 4 - CERTIFICATE OF COMPETENCY/LICENCE/ENDORSEMENT (highest)</td></tr>
@@ -389,7 +394,9 @@
                     <td colspan="1" class="val">{{ $coc['limitations'] }}</td>
                 </tr>
             @empty
-                <tr class="blank"><td colspan="12">&nbsp;</td></tr>
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No certificate records</td>
+                </tr>
             @endforelse
 
             <tr><td colspan="12" class="section">SECTION 5 - DP CERTIFICATION/LICENCE (highest)</td></tr>
@@ -413,7 +420,9 @@
                     <td colspan="1" class="val">{{ $dp['limitations'] }}</td>
                 </tr>
             @empty
-                <tr class="blank"><td colspan="12">&nbsp;</td></tr>
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No DP certification records</td>
+                </tr>
             @endforelse
 
             <tr><td colspan="12" class="section">SECTION 6 - STCW/OTHER TRAINING/PROFESSIONAL COURSES DETAILS</td></tr>
@@ -472,7 +481,9 @@
                     <td colspan="3" class="val center">{{ $lang['mother_tongue'] }}</td>
                 </tr>
             @empty
-                <tr class="blank-compact"><td colspan="12">&nbsp;</td></tr>
+                <tr>
+                    <td colspan="12" class="center" style="padding:4px;">No language records</td>
+                </tr>
             @endforelse
 
             <tr><td colspan="12" class="section">SECTION 8 - HEALTH/MEDICAL DATA</td></tr>
@@ -513,10 +524,10 @@
                 </tr>
             @endforeach
 
-            <tr class="section-row"><td colspan="12" class="section">SECTION 10 - SUMMARY OF WORK EXPERIENCE (START FROM THE CURRENT/LAST VESSEL WORKED)</td></tr>
+            <tr><td colspan="12" class="section">SECTION 10 - SUMMARY OF WORK EXPERIENCE (START FROM THE CURRENT/LAST VESSEL WORKED)</td></tr>
             @include('employees.partials.adnoc-cv-sea-service-columns')
             @forelse ($sea_services as $index => $svc)
-                @if (($is_pdf ?? false) && $index > 0 && $index % 15 === 0)
+                @if (($is_pdf ?? false) && $index > 0 && $index % 12 === 0)
         </table>
         <div class="cv-page-header-repeat">
             @include('employees.partials.adnoc-cv-header')
@@ -554,67 +565,30 @@
                 <td colspan="3" class="lbl">DP EXPERIENCE (IN HRS.)</td>
                 <td colspan="1" class="val center">{{ $experience_dp_hours }}</td>
             </tr>
-
-            <tr><td colspan="12" class="section">SECTION 11 - REFERENCES</td></tr>
-            <tr>
-                <td colspan="3" class="col-h">NAME OF PERSON</td>
-                <td colspan="3" class="col-h">COMPANY NAME</td>
-                <td colspan="2" class="col-h">COUNTRY</td>
-                <td colspan="2" class="col-h">TEL /FAX NO.</td>
-                <td colspan="2" class="col-h">EMAIL ID.</td>
-            </tr>
-            @forelse ($references as $ref)
-                <tr>
-                    <td colspan="3" class="val">{{ $ref['name'] }}</td>
-                    <td colspan="3" class="val">{{ $ref['company'] }}</td>
-                    <td colspan="2" class="val">{{ $ref['country'] }}</td>
-                    <td colspan="2" class="val">{{ $ref['phone'] }}</td>
-                    <td colspan="2" class="val">{{ $ref['email'] }}</td>
-                </tr>
-            @empty
-                @for ($i = 0; $i < 2; $i++)
-                    <tr class="blank-compact">
-                        <td colspan="3" class="val">&nbsp;</td>
-                        <td colspan="3" class="val">&nbsp;</td>
-                        <td colspan="2" class="val">&nbsp;</td>
-                        <td colspan="2" class="val">&nbsp;</td>
-                        <td colspan="2" class="val">&nbsp;</td>
-                    </tr>
-                @endfor
-            @endforelse
-
-            <tr class="section-row"><td colspan="12" class="section">SECTION 12 - DECLARATION</td></tr>
-            <tr>
-                <td colspan="12" class="declaration">
-                    I hereby declare that all statements and particulars written in this document are true and supplied to the best of my knowledge. In addition, I authorize you to contact the referees listed above.
-                </td>
-            </tr>
-            <tr>
-                <td colspan="2" class="lbl">NAME &amp; SIGNATURE</td>
-                <td colspan="6" class="val">{{ $full_name }}</td>
-                <td colspan="2" class="lbl">DATE</td>
-                <td colspan="2" class="val">{{ $declaration_date }}</td>
-            </tr>
-            <tr>
-                <td colspan="12" class="note">PLEASE ATTACH ALL CERTIFICATES AND DOCUMENTS.</td>
-            </tr>
-
-            <tr class="section-row"><td colspan="12" class="section">SECTION 13 - CV EVALUATION (FOR OFFICE USE ONLY)</td></tr>
-            <tr>
-                <td colspan="12" class="lbl">RECOMMENDATION / REMARKS</td>
-            </tr>
-            <tr class="remarks-space"><td colspan="12">&nbsp;</td></tr>
-            <tr>
-                <td colspan="6" class="lbl">Evaluator Name &amp; Designation</td>
-                <td colspan="6" class="lbl">HRO REPRESENTATIVE</td>
-            </tr>
-            <tr class="blank-compact"><td colspan="6">&nbsp;</td><td colspan="6">&nbsp;</td></tr>
-
-            <tr class="cv-bottom-spacer"><td colspan="12">&nbsp;</td></tr>
-            <tr class="footer-rev footer-rev--final">
-                <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
-            </tr>
         </table>
+
+        @if ($is_pdf ?? false)
+            <div class="cv-page-header-repeat cv-closing-page">
+                @include('employees.partials.adnoc-cv-header')
+            </div>
+            <table class="cv">
+                <colgroup>
+                    @for ($i = 0; $i < 12; $i++)
+                        <col style="width:8.333%">
+                    @endfor
+                </colgroup>
+                @include('employees.partials.adnoc-cv-closing')
+            </table>
+        @else
+            <table class="cv">
+                <colgroup>
+                    @for ($i = 0; $i < 12; $i++)
+                        <col style="width:8.333%">
+                    @endfor
+                </colgroup>
+                @include('employees.partials.adnoc-cv-closing')
+            </table>
+        @endif
 
         </td></tr></table>
     </div>
