@@ -28,13 +28,18 @@
 
         table.cv-margin-wrap td.cv-margin-cell {
             border: none;
-            padding: 11mm 18mm;
+            padding: 0 18mm 11mm;
             vertical-align: top;
         }
 
-        .cv-page-header-repeat {
-            page-break-before: always;
+        .cv-page-header {
+            padding-top: 11mm;
             margin-bottom: 2px;
+            page-break-inside: avoid;
+        }
+
+        .cv-page-header--repeat {
+            page-break-before: always;
         }
 
         @media screen {
@@ -90,13 +95,26 @@
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            margin-bottom: 2px;
         }
 
         table.cv-head td {
             border: none;
-            padding: 2px 6px;
+            padding: 0 6px;
             vertical-align: middle;
+        }
+
+        table.cv-head tr.cv-head-brand td {
+            height: 14mm;
+            min-height: 14mm;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+
+        table.cv-head tr.head-meta td {
+            height: 5mm;
+            min-height: 5mm;
+            padding-top: 1px;
+            padding-bottom: 1px;
         }
 
         .section {
@@ -127,7 +145,9 @@
         }
 
         .head-logo-cell img {
-            max-height: 42px;
+            height: 11mm;
+            max-height: 11mm;
+            width: auto;
             max-width: 100%;
             object-fit: contain;
             display: block;
@@ -154,14 +174,18 @@
             line-height: 1.1;
         }
 
-        .head-meta .lbl { border: none; padding-top: 4px; }
+        .head-meta .lbl {
+            border: none;
+            padding: 0;
+            vertical-align: bottom;
+        }
 
         .head-source {
             text-align: right;
             font-size: 6.2pt;
             color: #666;
             text-transform: uppercase;
-            padding-top: 3px;
+            padding: 0;
             vertical-align: bottom;
         }
 
@@ -235,11 +259,6 @@
             padding-bottom: 4mm;
         }
 
-        .cv-closing-page {
-            page-break-before: always;
-            margin-bottom: 2px;
-        }
-
         tr.sea-data-row td {
             font-size: 6.2pt;
             text-align: center;
@@ -261,7 +280,7 @@
     <div class="cv-shell">
         <table class="cv-margin-wrap"><tr><td class="cv-margin-cell">
 
-        @include('employees.partials.adnoc-cv-header')
+        @include('employees.partials.adnoc-cv-page-header')
 
         {{-- PAGE 1 --}}
         <table class="cv">
@@ -462,9 +481,7 @@
         </table>
 
         @if ($is_pdf ?? false)
-            <div class="cv-page-header-repeat">
-                @include('employees.partials.adnoc-cv-header')
-            </div>
+            @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
         @endif
 
         {{-- PAGE 2 --}}
@@ -540,9 +557,7 @@
             @forelse ($sea_services as $index => $svc)
                 @if (($is_pdf ?? false) && $index > 0 && $index % 12 === 0)
         </table>
-        <div class="cv-page-header-repeat">
-            @include('employees.partials.adnoc-cv-header')
-        </div>
+        @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
         <table class="cv">
             <colgroup>
                 @for ($i = 0; $i < 12; $i++)
@@ -579,9 +594,7 @@
         </table>
 
         @if ($is_pdf ?? false)
-            <div class="cv-page-header-repeat cv-closing-page">
-                @include('employees.partials.adnoc-cv-header')
-            </div>
+            @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
             <table class="cv">
                 <colgroup>
                     @for ($i = 0; $i < 12; $i++)

@@ -4,7 +4,7 @@
             <col style="width:8.333%">
         @endfor
     </colgroup>
-    <tr>
+    <tr class="cv-head-brand">
         <td colspan="2" class="head-spacer">&nbsp;</td>
         <td colspan="8" class="head-title-cell">
             <div class="head-title">ADNOC Logistics &amp; Services</div>
@@ -13,6 +13,8 @@
         <td colspan="2" class="head-logo-cell">
             @if (! empty($logo_url))
                 <img src="{{ $logo_url }}" alt="ADNOC">
+            @else
+                &nbsp;
             @endif
         </td>
     </tr>
