@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { Download, FileStack, FolderOpen, Loader2, Mail, Trash2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -23,8 +23,13 @@ import type {EmailDocumentItem} from '@/features/organization/documents/email-se
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
-import { PdfMergeModal } from '@/features/organization/documents/pdf-merge';
-import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge';
+import type { MergeDocumentItem } from '@/features/organization/documents/pdf-merge/types';
+
+const PdfMergeModal = lazy(() =>
+    import('@/features/organization/documents/pdf-merge/merge-modal').then((module) => ({
+        default: module.PdfMergeModal,
+    })),
+);
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
@@ -381,13 +386,17 @@ export default function EmployeeDocumentsBrowse({
                 onSendComplete={clearDocumentSelection}
             />
 
-            <PdfMergeModal
-                open={mergeModalOpen}
-                onOpenChange={setMergeModalOpen}
-                employee={employee}
-                documents={mergeDocuments}
-                onMergeComplete={clearDocumentSelection}
-            />
+            {mergeModalOpen ? (
+                <Suspense fallback={null}>
+                    <PdfMergeModal
+                        open={mergeModalOpen}
+                        onOpenChange={setMergeModalOpen}
+                        employee={employee}
+                        documents={mergeDocuments}
+                        onMergeComplete={clearDocumentSelection}
+                    />
+                </Suspense>
+            ) : null}
 
             <DocumentPreviewDialog
                 document={

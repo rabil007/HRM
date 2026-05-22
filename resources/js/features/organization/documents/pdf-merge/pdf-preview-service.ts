@@ -1,15 +1,32 @@
-import * as pdfjs from 'pdfjs-dist';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import type { PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
 import { documents } from '@/routes/organization';
-
-pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker;
 
 const previewCache = new Map<number, PdfPreviewData>();
 const loadingPromises = new Map<number, Promise<PdfPreviewData>>();
 
 const THUMBNAIL_SCALE = 0.35;
+
+let pdfjsModule: typeof import('pdfjs-dist') | null = null;
+
+async function getPdfJs(): Promise<typeof import('pdfjs-dist')> {
+    if (typeof window === 'undefined') {
+        throw new Error('PDF preview is only available in the browser.');
+    }
+
+    if (!pdfjsModule) {
+        const [pdfjs, workerModule] = await Promise.all([
+            import('pdfjs-dist'),
+            import('pdfjs-dist/build/pdf.worker.min.mjs?url'),
+        ]);
+
+        pdfjs.GlobalWorkerOptions.workerSrc = workerModule.default;
+        pdfjsModule = pdfjs;
+    }
+
+    return pdfjsModule;
+}
 
 async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
     const response = await fetch(documents.files.download.url({ document: documentId }), {
@@ -23,9 +40,7 @@ async function fetchPdfBytes(documentId: number): Promise<ArrayBuffer> {
     return response.arrayBuffer();
 }
 
-async function renderFirstPageThumbnail(
-    pdf: pdfjs.PDFDocumentProxy,
-): Promise<string | null> {
+async function renderFirstPageThumbnail(pdf: PDFDocumentProxy): Promise<string | null> {
     try {
         const page = await pdf.getPage(1);
         const viewport = page.getViewport({ scale: THUMBNAIL_SCALE });
@@ -61,6 +76,7 @@ export async function loadPdfPreview(documentId: number): Promise<PdfPreviewData
     }
 
     const promise = (async (): Promise<PdfPreviewData> => {
+        const pdfjs = await getPdfJs();
         const data = await fetchPdfBytes(documentId);
         const pdf = await pdfjs.getDocument({ data }).promise;
         const thumbnailDataUrl = await renderFirstPageThumbnail(pdf);
