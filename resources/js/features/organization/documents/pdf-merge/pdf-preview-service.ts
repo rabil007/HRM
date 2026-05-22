@@ -1,3 +1,4 @@
+import type * as PdfJs from 'pdfjs-dist';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 import type { PdfPreviewData } from '@/features/organization/documents/pdf-merge/types';
@@ -8,9 +9,9 @@ const loadingPromises = new Map<number, Promise<PdfPreviewData>>();
 
 const THUMBNAIL_SCALE = 0.35;
 
-let pdfjsModule: typeof import('pdfjs-dist') | null = null;
+let pdfjsModule: typeof PdfJs | null = null;
 
-async function getPdfJs(): Promise<typeof import('pdfjs-dist')> {
+async function getPdfJs(): Promise<typeof PdfJs> {
     if (typeof window === 'undefined') {
         throw new Error('PDF preview is only available in the browser.');
     }

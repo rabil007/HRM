@@ -1,8 +1,6 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import { Building2, ImageIcon, Mail, Settings2 } from 'lucide-react';
 import { useState } from 'react';
-import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
-import { toast } from '@/lib/toast';
 import Heading from '@/components/heading';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { Button } from '@/components/ui/button';
@@ -20,6 +18,8 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
+import { toast } from '@/lib/toast';
 
 type CurrencyOption = { code: string; name: string; symbol: string };
 
