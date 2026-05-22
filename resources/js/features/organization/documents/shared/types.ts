@@ -31,6 +31,7 @@ export type DocumentBrowseItem = {
     status: string | null;
     expiry_date: string | null;
     issue_date: string | null;
+    document_number: string | null;
     size_bytes: number | null;
     expiry_status: DocumentExpiryStatus | null;
     remaining_days: number | null;

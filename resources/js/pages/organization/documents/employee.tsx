@@ -377,7 +377,7 @@ export default function EmployeeDocumentsBrowse({
                     hasSearch={fileSearch.trim() !== ''}
                 />
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1040px]" compact>
+                <OrganizationDataTable minWidth="min-w-[1160px]" compact>
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="w-10 px-3">
@@ -395,6 +395,7 @@ export default function EmployeeDocumentsBrowse({
                             </DataTableHead>
                             <DataTableHead className="min-w-[240px]">File</DataTableHead>
                             <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
+                            <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">Issue date</DataTableHead>
                             <DataTableHead className="hidden lg:table-cell">Expiry</DataTableHead>
                             <DataTableHead className="hidden md:table-cell">File size</DataTableHead>

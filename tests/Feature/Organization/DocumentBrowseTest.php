@@ -258,6 +258,7 @@ test('employee documents browse includes expiry fields when expiry is set', func
         'document_type' => (string) $passportType->id,
         'file_path' => 'employee-documents/test/visa.pdf',
         'original_filename' => 'Visa.pdf',
+        'document_number' => '784-1234-5678901-2',
         'expiry_date' => '2026-05-25',
         'status' => 'expiring_soon',
     ]);
@@ -265,6 +266,7 @@ test('employee documents browse includes expiry fields when expiry is set', func
     $this->get("/organization/documents/employees/{$employee->id}")
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
+            ->where('documents.0.document_number', '784-1234-5678901-2')
             ->where('documents.0.expiry_date', '2026-05-25')
             ->where('documents.0.expiry_status', 'expiring_7')
             ->where('documents.0.expiry_label', 'Expires in 5 days')

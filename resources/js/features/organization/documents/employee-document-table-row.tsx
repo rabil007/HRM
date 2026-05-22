@@ -70,6 +70,14 @@ export function EmployeeDocumentTableRow({
                     {doc.document_type}
                 </Badge>
             </TableCell>
+            <TableCell
+                className={cn(
+                    dataTableCellClass(),
+                    'hidden max-w-[160px] truncate font-mono text-xs md:table-cell',
+                )}
+            >
+                {doc.document_number?.trim() || '—'}
+            </TableCell>
             <TableCell className={cn(dataTableCellClass(), 'hidden whitespace-nowrap md:table-cell')}>
                 {formatOptionalDate(doc.issue_date)}
             </TableCell>
