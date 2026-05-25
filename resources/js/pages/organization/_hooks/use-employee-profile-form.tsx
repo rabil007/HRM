@@ -44,9 +44,12 @@ export function useEmployeeProfileForm(
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const ensureEmployee = options?.ensureEmployee;
 
     const initialPersonal = useMemo(
         () => buildEmployeeProfileFormInitial(employee),
+        // Only refresh form baseline when persisted identity changes (not on every draft keystroke).
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- employee
         [employee.id, employee.updated_at],
     );
 
@@ -139,9 +142,9 @@ export function useEmployeeProfileForm(
 
             let targetEmployeeId = employee.id;
 
-            if ((targetEmployeeId === null || targetEmployeeId <= 0) && options?.ensureEmployee) {
+            if ((targetEmployeeId === null || targetEmployeeId <= 0) && ensureEmployee) {
                 try {
-                    targetEmployeeId = await options.ensureEmployee();
+                    targetEmployeeId = await ensureEmployee();
                 } catch {
                     return;
                 }
@@ -171,7 +174,7 @@ export function useEmployeeProfileForm(
                 },
             });
         },
-        [beginEdit, canUpdate, employee.id, form, options?.ensureEmployee, requiredFields],
+        [beginEdit, canUpdate, employee.id, ensureEmployee, form, requiredFields],
     );
 
     const uploadPhoto = useCallback(

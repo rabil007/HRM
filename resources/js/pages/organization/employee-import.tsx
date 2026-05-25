@@ -157,12 +157,14 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         try {
             const formData = new FormData();
             formData.append('file', selected);
+
             if (templateId ?? selectedTemplateId) {
                 formData.append(
                     'employee_profile_template_id',
                     String(templateId ?? selectedTemplateId ?? ''),
                 );
             }
+
             Object.entries(selectedMapping ?? {}).forEach(([field, header]) => {
                 formData.append(`mapping[${field}]`, header ?? '');
             });
@@ -217,9 +219,11 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
 
         const formData = new FormData();
         formData.append('file', file);
+
         if (selectedTemplateId) {
             formData.append('employee_profile_template_id', String(selectedTemplateId));
         }
+
         Object.entries(mapping).forEach(([field, header]) => {
             formData.append(`mapping[${field}]`, header ?? '');
         });

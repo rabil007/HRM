@@ -21,6 +21,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -35,7 +36,6 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
-import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
 const WORK_EXPERIENCE_RELOAD = {

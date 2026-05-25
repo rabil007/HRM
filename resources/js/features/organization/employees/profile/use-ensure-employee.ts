@@ -56,6 +56,7 @@ export function useEnsureEmployee({
 
         if (!response.ok) {
             toast.error('Could not create employee record.');
+
             throw new Error('ensure_failed');
         }
 
@@ -64,6 +65,7 @@ export function useEnsureEmployee({
 
         if (!ensured?.id) {
             toast.error('Could not create employee record.');
+
             throw new Error('ensure_invalid');
         }
 

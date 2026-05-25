@@ -1,15 +1,9 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppSelect, AppSelectItem } from '@/components/app-select';
-import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
-import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
-import {
-    useEnsureEmployee,
-    type EnsuredEmployee,
-} from '@/features/organization/employees/profile/use-ensure-employee';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import {
     AlertDialog,
@@ -23,8 +17,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
+import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
+import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
+import {
+    useEnsureEmployee
+    
+} from '@/features/organization/employees/profile/use-ensure-employee';
+import type {EnsuredEmployee} from '@/features/organization/employees/profile/use-ensure-employee';
 import { actions } from '@/lib/design-system';
-import { cn } from '@/lib/utils';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
 import { EmployeeBankTab } from '@/pages/organization/_components/employee-bank-tab';
@@ -62,14 +62,6 @@ const EMPLOYEE_PAGE_TAB_HASH_KEYS: Partial<Record<string, EmployeeTab>> = {
 const EMPLOYEE_PAGE_LEGACY_HASH_KEYS = new Set(
     Object.keys(EMPLOYEE_PAGE_TAB_HASH_KEYS),
 );
-
-function initialEmployeeTabFromLocation(): EmployeeTab {
-    if (typeof window === 'undefined') {
-        return 'personal';
-    }
-
-    return EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash] ?? 'personal';
-}
 
 export default function EmployeeDetails(props: EmployeePageProps) {
     const pageKey =
@@ -128,40 +120,27 @@ function EmployeeDetailsPage({
     const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
         selected_profile_template_id,
     );
-
-    useEffect(() => {
-        if (isCreateMode) {
-            setLocalEmployee((current) => {
-                const incomingId = employee.id ?? null;
-                const currentId = current.id ?? null;
-
-                if (incomingId !== null && incomingId !== currentId) {
-                    return { ...current, ...employee };
-                }
-
-                return current;
-            });
-
-            return;
+    const [tabValue, setTabValue] = useState<EmployeeTab>(() => {
+        if (typeof window === 'undefined') {
+            return 'personal';
         }
 
-        setLocalEmployee(employee);
-    }, [employee, isCreateMode]);
-
-    useEffect(() => {
-        if (!isCreateMode || typeof window === 'undefined') {
-            return;
-        }
-
-        if (EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash]) {
+        if (isCreateMode && EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash]) {
             window.history.replaceState(
                 null,
                 '',
                 window.location.pathname + window.location.search,
             );
-            setTabValue('personal');
+
+            return 'personal';
         }
-    }, [isCreateMode]);
+
+        return EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash] ?? 'personal';
+    });
+    const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
+    const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(null);
+    const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
+    const [createUserOpen, setCreateUserOpen] = useState(false);
 
     const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
         setLocalEmployee((current) => ({
@@ -212,19 +191,12 @@ function EmployeeDetailsPage({
         },
     );
 
-    formDraftRef.current = {
-        name: String(form.data.name ?? ''),
-        employee_no: String(form.data.employee_no ?? ''),
-    };
-
-    const [tabValue, setTabValue] = useState<EmployeeTab>(
-        initialEmployeeTabFromLocation,
-    );
-
-    const [pendingTab, setPendingTab] = useState<EmployeeTab | null>(null);
-    const [pendingEmployeeId, setPendingEmployeeId] = useState<number | null>(null);
-    const [unsavedDialogOpen, setUnsavedDialogOpen] = useState(false);
-    const [createUserOpen, setCreateUserOpen] = useState(false);
+    useEffect(() => {
+        formDraftRef.current = {
+            name: String(form.data.name ?? ''),
+            employee_no: String(form.data.employee_no ?? ''),
+        };
+    }, [form.data.name, form.data.employee_no]);
 
     const canCreateUser =
         !isCreateMode && (can?.create_user ?? false) && !localEmployee.user;

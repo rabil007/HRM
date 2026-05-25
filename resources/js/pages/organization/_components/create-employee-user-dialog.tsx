@@ -63,7 +63,7 @@ export function CreateEmployeeUserDialog({
 
         form.clearErrors();
         form.setData(buildInitialForm(employee));
-    }, [open, employee.id]);
+    }, [open, employee, form]);
 
     const submit = (): void => {
         form.post(`/organization/employees/${employee.id}/user`, {

@@ -105,6 +105,7 @@ function InlineNavigation({
     const visitEmployee = (employeeId: number) => {
         if (onNavigate) {
             onNavigate(employeeId);
+
             return;
         }
 

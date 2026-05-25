@@ -23,6 +23,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { RankOption } from '@/features/organization/employees/types';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
@@ -42,7 +43,6 @@ import {
 import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
-import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type {
     ClientOption,
     SeaServiceItem,

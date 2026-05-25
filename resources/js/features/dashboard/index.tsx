@@ -1,3 +1,4 @@
+import { Link, usePoll } from '@inertiajs/react';
 import {
     Users,
     UserPlus,
@@ -20,8 +21,9 @@ import {
     ChevronRight,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { Link, usePoll } from '@inertiajs/react';
 import { Main } from '@/components/layout/main';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -30,8 +32,6 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
 import { DistributionBarChart } from '@/features/dashboard/charts/distribution-bar-chart';
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
@@ -55,9 +55,11 @@ function getInitials(name: string): string {
 /** Stable hue based on a string — for avatar background colours. */
 function nameToHue(name: string): number {
     let hash = 0;
+
     for (let i = 0; i < name.length; i++) {
         hash = name.charCodeAt(i) + ((hash << 5) - hash);
     }
+
     return Math.abs(hash) % 360;
 }
 
@@ -436,6 +438,7 @@ export function DashboardContent({
                         ) : (
                             recentHires.map((hire) => {
                                 const hue = nameToHue(hire.name);
+
                                 return (
                                     <Link
                                         key={hire.id}

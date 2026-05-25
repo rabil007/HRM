@@ -1,8 +1,8 @@
 import type { ReactElement, ReactNode } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { EmployeeProfileTabItem } from '@/features/organization/employees/profile/employee-profile-tabs';
 import { tabs as dsTabs } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
-import type { EmployeeProfileTabItem } from '@/features/organization/employees/profile/employee-profile-tabs';
 import type { EmployeeTab } from '@/pages/organization/employee-page.types';
 
 type EmployeeProfileShellProps = {
