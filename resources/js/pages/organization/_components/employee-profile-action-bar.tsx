@@ -1,7 +1,7 @@
-import { Link } from '@inertiajs/react';
-import { FileText, Printer, UserPlus } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight, FileText, Printer, UserPlus } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
-import { EmployeeProfileNavigation } from '@/components/employee-profile-navigation';
+import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { cn } from '@/lib/utils';
 import type { EmployeeNavigation } from '@/pages/organization/employee-page.types';
 
@@ -13,6 +13,8 @@ type SmartButtonProps = {
     href?: string;
     target?: string;
     active?: boolean;
+    iconColor?: string;
+    iconBg?: string;
 };
 
 function SmartButton({
@@ -23,29 +25,40 @@ function SmartButton({
     href,
     target,
     active = false,
+    iconColor = 'text-muted-foreground',
+    iconBg = 'bg-muted/40',
 }: SmartButtonProps): ReactElement {
     const hasStat = stat !== undefined && stat !== null && stat !== '';
 
     const className = cn(
-        'flex min-h-13 min-w-34 items-center gap-3 px-4 py-2 transition-colors',
-        'hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-        active && 'bg-primary/10',
+        'group flex items-center gap-2 rounded-xl px-3 py-1.5 text-sm font-medium transition-all duration-150',
+        'hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        active && 'bg-primary/10 text-primary',
     );
 
     const content = (
         <>
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-muted/25">
-                <Icon className="h-4 w-4 text-muted-foreground" />
+            <span
+                className={cn(
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-transform duration-150 group-hover:scale-105',
+                    iconBg,
+                )}
+            >
+                <Icon className={cn('h-3 w-3', iconColor)} />
             </span>
             {hasStat ? (
-                <span className="flex min-w-0 flex-col items-start gap-0.5 leading-none">
-                    <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
-                    <span className="text-lg font-semibold tabular-nums tracking-tight text-primary">
+                <span className="flex min-w-0 flex-col items-start leading-none">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                        {label}
+                    </span>
+                    <span className="text-base font-bold tabular-nums tracking-tight text-foreground">
                         {stat}
                     </span>
                 </span>
             ) : (
-                <span className="text-sm font-semibold text-foreground">{label}</span>
+                <span className="font-semibold text-foreground/90 group-hover:text-foreground">
+                    {label}
+                </span>
             )}
         </>
     );
@@ -78,6 +91,75 @@ function SmartButton({
     );
 }
 
+function InlineNavigation({
+    navigation,
+    onNavigate,
+}: {
+    navigation: EmployeeNavigation;
+    onNavigate?: (employeeId: number) => void;
+}): ReactElement | null {
+    if (navigation.total <= 0) {
+        return null;
+    }
+
+    const visitEmployee = (employeeId: number) => {
+        if (onNavigate) {
+            onNavigate(employeeId);
+            return;
+        }
+
+        router.visit(
+            show.url({ employee: employeeId }, { query: navigation.list_query }),
+            { preserveScroll: true },
+        );
+    };
+
+    const hasPrev = navigation.previous_id !== null;
+    const hasNext = navigation.next_id !== null;
+
+    return (
+        <div className="flex shrink-0 self-stretch overflow-hidden rounded-xl border border-border/60 dark:border-white/8">
+            <button
+                type="button"
+                aria-label="Previous employee"
+                title="Previous employee"
+                disabled={!hasPrev}
+                onClick={() => {
+                    if (navigation.previous_id !== null) {
+                        visitEmployee(navigation.previous_id);
+                    }
+                }}
+                className="flex w-10 items-center justify-center text-muted-foreground transition-all duration-150 hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+            >
+                <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <div className="flex min-w-[3.5rem] items-center justify-center border-x border-border/60 bg-muted/30 px-2.5 dark:border-white/8">
+                <span className="text-xs font-bold tabular-nums text-foreground/80">
+                    {navigation.position}
+                    <span className="mx-0.5 font-medium text-muted-foreground">/</span>
+                    {navigation.total}
+                </span>
+            </div>
+
+            <button
+                type="button"
+                aria-label="Next employee"
+                title="Next employee"
+                disabled={!hasNext}
+                onClick={() => {
+                    if (navigation.next_id !== null) {
+                        visitEmployee(navigation.next_id);
+                    }
+                }}
+                className="flex w-10 items-center justify-center text-muted-foreground transition-all duration-150 hover:bg-muted/60 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
+            >
+                <ChevronRight className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}
+
 export function EmployeeProfileActionBar({
     printCvUrl,
     employeeNavigation,
@@ -98,16 +180,21 @@ export function EmployeeProfileActionBar({
     onCreateUser?: () => void;
 }): ReactElement {
     return (
-        <div className="overflow-hidden rounded-xl border border-border/80 bg-card/70 shadow-sm">
-            <div className="flex h-13 min-h-13 min-w-0 items-center divide-x divide-border/80">
-                <div className="flex min-w-0 flex-1 overflow-x-auto">
-                    <SmartButton
-                        icon={Printer}
-                        label="Print CV"
-                        href={printCvUrl}
-                        target="_blank"
-                    />
-                    {showDocumentsButton && documentsBrowseUrl ? (
+        <div className="flex items-stretch justify-between gap-0 overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-sm dark:border-white/8 dark:bg-white/4">
+            {/* Left — action buttons */}
+            <div className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-2 py-1.5">
+                <SmartButton
+                    icon={Printer}
+                    label="Print CV"
+                    href={printCvUrl}
+                    target="_blank"
+                    iconColor="text-primary"
+                    iconBg="bg-primary/10"
+                />
+
+                {showDocumentsButton && documentsBrowseUrl ? (
+                    <>
+                        <div className="h-5 w-px bg-border/60" />
                         <SmartButton
                             icon={FileText}
                             label="Documents"
@@ -117,25 +204,33 @@ export function EmployeeProfileActionBar({
                                     : documentCount
                             }
                             href={documentsBrowseUrl}
+                            iconColor="text-sky-500"
+                            iconBg="bg-sky-500/10"
                         />
-                    ) : null}
-                    {showCreateUserButton && onCreateUser ? (
+                    </>
+                ) : null}
+
+                {showCreateUserButton && onCreateUser ? (
+                    <>
+                        <div className="h-5 w-px bg-border/60" />
                         <SmartButton
                             icon={UserPlus}
                             label="Create User"
                             onClick={onCreateUser}
+                            iconColor="text-emerald-500"
+                            iconBg="bg-emerald-500/10"
                         />
-                    ) : null}
-                </div>
-
-                {employeeNavigation && employeeNavigation.total > 0 ? (
-                    <EmployeeProfileNavigation
-                        embedded
-                        navigation={employeeNavigation}
-                        onNavigate={onNavigateEmployee}
-                    />
+                    </>
                 ) : null}
             </div>
+
+            {/* Right — employee navigation */}
+            {employeeNavigation && employeeNavigation.total > 0 ? (
+                <InlineNavigation
+                    navigation={employeeNavigation}
+                    onNavigate={onNavigateEmployee}
+                />
+            ) : null}
         </div>
     );
 }
