@@ -29,33 +29,35 @@ export function DocumentHealthChart({ data }: { data: DocumentHealthSlice[] }) {
                 <Pie
                     data={data}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={56}
+                    cy="48%"
+                    innerRadius={58}
                     outerRadius={88}
-                    paddingAngle={2}
+                    paddingAngle={3}
                     dataKey="value"
                     nameKey="name"
+                    strokeWidth={0}
                 >
                     {data.map((entry) => (
                         <Cell
                             key={entry.key}
                             fill={SLICE_COLORS[entry.key] ?? 'var(--color-primary)'}
-                            stroke="transparent"
                         />
                     ))}
                 </Pie>
                 <Tooltip
                     contentStyle={{
-                        backgroundColor: 'var(--color-card)',
+                        backgroundColor: 'var(--color-popover)',
                         border: '1px solid var(--color-border)',
-                        borderRadius: '0.75rem',
+                        borderRadius: '0.875rem',
                         fontSize: '12px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                        padding: '10px 14px',
                     }}
                 />
                 <Legend
                     wrapperStyle={{ fontSize: '11px' }}
                     iconType="circle"
-                    iconSize={8}
+                    iconSize={7}
                 />
             </PieChart>
         </ResponsiveContainer>
