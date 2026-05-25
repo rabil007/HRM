@@ -4,6 +4,8 @@ A multi-tenant **Organization Management System / Human Resources Management** b
 
 Designed for SMBs (UAE-focused initially) to manage companies, branches, departments, positions, employees, contracts, documents, onboarding, recruitment, attendance, leave, and payroll from a single, role-aware workspace.
 
+**Extended documentation:** [docs/README.md](docs/README.md) (dashboard, documents, search, sharing, permissions, email).
+
 ---
 
 ## Tech Stack
@@ -27,20 +29,23 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 
 ## Highlights
 
-- **Multi-tenant by company** — every domain table is scoped by `company_id`. A `SetCurrentCompany` middleware sets the active tenant and Spatie's permissions team id on every request.
+- **Multi-tenant by company** — every domain table is scoped by `company_id`. `SetCurrentCompany` middleware sets the active tenant and Spatie's permissions team id on every request.
 - **Company switcher** — sidebar dropdown swaps the active company per user session (`/organization/companies/switch`).
-- **Role-based access control** — granular permissions like `employees.view`, `employees.update`, `employees.import`, `companies.export`, etc., grouped into roles per company.
+- **Role-based access control** — granular permissions per company; document and import permissions split by feature (see [docs/permissions.md](docs/permissions.md)).
+- **Dashboard** — workforce trends, headcount, document compliance, expiry health, department/branch breakdowns ([docs/dashboard.md](docs/dashboard.md)).
+- **Documents module** — employee folder index, global search, compliance expiry views, per-employee browse, profile uploads, share links, WhatsApp bulk share, ZIP/PDF merge ([docs/document-management.md](docs/document-management.md)).
 - **Employee module**
   - Odoo-style click-to-edit details page with sticky Save/Discard bar
-  - Contracts, primary bank account, multi-document uploads (passport, EID, labor card, etc.)
-  - Permission-aware editing + unsaved-changes guard
-  - Searchable selects for Branch / Department / Position / Manager
-  - **CSV / XLSX import** with auto column mapping, preview, validation, and one-click commit
-  - **Export** as CSV / Excel / PDF
+  - Contracts, bank accounts, documents (with document number, issue/expiry)
+  - ADNOC seafarer CV print (`/organization/employees/{id}/cv`)
+  - Create login from employee (`users.create`)
+  - CSV / XLSX import with column mapping and granular sensitive-field permissions
+  - Export as CSV / Excel / PDF
+- **Users** — company membership, roles, link to employee, avatar upload or copy from employee photo, last login tracking
 - **Onboarding** — JSON-driven templates with multi-stage forms (basic info → documents → bank fields)
-- **Master data** — countries, currencies, banks, religions, genders, document types, visa types — all CRUD with permissions
-- **Activity log** — every create/update/delete is tracked and viewable at `/organization/activity-logs`
-- **Modern UI** — glass cards, dark mode, responsive grids, command palette (⌘K), top loading bar
+- **Settings** — SMTP + test email, application branding, master data CRUD
+- **Activity log** — `/organization/activity-logs`
+- **Modern UI** — glass cards, dark mode, command palette (⌘K), top loading bar
 
 ---
 
@@ -49,47 +54,31 @@ Designed for SMBs (UAE-focused initially) to manage companies, branches, departm
 ```
 app/
 ├── Exports/                    # Maatwebsite Excel export classes
-├── Imports/                    # Maatwebsite Excel import classes (employees, etc.)
-├── Http/
-│   ├── Controllers/
-│   │   ├── Onboarding/
-│   │   └── Organization/       # Companies, Branches, Departments, Positions,
-│   │                           # Employees, Roles, Users, ActivityLog, CompanySwitch
-│   ├── Middleware/
-│   │   ├── HandleInertiaRequests.php   # Shares auth.permissions, companies, flash
-│   │   └── SetCurrentCompany.php       # Resolves active tenant per request
-│   └── Requests/               # FormRequest validation
-├── Models/                     # Eloquent models, all guarded by company_id
+├── Imports/                    # Maatwebsite Excel import classes
+├── Http/Controllers/
+│   ├── Onboarding/
+│   ├── Organization/           # Companies, employees, documents, dashboard, …
+│   └── Settings/               # Application SMTP, branding, master data
+├── Support/
+│   ├── Dashboard/              # DashboardAnalytics
+│   └── EmployeeDocuments/      # DocumentBrowseQuery, expiry, sharing, storage
+├── Models/
 database/
-├── factories/                  # Model factories
-├── migrations/                 # Schema (multi-tenant from day one)
+├── migrations/
 └── seeders/
-    ├── PermissionsSeeder       # All permissions
-    ├── CountrySeeder / CurrencySeeder / BanksSeeder / ...
-    └── AdminSeeder             # Default admin@example.com / password
-resources/
-├── js/
-│   ├── pages/                  # Inertia pages (organization, settings, onboarding)
-│   │   └── organization/
-│   │       ├── employees.tsx
-│   │       ├── employee.tsx
-│   │       ├── employee-create.tsx
-│   │       ├── _components/    # Page-scoped extracted components
-│   │       └── ...
-│   ├── features/               # Feature-scoped UI (content, cards, dialogs)
-│   ├── components/             # Shared UI primitives + layout
-│   ├── layouts/                # AppLayout, AuthLayout, SettingsLayout
-│   ├── hooks/                  # use-appearance, use-view-preference, ...
-│   ├── lib/                    # toast, utils
-│   └── types/                  # Global Inertia/page types
-└── views/app.blade.php
+    └── PermissionsSeeder
+docs/                           # Product & developer guides (see docs/README.md)
+resources/js/
+├── pages/organization/         # Inertia pages (employees, documents, users, …)
+├── features/
+│   ├── dashboard/
+│   └── organization/documents/ # Browse, search, share, merge, email
+├── components/
+└── layouts/
 routes/
-├── web.php                     # All app routes (auth-guarded)
-└── settings.php                # Settings sub-routes
-tests/
-├── Feature/                    # Pest feature tests (per module)
-├── Browser/                    # Pest 4 browser tests
-└── Support/spatie.php          # grantCompanyPermissions() helper
+├── web.php
+└── settings.php
+tests/Feature/Organization/     # DocumentBrowseTest, DocumentShareTest, …
 ```
 
 ---
@@ -114,7 +103,7 @@ cp .env.example .env
 php artisan key:generate
 ```
 
-Set your DB in `.env` (defaults to MySQL `oms_hrm`):
+Set your DB in `.env`:
 
 ```env
 DB_CONNECTION=mysql
@@ -125,108 +114,66 @@ DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-Create the DB then migrate + seed:
-
 ```bash
 php artisan migrate --seed
-```
-
-Install frontend dependencies and build:
-
-```bash
 npm install
 npm run build
 ```
 
 ### Default Login
 
-After seeding:
-
 | Email | Password |
 |---|---|
 | `admin@example.com` | `password` |
-
-The admin user is automatically granted all permissions on the default seeded company.
 
 ---
 
 ## Running Dev
 
-Single command (server + queue + logs + vite):
-
 ```bash
 composer run dev
 ```
 
-This runs concurrently:
-
-- `php artisan serve`
-- `php artisan queue:listen --tries=1 --timeout=0`
-- `php artisan pail --timeout=0` (log tail)
-- `npm run dev` (vite)
-
-Or with Herd, just run `npm run dev` and visit `http://oms-hrm.test`.
+Or with Herd: `npm run dev` and visit `http://oms-hrm.test`.
 
 ---
 
 ## Testing
 
 ```bash
-php artisan test --compact           # All tests
-php artisan test --compact --filter EmployeesTest
-php artisan test tests/Feature/Organization/EmployeesTest.php --compact
+php artisan test --compact
+php artisan test --compact tests/Feature/Organization/DocumentBrowseTest.php
 ```
 
-The suite covers feature tests for every module (companies, branches, departments, positions, employees, users, roles, onboarding, settings, exports, imports, activity log).
+```bash
+composer ci:check    # lint + format + types + tests
+```
 
 ---
 
 ## Code Style
 
-PHP:
-
 ```bash
-vendor/bin/pint --parallel           # format
-vendor/bin/pint --parallel --test    # check only
-```
-
-Frontend:
-
-```bash
-npm run lint                         # eslint --fix
+vendor/bin/pint --dirty --format agent
 npm run lint:check
-npm run format                       # prettier --write
-npm run format:check
-npm run types:check                  # tsc --noEmit
-```
-
-Composer ships a full CI gate:
-
-```bash
-composer ci:check                    # lint + format + types + tests
+npm run types:check
 ```
 
 ---
 
 ## Permissions Cheatsheet
 
-Permissions are grouped by domain and scoped per company via Spatie's "teams":
+Permissions are company-scoped (Spatie teams). Full list: `database/seeders/PermissionsSeeder.php` and [docs/permissions.md](docs/permissions.md).
 
-| Domain | Permissions |
+| Domain | Permissions (summary) |
 |---|---|
-| Companies | `companies.view/create/update/delete/export` |
-| Branches | `branches.view/create/update/delete/export` |
-| Departments | `departments.view/create/update/delete/export` |
-| Positions | `positions.view/create/update/delete/export` |
-| Roles | `roles.view/create/update/delete/export` |
-| Users | `users.view/create/update/delete/export` |
-| Employees | `employees.view/create/update/delete/export/import` |
+| Companies, Branches, Departments, Positions | `*.view/create/update/delete/export` |
+| Roles, Users | `roles.*`, `users.*` |
+| Employees | `employees.view/create/update/delete/export/import` + feature imports (`identity`, `bank_accounts`, `contracts`) + profile sections (`contracts.manage`, `bank_accounts.manage`, …) |
+| Documents | `documents.view/download/share/upload/delete` |
 | Audit | `audit.view` |
-| Onboarding | `onboarding.templates.view/create/update/delete` |
-| Settings · Master data | `settings.master-data.{countries,currencies,banks,religions,genders,document-types,visa-types}.{view,create,update,delete}` |
-| Settings · Security | `settings.security.view/update` |
-
-Re-seed permissions after adding new ones:
+| Onboarding | `onboarding.templates.*` |
+| Settings | `settings.master-data.*`, `settings.security.*`, application settings |
 
 ```bash
 php artisan db:seed --class=PermissionsSeeder
@@ -234,17 +181,13 @@ php artisan db:seed --class=PermissionsSeeder
 
 ---
 
-## Importing Employees (Odoo-style)
+## Importing Employees
 
-1. Open **Employees** → **Import** (requires `employees.import`).
-2. Download the CSV template (footer of the dialog).
-3. Upload the filled CSV / XLSX.
-4. Review auto-detected column mapping + first 10 rows + validation errors.
-5. Click **Import N rows** — invalid rows are skipped, valid rows create Employee + primary EmployeeContract (and optional bank account).
+1. **Employees** → **Import** (`employees.import`).
+2. Download template, upload CSV/XLSX, map columns, preview, commit.
+3. Sensitive columns require `employees.identity.import`, `employees.bank_accounts.import`, or `employees.contracts.import` as applicable.
 
 Required columns: `employee_no`, `first_name`, `last_name`, `contract_type`, `start_date`.
-
-Branch / Department / Position / Manager / Gender / Religion / Nationality / Bank are matched **by name** (case + punctuation insensitive). Manager can also be matched by `manager_employee_no`.
 
 ---
 
@@ -252,20 +195,22 @@ Branch / Department / Position / Manager / Gender / Religion / Nationality / Ban
 
 | Route | Purpose |
 |---|---|
-| `/dashboard` | Landing page after login |
-| `/organization/companies` | Companies CRUD |
-| `/organization/branches` | Branches |
-| `/organization/departments` | Departments |
-| `/organization/positions` | Positions |
-| `/organization/employees` | Employees list + grid/table view + filters + import/export |
-| `/organization/employees/{id}` | Inline-editable employee details |
-| `/organization/users` | App users + company memberships |
-| `/organization/roles` | Roles + permissions matrix |
+| `/dashboard` | Analytics and charts |
+| `/organization/documents` | Document folders + search + compliance filters |
+| `/organization/documents/employees/{id}` | Employee document browse |
+| `/organization/employees` | Employee list |
+| `/organization/employees/{id}` | Employee profile (documents tab) |
+| `/organization/employees/{id}/cv` | ADNOC CV print view |
+| `/organization/users` | Users + employee link |
+| `/organization/roles` | Roles & permissions |
 | `/organization/activity-logs` | Audit log |
-| `/onboarding/templates` | Onboarding template builder |
-| `/settings/...` | Profile, security, appearance, master data |
+| `/onboarding/templates` | Template builder |
+| `/settings/...` | Profile, SMTP, master data |
 
-List everything: `php artisan route:list --except-vendor`.
+```bash
+php artisan route:list --path=organization
+php artisan route:list --path=settings
+```
 
 ---
 

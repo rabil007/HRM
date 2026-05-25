@@ -2,6 +2,8 @@
 
 This file documents the **current, preferred patterns** in this repo so future changes stay consistent and avoid guesswork.
 
+**Product documentation:** [docs/README.md](docs/README.md) (dashboard, documents, search, sharing, permissions, email).
+
 ## Stack
 
 - Laravel 13 + PHP 8.4
@@ -144,6 +146,30 @@ This file documents the **current, preferred patterns** in this repo so future c
 - Exports support `format=csv|xlsx|pdf` and should respect current search/filters via query string.
 - Companies export endpoint: `/organization/companies/export`
 - Branches export endpoint: `/organization/branches/export`
+
+## Documents module
+
+- **Index:** `resources/js/pages/organization/documents/index.tsx` — folders, expiry cards, global search UX.
+- **Employee browse:** `resources/js/pages/organization/documents/employee.tsx` — table, bulk download/share/merge/email.
+- **Profile tab:** `resources/js/pages/organization/_components/documents/employee-documents-tab.tsx`.
+- **Backend query:** `app/Support/EmployeeDocuments/DocumentBrowseQuery.php` — folders, `documentsForSearch`, `documentsForCompliance`, `expirySummary`.
+- **Search modes:** `resources/js/features/organization/documents/index/use-documents-index-search-mode.ts` — `browse` | `documents-only` | `employees-only` | `tabbed` | `empty`.
+- **Permissions on pages:** `DocumentPagePermissions` → Inertia `can.download|share|delete`; routes use `documents.view|upload|download|share|delete`.
+- **Do not** show index search as an “Active filter” chip; only expiry chips on compliance view.
+- **Folder search** matches employee name/number only; document fields use `searchDocuments` prop.
+
+See [docs/document-search.md](docs/document-search.md).
+
+## Dashboard
+
+- Page: `resources/js/pages/dashboard.tsx`, feature: `resources/js/features/dashboard/`.
+- Data: `App\Support\Dashboard\DashboardAnalytics` (employee stats, document compliance, workforce trends, charts).
+
+## Users ↔ employees
+
+- Link employee on user form: `SyncUserEmployeeLink`, optional `CopyEmployeeAvatarToUser`.
+- Auth user avatar URLs normalized in `HandleInertiaRequests::formatAuthUser()`.
+- `last_login_at` updated on login via `RecordUserLastLogin` listener (Fortify `Login` event); cast on `User` model.
 
 ## Testing & quality gates
 
