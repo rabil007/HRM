@@ -157,7 +157,12 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         try {
             const formData = new FormData();
             formData.append('file', selected);
-            formData.append('onboarding_template_id', String(templateId ?? selectedTemplateId ?? ''));
+            if (templateId ?? selectedTemplateId) {
+                formData.append(
+                    'employee_profile_template_id',
+                    String(templateId ?? selectedTemplateId ?? ''),
+                );
+            }
             Object.entries(selectedMapping ?? {}).forEach(([field, header]) => {
                 formData.append(`mapping[${field}]`, header ?? '');
             });
@@ -212,7 +217,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('onboarding_template_id', String(selectedTemplateId ?? ''));
+        if (selectedTemplateId) {
+            formData.append('employee_profile_template_id', String(selectedTemplateId));
+        }
         Object.entries(mapping).forEach(([field, header]) => {
             formData.append(`mapping[${field}]`, header ?? '');
         });
@@ -313,7 +320,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                         <Card className="glass-card">
                             <CardContent className="p-5">
                                 <div className="mb-1 flex items-center gap-2">
-                                    <label htmlFor="onboarding-template" className="text-sm font-semibold text-foreground">
+                                    <label htmlFor="profile-template" className="text-sm font-semibold text-foreground">
                                         Onboarding Template
                                     </label>
                                     <span className="rounded bg-destructive/10 px-1.5 py-0.5 text-[10px] font-medium text-destructive">Required</span>
@@ -323,7 +330,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                 </p>
                                 {templates.length === 0 ? (
                                     <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-500">
-                                        No onboarding templates found. Please create one before importing employees.
+                                        No profile templates found. Optional — import uses all columns when none is selected.
                                     </div>
                                 ) : (
                                     <AppSelect
@@ -359,7 +366,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                                         if (selectedTemplateId) {
 selectFile(event.dataTransfer.files?.[0] ?? null);
 } else {
-toast.error('Please select an onboarding template first.');
+toast.error('Template selection is optional for import.');
 }
                                     }}
                                     className={`flex min-h-[380px] w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed px-8 py-12 text-center transition-colors ${
@@ -378,7 +385,7 @@ toast.error('Please select an onboarding template first.');
                                         </div>
                                         <h1 className="text-xl font-bold text-foreground">Drop or upload a file to import</h1>
                                         <p className="mt-3 max-w-md text-sm text-muted-foreground">
-                                            {selectedTemplateId ? 'Excel files are recommended because formatting is automatic. CSV files are also supported.' : 'Select an onboarding template above to enable file upload.'}
+                                            Excel files are recommended because formatting is automatic. CSV files are also supported.
                                         </p>
                                         {selectedTemplateId ? <p className="mt-2 text-xs text-muted-foreground/70">Click this area or drag a file here.</p> : null}
                                     </button>

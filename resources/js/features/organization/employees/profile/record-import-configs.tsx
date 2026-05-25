@@ -16,6 +16,7 @@ import {
     importTemplate as workExperienceImportTemplate,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeWorkExperienceController';
 import type { EmployeeRecordImportDialogProps } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
+import { recordImportInputId } from '@/features/organization/employees/profile/resolve-record-import-urls';
 
 type RecordImportConfig = Pick<
     EmployeeRecordImportDialogProps,
@@ -44,9 +45,9 @@ function columnItem(label: string, detail: string): ReactElement {
     );
 }
 
-export function vaccinationImportConfig(employeeId: number): RecordImportConfig {
+export function vaccinationImportConfig(employeeId: number | null): RecordImportConfig {
     return {
-        inputId: `vaccination-import-${employeeId}`,
+        inputId: recordImportInputId('vaccination-import', employeeId),
         title: 'Import vaccinations',
         description:
             'New rows are added to this profile. Country must match an active country name in your master list when provided.',
@@ -71,9 +72,9 @@ export function vaccinationImportConfig(employeeId: number): RecordImportConfig 
     };
 }
 
-export function trainingImportConfig(employeeId: number): RecordImportConfig {
+export function trainingImportConfig(employeeId: number | null): RecordImportConfig {
     return {
-        inputId: `training-import-${employeeId}`,
+        inputId: recordImportInputId('training-import', employeeId),
         title: 'Import training',
         description:
             'Rows are appended to this employee’s training history. Course names must match active courses in master data.',
@@ -91,9 +92,9 @@ export function trainingImportConfig(employeeId: number): RecordImportConfig {
     };
 }
 
-export function workExperienceImportConfig(employeeId: number): RecordImportConfig {
+export function workExperienceImportConfig(employeeId: number | null): RecordImportConfig {
     return {
-        inputId: `work-experience-import-${employeeId}`,
+        inputId: recordImportInputId('work-experience-import', employeeId),
         title: 'Import work experience',
         description:
             'Rows are appended to this employee’s history. Omit date_to for ongoing roles when the spreadsheet column is present.',
@@ -112,9 +113,9 @@ export function workExperienceImportConfig(employeeId: number): RecordImportConf
     };
 }
 
-export function seaServiceImportConfig(employeeId: number): RecordImportConfig {
+export function seaServiceImportConfig(employeeId: number | null): RecordImportConfig {
     return {
-        inputId: `sea-service-import-${employeeId}`,
+        inputId: recordImportInputId('sea-service-import', employeeId),
         title: 'Import sea service',
         description:
             "Rows are appended to this employee's sea service history. Vessel type and rank must match active master data names exactly.",

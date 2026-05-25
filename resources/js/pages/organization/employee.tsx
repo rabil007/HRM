@@ -1,6 +1,13 @@
 import { Head, router, usePage } from '@inertiajs/react';
 import { AlertTriangle } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { EmployeeProfileShell } from '@/features/organization/employees/profile/employee-profile-shell';
+import { buildEmployeeProfileTabs } from '@/features/organization/employees/profile/employee-profile-tabs';
+import {
+    useEnsureEmployee,
+    type EnsuredEmployee,
+} from '@/features/organization/employees/profile/use-ensure-employee';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
 import { Main } from '@/components/layout/main';
@@ -15,9 +22,8 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EmployeeTabSkeleton } from '@/features/organization/employees/profile/components/employee-tab-skeleton';
-import { actions, tabs as dsTabs } from '@/lib/design-system';
+import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
 import { CreateEmployeeUserDialog } from '@/pages/organization/_components/create-employee-user-dialog';
 import { EmployeeDocumentsTab } from '@/pages/organization/_components/documents/employee-documents-tab';
@@ -37,6 +43,7 @@ import {
 } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type {
+    EmployeeDetails,
     EmployeePageProps,
     EmployeeTab,
 } from '@/pages/organization/employee-page.types';
@@ -65,16 +72,20 @@ function initialEmployeeTabFromLocation(): EmployeeTab {
 }
 
 export default function EmployeeDetails(props: EmployeePageProps) {
-    return (
-        <EmployeeDetailsPage
-            key={`${props.employee.id}-${props.employee.updated_at}`}
-            {...props}
-        />
-    );
+    const pageKey =
+        props.mode === 'create'
+            ? `create-${props.employee.id ?? 'new'}-${props.selected_profile_template_id ?? 'none'}`
+            : `${props.employee.id}-${props.employee.updated_at}`;
+
+    return <EmployeeDetailsPage key={pageKey} {...props} />;
 }
 
 function EmployeeDetailsPage({
-    employee_navigation,
+    mode = 'edit',
+    employee_navigation = null,
+    resolved_template,
+    profile_templates = [],
+    selected_profile_template_id = null,
     employee,
     contracts,
     documents,
@@ -103,17 +114,80 @@ function EmployeeDetailsPage({
     clients,
     employee_tabs,
 }: EmployeePageProps) {
+    const isCreateMode = mode === 'create';
+
     const { auth } = usePage().props as unknown as {
         auth?: { permissions?: string[] };
     };
 
-    const canUpdate = (auth?.permissions ?? []).includes('employees.update');
-    const recordsLoading = contracts === undefined;
+    const [localEmployee, setLocalEmployee] = useState(employee);
+    const formDraftRef = useRef({
+        name: String(employee.name ?? ''),
+        employee_no: String(employee.employee_no ?? ''),
+    });
+    const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(
+        selected_profile_template_id,
+    );
+
+    useEffect(() => {
+        if (isCreateMode) {
+            setLocalEmployee((current) => {
+                const incomingId = employee.id ?? null;
+                const currentId = current.id ?? null;
+
+                if (incomingId !== null && incomingId !== currentId) {
+                    return { ...current, ...employee };
+                }
+
+                return current;
+            });
+
+            return;
+        }
+
+        setLocalEmployee(employee);
+    }, [employee, isCreateMode]);
+
+    useEffect(() => {
+        if (!isCreateMode || typeof window === 'undefined') {
+            return;
+        }
+
+        if (EMPLOYEE_PAGE_TAB_HASH_KEYS[window.location.hash]) {
+            window.history.replaceState(
+                null,
+                '',
+                window.location.pathname + window.location.search,
+            );
+            setTabValue('personal');
+        }
+    }, [isCreateMode]);
+
+    const handleEnsured = useCallback((ensured: EnsuredEmployee) => {
+        setLocalEmployee((current) => ({
+            ...current,
+            id: ensured.id,
+            name: ensured.name,
+            employee_no: ensured.employee_no,
+        }));
+    }, []);
+
+    const canUpdate = isCreateMode
+        ? true
+        : (auth?.permissions ?? []).includes('employees.update');
+    const recordsLoading = !isCreateMode && contracts === undefined;
 
     void branches;
     void departments;
     void positions;
     void managers;
+
+    const ensureEmployee = useEnsureEmployee({
+        employeeId: localEmployee.id,
+        getDraftName: () => formDraftRef.current.name,
+        selectedProfileTemplateId: selectedTemplateId,
+        onEnsured: handleEnsured,
+    });
 
     const {
         form,
@@ -128,9 +202,20 @@ function EmployeeDetailsPage({
         isUploadingPhoto,
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
-        employee,
+        localEmployee as EmployeeDetails,
         canUpdate,
+        {
+            ensureEmployee: isCreateMode ? ensureEmployee : undefined,
+            templateRequiredFields:
+                employee_tabs.template_fields?.employees ??
+                resolved_template?.fields?.employees,
+        },
     );
+
+    formDraftRef.current = {
+        name: String(form.data.name ?? ''),
+        employee_no: String(form.data.employee_no ?? ''),
+    };
 
     const [tabValue, setTabValue] = useState<EmployeeTab>(
         initialEmployeeTabFromLocation,
@@ -142,7 +227,7 @@ function EmployeeDetailsPage({
     const [createUserOpen, setCreateUserOpen] = useState(false);
 
     const canCreateUser =
-        can.create_user && !employee.user;
+        !isCreateMode && (can?.create_user ?? false) && !localEmployee.user;
 
     const visitEmployeeProfile = useCallback(
         (employeeId: number) => {
@@ -158,121 +243,62 @@ function EmployeeDetailsPage({
         [employee_navigation?.list_query],
     );
 
-    const tabs = useMemo(() => {
-        const list = [
-            { id: 'personal' as const, label: 'Personal', count: null },
-            {
-                id: 'contract' as const,
-                label: 'Contract',
-                count:
-                    contracts === undefined ? null : (contracts.length || null),
-            },
-            {
-                id: 'bank' as const,
-                label: 'Bank',
-                count:
-                    bank_accounts === undefined
-                        ? null
-                        : employee.bank_id || employee.iban
-                          ? 1
-                          : (bank_accounts.length || null),
-            },
-            {
-                id: 'education' as const,
-                label: 'Education',
-                count:
-                    education_qualifications === undefined
-                        ? null
-                        : (education_qualifications.length || null),
-            },
-            {
-                id: 'work_experience' as const,
-                label: 'Work experience',
-                count:
-                    work_experiences === undefined
-                        ? null
-                        : (work_experiences.length || null),
-            },
-            {
-                id: 'vaccination' as const,
-                label: 'Vaccination',
-                count:
-                    vaccinations === undefined
-                        ? null
-                        : (vaccinations.length || null),
-            },
-            {
-                id: 'languages' as const,
-                label: 'Languages',
-                count:
-                    languages === undefined ? null : (languages.length || null),
-            },
-            {
-                id: 'training' as const,
-                label: 'Training',
-                count:
-                    trainings === undefined ? null : (trainings.length || null),
-            },
-            {
-                id: 'sea_service' as const,
-                label: 'Sea Service',
-                count:
-                    sea_services === undefined
-                        ? null
-                        : (sea_services.length || null),
-            },
-            {
-                id: 'documents' as const,
-                label: 'Documents',
-                count:
-                    documents === undefined ? null : (documents.length || null),
-            },
-        ] satisfies Array<{
-            id: EmployeeTab;
-            label: string;
-            count: number | null;
-        }>;
+    const effectiveEmployeeId = localEmployee.id ?? null;
 
-        return list.filter((tab) => {
-            switch (tab.id) {
-                case 'personal':
-                    return employee_tabs.personal;
-                case 'contract':
-                    return employee_tabs.contract;
-                case 'bank':
-                    return employee_tabs.bank;
-                case 'documents':
-                    return employee_tabs.documents;
-                case 'sea_service':
-                    return employee_tabs.sea_service;
-                case 'vaccination':
-                    return employee_tabs.vaccination;
-                case 'training':
-                    return employee_tabs.training;
-                default:
-                    return true;
-            }
-        });
-    }, [
-        employee_tabs.bank,
-        employee_tabs.contract,
-        employee_tabs.documents,
-        employee_tabs.personal,
-        employee_tabs.sea_service,
-        employee_tabs.vaccination,
-        employee_tabs.training,
-        contracts,
-        documents,
-        education_qualifications,
-        bank_accounts,
-        employee.bank_id,
-        employee.iban,
-        languages,
-        trainings,
-        sea_services,
-        vaccinations,
-        work_experiences,
-    ]);
+    const tabs = useMemo(
+        () =>
+            buildEmployeeProfileTabs({
+                employee_tabs,
+                counts: {
+                    contracts:
+                        contracts === undefined
+                            ? null
+                            : contracts.length || null,
+                    bank_accounts:
+                        bank_accounts === undefined
+                            ? null
+                            : localEmployee.bank_id || localEmployee.iban
+                              ? 1
+                              : bank_accounts.length || null,
+                    education_qualifications:
+                        education_qualifications === undefined
+                            ? null
+                            : education_qualifications.length || null,
+                    work_experiences:
+                        work_experiences === undefined
+                            ? null
+                            : work_experiences.length || null,
+                    vaccinations:
+                        vaccinations === undefined
+                            ? null
+                            : vaccinations.length || null,
+                    languages:
+                        languages === undefined ? null : languages.length || null,
+                    trainings:
+                        trainings === undefined ? null : trainings.length || null,
+                    sea_services:
+                        sea_services === undefined
+                            ? null
+                            : sea_services.length || null,
+                    documents:
+                        documents === undefined ? null : documents.length || null,
+                },
+            }),
+        [
+            employee_tabs,
+            contracts,
+            documents,
+            education_qualifications,
+            bank_accounts,
+            localEmployee.bank_id,
+            localEmployee.iban,
+            languages,
+            trainings,
+            sea_services,
+            vaccinations,
+            work_experiences,
+        ],
+    );
 
     const activeTab = useMemo((): EmployeeTab => {
         if (tabs.some((t) => t.id === tabValue)) {
@@ -305,7 +331,7 @@ function EmployeeDetailsPage({
 
     const handleNavigateEmployee = useCallback(
         (employeeId: number) => {
-            if (employeeId === employee.id) {
+            if (employeeId === localEmployee.id) {
                 return;
             }
 
@@ -319,12 +345,38 @@ function EmployeeDetailsPage({
             setPendingEmployeeId(employeeId);
             setUnsavedDialogOpen(true);
         },
-        [canUpdate, employee.id, isDirty, visitEmployeeProfile],
+        [canUpdate, localEmployee.id, isDirty, visitEmployeeProfile],
     );
+
+    const changeProfileTemplate = (templateId: string) => {
+        const nextId = templateId === '' ? null : Number.parseInt(templateId, 10);
+        setSelectedTemplateId(Number.isNaN(nextId as number) ? null : nextId);
+
+        const search = new URLSearchParams();
+
+        if (effectiveEmployeeId) {
+            search.set('employee_id', String(effectiveEmployeeId));
+        }
+
+        if (nextId) {
+            search.set('profile_template_id', String(nextId));
+        }
+
+        router.visit(
+            `/organization/employees/create${search.toString() ? `?${search}` : ''}`,
+            { preserveScroll: true },
+        );
+    };
 
     return (
         <>
-            <Head title={`Employee • ${displayName}`} />
+            <Head
+                title={
+                    isCreateMode
+                        ? `New employee • ${displayName}`
+                        : `Employee • ${displayName}`
+                }
+            />
             <Main className="min-h-screen bg-[radial-gradient(circle_at_top_right,rgba(99,102,241,0.10),transparent_28%),radial-gradient(circle_at_bottom_left,rgba(16,185,129,0.08),transparent_26%)] p-0">
                 <div className="w-full px-4 py-5 md:px-6 md:py-6 xl:px-8">
                     <div className="w-full space-y-6">
@@ -434,23 +486,67 @@ function EmployeeDetailsPage({
                             </AlertDialogContent>
                         </AlertDialog>
 
-                        <EmployeeProfileActionBar
-                            printCvUrl={printEmployeeCv.url(
-                                { employee: employee.id },
-                                { query: { format: 'pdf', inline: 1 } },
-                            )}
-                            employeeNavigation={employee_navigation}
-                            onNavigateEmployee={handleNavigateEmployee}
-                            showDocumentsButton={employee_tabs.documents && can.documents_view}
-                            documentCount={
-                                documents === undefined ? null : documents.length
-                            }
-                            documentsBrowseUrl={employeeDocumentsBrowse.url({
-                                employee: employee.id,
-                            })}
-                            showCreateUserButton={canCreateUser}
-                            onCreateUser={() => setCreateUserOpen(true)}
-                        />
+                        {isCreateMode ? (
+                            <div className="flex flex-col gap-4 rounded-2xl border border-border/60 bg-card/40 p-4 md:flex-row md:items-end md:justify-between">
+                                <div className="space-y-1">
+                                    <h1 className="text-lg font-semibold text-foreground">
+                                        New employee
+                                    </h1>
+                                    <p className="text-sm text-muted-foreground">
+                                        Enter a name, then add details in any tab. The
+                                        employee record is created when you first save.
+                                    </p>
+                                </div>
+                                <div className="flex w-full flex-col gap-3 md:w-auto md:min-w-[280px]">
+                                    <div className="space-y-1.5">
+                                        <label className="text-xs font-medium text-muted-foreground">
+                                            Profile template
+                                        </label>
+                                        <AppSelect
+                                            value={
+                                                selectedTemplateId
+                                                    ? String(selectedTemplateId)
+                                                    : ''
+                                            }
+                                            onValueChange={changeProfileTemplate}
+                                            placeholder="All tabs and fields (default)"
+                                        >
+                                            <AppSelectItem value="">
+                                                Default (show all)
+                                            </AppSelectItem>
+                                            {profile_templates.map((template) => (
+                                                <AppSelectItem
+                                                    key={template.id}
+                                                    value={String(template.id)}
+                                                >
+                                                    {template.name}
+                                                </AppSelectItem>
+                                            ))}
+                                        </AppSelect>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : (
+                            <EmployeeProfileActionBar
+                                printCvUrl={printEmployeeCv.url(
+                                    { employee: localEmployee.id as number },
+                                    { query: { format: 'pdf', inline: 1 } },
+                                )}
+                                employeeNavigation={employee_navigation}
+                                onNavigateEmployee={handleNavigateEmployee}
+                                showDocumentsButton={
+                                    employee_tabs.documents && (can?.documents_view ?? false)
+                                }
+                                documentCount={
+                                    documents === undefined ? null : documents.length
+                                }
+                                documentsBrowseUrl={employeeDocumentsBrowse.url({
+                                    employee: localEmployee.id as number,
+                                })}
+                                showCreateUserButton={canCreateUser}
+                                onCreateUser={() => setCreateUserOpen(true)}
+                            />
+                        )}
 
                         <CreateEmployeeUserDialog
                             open={createUserOpen}
@@ -464,7 +560,7 @@ function EmployeeDetailsPage({
 
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
-                            employee={employee}
+                            employee={localEmployee}
                             departments={departments}
                             positions={positions}
                             ranks={ranks}
@@ -483,37 +579,14 @@ function EmployeeDetailsPage({
                             templateProfileFields={employee_tabs.profile_fields}
                         />
 
-                        <div id="employee-tabs" className="space-y-4">
-                            <Tabs
-                                value={activeTab}
-                                onValueChange={(v) =>
-                                    handleTabChange(v as EmployeeTab)
-                                }
-                                className="w-full"
-                            >
-                                <div className="hide-scrollbar overflow-x-auto">
-                                    <TabsList className={cn(dsTabs.list, 'min-w-full flex-nowrap')}>
-                                        {tabs.map((tab) => (
-                                            <TabsTrigger
-                                                key={tab.id}
-                                                value={tab.id}
-                                                className={cn(dsTabs.trigger, 'group')}
-                                            >
-                                                {tab.label}
-                                                {tab.count !== null && (
-                                                    <span className="ml-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10px] font-bold tabular-nums text-muted-foreground group-data-[state=active]:bg-primary/20 group-data-[state=active]:text-primary">
-                                                        {tab.count}
-                                                    </span>
-                                                )}
-                                            </TabsTrigger>
-                                        ))}
-                                    </TabsList>
-                                </div>
-
-                                <div>
+                        <EmployeeProfileShell
+                            activeTab={activeTab}
+                            onTabChange={handleTabChange}
+                            tabs={tabs}
+                        >
                                     {employee_tabs.personal && activeTab === 'personal' ? (
                                         <EmployeePersonalTab
-                                            employee={employee}
+                                            employee={localEmployee}
                                             countries={countries}
                                             form={form}
                                             activeField={activeField}
@@ -526,9 +599,14 @@ function EmployeeDetailsPage({
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeContractTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 contracts={contracts ?? []}
-                                                canManage={can.contracts_manage}
+                                                canManage={can?.contracts_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
@@ -537,35 +615,54 @@ function EmployeeDetailsPage({
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeBankTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 bank_accounts={bank_accounts ?? []}
                                                 banks={banks}
-                                                canManage={can.bank_accounts_manage}
+                                                canManage={can?.bank_accounts_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
-                                    {activeTab === 'education' ? (
+                                    {employee_tabs.education !== false &&
+                                    activeTab === 'education' ? (
                                         recordsLoading ? (
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeEducationTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 education_qualifications={
                                                     education_qualifications ?? []
                                                 }
                                                 countries={countries}
-                                                canManage={can.education_manage}
+                                                canManage={can?.education_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
-                                    {activeTab === 'work_experience' ? (
+                                    {employee_tabs.work_experience !== false &&
+                                    activeTab === 'work_experience' ? (
                                         recordsLoading ? (
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeWorkExperienceTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 work_experiences={work_experiences ?? []}
-                                                canManage={can.work_experience_manage}
+                                                canManage={
+                                                    can?.work_experience_manage ?? false
+                                                }
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
@@ -575,21 +672,32 @@ function EmployeeDetailsPage({
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeVaccinationTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 vaccinations={vaccinations ?? []}
                                                 countries={countries}
-                                                canManage={can.vaccination_manage}
+                                                canManage={can?.vaccination_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
-                                    {activeTab === 'languages' ? (
+                                    {employee_tabs.languages !== false &&
+                                    activeTab === 'languages' ? (
                                         recordsLoading ? (
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeLanguagesTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 languages={languages ?? []}
-                                                canManage={can.languages_manage}
+                                                canManage={can?.languages_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
@@ -598,11 +706,16 @@ function EmployeeDetailsPage({
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeTrainingTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 trainings={trainings ?? []}
                                                 courses={courses ?? []}
                                                 countries={countries}
-                                                canManage={can.training_manage}
+                                                canManage={can?.training_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
@@ -612,13 +725,18 @@ function EmployeeDetailsPage({
                                             <EmployeeTabSkeleton />
                                         ) : (
                                             <EmployeeSeaServiceTab
-                                                employeeId={employee.id}
+                                                employeeId={effectiveEmployeeId}
                                                 sea_services={sea_services ?? []}
                                                 vessel_types={vessel_types ?? []}
                                                 ranks={ranks}
                                                 clients={clients ?? []}
-                                                employeeRankId={employee.rank_id ?? null}
-                                                canManage={can.sea_service_manage}
+                                                employeeRankId={localEmployee.rank_id ?? null}
+                                                canManage={can?.sea_service_manage ?? false}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
@@ -628,22 +746,28 @@ function EmployeeDetailsPage({
                                         ) : (
                                             <EmployeeDocumentsTab
                                                 employee={{
-                                                    id: employee.id,
-                                                    name: employee.name,
+                                                    id: localEmployee.id as number,
+                                                    name: localEmployee.name,
                                                 }}
                                                 documents={documents ?? []}
                                                 document_types={document_types ?? []}
                                                 can={{
-                                                    documents_upload: can.documents_upload,
-                                                    documents_download: can.documents_download,
-                                                    documents_delete: can.documents_delete,
+                                                    documents_upload:
+                                                        can?.documents_upload ?? false,
+                                                    documents_download:
+                                                        can?.documents_download ?? false,
+                                                    documents_delete:
+                                                        can?.documents_delete ?? false,
                                                 }}
+                                                ensureEmployee={
+                                                    isCreateMode
+                                                        ? ensureEmployee
+                                                        : undefined
+                                                }
                                             />
                                         )
                                     ) : null}
-                                </div>
-                            </Tabs>
-                        </div>
+                        </EmployeeProfileShell>
                     </div>
                 </div>
             </Main>

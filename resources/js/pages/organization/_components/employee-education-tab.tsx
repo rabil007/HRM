@@ -33,6 +33,7 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { EducationQualificationItem } from '@/pages/organization/employee-page.types';
 
 const EDUCATION_RELOAD = {
@@ -41,10 +42,11 @@ const EDUCATION_RELOAD = {
 } as const;
 
 export type EmployeeEducationTabProps = {
-    employeeId: number;
+    employeeId: number | null;
     education_qualifications: EducationQualificationItem[];
     countries: CountryOption[];
     canManage: boolean;
+    ensureEmployee?: () => Promise<number>;
 };
 
 export function EmployeeEducationTab({
@@ -52,6 +54,7 @@ export function EmployeeEducationTab({
     education_qualifications,
     countries,
     canManage,
+    ensureEmployee,
 }: EmployeeEducationTabProps): ReactElement {
     const [educationDialogOpen, setEducationDialogOpen] = useState(false);
     const [editingEducation, setEditingEducation] =
@@ -281,7 +284,18 @@ export function EmployeeEducationTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={educationForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 educationForm.clearErrors();
                                 educationForm.transform((data) => ({
                                     certificate: data.certificate.trim(),
@@ -301,10 +315,10 @@ export function EmployeeEducationTab({
 
                                 const url = editingEducation
                                     ? update.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           qualification: editingEducation.id,
                                       })
-                                    : store.url({ employee: employeeId });
+                                    : store.url({ employee: resolvedEmployeeId });
 
                                 if (editingEducation) {
                                     educationForm.put(url, {
@@ -342,7 +356,7 @@ export function EmployeeEducationTab({
                 title="Remove qualification?"
                 description="This education record will be permanently removed."
                 destroyUrl={
-                    deleteEducationId
+                    deleteEducationId && employeeId
                         ? destroy.url({
                               employee: employeeId,
                               qualification: deleteEducationId,

@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     destroy as destroyWorkExperience,
     store as storeWorkExperience,
@@ -21,6 +21,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { workExperienceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -34,6 +35,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { WorkExperienceItem } from '@/pages/organization/employee-page.types';
 
 const WORK_EXPERIENCE_RELOAD = {
@@ -42,13 +44,15 @@ const WORK_EXPERIENCE_RELOAD = {
 } as const;
 
 export type EmployeeWorkExperienceTabProps = {
-    employeeId: number;
+    employeeId: number | null;
+    ensureEmployee?: () => Promise<number>;
     work_experiences: WorkExperienceItem[];
     canManage: boolean;
 };
 
 export function EmployeeWorkExperienceTab({
     employeeId,
+    ensureEmployee,
     work_experiences,
     canManage,
 }: EmployeeWorkExperienceTabProps): ReactElement {
@@ -71,6 +75,15 @@ export function EmployeeWorkExperienceTab({
     });
 
     const workExperienceImport = workExperienceImportConfig(employeeId);
+    const workExperienceImportUrls = useMemo(
+        () =>
+            resolveRecordImportUrls(
+                workExperienceImportConfig(employeeId),
+                employeeId,
+            ),
+        [employeeId],
+    );
+    const canImportRecords = employeeId !== null && employeeId > 0;
 
     return (
         <TabsContent value="work_experience" className="mt-6">
@@ -87,6 +100,7 @@ export function EmployeeWorkExperienceTab({
                                 variant="outline"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
+                                disabled={!canImportRecords}
                                 onClick={() => setWorkExperienceImportOpen(true)}
                             >
                                 Import CSV
@@ -304,7 +318,18 @@ export function EmployeeWorkExperienceTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={workExperienceForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 workExperienceForm.clearErrors();
                                 workExperienceForm.transform((data) => ({
                                     company_name: data.company_name.trim(),
@@ -322,12 +347,12 @@ export function EmployeeWorkExperienceTab({
 
                                 const url = editingWorkExperience
                                     ? updateWorkExperience.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           workExperience:
                                               editingWorkExperience.id,
                                       })
                                     : storeWorkExperience.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                       });
 
                                 if (editingWorkExperience) {
@@ -366,7 +391,7 @@ export function EmployeeWorkExperienceTab({
                 title="Remove work experience?"
                 description="This entry will be permanently removed."
                 destroyUrl={
-                    deleteWorkExperienceId
+                    deleteWorkExperienceId && employeeId
                         ? destroyWorkExperience.url({
                               employee: employeeId,
                               workExperience: deleteWorkExperienceId,
@@ -385,8 +410,8 @@ export function EmployeeWorkExperienceTab({
                 templateHint={workExperienceImport.templateHint}
                 columnHelp={workExperienceImport.columnHelp}
                 reloadOnly={workExperienceImport.reloadOnly}
-                importUrl={workExperienceImport.importUrl(employeeId)}
-                templateUrl={workExperienceImport.templateUrl(employeeId)}
+                importUrl={workExperienceImportUrls.importUrl}
+                templateUrl={workExperienceImportUrls.templateUrl}
             />
         </TabsContent>
     );

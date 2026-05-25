@@ -35,7 +35,9 @@ const DOCUMENTS_RELOAD = {
 } as const;
 
 export type EmployeeDocumentsTabProps = {
-    employee: Pick<EmployeeDetails, 'id' | 'name'>;
+    employee: Pick<EmployeeDetails, 'id' | 'name'> & {
+        id: number | null;
+    };
     documents: DocumentProfileItem[];
     document_types: DocumentTypeOption[];
     can: {
@@ -43,6 +45,7 @@ export type EmployeeDocumentsTabProps = {
         documents_download: boolean;
         documents_delete: boolean;
     };
+    ensureEmployee?: () => Promise<number>;
 };
 
 export function EmployeeDocumentsTab({
@@ -50,7 +53,10 @@ export function EmployeeDocumentsTab({
     documents,
     document_types,
     can,
+    ensureEmployee,
 }: EmployeeDocumentsTabProps): ReactElement {
+    const employeeId = employee.id;
+    const hasEmployeeId = employeeId !== null && employeeId > 0;
     const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
@@ -67,17 +73,23 @@ export function EmployeeDocumentsTab({
                 emptyMessage="No documents uploaded."
                 actions={
                     <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                            asChild
-                            variant="outline"
-                            size="sm"
-                            className="h-8 gap-1.5 border-border bg-muted/50 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                            <Link href={employeeDocumentsBrowse.url({ employee: employee.id })}>
-                                <FolderOpen className="h-3.5 w-3.5" />
-                                Open Documents
-                            </Link>
-                        </Button>
+                        {hasEmployeeId ? (
+                            <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className="h-8 gap-1.5 border-border bg-muted/50 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+                            >
+                                <Link
+                                    href={employeeDocumentsBrowse.url({
+                                        employee: employeeId,
+                                    })}
+                                >
+                                    <FolderOpen className="h-3.5 w-3.5" />
+                                    Open Documents
+                                </Link>
+                            </Button>
+                        ) : null}
                         {can.documents_upload ? (
                             <Button size="sm" className="h-8 gap-1.5 text-xs" onClick={() => setUploadOpen(true)}>
                                 + Upload Document
@@ -165,32 +177,41 @@ export function EmployeeDocumentsTab({
             <UploadDocumentDialog
                 open={uploadOpen}
                 onOpenChange={setUploadOpen}
-                employeeId={employee.id}
+                employeeId={employeeId}
                 employeeName={employee.name}
                 documentTypes={document_types}
+                ensureEmployee={ensureEmployee}
             />
 
-            <EditDocumentDialog
-                key={editDoc?.id ?? 'closed'}
-                document={editDoc}
-                employeeId={employee.id}
-                onOpenChange={(open) => !open && setEditDoc(null)}
-            />
+            {hasEmployeeId ? (
+                <EditDocumentDialog
+                    key={editDoc?.id ?? 'closed'}
+                    document={editDoc}
+                    employeeId={employeeId}
+                    onOpenChange={(open) => !open && setEditDoc(null)}
+                />
+            ) : null}
 
-            <ReplaceDocumentDialog
-                document={replaceDoc}
-                employeeId={employee.id}
-                onOpenChange={(open) => !open && setReplaceDoc(null)}
-            />
+            {hasEmployeeId ? (
+                <ReplaceDocumentDialog
+                    document={replaceDoc}
+                    employeeId={employeeId}
+                    onOpenChange={(open) => !open && setReplaceDoc(null)}
+                />
+            ) : null}
 
-            <DocumentVersionsSheet
-                open={!!versionDoc}
-                onOpenChange={(open) => !open && setVersionDoc(null)}
-                employeeId={employee.id}
-                documentId={versionDoc?.id ?? null}
-                documentTitle={versionDoc?.title ?? versionDoc?.document_type_label ?? null}
-                showDownload={can.documents_download}
-            />
+            {hasEmployeeId ? (
+                <DocumentVersionsSheet
+                    open={!!versionDoc}
+                    onOpenChange={(open) => !open && setVersionDoc(null)}
+                    employeeId={employeeId}
+                    documentId={versionDoc?.id ?? null}
+                    documentTitle={
+                        versionDoc?.title ?? versionDoc?.document_type_label ?? null
+                    }
+                    showDownload={can.documents_download}
+                />
+            ) : null}
 
             <DocumentPreviewDialog
                 document={previewDoc}
@@ -201,13 +222,13 @@ export function EmployeeDocumentsTab({
                 open={!!deleteDocId}
                 onOpenChange={(open) => !open && setDeleteDocId(null)}
                 onConfirm={() => {
-                    if (!deleteDocId) {
+                    if (!deleteDocId || !hasEmployeeId) {
                         return;
                     }
 
                     router.delete(
                         EmployeeDocumentController.destroy.url({
-                            employee: employee.id,
+                            employee: employeeId,
                             document: deleteDocId,
                         }),
                         {

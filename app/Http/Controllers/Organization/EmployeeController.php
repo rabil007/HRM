@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
+use App\Http\Requests\Organization\Employee\StoreEnsureEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
-use App\Models\OnboardingTemplate;
+use App\Models\EmployeeProfileTemplate;
 use App\Support\Employees\Actions\CreateEmployee;
+use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -80,51 +82,65 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $rankId = (int) request()->query('rank_id', 0);
+        $requestedTemplateId = (int) request()->query('profile_template_id', 0);
+        $selectedTemplate = $requestedTemplateId > 0
+            ? EmployeeProfileTemplate::query()
+                ->where('company_id', $companyId)
+                ->where('is_active', true)
+                ->find($requestedTemplateId)
+            : null;
 
-        $allTemplates = OnboardingTemplate::query()
-            ->where('company_id', $companyId)
-            ->orderByDesc('is_default')
-            ->orderBy('name')
-            ->get(['id', 'name', 'description', 'is_default', 'tasks']);
-
-        if ($allTemplates->isEmpty()) {
-            $message = 'No onboarding template found for this company. Please create one before adding employees.';
-
-            if (request()->user()?->can('onboarding.templates.create')) {
-                return redirect()
-                    ->route('onboarding.templates.create')
-                    ->with('error', $message);
-            }
-
-            return redirect()
-                ->route('organization.employees')
-                ->with('error', $message);
+        $employee = null;
+        $employeeId = (int) request()->query('employee_id', 0);
+        if ($employeeId > 0) {
+            $employee = Employee::query()
+                ->where('company_id', $companyId)
+                ->where('id', $employeeId)
+                ->first();
+            abort_unless($employee instanceof Employee, 404);
+            $employee->load([
+                'branch:id,name',
+                'department:id,name',
+                'position:id,title',
+                'rank:id,name',
+                'manager:id,name,employee_no',
+                'user:id,name,email,avatar',
+                'religionRef:id,name',
+                'genderRef:id,name',
+                'visaTypeRef:id,name',
+                'nationalityRef:id,name,code',
+                'bankAccounts.bank:id,name',
+                'primaryBankAccount.bank:id,name',
+                'currentContract',
+                'employeeProfileTemplate:id,name,configuration_json',
+            ]);
         }
 
-        $requestedId = (int) request()->query('template_id', 0);
+        return Inertia::render(
+            'organization/employee',
+            EmployeeProfilePageData::forCreate($companyId, request(), $employee, $selectedTemplate),
+        );
+    }
 
-        $templateId = $requestedId && $allTemplates->contains('id', $requestedId)
-            ? $requestedId
-            : ($allTemplates->firstWhere('is_default', true)?->id ?? $allTemplates->first()?->id);
+    public function ensure(StoreEnsureEmployeeRequest $request, CreateEmployeeFromName $createEmployeeFromName)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $validated = $request->validated();
 
-        $template = OnboardingTemplate::query()->find($templateId);
+        $employee = $createEmployeeFromName->handle(
+            $validated['name'],
+            $companyId,
+            isset($validated['employee_profile_template_id'])
+                ? (int) $validated['employee_profile_template_id']
+                : null,
+        );
 
-        return Inertia::render('organization/employee-create', [
-            'template' => [
-                'id' => $template->id,
-                'name' => $template->name,
-                'description' => $template->description,
-                'tasks' => $template->tasks,
+        return response()->json([
+            'employee' => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_no' => $employee->employee_no,
             ],
-            'selectedRankId' => $rankId > 0 ? $rankId : null,
-            'allTemplates' => $allTemplates->map(fn (OnboardingTemplate $onboardingTemplate) => [
-                'id' => $onboardingTemplate->id,
-                'name' => $onboardingTemplate->name,
-                'description' => $onboardingTemplate->description,
-                'is_default' => $onboardingTemplate->is_default,
-            ]),
-            'options' => EmployeeFormOptions::forCreate($companyId),
         ]);
     }
 

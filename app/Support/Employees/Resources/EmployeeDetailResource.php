@@ -101,10 +101,11 @@ final class EmployeeDetailResource
             'status' => $employee->status,
             'termination_date' => $employee->termination_date,
             'termination_reason' => $employee->termination_reason,
-            'onboarding_template' => $employee->onboarding_template_id ? [
-                'id' => $employee->onboarding_template_id,
-                'name' => $employee->onboardingTemplate?->name,
+            'employee_profile_template' => $employee->employee_profile_template_id ? [
+                'id' => $employee->employee_profile_template_id,
+                'name' => $employee->employeeProfileTemplate?->name,
             ] : null,
+            'employee_profile_template_id' => $employee->employee_profile_template_id,
             'created_at' => $employee->created_at,
             'updated_at' => $employee->updated_at,
         ];

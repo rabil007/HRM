@@ -3,19 +3,28 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * Legacy model retained for historical migrations only.
+ *
+ * @deprecated Replaced by {@see EmployeeProfileTemplate}. Table is dropped by
+ *             2026_05_25_103422_replace_onboarding_template_with_employee_profile_template_on_employees_table.
+ */
 class OnboardingTemplate extends Model
 {
-    protected $guarded = [];
-
-    protected $casts = [
-        'tasks' => 'array',
-        'is_default' => 'boolean',
+    protected $fillable = [
+        'company_id',
+        'name',
+        'description',
+        'is_default',
+        'tasks',
     ];
 
-    public function company(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Company::class);
+        return [
+            'is_default' => 'boolean',
+            'tasks' => 'array',
+        ];
     }
 }

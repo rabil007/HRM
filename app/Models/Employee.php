@@ -148,9 +148,9 @@ class Employee extends Model
         );
     }
 
-    public function onboardingTemplate(): BelongsTo
+    public function employeeProfileTemplate(): BelongsTo
     {
-        return $this->belongsTo(OnboardingTemplate::class);
+        return $this->belongsTo(EmployeeProfileTemplate::class);
     }
 
     public function documents(): HasMany

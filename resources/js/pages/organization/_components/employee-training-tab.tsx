@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
     destroy as destroyTraining,
     store as storeTraining,
@@ -24,6 +24,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { trainingImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
@@ -40,6 +41,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CourseOption, TrainingItem } from '@/pages/organization/employee-page.types';
 
 const TRAINING_RELOAD = {
@@ -48,7 +50,8 @@ const TRAINING_RELOAD = {
 } as const;
 
 export type EmployeeTrainingTabProps = {
-    employeeId: number;
+    employeeId: number | null;
+    ensureEmployee?: () => Promise<number>;
     trainings: TrainingItem[];
     courses: CourseOption[];
     countries: CountryOption[];
@@ -57,6 +60,7 @@ export type EmployeeTrainingTabProps = {
 
 export function EmployeeTrainingTab({
     employeeId,
+    ensureEmployee,
     trainings,
     courses,
     countries,
@@ -85,13 +89,30 @@ export function EmployeeTrainingTab({
     });
 
     const trainingImport = trainingImportConfig(employeeId);
+    const trainingImportUrls = useMemo(
+        () =>
+            resolveRecordImportUrls(trainingImportConfig(employeeId), employeeId),
+        [employeeId],
+    );
+    const canImportRecords = employeeId !== null && employeeId > 0;
 
     const { selectOptions: courseSelectOptions, appendOption: appendCourseOption } =
         useMutableSelectOptions(courses);
     const { canCreate: canCreateCourse, createConfig: courseCreateConfig } =
         useCreatableMasterData('course');
 
-    const submitTraining = () => {
+    const submitTraining = async () => {
+        let resolvedEmployeeId: number;
+
+        try {
+            resolvedEmployeeId = await resolveEmployeeIdForSave(
+                employeeId,
+                ensureEmployee,
+            );
+        } catch {
+            return;
+        }
+
         trainingForm.clearErrors();
         trainingForm.transform((data) => ({
             course_id: data.course_id,
@@ -104,10 +125,10 @@ export function EmployeeTrainingTab({
 
         const url = editingTraining
             ? updateTraining.url({
-                  employee: employeeId,
+                  employee: resolvedEmployeeId,
                   training: editingTraining.id,
               })
-            : storeTraining.url({ employee: employeeId });
+            : storeTraining.url({ employee: resolvedEmployeeId });
 
         const options = {
             ...TRAINING_RELOAD,
@@ -145,6 +166,7 @@ export function EmployeeTrainingTab({
                                 variant="outline"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
+                                disabled={!canImportRecords}
                                 onClick={() => setTrainingImportOpen(true)}
                             >
                                 Import CSV
@@ -450,7 +472,7 @@ export function EmployeeTrainingTab({
                 title="Remove training record?"
                 description="This entry will be permanently removed."
                 destroyUrl={
-                    deleteTrainingId
+                    deleteTrainingId && employeeId
                         ? destroyTraining.url({
                               employee: employeeId,
                               training: deleteTrainingId,
@@ -469,8 +491,8 @@ export function EmployeeTrainingTab({
                 templateHint={trainingImport.templateHint}
                 columnHelp={trainingImport.columnHelp}
                 reloadOnly={trainingImport.reloadOnly}
-                importUrl={trainingImport.importUrl(employeeId)}
-                templateUrl={trainingImport.templateUrl(employeeId)}
+                importUrl={trainingImportUrls.importUrl}
+                templateUrl={trainingImportUrls.templateUrl}
             />
         </TabsContent>
     );

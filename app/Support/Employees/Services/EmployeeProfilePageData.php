@@ -11,19 +11,20 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeLanguage;
+use App\Models\EmployeeProfileTemplate;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\VesselType;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\ResolveEmployeeNavigation;
 use App\Support\Employees\Resources\EmployeeContractResource;
 use App\Support\Employees\Resources\EmployeeDetailResource;
 use App\Support\Employees\Resources\EmployeeDocumentResource;
-use App\Support\OnboardingTemplateTabVisibility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
@@ -53,7 +54,7 @@ final class EmployeeProfilePageData
             'bankAccounts.bank:id,name',
             'primaryBankAccount.bank:id,name',
             'currentContract',
-            'onboardingTemplate:id,name,tasks',
+            'employeeProfileTemplate:id,name,configuration_json',
         ]);
 
         $profileLookups = EmployeeFormOptions::forProfile($companyId, $employee, []);
@@ -77,8 +78,10 @@ final class EmployeeProfilePageData
             ->get(['id', 'name']);
 
         return [
+            'mode' => 'edit',
             'employee_navigation' => $employeeNavigation,
             'employee' => EmployeeDetailResource::toArray($employee),
+            'resolved_template' => EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate),
             'roles' => $roles,
             'can' => [
                 'create_user' => $authUser?->can('employees.update') && $authUser?->can('users.create'),
@@ -164,48 +167,126 @@ final class EmployeeProfilePageData
     /**
      * @return array<string, mixed>
      */
-    private static function employeeTabsPayload(Employee $employee, ?User $authUser): array
+    public static function forCreate(int $companyId, Request $request, ?Employee $employee = null, ?EmployeeProfileTemplate $selectedTemplate = null): array
     {
-        $employeeTabsPayload = [
-            'personal' => true,
-            'contract' => true,
-            'bank' => true,
-            'documents' => true,
-            'sea_service' => true,
-            'vaccination' => true,
-            'training' => true,
+        $authUser = $request->user();
+        $resolved = $selectedTemplate !== null
+            ? EmployeeProfileTemplateResolver::resolve($selectedTemplate)
+            : ($employee?->employeeProfileTemplate !== null
+                ? EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate)
+                : EmployeeProfileTemplateResolver::defaults());
+
+        $employeeTabsPayload = self::applyDocumentsPermission($resolved['employee_tabs'], $authUser);
+
+        $profileTemplates = EmployeeProfileTemplate::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'description']);
+
+        $formOptions = EmployeeFormOptions::for($companyId, $employee);
+        $profileLookups = $employee !== null
+            ? EmployeeFormOptions::forProfile($companyId, $employee, [])
+            : ['ranks' => EmployeeFormOptions::forCreate($companyId)['ranks']];
+
+        $employeeId = $employee?->id;
+        $employeePayload = $employee !== null
+            ? EmployeeDetailResource::toArray($employee)
+            : self::placeholderEmployee();
+
+        $base = [
+            'mode' => 'create',
+            'employee_navigation' => null,
+            'employee' => $employeePayload,
+            'resolved_template' => $resolved,
+            'profile_templates' => $profileTemplates,
+            'selected_profile_template_id' => $selectedTemplate?->id ?? $employee?->employee_profile_template_id,
+            'roles' => [],
+            'can' => self::permissionsPayload($authUser),
+            'branches' => $formOptions['branches'],
+            'departments' => $formOptions['departments'],
+            'positions' => $formOptions['positions'],
+            'managers' => $formOptions['managers'],
+            'countries' => $formOptions['countries'],
+            'religions' => $formOptions['religions'],
+            'genders' => $formOptions['genders'],
+            'visa_types' => $formOptions['visa_types'],
+            'banks' => $formOptions['banks'],
+            'ranks' => $profileLookups['ranks'],
+            'employee_tabs' => $employeeTabsPayload,
+            'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],
+            'documents' => $employeeId ? self::documents($companyId, $employeeId) : [],
+            'education_qualifications' => $employeeId ? self::educationQualifications($companyId, $employeeId) : [],
+            'work_experiences' => $employeeId ? self::workExperiences($companyId, $employeeId) : [],
+            'vaccinations' => $employeeId ? self::vaccinations($companyId, $employeeId) : [],
+            'languages' => $employeeId ? self::languages($companyId, $employeeId) : [],
+            'bank_accounts' => $employeeId ? self::bankAccounts($companyId, $employeeId) : [],
+            'sea_services' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['sea_services'] : [],
+            'document_types' => self::documentTypes($companyId),
+            'vessel_types' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessel_types'] : VesselType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (VesselType $v) => ['id' => $v->id, 'name' => $v->name])->all(),
+            'clients' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['clients'] : Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (Client $c) => ['id' => $c->id, 'name' => $c->name])->all(),
+            'trainings' => $employeeId ? self::trainings($companyId, $employeeId) : [],
+            'courses' => self::courseOptions(),
         ];
 
-        $enabledProfileFields = null;
+        return $base;
+    }
 
-        if ($employee->onboarding_template_id) {
-            $tasks = is_array($employee->onboardingTemplate?->tasks) ? $employee->onboardingTemplate->tasks : null;
+    /**
+     * @return array<string, mixed>
+     */
+    private static function placeholderEmployee(): array
+    {
+        return [
+            'id' => null,
+            'name' => '',
+            'employee_no' => '',
+            'status' => 'active',
+        ];
+    }
 
-            $employeeTabsPayload = OnboardingTemplateTabVisibility::fromTasks($tasks);
+    /**
+     * @return array<string, mixed>
+     */
+    private static function permissionsPayload(?User $authUser): array
+    {
+        return [
+            'create_user' => false,
+            'documents_view' => $authUser?->can('documents.view') ?? false,
+            'documents_download' => $authUser?->can('documents.download') ?? false,
+            'documents_upload' => $authUser?->can('documents.upload') ?? false,
+            'documents_delete' => $authUser?->can('documents.delete') ?? false,
+            'education_manage' => $authUser?->can('employees.education.manage') ?? false,
+            'contracts_manage' => $authUser?->can('employees.contracts.manage') ?? false,
+            'work_experience_manage' => $authUser?->can('employees.work_experience.manage') ?? false,
+            'vaccination_manage' => $authUser?->can('employees.vaccination.manage') ?? false,
+            'languages_manage' => $authUser?->can('employees.languages.manage') ?? false,
+            'bank_accounts_manage' => $authUser?->can('employees.bank_accounts.manage') ?? false,
+            'sea_service_manage' => $authUser?->can('employees.sea_service.manage') ?? false,
+            'training_manage' => $authUser?->can('employees.training.manage') ?? false,
+        ];
+    }
 
-            if (is_array($tasks) && isset($tasks['stages']) && is_array($tasks['stages'])) {
-                $enabledProfileFields = [];
-
-                foreach ($tasks['stages'] as $stage) {
-                    if (is_array($stage['employee_fields'] ?? null)) {
-                        foreach ($stage['employee_fields'] as $field) {
-                            $key = is_array($field) ? ($field['key'] ?? '') : (string) $field;
-                            if ($key !== '') {
-                                $enabledProfileFields[] = $key;
-                            }
-                        }
-                    }
-                }
-
-                $enabledProfileFields = array_values(array_unique($enabledProfileFields));
-            }
-        }
-
+    /**
+     * @param  array<string, mixed>  $employeeTabsPayload
+     * @return array<string, mixed>
+     */
+    private static function applyDocumentsPermission(array $employeeTabsPayload, ?User $authUser): array
+    {
         $employeeTabsPayload['documents'] = ($employeeTabsPayload['documents'] ?? false)
             && ($authUser?->can('documents.view') ?? false);
-        $employeeTabsPayload['profile_fields'] = $enabledProfileFields;
 
         return $employeeTabsPayload;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function employeeTabsPayload(Employee $employee, ?User $authUser): array
+    {
+        $resolved = EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate);
+
+        return self::applyDocumentsPermission($resolved['employee_tabs'], $authUser);
     }
 
     /**

@@ -50,8 +50,6 @@ export function EditableHeaderNameField({
     );
 }
 
-// Fix: used canUpdate instead of canEdit - typo in above
-
 export type EditableHeaderPillTextFieldProps = {
     field: string;
     value: string;

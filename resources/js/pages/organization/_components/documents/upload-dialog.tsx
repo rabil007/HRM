@@ -30,6 +30,7 @@ import {
 } from '@/features/organization/documents/upload/upload-draft';
 import type {UploadDraft, UploadDraftFieldErrors, UploadDraftMetadata} from '@/features/organization/documents/upload/upload-draft';
 import { actions } from '@/lib/design-system';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { toast } from '@/lib/toast';
 
 const DOCUMENTS_RELOAD = {
@@ -43,12 +44,14 @@ export function UploadDocumentDialog({
     employeeId,
     employeeName,
     documentTypes,
+    ensureEmployee,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    employeeId: number;
+    employeeId: number | null;
     employeeName: string;
     documentTypes: DocumentTypeOption[];
+    ensureEmployee?: () => Promise<number>;
 }): ReactElement {
     const [drafts, setDrafts] = useState<UploadDraft[]>([]);
     const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
@@ -203,8 +206,19 @@ export function UploadDocumentDialog({
 
     const canUpload = allDraftsHaveDocumentType(drafts) && !isUploading;
 
-    const submitUpload = useCallback(() => {
+    const submitUpload = useCallback(async () => {
         if (!canUpload) {
+            return;
+        }
+
+        let resolvedEmployeeId: number;
+
+        try {
+            resolvedEmployeeId = await resolveEmployeeIdForSave(
+                employeeId,
+                ensureEmployee,
+            );
+        } catch {
             return;
         }
 
@@ -212,7 +226,7 @@ export function UploadDocumentDialog({
         setFieldErrorsByIndex(new Map());
 
         router.post(
-            EmployeeDocumentController.bulkStore.url({ employee: employeeId }),
+            EmployeeDocumentController.bulkStore.url({ employee: resolvedEmployeeId }),
             {
                 documents: drafts.map((draft) => ({
                     document_type_id: draft.document_type_id,
@@ -246,7 +260,7 @@ export function UploadDocumentDialog({
                 onFinish: () => setIsUploading(false),
             },
         );
-    }, [canUpload, drafts, employeeId, onOpenChange, resetUploadDialog]);
+    }, [canUpload, drafts, employeeId, ensureEmployee, onOpenChange, resetUploadDialog]);
 
     return (
         <Dialog

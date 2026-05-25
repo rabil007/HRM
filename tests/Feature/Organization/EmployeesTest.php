@@ -8,11 +8,12 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
-use App\Models\OnboardingTemplate;
+use App\Models\EmployeeProfileTemplate;
 use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\VisaType;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -117,7 +118,7 @@ test('authenticated users can view an employee details page', function () {
         ));
 });
 
-test('employee profile includes onboarding template when assigned', function () {
+test('employee profile includes profile template when assigned', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -146,17 +147,16 @@ test('employee profile includes onboarding template when assigned', function () 
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Office Staff Template',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -165,9 +165,9 @@ test('employee profile includes onboarding template when assigned', function () 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/employee')
-            ->where('employee.onboarding_template.id', $template->id)
-            ->where('employee.onboarding_template.name', 'Office Staff Template')
-            ->where('employee_tabs.profile_fields', [])
+            ->where('employee.employee_profile_template.id', $template->id)
+            ->where('employee.employee_profile_template.name', 'Office Staff Template')
+            ->has('employee_tabs.profile_fields')
         );
 });
 
@@ -200,46 +200,31 @@ test('employee profile profile_fields excludes unchecked template fields such as
         'status' => 'active',
     ]);
 
-    $officeTasks = [
-        'version' => 2,
-        'stages' => [
-            [
-                'key' => 'profile_info',
-                'label' => 'Profile Information',
-                'employee_fields' => [
-                    ['key' => 'employee_no', 'required' => true],
-                    ['key' => 'name', 'required' => true],
-                    ['key' => 'work_email', 'required' => true],
-                    ['key' => 'phone', 'required' => true],
-                    ['key' => 'nationality_id', 'required' => true],
-                    ['key' => 'religion_id', 'required' => true],
-                    ['key' => 'marital_status', 'required' => true],
-                    ['key' => 'image', 'required' => true],
-                    ['key' => 'date_of_birth', 'required' => true],
-                    ['key' => 'passport_number', 'required' => true],
-                    ['key' => 'emirates_id', 'required' => true],
-                    ['key' => 'labor_card_number', 'required' => true],
-                    ['key' => 'department_id', 'required' => true],
-                    ['key' => 'position_id', 'required' => true],
-                ],
-                'bank_account_fields' => [],
-                'contract_fields' => [],
-                'documents' => [],
-            ],
-        ],
-    ];
-
-    $template = OnboardingTemplate::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Office',
-        'is_default' => true,
-        'tasks' => $officeTasks,
-    ]);
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Office',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'work_email',
+            'phone',
+            'nationality_id',
+            'religion_id',
+            'marital_status',
+            'image',
+            'date_of_birth',
+            'passport_number',
+            'emirates_id',
+            'labor_card_number',
+            'department_id',
+            'position_id',
+        ]),
+    );
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -286,33 +271,20 @@ test('employee profile profile_fields includes visa_type_id when enabled in temp
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Visa Template',
-        'is_default' => true,
-        'tasks' => [
-            'version' => 2,
-            'stages' => [
-                [
-                    'key' => 'profile_info',
-                    'label' => 'Profile',
-                    'employee_fields' => [
-                        ['key' => 'employee_no', 'required' => true],
-                        ['key' => 'name', 'required' => true],
-                        ['key' => 'visa_type_id', 'required' => false],
-                    ],
-                    'bank_account_fields' => [],
-                    'contract_fields' => [],
-                    'documents' => [],
-                ],
-            ],
-        ],
-    ]);
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Visa Template',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'visa_type_id',
+        ]),
+    );
 
     $employee = Employee::factory()
         ->forCompany($company)
         ->create([
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     grantCompanyPermissions($user, $company, ['employees.view']);
@@ -365,17 +337,16 @@ test('employee can be created and updated with visa_type_id', function () {
         'is_active' => true,
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Minimal',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.view']);
 
     $this->post('/organization/employees', [
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
         'employee_no' => 'EMP-VISA',
         'name' => 'Visa Holder',
         'start_date' => '2026-01-01',
@@ -531,11 +502,10 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'is_active' => true,
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard Onboarding',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.delete', 'employees.view']);
@@ -546,7 +516,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     );
 
     $this->post('/organization/employees', [
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
         'employee_no' => 'EMP0002',
         'name' => 'Jane Smith',
         'image' => UploadedFile::fake()->image('avatar.jpg', 300, 300),
@@ -578,7 +548,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
 
     $this->assertDatabaseHas('employees', [
         'id' => $employeeId,
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
     ]);
 
     $this->assertDatabaseHas('employee_documents', [
@@ -797,11 +767,10 @@ test('authenticated users can preview and import an employees CSV', function () 
         'is_headquarters' => true,
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
@@ -815,7 +784,7 @@ test('authenticated users can preview and import an employees CSV', function () 
 
     $preview = $this->post('/organization/employees/import/preview', [
         'file' => $file,
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
     ]);
 
     $preview->assertOk();
@@ -829,7 +798,7 @@ test('authenticated users can preview and import an employees CSV', function () 
 
     $this->post('/organization/employees/import', [
         'file' => $importFile,
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
     ])->assertRedirect('/organization/employees');
 
     $this->assertDatabaseHas('employees', [
@@ -888,11 +857,10 @@ test('employee import rejects unsupported file types', function () {
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -902,7 +870,7 @@ test('employee import rejects unsupported file types', function () {
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('file');
@@ -937,11 +905,10 @@ test('employee import rejects files over the row limit', function () {
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -957,7 +924,7 @@ test('employee import rejects files over the row limit', function () {
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('file');
@@ -992,11 +959,10 @@ test('employee import accepts manual column mapping', function () {
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -1017,7 +983,7 @@ test('employee import accepts manual column mapping', function () {
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
             'mapping' => $mapping,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -1029,7 +995,7 @@ test('employee import accepts manual column mapping', function () {
         ->post('/organization/employees/import', [
             'file' => $importFile,
             'mapping' => $mapping,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -1069,11 +1035,10 @@ test('employee import applies contract and start date defaults when omitted', fu
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -1088,7 +1053,7 @@ test('employee import applies contract and start date defaults when omitted', fu
     $preview = $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -1100,7 +1065,7 @@ test('employee import applies contract and start date defaults when omitted', fu
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import', [
             'file' => $importFile,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -1148,11 +1113,10 @@ test('employee import ignores sensitive fields without extra import permissions'
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -1165,7 +1129,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     $preview = $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $previewFile,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ]);
 
     $preview->assertOk();
@@ -1178,7 +1142,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import', [
             'file' => $importFile,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertOk();
 
@@ -1205,7 +1169,7 @@ test('employee import ignores sensitive fields without extra import permissions'
     ]);
 });
 
-test('employee import rejects request without onboarding template', function () {
+test('employee import preview accepts request without profile template', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -1239,13 +1203,11 @@ test('employee import rejects request without onboarding template', function () 
     $csv = "employee_no,name\nEMP-NT-1,No Template Employee\n";
     $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
-    // Missing onboarding_template_id
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file,
         ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors('onboarding_template_id');
+        ->assertOk();
 
     // Template from another company
     $otherCompany = Company::query()->create([
@@ -1259,25 +1221,20 @@ test('employee import rejects request without onboarding template', function () 
         'status' => 'active',
     ]);
 
-    $foreignTemplate = OnboardingTemplate::query()->create([
-        'company_id' => $otherCompany->id,
-        'name' => 'Foreign Template',
-        'is_default' => false,
-        'tasks' => ['version' => 2, 'stages' => []],
-    ]);
+    $foreignTemplate = createEmployeeProfileTemplate($otherCompany, 'Foreign Template');
 
     $file2 = UploadedFile::fake()->createWithContent('employees.csv', $csv);
 
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import/preview', [
             'file' => $file2,
-            'onboarding_template_id' => $foreignTemplate->id,
+            'employee_profile_template_id' => $foreignTemplate->id,
         ])
         ->assertUnprocessable()
-        ->assertJsonValidationErrors('onboarding_template_id');
+        ->assertJsonValidationErrors('employee_profile_template_id');
 });
 
-test('employee import template download only includes fields from selected onboarding template', function () {
+test('employee import template download only includes fields from selected profile template', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -1306,28 +1263,17 @@ test('employee import template download only includes fields from selected onboa
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Minimal Import',
-        'is_default' => true,
-        'tasks' => [
-            'version' => 2,
-            'stages' => [
-                [
-                    'key' => 'main',
-                    'employee_fields' => [
-                        ['key' => 'employee_no'],
-                        ['key' => 'name'],
-                        ['key' => 'work_email'],
-                    ],
-                    'bank_account_fields' => [],
-                    'contract_fields' => [
-                        ['key' => 'start_date'],
-                    ],
-                ],
-            ],
-        ],
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'work_email',
     ]);
+    $configuration['fields']['employee_contracts']['start_date']['visible'] = true;
+    foreach (array_keys($configuration['fields']['employee_bank_accounts']) as $bankField) {
+        $configuration['fields']['employee_bank_accounts'][$bankField]['visible'] = false;
+    }
+
+    $template = createEmployeeProfileTemplate($company, 'Minimal Import', $configuration);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
 
@@ -1342,7 +1288,7 @@ test('employee import template download only includes fields from selected onboa
         ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type');
 });
 
-test('employee import assigns onboarding_template_id to imported employees', function () {
+test('employee import assigns employee_profile_template_id to imported employees', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -1371,11 +1317,10 @@ test('employee import assigns onboarding_template_id to imported employees', fun
         'status' => 'active',
     ]);
 
-    $template = OnboardingTemplate::query()->create([
+    $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Office Staff',
-        'is_default' => true,
-        'tasks' => ['version' => 2, 'stages' => []],
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
     ]);
 
     grantCompanyPermissions($user, $company, ['employees.import']);
@@ -1386,14 +1331,14 @@ test('employee import assigns onboarding_template_id to imported employees', fun
     $this->withHeader('Accept', 'application/json')
         ->post('/organization/employees/import', [
             'file' => $file,
-            'onboarding_template_id' => $template->id,
+            'employee_profile_template_id' => $template->id,
         ])
         ->assertOk();
 
     $this->assertDatabaseHas('employees', [
         'company_id' => $company->id,
         'employee_no' => 'EMP-ATM-1',
-        'onboarding_template_id' => $template->id,
+        'employee_profile_template_id' => $template->id,
     ]);
 });
 

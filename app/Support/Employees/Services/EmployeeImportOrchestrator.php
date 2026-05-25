@@ -3,8 +3,8 @@
 namespace App\Support\Employees\Services;
 
 use App\Imports\EmployeesImport;
-use App\Models\OnboardingTemplate;
-use App\Support\OnboardingTemplateImportFields;
+use App\Models\EmployeeProfileTemplate;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateImportFields;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -27,10 +27,10 @@ final class EmployeeImportOrchestrator
                 'mimetypes:'.implode(',', EmployeesImport::IMPORT_MIME_TYPES),
                 'max:10240',
             ],
-            'onboarding_template_id' => [
-                'required',
+            'employee_profile_template_id' => [
+                'nullable',
                 'integer',
-                Rule::exists('onboarding_templates', 'id')->where('company_id', $companyId),
+                Rule::exists('employee_profile_templates', 'id')->where('company_id', $companyId),
             ],
             'mapping' => ['nullable', 'array'],
             'mapping.*' => ['nullable', 'string', 'max:255'],
@@ -107,28 +107,26 @@ final class EmployeeImportOrchestrator
      */
     public function importColumnsForRequest(Request $request): array
     {
-        $template = $this->resolveOnboardingTemplateForImport($request);
-
-        if ($template === null) {
-            return EmployeesImport::TEMPLATE_HEADERS;
-        }
-
-        return OnboardingTemplateImportFields::columnsForTasks(
-            is_array($template->tasks) ? $template->tasks : null,
+        return EmployeeProfileTemplateImportFields::columnsForTemplate(
+            $this->resolveProfileTemplateForImport($request),
         );
     }
 
-    public function resolveOnboardingTemplateForImport(Request $request): ?OnboardingTemplate
+    public function resolveProfileTemplateForImport(Request $request): ?EmployeeProfileTemplate
     {
         $companyId = (int) $request->attributes->get('current_company_id');
-        $templateId = (int) $request->input('onboarding_template_id', $request->query('template_id', 0));
+        $templateId = (int) $request->input(
+            'employee_profile_template_id',
+            $request->query('profile_template_id', $request->query('template_id', 0)),
+        );
 
         if ($templateId <= 0) {
             return null;
         }
 
-        return OnboardingTemplate::query()
+        return EmployeeProfileTemplate::query()
             ->where('company_id', $companyId)
+            ->where('is_active', true)
             ->find($templateId);
     }
 }

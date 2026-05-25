@@ -37,6 +37,7 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { EmployeeBankAccountItem } from '@/pages/organization/employee-page.types';
 
 const BANK_ACCOUNTS_RELOAD = {
@@ -45,10 +46,11 @@ const BANK_ACCOUNTS_RELOAD = {
 } as const;
 
 export type EmployeeBankTabProps = {
-    employeeId: number;
+    employeeId: number | null;
     bank_accounts: EmployeeBankAccountItem[];
     banks: BankOption[];
     canManage: boolean;
+    ensureEmployee?: () => Promise<number>;
 };
 
 export function EmployeeBankTab({
@@ -56,6 +58,7 @@ export function EmployeeBankTab({
     bank_accounts,
     banks,
     canManage,
+    ensureEmployee,
 }: EmployeeBankTabProps): ReactElement {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<EmployeeBankAccountItem | null>(
@@ -294,7 +297,18 @@ export function EmployeeBankTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={bankForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 bankForm.clearErrors();
                                 bankForm.transform((data) => ({
                                     bank_id: data.bank_id
@@ -308,11 +322,11 @@ export function EmployeeBankTab({
 
                                 const url = editingRow
                                     ? updateBankAccount.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           bankAccount: editingRow.id,
                                       })
                                     : storeBankAccount.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                       });
 
                                 if (editingRow) {
@@ -352,7 +366,7 @@ export function EmployeeBankTab({
                 title="Remove bank account?"
                 description="This entry will be permanently removed."
                 destroyUrl={
-                    deleteId
+                    deleteId && employeeId
                         ? destroyBankAccount.url({
                               employee: employeeId,
                               bankAccount: deleteId,

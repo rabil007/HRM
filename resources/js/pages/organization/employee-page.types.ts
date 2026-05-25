@@ -14,8 +14,21 @@ import type {
 
 export type { DocumentTypeOption };
 
+export type TemplateFieldConfig = {
+    visible: boolean;
+    required: boolean;
+};
+
+export type ResolvedEmployeeTemplate = {
+    version: number;
+    tabs: Record<string, { visible: boolean }>;
+    fields: Record<string, Record<string, TemplateFieldConfig>>;
+    personal_field_keys: string[];
+    employee_tabs: EmployeeProfileTabVisibility;
+};
+
 export type EmployeeDetails = {
-    id: number;
+    id: number | null;
     user: { id: number; name: string | null; email: string | null; avatar: string | null } | null;
     branch: { id: number; name: string | null } | null;
     department: { id: number; name: string | null } | null;
@@ -69,7 +82,8 @@ export type EmployeeDetails = {
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
-    onboarding_template?: { id: number; name: string | null } | null;
+    employee_profile_template?: { id: number; name: string | null } | null;
+    employee_profile_template_id?: number | null;
     address?: string | null;
     image?: string | null;
     created_at: string;
@@ -225,16 +239,30 @@ export type EmployeeProfileTabVisibility = {
     personal: boolean;
     contract: boolean;
     bank: boolean;
+    education?: boolean;
+    work_experience?: boolean;
+    languages?: boolean;
     documents: boolean;
     sea_service: boolean;
     vaccination: boolean;
     training: boolean;
     /** null = no template assigned, show all fields; string[] = only these field keys are enabled */
     profile_fields: string[] | null;
+    template_fields?: Record<string, Record<string, TemplateFieldConfig>>;
+};
+
+export type ProfileTemplateOption = {
+    id: number;
+    name: string;
+    description: string | null;
 };
 
 export type EmployeePageProps = {
-    employee_navigation: EmployeeNavigation | null;
+    mode?: 'edit' | 'create';
+    employee_navigation?: EmployeeNavigation | null;
+    resolved_template?: ResolvedEmployeeTemplate;
+    profile_templates?: ProfileTemplateOption[];
+    selected_profile_template_id?: number | null;
     employee: EmployeeDetails;
     contracts?: EmployeeContractDetails[];
     documents?: EmployeeDocumentItem[];
@@ -247,7 +275,7 @@ export type EmployeePageProps = {
     trainings?: TrainingItem[];
     courses?: CourseOption[];
     document_types?: DocumentTypeOption[];
-    roles: { id: number; name: string }[];
+    roles?: { id: number; name: string }[];
     can: {
         create_user: boolean;
         documents_view: boolean;

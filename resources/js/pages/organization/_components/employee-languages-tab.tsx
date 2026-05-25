@@ -32,6 +32,7 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { LanguageItem } from '@/pages/organization/employee-page.types';
 
 const LANGUAGES_RELOAD = {
@@ -40,13 +41,15 @@ const LANGUAGES_RELOAD = {
 } as const;
 
 export type EmployeeLanguagesTabProps = {
-    employeeId: number;
+    employeeId: number | null;
+    ensureEmployee?: () => Promise<number>;
     languages: LanguageItem[];
     canManage: boolean;
 };
 
 export function EmployeeLanguagesTab({
     employeeId,
+    ensureEmployee,
     languages,
     canManage,
 }: EmployeeLanguagesTabProps): ReactElement {
@@ -289,7 +292,18 @@ export function EmployeeLanguagesTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={languageForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 languageForm.clearErrors();
                                 languageForm.transform((data) => ({
                                     language_name: data.language_name.trim(),
@@ -301,11 +315,11 @@ export function EmployeeLanguagesTab({
 
                                 const url = editingLanguage
                                     ? updateLanguage.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           language: editingLanguage.id,
                                       })
                                     : storeLanguage.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                       });
 
                                 if (editingLanguage) {
@@ -344,7 +358,7 @@ export function EmployeeLanguagesTab({
                 title="Remove language?"
                 description="This entry will be permanently removed."
                 destroyUrl={
-                    deleteLanguageId
+                    deleteLanguageId && employeeId
                         ? destroyLanguage.url({
                               employee: employeeId,
                               language: deleteLanguageId,

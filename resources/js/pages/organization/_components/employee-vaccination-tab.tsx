@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     destroy as destroyVaccination,
     store as storeVaccination,
@@ -22,6 +22,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { vaccinationImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -36,6 +37,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { VaccinationItem } from '@/pages/organization/employee-page.types';
 
 const VACCINATION_RELOAD = {
@@ -44,7 +46,8 @@ const VACCINATION_RELOAD = {
 } as const;
 
 export type EmployeeVaccinationTabProps = {
-    employeeId: number;
+    employeeId: number | null;
+    ensureEmployee?: () => Promise<number>;
     vaccinations: VaccinationItem[];
     countries: CountryOption[];
     canManage: boolean;
@@ -52,6 +55,7 @@ export type EmployeeVaccinationTabProps = {
 
 export function EmployeeVaccinationTab({
     employeeId,
+    ensureEmployee,
     vaccinations,
     countries,
     canManage,
@@ -73,6 +77,15 @@ export function EmployeeVaccinationTab({
     });
 
     const vaccinationImport = vaccinationImportConfig(employeeId);
+    const vaccinationImportUrls = useMemo(
+        () =>
+            resolveRecordImportUrls(
+                vaccinationImportConfig(employeeId),
+                employeeId,
+            ),
+        [employeeId],
+    );
+    const canImportRecords = employeeId !== null && employeeId > 0;
 
     return (
         <TabsContent value="vaccination" className="mt-6">
@@ -89,6 +102,7 @@ export function EmployeeVaccinationTab({
                                 variant="outline"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
+                                disabled={!canImportRecords}
                                 onClick={() => setVaccinationImportOpen(true)}
                             >
                                 Import CSV
@@ -302,7 +316,18 @@ export function EmployeeVaccinationTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={vaccinationForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 vaccinationForm.clearErrors();
                                 vaccinationForm.transform((data) => ({
                                     vaccination_name:
@@ -327,11 +352,11 @@ export function EmployeeVaccinationTab({
 
                                 const url = editingVaccination
                                     ? updateVaccination.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           vaccination: editingVaccination.id,
                                       })
                                     : storeVaccination.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                       });
 
                                 if (editingVaccination) {
@@ -370,7 +395,7 @@ export function EmployeeVaccinationTab({
                 title="Remove vaccination record?"
                 description="This entry will be permanently removed."
                 destroyUrl={
-                    deleteVaccinationId
+                    deleteVaccinationId && employeeId
                         ? destroyVaccination.url({
                               employee: employeeId,
                               vaccination: deleteVaccinationId,
@@ -389,8 +414,8 @@ export function EmployeeVaccinationTab({
                 templateHint={vaccinationImport.templateHint}
                 columnHelp={vaccinationImport.columnHelp}
                 reloadOnly={vaccinationImport.reloadOnly}
-                importUrl={vaccinationImport.importUrl(employeeId)}
-                templateUrl={vaccinationImport.templateUrl(employeeId)}
+                importUrl={vaccinationImportUrls.importUrl}
+                templateUrl={vaccinationImportUrls.templateUrl}
             />
         </TabsContent>
     );

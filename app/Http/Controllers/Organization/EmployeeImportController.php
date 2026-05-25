@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Imports\EmployeesImport;
-use App\Models\OnboardingTemplate;
+use App\Models\EmployeeProfileTemplate;
 use App\Support\Employees\Services\EmployeeImportOrchestrator;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -54,28 +54,20 @@ class EmployeeImportController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $templates = OnboardingTemplate::query()
+        $templates = EmployeeProfileTemplate::query()
             ->where('company_id', $companyId)
-            ->orderByDesc('is_default')
+            ->where('is_active', true)
             ->orderBy('name')
-            ->get(['id', 'name', 'description', 'is_default'])
-            ->map(fn (OnboardingTemplate $template) => [
+            ->get(['id', 'name', 'description'])
+            ->map(fn (EmployeeProfileTemplate $template) => [
                 'id' => $template->id,
                 'name' => $template->name,
                 'description' => $template->description,
-                'is_default' => $template->is_default,
             ]);
 
-        $defaultTemplateId = $templates->firstWhere('is_default', true)['id']
-            ?? $templates->first()['id']
-            ?? null;
+        $defaultTemplateId = null;
 
         $importPageRequest = request();
-        if ($defaultTemplateId) {
-            $importPageRequest = request()->duplicate(
-                query: array_merge(request()->query(), ['template_id' => $defaultTemplateId]),
-            );
-        }
 
         return Inertia::render('organization/employee-import', [
             'template_url' => route('organization.employees.import.template'),
@@ -132,7 +124,9 @@ class EmployeeImportController extends Controller
             ->values()
             ->all();
 
-        $result = $importer->execute($importable, (int) $validated['onboarding_template_id']);
+        $templateId = $validated['employee_profile_template_id'] ?? null;
+
+        $result = $importer->execute($importable, $templateId !== null ? (int) $templateId : null);
 
         if ($result['created'] === 0) {
             $message = count($validation['errors']) > 0

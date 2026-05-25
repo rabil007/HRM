@@ -1,0 +1,39 @@
+<?php
+
+use App\Models\EmployeeProfileTemplate;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
+
+test('defaults expose all tabs and require name and employee number', function () {
+    $resolved = EmployeeProfileTemplateResolver::defaults();
+
+    expect($resolved['employee_tabs']['personal'])->toBeTrue()
+        ->and($resolved['employee_tabs']['contract'])->toBeTrue()
+        ->and($resolved['employee_tabs']['bank'])->toBeTrue()
+        ->and($resolved['fields']['employees']['name']['required'])->toBeTrue()
+        ->and($resolved['fields']['employees']['employee_no']['required'])->toBeTrue();
+});
+
+test('template can hide bank tab and fields', function () {
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['tabs']['bank']['visible'] = false;
+    $configuration['fields']['employee_bank_accounts']['iban']['visible'] = false;
+
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => $configuration,
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+
+    expect($resolved['employee_tabs']['personal'])->toBeTrue()
+        ->and($resolved['employee_tabs']['bank'])->toBeFalse();
+});
+
+test('personal tab visibility is always true when stored false', function () {
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['tabs']['personal']['visible'] = false;
+
+    $normalized = EmployeeProfileTemplateResolver::normalizeForStorage($configuration);
+
+    expect($normalized['tabs']['personal']['visible'])->toBeTrue();
+});

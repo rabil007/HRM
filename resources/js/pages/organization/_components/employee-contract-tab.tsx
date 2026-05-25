@@ -34,6 +34,7 @@ import {
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
 
 const CONTRACTS_RELOAD = {
@@ -55,9 +56,10 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export type EmployeeContractTabProps = {
-    employeeId: number;
+    employeeId: number | null;
     contracts: EmployeeContractDetails[];
     canManage: boolean;
+    ensureEmployee?: () => Promise<number>;
 };
 
 function formatContractType(value: string | null | undefined): string {
@@ -109,6 +111,7 @@ export function EmployeeContractTab({
     employeeId,
     contracts,
     canManage,
+    ensureEmployee,
 }: EmployeeContractTabProps): ReactElement {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingContract, setEditingContract] =
@@ -182,7 +185,18 @@ export function EmployeeContractTab({
         setDialogOpen(true);
     };
 
-    const submitContract = () => {
+    const submitContract = async () => {
+        let resolvedEmployeeId: number;
+
+        try {
+            resolvedEmployeeId = await resolveEmployeeIdForSave(
+                employeeId,
+                ensureEmployee,
+            );
+        } catch {
+            return;
+        }
+
         contractForm.clearErrors();
         contractForm.transform((data) => ({
             contract_type: data.contract_type,
@@ -205,10 +219,10 @@ export function EmployeeContractTab({
 
         const url = editingContract
             ? updateContract.url({
-                  employee: employeeId,
+                  employee: resolvedEmployeeId,
                   employeeContract: editingContract.id,
               })
-            : storeContract.url({ employee: employeeId });
+            : storeContract.url({ employee: resolvedEmployeeId });
 
         const options = {
             ...CONTRACTS_RELOAD,
@@ -607,7 +621,7 @@ export function EmployeeContractTab({
                 title="Remove contract?"
                 description="This contract record will be permanently removed."
                 destroyUrl={
-                    deleteContractId
+                    deleteContractId && employeeId
                         ? destroyContract.url({
                               employee: employeeId,
                               employeeContract: deleteContractId,

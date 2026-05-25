@@ -137,10 +137,10 @@ class PermissionsSeeder extends Seeder
 
             'audit.view',
 
-            'onboarding.templates.view',
-            'onboarding.templates.create',
-            'onboarding.templates.update',
-            'onboarding.templates.delete',
+            'employee_profile_templates.view',
+            'employee_profile_templates.create',
+            'employee_profile_templates.update',
+            'employee_profile_templates.delete',
         ];
 
         foreach ($permissions as $name) {

@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\Onboarding\OnboardingTemplateController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
@@ -28,6 +27,7 @@ use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeExportController;
 use App\Http\Controllers\Organization\EmployeeImportController;
 use App\Http\Controllers\Organization\EmployeeLanguageController;
+use App\Http\Controllers\Organization\EmployeeProfileTemplateController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
 use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeUserController;
@@ -99,6 +99,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');
+    Route::post('organization/employees/ensure', [EmployeeController::class, 'ensure'])->middleware('can:employees.create')->name('organization.employees.ensure');
     Route::get('organization/employees/export', [EmployeeExportController::class, 'export'])->middleware('can:employees.export')->name('organization.employees.export');
     Route::get('organization/employees/import', [EmployeeImportController::class, 'importPage'])->middleware('can:employees.import')->name('organization.employees.import.page');
     Route::get('organization/employees/import/template', [EmployeeImportController::class, 'importTemplate'])->middleware('can:employees.import')->name('organization.employees.import.template');
@@ -182,30 +183,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:audit.view')
         ->name('organization.activity-logs');
 
-    Route::prefix('onboarding')->name('onboarding.')->group(function () {
-        Route::get('templates', [OnboardingTemplateController::class, 'index'])
-            ->middleware('can:onboarding.templates.view')
-            ->name('templates.index');
-        Route::get('templates/create', [OnboardingTemplateController::class, 'create'])
-            ->middleware('can:onboarding.templates.create')
-            ->name('templates.create');
-        Route::get('templates/{template}/edit', [OnboardingTemplateController::class, 'edit'])
-            ->middleware('can:onboarding.templates.update')
-            ->name('templates.edit');
-        Route::post('templates', [OnboardingTemplateController::class, 'store'])
-            ->middleware('can:onboarding.templates.create')
-            ->name('templates.store');
-        Route::put('templates/{template}', [OnboardingTemplateController::class, 'update'])
-            ->middleware('can:onboarding.templates.update')
-            ->name('templates.update');
-        Route::patch('templates/{template}/default', [OnboardingTemplateController::class, 'setDefault'])
-            ->middleware('can:onboarding.templates.update')
-            ->name('templates.set-default');
-        Route::delete('templates/{template}', [OnboardingTemplateController::class, 'destroy'])
-            ->middleware('can:onboarding.templates.delete')
-            ->name('templates.destroy');
-
-    });
+    Route::get('organization/templates/employee-profile', [EmployeeProfileTemplateController::class, 'index'])
+        ->middleware('can:employee_profile_templates.view')
+        ->name('organization.employee-profile-templates.index');
+    Route::get('organization/templates/employee-profile/create', [EmployeeProfileTemplateController::class, 'create'])
+        ->middleware('can:employee_profile_templates.create')
+        ->name('organization.employee-profile-templates.create');
+    Route::post('organization/templates/employee-profile', [EmployeeProfileTemplateController::class, 'store'])
+        ->middleware('can:employee_profile_templates.create')
+        ->name('organization.employee-profile-templates.store');
+    Route::get('organization/templates/employee-profile/{employeeProfileTemplate}/edit', [EmployeeProfileTemplateController::class, 'edit'])
+        ->middleware('can:employee_profile_templates.update')
+        ->name('organization.employee-profile-templates.edit');
+    Route::put('organization/templates/employee-profile/{employeeProfileTemplate}', [EmployeeProfileTemplateController::class, 'update'])
+        ->middleware('can:employee_profile_templates.update')
+        ->name('organization.employee-profile-templates.update');
+    Route::delete('organization/templates/employee-profile/{employeeProfileTemplate}', [EmployeeProfileTemplateController::class, 'destroy'])
+        ->middleware('can:employee_profile_templates.delete')
+        ->name('organization.employee-profile-templates.destroy');
 });
 
 require __DIR__.'/settings.php';

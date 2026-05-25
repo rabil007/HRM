@@ -453,7 +453,7 @@ class EmployeesImport
      * @param  array<int, array<string, mixed>>  $rows
      * @return array{created: int, failed: array<int, array{row: int, message: string}>}
      */
-    public function execute(array $rows, int $onboardingTemplateId): array
+    public function execute(array $rows, ?int $onboardingTemplateId = null): array
     {
         $this->primeLookups();
         $existingNos = $this->existingEmployeeNos();
@@ -480,7 +480,7 @@ class EmployeesImport
 
                     $employee = Employee::create([
                         'company_id' => $this->companyId,
-                        'onboarding_template_id' => $onboardingTemplateId,
+                        'employee_profile_template_id' => $onboardingTemplateId,
                         'employee_no' => $no,
                         'name' => $row['name'] ?? null,
                         'work_email' => $row['work_email'] ?? null,

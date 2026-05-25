@@ -23,6 +23,7 @@ import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
+import { resolveRecordImportUrls } from '@/features/organization/employees/profile/resolve-record-import-urls';
 import type { RankOption } from '@/features/organization/employees/types';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
@@ -41,6 +42,7 @@ import {
 import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type {
     ClientOption,
     SeaServiceItem,
@@ -112,7 +114,8 @@ function resolveDisplayedDuration(
 }
 
 export type EmployeeSeaServiceTabProps = {
-    employeeId: number;
+    employeeId: number | null;
+    ensureEmployee?: () => Promise<number>;
     sea_services: SeaServiceItem[];
     vessel_types: VesselTypeOption[];
     ranks: RankOption[];
@@ -123,6 +126,7 @@ export type EmployeeSeaServiceTabProps = {
 
 export function EmployeeSeaServiceTab({
     employeeId,
+    ensureEmployee,
     sea_services,
     vessel_types,
     ranks,
@@ -177,6 +181,15 @@ export function EmployeeSeaServiceTab({
     );
 
     const seaServiceImport = seaServiceImportConfig(employeeId);
+    const seaServiceImportUrls = useMemo(
+        () =>
+            resolveRecordImportUrls(
+                seaServiceImportConfig(employeeId),
+                employeeId,
+            ),
+        [employeeId],
+    );
+    const canImportRecords = employeeId !== null && employeeId > 0;
 
     const appliedRankTotals =
         employeeRankId != null
@@ -224,6 +237,7 @@ export function EmployeeSeaServiceTab({
                                 variant="outline"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
+                                disabled={!canImportRecords}
                                 onClick={() => setSeaServiceImportOpen(true)}
                             >
                                 Import CSV
@@ -704,7 +718,18 @@ export function EmployeeSeaServiceTab({
                             type="button"
                             className={actions.dialogPrimary}
                             disabled={employeeForm.processing}
-                            onClick={() => {
+                            onClick={async () => {
+                                let resolvedEmployeeId: number;
+
+                                try {
+                                    resolvedEmployeeId = await resolveEmployeeIdForSave(
+                                        employeeId,
+                                        ensureEmployee,
+                                    );
+                                } catch {
+                                    return;
+                                }
+
                                 employeeForm.clearErrors();
 
                                 const payload = buildSeaServicePayload(
@@ -712,11 +737,11 @@ export function EmployeeSeaServiceTab({
                                 );
                                 const url = editingRow
                                     ? updateSeaService.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                           seaService: editingRow.id,
                                       })
                                     : storeSeaService.url({
-                                          employee: employeeId,
+                                          employee: resolvedEmployeeId,
                                       });
 
                                 const options = {
@@ -761,7 +786,7 @@ export function EmployeeSeaServiceTab({
                 title="Remove sea service?"
                 description="This row will be permanently removed."
                 destroyUrl={
-                    deleteRowId
+                    deleteRowId && employeeId
                         ? destroySeaService.url({
                               employee: employeeId,
                               seaService: deleteRowId,
@@ -780,8 +805,8 @@ export function EmployeeSeaServiceTab({
                 templateHint={seaServiceImport.templateHint}
                 columnHelp={seaServiceImport.columnHelp}
                 reloadOnly={seaServiceImport.reloadOnly}
-                importUrl={seaServiceImport.importUrl(employeeId)}
-                templateUrl={seaServiceImport.templateUrl(employeeId)}
+                importUrl={seaServiceImportUrls.importUrl}
+                templateUrl={seaServiceImportUrls.templateUrl}
             />
         </TabsContent>
     );

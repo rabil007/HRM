@@ -214,11 +214,12 @@ export function EmployeeHeaderCard({
                     >
                         <EmployeeAvatar
                             name={displayName}
+                            gradientSeed={employee.id ? undefined : 'new-employee'}
                             image={employee.image}
-                                src={displayImageSrc}
+                            src={displayImageSrc}
                             size="lg"
                             className="rounded-2xl"
-                            />
+                        />
                         {canUpdate ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
                                 {isUploadingPhoto ? (
@@ -398,13 +399,13 @@ export function EmployeeHeaderCard({
                                     {employee.status?.replace('_', ' ')}
                                 </div>
                             </div>
-                            {employee.onboarding_template?.name ? (
+                            {employee.employee_profile_template?.name ? (
                                 <Badge
-                                    title={`Onboarding template: ${employee.onboarding_template.name}`}
+                                    title={`Profile template: ${employee.employee_profile_template.name}`}
                                     className="flex max-w-[11rem] items-center gap-1.5 rounded-full border-violet-500/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-300"
                                 >
                                     <ClipboardList className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{employee.onboarding_template.name}</span>
+                                    <span className="truncate">{employee.employee_profile_template.name}</span>
                                 </Badge>
                             ) : null}
                         </div>

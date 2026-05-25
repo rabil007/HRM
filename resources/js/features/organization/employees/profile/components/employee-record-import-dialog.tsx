@@ -23,8 +23,8 @@ export type EmployeeRecordImportDialogProps = {
     description: string;
     templateHint: string;
     columnHelp: ReactNode;
-    importUrl: string;
-    templateUrl: string;
+    importUrl: string | null;
+    templateUrl: string | null;
     reloadOnly: string[];
 };
 
@@ -108,8 +108,10 @@ export function EmployeeRecordImportDialog({
         }
     };
 
+    const importReady = importUrl !== null && templateUrl !== null;
+
     const runImport = () => {
-        if (!importFile) {
+        if (!importFile || !importUrl) {
             return;
         }
 
@@ -183,12 +185,31 @@ export function EmployeeRecordImportDialog({
                         </p>
                         <div className="rounded-xl border border-border/80 bg-muted/20 p-4">
                             <p className="text-sm text-muted-foreground">{templateHint}</p>
-                            <Button variant="secondary" type="button" className="mt-3 w-full sm:w-auto" asChild>
-                                <a href={templateUrl}>
-                                    <Download className="mr-2 size-4" />
-                                    Download CSV template
-                                </a>
+                            <Button
+                                variant="secondary"
+                                type="button"
+                                className="mt-3 w-full sm:w-auto"
+                                disabled={!templateUrl}
+                                asChild={templateUrl !== null}
+                            >
+                                {templateUrl !== null ? (
+                                    <a href={templateUrl}>
+                                        <Download className="mr-2 size-4" />
+                                        Download CSV template
+                                    </a>
+                                ) : (
+                                    <>
+                                        <Download className="mr-2 size-4" />
+                                        Download CSV template
+                                    </>
+                                )}
                             </Button>
+                            {!importReady ? (
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Save the employee (enter a name and add at least one record)
+                                    before importing.
+                                </p>
+                            ) : null}
                         </div>
                     </div>
 
@@ -296,7 +317,7 @@ export function EmployeeRecordImportDialog({
                     <Button
                         type="button"
                         variant="default"
-                        disabled={!importFile || importProcessing}
+                        disabled={!importFile || importProcessing || !importUrl}
                         onClick={runImport}
                         aria-busy={importProcessing}
                     >

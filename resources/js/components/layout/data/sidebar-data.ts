@@ -6,7 +6,6 @@ import {
     LayoutDashboard,
     Landmark,
     Layers,
-    LifeBuoy,
     MapPin,
     NotebookTabs,
     Receipt,
@@ -144,6 +143,11 @@ const baseSidebarData: SidebarData = {
                 { title: 'Activity logs', url: '/organization/activity-logs', icon: Activity },
                 { title: 'Roles & permissions', url: '/organization/roles', icon: BadgeCheck },
                 { title: 'Users', url: '/organization/users', icon: Users },
+                {
+                    title: 'Employee templates',
+                    url: '/organization/templates/employee-profile',
+                    icon: ClipboardList,
+                },
             ],
         },
         {
@@ -160,13 +164,6 @@ const baseSidebarData: SidebarData = {
                 { title: 'Candidates', url: placeholder('recruitment.candidates'), icon: Users },
                 { title: 'Interviews', url: placeholder('recruitment.interviews'), icon: NotebookTabs },
                 { title: 'Offers', url: placeholder('recruitment.offers'), icon: ClipboardList },
-            ],
-        },
-        {
-            title: 'Onboarding',
-            items: [
-                { title: 'Templates', url: '/onboarding/templates', icon: ClipboardList },
-                { title: 'Offboarding records', url: placeholder('offboarding.records'), icon: LifeBuoy },
             ],
         },
         {
@@ -206,12 +203,12 @@ export function getSidebarData(permissions: string[]): SidebarData {
         .map((group) => {
             const items = group.items
                 .map((item) => {
-                    if ('url' in item && item.url === '/onboarding/templates') {
-                        return has(permissions, 'onboarding.templates.view') ? item : null;
-                    }
-
                     if ('items' in item && item.items) {
                         const filteredSub = item.items.filter((sub) => {
+                            if (sub.url === '/organization/templates/employee-profile') {
+                                return has(permissions, 'employee_profile_templates.view');
+                            }
+
                             if (sub.url === '/settings/application') {
                                 return has(permissions, 'settings.application.view');
                             }
@@ -304,6 +301,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'users.view') ? item : null;
                         case '/organization/activity-logs':
                             return has(permissions, 'audit.view') ? item : null;
+                        case '/organization/templates/employee-profile':
+                            return has(permissions, 'employee_profile_templates.view')
+                                ? item
+                                : null;
                         default:
                             return item;
                     }

@@ -32,6 +32,8 @@ type EmployeeAvatarProps = {
     image?: string | null;
     /** Use for optimistic uploads; overrides `image` when set. */
     src?: string | null;
+    /** When set, gradient is derived from this string instead of `name` (e.g. stable draft seed). */
+    gradientSeed?: string;
     size?: EmployeeAvatarSize;
     className?: string;
     imageClassName?: string;
@@ -44,13 +46,14 @@ export function EmployeeAvatar({
     name,
     image,
     src,
+    gradientSeed,
     size = 'md',
     className,
     imageClassName,
 }: EmployeeAvatarProps): ReactElement {
     const imageSrc = src ?? resolveEmployeeImageUrl(image);
     const initials = getEmployeeInitials(name);
-    const gradient = getEmployeeAvatarGradient(name);
+    const gradient = getEmployeeAvatarGradient(gradientSeed ?? name);
     const sizing = sizeClasses[size];
 
     return (

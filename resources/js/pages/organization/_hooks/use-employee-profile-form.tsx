@@ -13,9 +13,12 @@ import {
     isEmployeeProfileFormDirty,
     transformEmployeeProfileFormData,
 } from '@/pages/organization/_lib/employee-profile-form-state';
-import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
+import type {
+    EmployeeDetails,
+    TemplateFieldConfig,
+} from '@/pages/organization/employee-page.types';
 
-const REQUIRED_FIELDS = new Set(['employee_no', 'name']);
+const DEFAULT_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 
 export type UseEmployeeProfileFormResult = {
     form: any;
@@ -34,13 +37,17 @@ export type UseEmployeeProfileFormResult = {
 export function useEmployeeProfileForm(
     employee: EmployeeDetails,
     canUpdate: boolean,
+    options?: {
+        ensureEmployee?: () => Promise<number>;
+        templateRequiredFields?: Record<string, TemplateFieldConfig> | undefined;
+    },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
     const initialPersonal = useMemo(
         () => buildEmployeeProfileFormInitial(employee),
-        [employee],
+        [employee.id, employee.updated_at],
     );
 
     const form = useForm(initialPersonal);
@@ -54,15 +61,35 @@ export function useEmployeeProfileForm(
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
 
+    const requiredFields = useMemo(() => {
+        const employeeFields = options?.templateRequiredFields;
+
+        if (!employeeFields) {
+            return DEFAULT_REQUIRED_FIELDS;
+        }
+
+        const keys = new Set<string>();
+
+        for (const [key, config] of Object.entries(employeeFields)) {
+            if (config.visible && config.required) {
+                keys.add(key);
+            }
+        }
+
+        keys.add('name');
+
+        return keys;
+    }, [options?.templateRequiredFields]);
+
     const requiredDot = useCallback((field: string): ReactElement | null => {
-        if (!REQUIRED_FIELDS.has(field)) {
+        if (!requiredFields.has(field)) {
             return null;
         }
 
         return (
             <span className="ml-1 inline-flex h-1.5 w-1.5 rounded-full bg-rose-500/90 align-middle" />
         );
-    }, []);
+    }, [requiredFields]);
 
     const beginEdit = useCallback(
         (field: string) => {
@@ -90,16 +117,14 @@ export function useEmployeeProfileForm(
     }, [canUpdate, isDirty]);
 
     const saveChanges = useCallback(
-        (afterSuccess?: () => void) => {
+        async (afterSuccess?: () => void) => {
             if (canUpdate) {
                 const missing: string[] = [];
 
-                if (!String(form.data.employee_no ?? '').trim()) {
-                    missing.push('employee_no');
-                }
-
-                if (!String(form.data.name ?? '').trim()) {
-                    missing.push('name');
+                for (const field of requiredFields) {
+                    if (!String(form.data[field as keyof typeof form.data] ?? '').trim()) {
+                        missing.push(field);
+                    }
                 }
 
                 if (missing.length) {
@@ -112,9 +137,25 @@ export function useEmployeeProfileForm(
                 }
             }
 
+            let targetEmployeeId = employee.id;
+
+            if ((targetEmployeeId === null || targetEmployeeId <= 0) && options?.ensureEmployee) {
+                try {
+                    targetEmployeeId = await options.ensureEmployee();
+                } catch {
+                    return;
+                }
+            }
+
+            if (targetEmployeeId === null || targetEmployeeId <= 0) {
+                toast.error('Employee name is required before saving.');
+
+                return;
+            }
+
             form.transform((data) => transformEmployeeProfileFormData(data));
 
-            form.put(updateEmployee.url({ employee: employee.id }), {
+            form.put(updateEmployee.url({ employee: targetEmployeeId }), {
                 preserveScroll: true,
                 onSuccess: () => {
                     setActiveField(null);
@@ -130,7 +171,7 @@ export function useEmployeeProfileForm(
                 },
             });
         },
-        [beginEdit, canUpdate, employee.id, form],
+        [beginEdit, canUpdate, employee.id, form, options?.ensureEmployee, requiredFields],
     );
 
     const uploadPhoto = useCallback(
@@ -152,7 +193,15 @@ export function useEmployeeProfileForm(
                 image: file,
             }));
 
-            form.put(updateEmployee.url({ employee: employee.id }), {
+            const targetId = employee.id && employee.id > 0 ? employee.id : null;
+
+            if (targetId === null) {
+                toast.error('Save employee details before uploading a photo.');
+
+                return;
+            }
+
+            form.put(updateEmployee.url({ employee: targetId }), {
                 forceFormData: true,
                 preserveScroll: true,
                 onError: (errors) => {
