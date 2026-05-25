@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
+    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -56,11 +57,13 @@ export function CreateEmployeeUserDialog({
     const form = useForm<CreateEmployeeUserFormData>(buildInitialForm(employee));
 
     useEffect(() => {
-        if (open) {
-            form.clearErrors();
-            form.setData(buildInitialForm(employee));
+        if (!open) {
+            return;
         }
-    }, [open, employee, form]);
+
+        form.clearErrors();
+        form.setData(buildInitialForm(employee));
+    }, [open, employee.id]);
 
     const submit = (): void => {
         form.post(`/organization/employees/${employee.id}/user`, {
@@ -78,6 +81,10 @@ export function CreateEmployeeUserDialog({
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Create user account</DialogTitle>
+                    <DialogDescription>
+                        Create a login for {employee.name}. They can sign in with the email and
+                        password below.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-2">
