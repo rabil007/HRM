@@ -16,7 +16,6 @@ import {
     Layers,
     BarChart3,
     CalendarDays,
-    Activity,
     Sparkles,
     ChevronRight,
 } from 'lucide-react';
