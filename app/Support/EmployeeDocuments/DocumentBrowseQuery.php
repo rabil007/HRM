@@ -23,17 +23,10 @@ class DocumentBrowseQuery
             ->withCount([
                 'documents as document_count' => fn ($query) => $query->where('company_id', $companyId),
             ])
-            ->when($search !== '', function ($query) use ($search, $companyId) {
-                $query->where(function ($inner) use ($search, $companyId) {
+            ->when($search !== '', function ($query) use ($search) {
+                $query->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
-                        ->orWhere('employee_no', 'like', "%{$search}%")
-                        ->orWhereHas('documents', function (Builder $docQuery) use ($search, $companyId) {
-                            $docQuery
-                                ->where('company_id', $companyId)
-                                ->where(function (Builder $documentQuery) use ($search) {
-                                    $this->applyDocumentFieldSearch($documentQuery, '%'.$search.'%');
-                                });
-                        });
+                        ->orWhere('employee_no', 'like', "%{$search}%");
                 });
             })
             ->orderBy('name')

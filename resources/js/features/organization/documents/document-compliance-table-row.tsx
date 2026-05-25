@@ -42,7 +42,14 @@ export function DocumentComplianceTableRow({
                         />
                     </div>
                     <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold text-foreground">{doc.document_name}</p>
+                        <p className="truncate text-sm leading-snug font-semibold text-foreground">
+                            {doc.document_name}
+                        </p>
+                        {doc.document_number?.trim() ? (
+                            <p className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground md:hidden">
+                                {doc.document_number}
+                            </p>
+                        ) : null}
                         <p className="mt-0.5 truncate text-xs text-muted-foreground sm:hidden">
                             {doc.document_type}
                         </p>

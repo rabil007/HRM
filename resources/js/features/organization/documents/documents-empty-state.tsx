@@ -5,20 +5,28 @@ import type { ExpiryFilter } from '@/features/organization/documents/document-ex
 import { EXPIRY_FILTER_LABELS } from '@/features/organization/documents/document-expiry';
 import { cn } from '@/lib/utils';
 
-type EmptyStateContext = 'index-folders' | 'index-compliance' | 'employee-files';
+type EmptyStateContext =
+    | 'index-folders'
+    | 'index-search'
+    | 'index-compliance'
+    | 'employee-files';
 
 function resolveEmptyCopy(
     context: EmptyStateContext,
     expiryFilter: ExpiryFilter,
     hasSearch: boolean,
 ): { title: string; description: string } {
+    if (context === 'index-search') {
+        return {
+            title: 'No matching documents found',
+            description: '',
+        };
+    }
+
     if (hasSearch) {
         return {
             title: 'No results for your search.',
-            description:
-                expiryFilter === 'all'
-                    ? 'Try a different employee, document number, title, or type—or clear the search to browse all folders.'
-                    : `Try a different term or switch to another expiry filter.`,
+            description: `Try a different term or switch to another expiry filter.`,
         };
     }
 
@@ -77,12 +85,18 @@ export function DocumentsEmptyState({
     action?: ReactNode;
 }) {
     const copy = resolveEmptyCopy(context, expiryFilter, hasSearch);
-    const Icon = hasSearch ? SearchX : context === 'index-folders' ? FolderOpen : ShieldAlert;
+    const Icon =
+        context === 'index-search' || hasSearch
+            ? SearchX
+            : context === 'index-folders'
+              ? FolderOpen
+              : ShieldAlert;
+    const showSearchHints = context === 'index-search';
 
     return (
         <EmptyState
             title={copy.title}
-            description={copy.description}
+            description={showSearchHints ? undefined : copy.description || undefined}
             action={action}
             icon={
                 <div
@@ -94,6 +108,18 @@ export function DocumentsEmptyState({
                     <Icon className="h-4 w-4" aria-hidden />
                 </div>
             }
-        />
+        >
+            {showSearchHints ? (
+                <div className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                    <p className="mb-2">Try searching by:</p>
+                    <ul className="list-inside list-disc space-y-1 text-left">
+                        <li>Employee name</li>
+                        <li>Employee ID</li>
+                        <li>Document number</li>
+                        <li>File name</li>
+                    </ul>
+                </div>
+            ) : null}
+        </EmptyState>
     );
 }

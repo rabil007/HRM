@@ -14,12 +14,12 @@ export function DocumentsActiveFilters({
     onClearSearch,
 }: {
     expiryFilter: ExpiryFilter;
-    search: string;
+    search?: string;
     onClearExpiry?: () => void;
     onClearSearch?: () => void;
 }) {
     const hasExpiryFilter = expiryFilter !== 'all';
-    const hasSearch = search.trim() !== '';
+    const hasSearch = (search?.trim() ?? '') !== '' && onClearSearch !== undefined;
 
     if (!hasExpiryFilter && !hasSearch) {
         return null;
@@ -50,18 +50,16 @@ export function DocumentsActiveFilters({
             {hasSearch ? (
                 <Badge variant="outline" className="max-w-xs gap-1 truncate border-white/10 pr-1 pl-2.5 font-normal">
                     <span className="truncate">Search: {search}</span>
-                    {onClearSearch ? (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="h-5 w-5 shrink-0 rounded-full hover:bg-muted/60"
-                            onClick={onClearSearch}
-                            aria-label="Clear search"
-                        >
-                            <X className="h-3 w-3" />
-                        </Button>
-                    ) : null}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-5 w-5 shrink-0 rounded-full hover:bg-muted/60"
+                        onClick={onClearSearch}
+                        aria-label="Clear search"
+                    >
+                        <X className="h-3 w-3" />
+                    </Button>
                 </Badge>
             ) : null}
         </div>

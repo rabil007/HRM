@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import { Download, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -9,16 +9,15 @@ import {
 import { Main } from '@/components/layout/main';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableHeader } from '@/components/ui/table';
 import { DocumentComplianceTableRow } from '@/features/organization/documents/document-compliance-table-row';
 import { DocumentsActiveFilters } from '@/features/organization/documents/documents-active-filters';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
-import { EmployeeFolderItem } from '@/features/organization/documents/employee-folder-item';
-import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import { DocumentsIndexFolderGrid } from '@/features/organization/documents/index/documents-index-folder-grid';
+import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
+import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
 import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
@@ -31,7 +30,6 @@ import type {
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { toast } from '@/lib/toast';
-import { cn } from '@/lib/utils';
 import { documents } from '@/routes/organization';
 
 type Props = {
@@ -45,6 +43,16 @@ type Props = {
         download: boolean;
         delete: boolean;
     };
+};
+
+const EMPTY_SEARCH_DOCUMENTS: PaginatedComplianceDocuments = {
+    data: [],
+    current_page: 1,
+    last_page: 1,
+    per_page: 25,
+    total: 0,
+    from: null,
+    to: null,
 };
 
 export default function DocumentsIndex({
@@ -94,7 +102,8 @@ export default function DocumentsIndex({
         }
     };
 
-    const searchPerPage = searchDocuments?.per_page ?? complianceDocuments?.per_page ?? 25;
+    const resolvedSearchDocuments = searchDocuments ?? EMPTY_SEARCH_DOCUMENTS;
+    const searchPerPage = resolvedSearchDocuments.per_page ?? complianceDocuments?.per_page ?? 25;
 
     const { searchInput, isSearching, onSearchChange, onExpiryChange, onPageChange } =
         useDocumentsIndexFilters({
@@ -106,13 +115,25 @@ export default function DocumentsIndex({
 
     const isComplianceView = initialExpiry !== 'all';
     const hasSearchQuery = initialSearch.trim() !== '';
-    const hasSearchFileResults = (searchDocuments?.data.length ?? 0) > 0;
-    const folderLabel =
-        employees.length === 1 ? '1 employee folder' : `${employees.length} employee folders`;
-    const searchFilesLabel =
-        searchDocuments?.total === 1
-            ? '1 matching file'
-            : `${searchDocuments?.total ?? 0} matching files`;
+    const searchMode = resolveDocumentsIndexSearchMode(
+        hasSearchQuery && !isComplianceView,
+        employees.length,
+        resolvedSearchDocuments.total,
+    );
+
+    const folderGridProps = {
+        canDownload: can.download,
+        isSearching,
+        selectedFolderCount,
+        isFolderSelected,
+        allFoldersSelected,
+        foldersPartiallySelected,
+        onToggleFolder: toggleFolder,
+        onToggleAllFolders: toggleAllFolders,
+        onClearFolderSelection: clearFolderSelection,
+        onBulkDownload: handleBulkFolderDownload,
+        isBulkDownloading,
+    };
 
     return (
         <Main>
@@ -128,39 +149,28 @@ export default function DocumentsIndex({
 
             <DocumentsActiveFilters
                 expiryFilter={initialExpiry}
-                search={initialSearch}
                 onClearExpiry={() => onExpiryChange('all')}
-                onClearSearch={() => onSearchChange('')}
             />
 
-            <div className="mb-6 space-y-4">
+            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-white/5 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
                 <SearchBar
-                    placeholder="Search by employee, document number, title, or type…"
+                    placeholder="Search employee, document no, file name..."
                     value={searchInput}
                     onChange={onSearchChange}
+                    aria-label="Search documents and employees"
                 />
-
-                {!isComplianceView && hasSearchQuery && hasSearchFileResults ? (
-                    <span className="text-sm font-medium text-muted-foreground">{searchFilesLabel}</span>
-                ) : null}
-
-                {!isComplianceView && employees.length > 0 ? (
-                    <div className="flex items-center justify-between gap-3 text-sm text-muted-foreground">
-                        <span className="font-medium">{folderLabel}</span>
-                        {isSearching ? (
-                            <span className="inline-flex items-center gap-1.5 text-xs">
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                Updating…
-                            </span>
-                        ) : null}
-                    </div>
+                {isSearching ? (
+                    <p className="mt-2 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                        Searching…
+                    </p>
                 ) : null}
             </div>
 
             {isComplianceView ? (
                 complianceDocuments && complianceDocuments.data.length > 0 ? (
                     <>
-                        <OrganizationDataTable minWidth="min-w-[960px]" compact>
+                        <OrganizationDataTable minWidth="min-w-[1080px]" compact>
                             <TableHeader>
                                 <DataTableHeaderRow>
                                     <DataTableHead>Employee</DataTableHead>
@@ -200,123 +210,32 @@ export default function DocumentsIndex({
                     <DocumentsEmptyState
                         context="index-compliance"
                         expiryFilter={initialExpiry}
-                        hasSearch={initialSearch.trim() !== ''}
+                        hasSearch={hasSearchQuery}
                     />
                 )
-            ) : employees.length === 0 && !hasSearchFileResults ? (
-                <DocumentsEmptyState
-                    context="index-folders"
-                    expiryFilter={initialExpiry}
-                    hasSearch={hasSearchQuery}
-                />
-            ) : (
-                <>
-                    {!isComplianceView && hasSearchQuery && searchDocuments && hasSearchFileResults ? (
-                        <div className="mb-8 space-y-4">
-                            <OrganizationDataTable minWidth="min-w-[1080px]" compact>
-                                <TableHeader>
-                                    <DataTableHeaderRow>
-                                        <DataTableHead>Employee</DataTableHead>
-                                        <DataTableHead className="min-w-[220px]">Document</DataTableHead>
-                                        <DataTableHead className="hidden sm:table-cell">Type</DataTableHead>
-                                        <DataTableHead className="hidden md:table-cell">Document no.</DataTableHead>
-                                        <DataTableHead className="hidden md:table-cell">Expiry</DataTableHead>
-                                        <DataTableHead className="hidden lg:table-cell">Remaining</DataTableHead>
-                                        <DataTableHead className="hidden sm:table-cell">Status</DataTableHead>
-                                        <DataTableHead className="text-right">Actions</DataTableHead>
-                                    </DataTableHeaderRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {searchDocuments.data.map((doc) => (
-                                        <DocumentComplianceTableRow
-                                            key={doc.id}
-                                            doc={doc}
-                                            onPreview={setPreviewDoc}
-                                            canDownload={can.download}
-                                        />
-                                    ))}
-                                </TableBody>
-                            </OrganizationDataTable>
-
-                            {searchDocuments.last_page > 1 ? (
-                                <Pagination
-                                    currentPage={searchDocuments.current_page}
-                                    lastPage={searchDocuments.last_page}
-                                    from={searchDocuments.from}
-                                    to={searchDocuments.to}
-                                    total={searchDocuments.total}
-                                    perPage={searchDocuments.per_page}
-                                    onPageChange={onPageChange}
-                                    label="files"
-                                />
-                            ) : null}
-                        </div>
-                    ) : null}
-
-                    {employees.length > 0 ? (
-                        <>
-                    <DocumentsBulkToolbar
-                        count={selectedFolderCount}
-                        itemLabel="folders"
-                        onClear={clearFolderSelection}
-                        selectAll={
-                            <Checkbox
-                                checked={
-                                    allFoldersSelected
-                                        ? true
-                                        : foldersPartiallySelected
-                                          ? 'indeterminate'
-                                          : false
-                                }
-                                onCheckedChange={toggleAllFolders}
-                                aria-label="Select all folders"
-                            />
-                        }
-                        actions={
-                            can.download ? (
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="rounded-lg"
-                                    disabled={isBulkDownloading}
-                                    onClick={handleBulkFolderDownload}
-                                >
-                                    {isBulkDownloading ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Download className="mr-2 h-4 w-4" />
-                                    )}
-                                    Download ZIP
-                                </Button>
-                            ) : null
-                        }
+            ) : searchMode === 'empty' ? (
+                <DocumentsEmptyState context="index-search" expiryFilter={initialExpiry} hasSearch />
+            ) : searchMode === 'browse' ? (
+                employees.length === 0 ? (
+                    <DocumentsEmptyState
+                        context="index-folders"
+                        expiryFilter={initialExpiry}
+                        hasSearch={false}
                     />
-
-                    <section
-                        className={cn(
-                            'rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-6',
-                            'transition-opacity duration-200',
-                            isSearching && 'pointer-events-none opacity-60',
-                        )}
-                        aria-busy={isSearching}
-                    >
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(7.5rem,1fr))] gap-x-3 gap-y-6 sm:grid-cols-[repeat(auto-fill,minmax(8.25rem,1fr))] sm:gap-x-5 sm:gap-y-8">
-                            {employees.map((employee) => (
-                                <EmployeeFolderItem
-                                    key={employee.employee_id}
-                                    employee={employee}
-                                    canDownload={can.download}
-                                    selectionMode
-                                    selected={isFolderSelected(employee.employee_id)}
-                                    onSelectedChange={() => toggleFolder(employee.employee_id)}
-                                />
-                            ))}
-                        </div>
-                    </section>
-                        </>
-                    ) : null}
-                </>
+                ) : (
+                    <DocumentsIndexFolderGrid employees={employees} {...folderGridProps} />
+                )
+            ) : (
+                <DocumentsIndexSearchResults
+                    mode={searchMode}
+                    searchQuery={initialSearch}
+                    employees={employees}
+                    searchDocuments={resolvedSearchDocuments}
+                    canDownload={can.download}
+                    onPreview={setPreviewDoc}
+                    onPageChange={onPageChange}
+                    folderGridProps={folderGridProps}
+                />
             )}
 
             <DocumentPreviewDialog

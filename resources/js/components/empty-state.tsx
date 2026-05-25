@@ -5,17 +5,20 @@ export function EmptyState({
     description,
     action,
     icon,
+    children,
 }: {
     title?: string;
     description?: string;
     action?: ReactNode;
     icon?: ReactNode;
+    children?: ReactNode;
 }) {
     return (
         <div className="rounded-xl border border-white/5 bg-white/5 backdrop-blur-xl p-10 text-center">
             {icon}
             <div className="text-sm font-semibold text-foreground/90">{title}</div>
             {description ? <div className="mt-1 text-sm text-muted-foreground/80">{description}</div> : null}
+            {children ? <div className="mt-3 text-sm text-muted-foreground/80">{children}</div> : null}
             {action ? <div className="mt-5 flex justify-center">{action}</div> : null}
         </div>
     );

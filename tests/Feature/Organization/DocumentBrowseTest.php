@@ -137,7 +137,7 @@ test('documents folder index returns matching files when searching document fiel
             ->has('searchDocuments.data', 1)
             ->where('searchDocuments.data.0.document_number', '784-1990-1234567-8')
             ->where('searchDocuments.data.0.document_name', 'EID-scan.pdf')
-            ->has('employees', 1)
+            ->has('employees', 0)
         );
 
     $this->get('/organization/documents?search=Emirates')
