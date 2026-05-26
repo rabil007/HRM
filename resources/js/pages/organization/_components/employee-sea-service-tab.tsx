@@ -30,6 +30,7 @@ import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { actions } from '@/lib/design-system';
 import { cn } from '@/lib/utils';
+import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
@@ -40,12 +41,24 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import {
+    RecordFormField,
+    RequiredIndicator,
+    recordFieldInputClass,
+    recordFieldLabelClass,
+} from '@/pages/organization/_components/record-form-field';
+import {
+    useClearMissingOnFormChange,
+    useTemplateRecordFields,
+} from '@/pages/organization/_hooks/use-template-record-fields';
 import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type {
     ClientOption,
     SeaServiceItem,
+    TemplateFieldConfig,
     VesselTypeOption,
 } from '@/pages/organization/employee-page.types';
 
@@ -122,6 +135,7 @@ export type EmployeeSeaServiceTabProps = {
     clients: ClientOption[];
     employeeRankId: number | null;
     canManage: boolean;
+    templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
 export function EmployeeSeaServiceTab({
@@ -133,7 +147,22 @@ export function EmployeeSeaServiceTab({
     clients,
     employeeRankId,
     canManage,
+    templateFields = null,
 }: EmployeeSeaServiceTabProps): ReactElement {
+    const {
+        showField,
+        isFieldRequired,
+        isMissingRequired,
+        missingRequiredFieldsList,
+        clearMissingRequired,
+        focusMissingField,
+        validateRequired,
+        syncMissingFromFormData,
+    } = useTemplateRecordFields(templateFields, {
+        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_sea_services,
+        booleanFields: ['is_offshore'],
+    });
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [seaServiceImportOpen, setSeaServiceImportOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<SeaServiceItem | null>(null);
@@ -150,6 +179,11 @@ export function EmployeeSeaServiceTab({
         client_id: '',
         is_offshore: false,
     });
+
+    useClearMissingOnFormChange(
+        employeeForm.data as Record<string, unknown>,
+        syncMissingFromFormData,
+    );
 
     const {
         selectOptions: vesselTypeSelectOptions,
@@ -249,6 +283,7 @@ export function EmployeeSeaServiceTab({
                                 onClick={() => {
                                     employeeForm.reset();
                                     employeeForm.clearErrors();
+                                    clearMissingRequired();
                                     employeeForm.setData({
                                         vessel_type_id: '',
                                         vessel_name: '',
@@ -273,21 +308,45 @@ export function EmployeeSeaServiceTab({
                 <EmployeeRecordsTable className="min-w-[1280px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            <th className={employeeRecordsTableThClass()}>Vessel type</th>
-                            <th className={employeeRecordsTableThClass()}>Vessel name</th>
-                            <th className={employeeRecordsTableThClass()}>Rank</th>
-                            <th className={employeeRecordsTableThClass()}>Start</th>
-                            <th className={employeeRecordsTableThClass()}>End</th>
+                            {showField('vessel_type_id') ? (
+                                <th className={employeeRecordsTableThClass()}>Vessel type</th>
+                            ) : null}
+                            {showField('vessel_name') ? (
+                                <th className={employeeRecordsTableThClass()}>Vessel name</th>
+                            ) : null}
+                            {showField('rank_id') ? (
+                                <th className={employeeRecordsTableThClass()}>Rank</th>
+                            ) : null}
+                            {showField('start_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Start</th>
+                            ) : null}
+                            {showField('end_date') ? (
+                                <th className={employeeRecordsTableThClass()}>End</th>
+                            ) : null}
                             <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
                                 Total months
                             </th>
                             <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
                                 Total days
                             </th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>GRT</th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>BHP</th>
-                            <th className={employeeRecordsTableThClass()}>Client</th>
-                            <th className={cn(employeeRecordsTableThClass(), 'text-center')}>Offshore</th>
+                            {showField('grt') ? (
+                                <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                                    GRT
+                                </th>
+                            ) : null}
+                            {showField('bhp') ? (
+                                <th className={cn(employeeRecordsTableThClass(), 'text-right tabular-nums')}>
+                                    BHP
+                                </th>
+                            ) : null}
+                            {showField('client_id') ? (
+                                <th className={employeeRecordsTableThClass()}>Client</th>
+                            ) : null}
+                            {showField('is_offshore') ? (
+                                <th className={cn(employeeRecordsTableThClass(), 'text-center')}>
+                                    Offshore
+                                </th>
+                            ) : null}
                             {canManage ? (
                                 <EmployeeRecordsActionsHeader className="min-w-[4.5rem]" />
                             ) : null}
@@ -296,6 +355,7 @@ export function EmployeeSeaServiceTab({
                     <tbody>
                         {sea_services.map((row) => (
                             <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                {showField('vessel_type_id') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -305,6 +365,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.vessel_type_name ?? '—'}
                                 </td>
+                                ) : null}
+                                {showField('vessel_name') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -314,6 +376,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.vessel_name?.trim() ? row.vessel_name : '—'}
                                 </td>
+                                ) : null}
+                                {showField('rank_id') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -323,6 +387,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.rank_name ?? '—'}
                                 </td>
+                                ) : null}
+                                {showField('start_date') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -331,6 +397,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {formatIsoDateDisplay(row.start_date)}
                                 </td>
+                                ) : null}
+                                {showField('end_date') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -339,6 +407,7 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {formatIsoDateDisplay(row.end_date)}
                                 </td>
+                                ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -355,6 +424,7 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.total_days}
                                 </td>
+                                {showField('grt') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -363,6 +433,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.grt ?? '—'}
                                 </td>
+                                ) : null}
+                                {showField('bhp') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -371,6 +443,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.bhp ?? '—'}
                                 </td>
+                                ) : null}
+                                {showField('client_id') ? (
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -380,6 +454,8 @@ export function EmployeeSeaServiceTab({
                                 >
                                     {row.client_name ?? '—'}
                                 </td>
+                                ) : null}
+                                {showField('is_offshore') ? (
                                 <td className={cn(employeeRecordsTableTdClass(), 'text-center text-xs')}>
                                     {row.is_offshore ? (
                                         <span className="text-emerald-400">✓</span>
@@ -387,11 +463,13 @@ export function EmployeeSeaServiceTab({
                                         <span className="text-muted-foreground/50">—</span>
                                     )}
                                 </td>
+                                ) : null}
                                 {canManage ? (
                                     <td className={employeeRecordsActionsTdClass('min-w-[4.5rem]')}>
                                         <EmployeeRecordRowActions
                                             onEdit={() => {
                                                 setEditingRow(row);
+                                                clearMissingRequired();
                                                 employeeForm.setData({
                                                     vessel_type_id: String(row.vessel_type_id),
                                                     vessel_name: row.vessel_name ?? '',
@@ -431,6 +509,7 @@ export function EmployeeSeaServiceTab({
                         employeeForm.reset();
                         employeeForm.clearErrors();
                         setEditingRow(null);
+                        clearMissingRequired();
                     }
                 }}
             >
@@ -444,17 +523,30 @@ export function EmployeeSeaServiceTab({
                         </p>
                     </DialogHeader>
 
+                    <EmployeeMissingRequiredFieldsAlert
+                        missingFields={missingRequiredFieldsList}
+                        onFocusField={focusMissingField}
+                    />
+
                     <div className="space-y-4 py-1">
-                        {/* Section: Vessel & role */}
+                        {(showField('vessel_name') ||
+                            showField('vessel_type_id') ||
+                            showField('rank_id') ||
+                            showField('client_id')) ? (
+                        <>
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Vessel & Role</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Vessel name <span className="text-red-400">*</span></Label>
+                            {showField('vessel_name') ? (
+                            <RecordFormField field="vessel_name" highlightMissing={isMissingRequired('vessel_name')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('vessel_name'))}>
+                                    Vessel name
+                                    <RequiredIndicator show={isFieldRequired('vessel_name')} />
+                                </Label>
                                 <Input
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={recordFieldInputClass(isMissingRequired('vessel_name'))}
                                     placeholder="e.g. BES SINCERE"
                                     value={employeeForm.data.vessel_name}
                                     onChange={(e) => employeeForm.setData('vessel_name', e.target.value)}
@@ -462,11 +554,19 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.vessel_name ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_name}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Name of the ship</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Name of the ship
+                                        {isFieldRequired('vessel_name') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Vessel type <span className="text-red-400">*</span></Label>
+                            </RecordFormField>
+                            ) : null}
+                            {showField('vessel_type_id') ? (
+                            <RecordFormField field="vessel_type_id" highlightMissing={isMissingRequired('vessel_type_id')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('vessel_type_id'))}>
+                                    Vessel type
+                                    <RequiredIndicator show={isFieldRequired('vessel_type_id')} />
+                                </Label>
                                 <CreatableSelect
                                     value={employeeForm.data.vessel_type_id}
                                     onValueChange={(v) => employeeForm.setData('vessel_type_id', v)}
@@ -495,11 +595,19 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.vessel_type_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.vessel_type_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Category of the vessel</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Category of the vessel
+                                        {isFieldRequired('vessel_type_id') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Rank <span className="text-red-400">*</span></Label>
+                            </RecordFormField>
+                            ) : null}
+                            {showField('rank_id') ? (
+                            <RecordFormField field="rank_id" highlightMissing={isMissingRequired('rank_id')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('rank_id'))}>
+                                    Rank
+                                    <RequiredIndicator show={isFieldRequired('rank_id')} />
+                                </Label>
                                 <CreatableSelect
                                     value={employeeForm.data.rank_id}
                                     onValueChange={(v) => employeeForm.setData('rank_id', v)}
@@ -528,11 +636,19 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.rank_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.rank_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Position held on board</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Position held on board
+                                        {isFieldRequired('rank_id') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Client</Label>
+                            </RecordFormField>
+                            ) : null}
+                            {showField('client_id') ? (
+                            <RecordFormField field="client_id" highlightMissing={isMissingRequired('client_id')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('client_id'))}>
+                                    Client
+                                    <RequiredIndicator show={isFieldRequired('client_id')} />
+                                </Label>
                                 <CreatableSelect
                                     value={employeeForm.data.client_id}
                                     onValueChange={(v) => employeeForm.setData('client_id', v)}
@@ -561,25 +677,34 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.client_id ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.client_id}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Client or charterer (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Client or charterer
+                                        {isFieldRequired('client_id') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
+                            </RecordFormField>
+                            ) : null}
                         </div>
+                        </>
+                        ) : null}
 
-                        {/* Section: Duration */}
+                        {(showField('start_date') || showField('end_date')) ? (
+                        <>
                         <div className="flex items-center gap-2 pt-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="sea_service_start_date" className="text-xs">
-                                    Start date <span className="text-red-400">*</span>
+                            {showField('start_date') ? (
+                            <RecordFormField field="start_date" highlightMissing={isMissingRequired('start_date')}>
+                                <Label htmlFor="sea_service_start_date" className={recordFieldLabelClass(isMissingRequired('start_date'))}>
+                                    Start date
+                                    <RequiredIndicator show={isFieldRequired('start_date')} />
                                 </Label>
                                 <Input
                                     id="sea_service_start_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={recordFieldInputClass(isMissingRequired('start_date'))}
                                     value={employeeForm.data.start_date}
                                     onChange={(e) =>
                                         employeeForm.setData('start_date', e.target.value)
@@ -592,17 +717,21 @@ export function EmployeeSeaServiceTab({
                                 ) : (
                                     <p className="text-[11px] text-muted-foreground">
                                         First day of service on board
+                                        {isFieldRequired('start_date') ? '' : ' (optional)'}
                                     </p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="sea_service_end_date" className="text-xs">
-                                    End date <span className="text-red-400">*</span>
+                            </RecordFormField>
+                            ) : null}
+                            {showField('end_date') ? (
+                            <RecordFormField field="end_date" highlightMissing={isMissingRequired('end_date')}>
+                                <Label htmlFor="sea_service_end_date" className={recordFieldLabelClass(isMissingRequired('end_date'))}>
+                                    End date
+                                    <RequiredIndicator show={isFieldRequired('end_date')} />
                                 </Label>
                                 <Input
                                     id="sea_service_end_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={recordFieldInputClass(isMissingRequired('end_date'))}
                                     value={employeeForm.data.end_date}
                                     onChange={(e) =>
                                         employeeForm.setData('end_date', e.target.value)
@@ -615,9 +744,11 @@ export function EmployeeSeaServiceTab({
                                 ) : (
                                     <p className="text-[11px] text-muted-foreground">
                                         Last day of service on board
+                                        {isFieldRequired('end_date') ? '' : ' (optional)'}
                                     </p>
                                 )}
-                            </div>
+                            </RecordFormField>
+                            ) : null}
                             <div className="space-y-1.5">
                                 <Label className="text-xs">Total months</Label>
                                 <Input
@@ -645,21 +776,28 @@ export function EmployeeSeaServiceTab({
                                 </p>
                             </div>
                         </div>
+                        </>
+                        ) : null}
 
-                        {/* Section: Specs & Settings */}
+                        {(showField('grt') || showField('bhp') || showField('is_offshore')) ? (
+                        <>
                         <div className="flex items-center gap-2 pt-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Specs & Settings</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">GRT</Label>
+                            {showField('grt') ? (
+                            <RecordFormField field="grt" highlightMissing={isMissingRequired('grt')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('grt'))}>
+                                    GRT
+                                    <RequiredIndicator show={isFieldRequired('grt')} />
+                                </Label>
                                 <Input
                                     type="number"
                                     min={0}
                                     step="any"
                                     inputMode="decimal"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm tabular-nums"
+                                    className={cn(recordFieldInputClass(isMissingRequired('grt')), 'tabular-nums')}
                                     placeholder="e.g. 15000"
                                     value={employeeForm.data.grt}
                                     onChange={(e) => employeeForm.setData('grt', e.target.value)}
@@ -667,16 +805,24 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.grt ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.grt}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Gross Register Tonnage (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Gross Register Tonnage
+                                        {isFieldRequired('grt') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">BHP</Label>
+                            </RecordFormField>
+                            ) : null}
+                            {showField('bhp') ? (
+                            <RecordFormField field="bhp" highlightMissing={isMissingRequired('bhp')}>
+                                <Label className={recordFieldLabelClass(isMissingRequired('bhp'))}>
+                                    BHP
+                                    <RequiredIndicator show={isFieldRequired('bhp')} />
+                                </Label>
                                 <Input
                                     type="number"
                                     min={0}
                                     inputMode="numeric"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm tabular-nums"
+                                    className={cn(recordFieldInputClass(isMissingRequired('bhp')), 'tabular-nums')}
                                     placeholder="e.g. 8000"
                                     value={employeeForm.data.bhp}
                                     onChange={(e) => employeeForm.setData('bhp', e.target.value)}
@@ -684,10 +830,15 @@ export function EmployeeSeaServiceTab({
                                 {employeeForm.errors.bhp ? (
                                     <p className="text-xs text-destructive">{employeeForm.errors.bhp}</p>
                                 ) : (
-                                    <p className="text-[11px] text-muted-foreground">Brake Horsepower (optional)</p>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Brake Horsepower
+                                        {isFieldRequired('bhp') ? '' : ' (optional)'}
+                                    </p>
                                 )}
-                            </div>
-                            <div className="sm:col-span-2">
+                            </RecordFormField>
+                            ) : null}
+                            {showField('is_offshore') ? (
+                            <RecordFormField field="is_offshore" highlightMissing={isMissingRequired('is_offshore')} className="sm:col-span-2">
                                 <div className="rounded-xl border border-border/60 bg-muted/30 px-4 py-3">
                                     <label className="flex items-center gap-3 text-sm text-foreground">
                                         <Checkbox
@@ -695,13 +846,19 @@ export function EmployeeSeaServiceTab({
                                             onCheckedChange={(v) => employeeForm.setData('is_offshore', v === true)}
                                         />
                                         <div>
-                                            <div className="font-medium">Offshore experience</div>
+                                            <div className="font-medium">
+                                                Offshore experience
+                                                <RequiredIndicator show={isFieldRequired('is_offshore')} />
+                                            </div>
                                             <div className="mt-0.5 text-[11px] text-muted-foreground">Mark if this sea service was completed offshore</div>
                                         </div>
                                     </label>
                                 </div>
-                            </div>
+                            </RecordFormField>
+                            ) : null}
                         </div>
+                        </>
+                        ) : null}
                     </div>
                     <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
@@ -730,6 +887,10 @@ export function EmployeeSeaServiceTab({
                                     return;
                                 }
 
+                                if (!validateRequired(employeeForm.data as Record<string, unknown>)) {
+                                    return;
+                                }
+
                                 employeeForm.clearErrors();
 
                                 const payload = buildSeaServicePayload(
@@ -750,6 +911,7 @@ export function EmployeeSeaServiceTab({
                                         setDialogOpen(false);
                                         employeeForm.reset();
                                         setEditingRow(null);
+                                        clearMissingRequired();
                                     },
                                     onError: (errors: Record<string, string>) => {
                                         Object.entries(errors).forEach(

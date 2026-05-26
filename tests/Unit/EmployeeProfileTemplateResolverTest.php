@@ -29,6 +29,22 @@ test('template can hide bank tab and fields', function () {
         ->and($resolved['employee_tabs']['bank'])->toBeFalse();
 });
 
+test('template fields reflect hidden contract_type on employee contracts', function () {
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['fields']['employee_contracts']['contract_type']['visible'] = false;
+
+    $template = new EmployeeProfileTemplate([
+        'configuration_json' => $configuration,
+    ]);
+
+    $resolved = EmployeeProfileTemplateResolver::resolve($template);
+
+    expect($resolved['employee_tabs']['template_fields']['employee_contracts']['contract_type']['visible'])
+        ->toBeFalse()
+        ->and($resolved['employee_tabs']['template_fields']['employee_contracts']['start_date']['visible'])
+        ->toBeTrue();
+});
+
 test('personal tab visibility is always true when stored false', function () {
     $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
     $configuration['tabs']['personal']['visible'] = false;

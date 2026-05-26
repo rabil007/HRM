@@ -15,7 +15,6 @@ import type { DocumentTypeOption } from '@/features/organization/documents/share
 import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
 import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
-    allDraftsHaveDocumentType,
     copyMetadataFromSource,
     createUploadDraftFromFile,
     fileMatchesExistingDraft,
@@ -23,15 +22,38 @@ import {
     formatUploadFileSize,
     MAX_UPLOAD_FILES,
     parseBulkDocumentErrors,
-    SUPPORTED_UPLOAD_MIME_TYPES
-    
-    
-    
+    SUPPORTED_UPLOAD_MIME_TYPES,
 } from '@/features/organization/documents/upload/upload-draft';
-import type {UploadDraft, UploadDraftFieldErrors, UploadDraftMetadata} from '@/features/organization/documents/upload/upload-draft';
+import type {
+    UploadDraft,
+    UploadDraftFieldErrors,
+    UploadDraftMetadata,
+} from '@/features/organization/documents/upload/upload-draft';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
+import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
+import {
+    useClearMissingOnFormChange,
+    useTemplateRecordFields,
+} from '@/pages/organization/_hooks/use-template-record-fields';
+import {
+    getTemplateRequiredFieldKeys,
+    isEmptyTemplateFieldValue,
+} from '@/pages/organization/_lib/template-field-visibility';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
+
+function uploadDraftToFormData(draft: UploadDraft): Record<string, unknown> {
+    return {
+        document_type_id: draft.document_type_id,
+        title: draft.title.trim() || null,
+        document_number: draft.document_number.trim() || null,
+        issue_date: draft.issue_date || null,
+        expiry_date: draft.expiry_date || null,
+        notes: draft.notes.trim() || null,
+    };
+}
 
 const DOCUMENTS_RELOAD = {
     preserveScroll: true,
@@ -45,6 +67,7 @@ export function UploadDocumentDialog({
     employeeName,
     documentTypes,
     ensureEmployee,
+    templateFields = null,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -52,7 +75,49 @@ export function UploadDocumentDialog({
     employeeName: string;
     documentTypes: DocumentTypeOption[];
     ensureEmployee?: () => Promise<number>;
+    templateFields?: Record<string, TemplateFieldConfig> | null;
 }): ReactElement {
+    const {
+        showField,
+        isFieldRequired,
+        isMissingRequired,
+        missingRequiredFieldsList,
+        clearMissingRequired,
+        focusMissingField,
+        validateRequired,
+        syncMissingFromFormData,
+    } = useTemplateRecordFields(templateFields, {
+        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+    });
+
+    const requiredFields = useMemo(
+        () =>
+            getTemplateRequiredFieldKeys(
+                templateFields,
+                TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_documents,
+            ),
+        [templateFields],
+    );
+
+    const draftMeetsRequired = useCallback(
+        (draft: UploadDraft): boolean => {
+            const data = uploadDraftToFormData(draft);
+
+            for (const field of requiredFields) {
+                if (!showField(field)) {
+                    continue;
+                }
+
+                if (isEmptyTemplateFieldValue(data[field])) {
+                    return false;
+                }
+            }
+
+            return true;
+        },
+        [requiredFields, showField],
+    );
+
     const [drafts, setDrafts] = useState<UploadDraft[]>([]);
     const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
     const [fieldErrorsByIndex, setFieldErrorsByIndex] = useState<
@@ -66,6 +131,13 @@ export function UploadDocumentDialog({
         [drafts, selectedDraftId],
     );
 
+    const selectedDraftFormData = useMemo(
+        () => (selectedDraft ? uploadDraftToFormData(selectedDraft) : {}),
+        [selectedDraft],
+    );
+
+    useClearMissingOnFormChange(selectedDraftFormData, syncMissingFromFormData);
+
     const selectedDraftIndex = useMemo(
         () => drafts.findIndex((draft) => draft.id === selectedDraftId),
         [drafts, selectedDraftId],
@@ -77,7 +149,8 @@ export function UploadDocumentDialog({
         setFieldErrorsByIndex(new Map());
         setIsDraggingFiles(false);
         setIsUploading(false);
-    }, []);
+        clearMissingRequired();
+    }, [clearMissingRequired]);
 
     const addUploadFiles = useCallback((files: File[]) => {
         const supportedFiles = files.filter((file) =>
@@ -204,11 +277,22 @@ export function UploadDocumentDialog({
         return drafts.reduce((total, draft) => total + draft.file.size, 0);
     }, [drafts]);
 
-    const canUpload = allDraftsHaveDocumentType(drafts) && !isUploading;
+    const canUpload =
+        drafts.length > 0 &&
+        !isUploading &&
+        drafts.every((draft) => draftMeetsRequired(draft));
 
     const submitUpload = useCallback(async () => {
-        if (!canUpload) {
+        if (drafts.length === 0 || isUploading) {
             return;
+        }
+
+        for (const draft of drafts) {
+            if (!validateRequired(uploadDraftToFormData(draft))) {
+                setSelectedDraftId(draft.id);
+
+                return;
+            }
         }
 
         let resolvedEmployeeId: number;
@@ -260,7 +344,7 @@ export function UploadDocumentDialog({
                 onFinish: () => setIsUploading(false),
             },
         );
-    }, [canUpload, drafts, employeeId, ensureEmployee, onOpenChange, resetUploadDialog]);
+    }, [drafts, employeeId, ensureEmployee, isUploading, onOpenChange, resetUploadDialog, validateRequired]);
 
     return (
         <Dialog
@@ -281,6 +365,11 @@ export function UploadDocumentDialog({
                         enter its details on the right.
                     </p>
                 </DialogHeader>
+
+                <EmployeeMissingRequiredFieldsAlert
+                    missingFields={missingRequiredFieldsList}
+                    onFocusField={focusMissingField}
+                />
 
                 <div className="grid gap-5 py-2 lg:grid-cols-[1.1fr_0.9fr]">
                     <div className="space-y-4">
@@ -387,6 +476,9 @@ export function UploadDocumentDialog({
                                 }
                                 showApplyToAll={drafts.length > 1}
                                 onApplyToAll={applyMetadataToAll}
+                                showField={showField}
+                                isFieldRequired={isFieldRequired}
+                                isMissingRequired={isMissingRequired}
                             />
                         ) : (
                             <div className="flex h-full min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center">

@@ -29,6 +29,9 @@ export type UseEmployeeProfileFormResult = {
     setActiveField: Dispatch<SetStateAction<string | null>>;
     beginEdit: (field: string) => void;
     requiredDot: (field: string) => ReactElement | null;
+    isMissingRequired: (field: string) => boolean;
+    missingRequiredFields: string[];
+    focusMissingField: (field: string) => void;
     saveChanges: (afterSuccess?: () => void) => void;
     uploadPhoto: (file: File) => void;
     discardChanges: () => void;
@@ -44,6 +47,9 @@ export function useEmployeeProfileForm(
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [missingRequiredFields, setMissingRequiredFields] = useState<Set<string>>(
+        () => new Set(),
+    );
     const ensureEmployee = options?.ensureEmployee;
 
     const initialPersonal = useMemo(
@@ -94,6 +100,16 @@ export function useEmployeeProfileForm(
         );
     }, [requiredFields]);
 
+    const isMissingRequired = useCallback(
+        (field: string) => missingRequiredFields.has(field),
+        [missingRequiredFields],
+    );
+
+    const missingRequiredFieldsList = useMemo(
+        () => Array.from(missingRequiredFields),
+        [missingRequiredFields],
+    );
+
     const beginEdit = useCallback(
         (field: string) => {
             if (!canUpdate) {
@@ -104,6 +120,39 @@ export function useEmployeeProfileForm(
         },
         [canUpdate],
     );
+
+    const focusMissingField = useCallback(
+        (field: string) => {
+            beginEdit(field);
+            requestAnimationFrame(() => {
+                document
+                    .querySelector(`[data-employee-field="${field}"]`)
+                    ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
+        },
+        [beginEdit],
+    );
+
+    useEffect(() => {
+        if (missingRequiredFields.size === 0) {
+            return;
+        }
+
+        setMissingRequiredFields((current) => {
+            const next = new Set(current);
+            let changed = false;
+
+            for (const field of current) {
+                if (String(form.data[field as keyof typeof form.data] ?? '').trim() !== '') {
+                    next.delete(field);
+                    changed = true;
+                }
+            }
+
+            return changed ? next : current;
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
+    }, [form.data]);
 
     useEffect(() => {
         if (!canUpdate || !isDirty) {
@@ -131,14 +180,17 @@ export function useEmployeeProfileForm(
                 }
 
                 if (missing.length) {
+                    setMissingRequiredFields(new Set(missing));
                     toast.error(
-                        'Please fill the required fields before saving.',
+                        'Please fill the highlighted required fields before saving.',
                     );
-                    beginEdit(missing[0]);
+                    focusMissingField(missing[0]);
 
                     return;
                 }
             }
+
+            setMissingRequiredFields(new Set());
 
             let targetEmployeeId = employee.id;
 
@@ -162,6 +214,7 @@ export function useEmployeeProfileForm(
                 preserveScroll: true,
                 onSuccess: () => {
                     setActiveField(null);
+                    setMissingRequiredFields(new Set());
                     afterSuccess?.();
                 },
                 onError: (errors) => {
@@ -174,7 +227,7 @@ export function useEmployeeProfileForm(
                 },
             });
         },
-        [beginEdit, canUpdate, employee.id, ensureEmployee, form, requiredFields],
+        [canUpdate, employee.id, ensureEmployee, focusMissingField, form, requiredFields],
     );
 
     const uploadPhoto = useCallback(
@@ -228,6 +281,7 @@ export function useEmployeeProfileForm(
         form.setData(initialPersonal);
         form.clearErrors();
         setActiveField(null);
+        setMissingRequiredFields(new Set());
     }, [form, initialPersonal]);
 
     return {
@@ -239,6 +293,9 @@ export function useEmployeeProfileForm(
         setActiveField,
         beginEdit,
         requiredDot,
+        isMissingRequired,
+        missingRequiredFields: missingRequiredFieldsList,
+        focusMissingField,
         saveChanges,
         uploadPhoto,
         discardChanges,

@@ -10,6 +10,8 @@ import {
 } from '@/components/ui/command';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import type { CreatableMasterDataContext, CreatableMasterDataKey } from '@/lib/master-data/creatable-registry';
+import { cn } from '@/lib/utils';
+import { employeeFieldMissingHighlightClass } from '@/pages/organization/_lib/employee-required-field-labels';
 
 export type CommandSelectOption = {
     id: number;
@@ -34,6 +36,7 @@ export type EditableCommandSelectCellProps = {
     beginEdit: (field: string) => void;
     canEdit: boolean;
     onSelect: (value: string) => void;
+    highlightMissing?: boolean;
 };
 
 function hasExactLabelMatch(query: string, items: CommandSelectOption[]): boolean {
@@ -61,6 +64,7 @@ export function EditableCommandSelectCell({
     beginEdit,
     canEdit,
     onSelect,
+    highlightMissing = false,
 }: EditableCommandSelectCellProps): ReactElement {
     const [searchQuery, setSearchQuery] = useState('');
     const [localItems, setLocalItems] = useState(items);
@@ -125,8 +129,19 @@ export function EditableCommandSelectCell({
     };
 
     return (
-        <div className="group flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+        <div
+            data-employee-field={field}
+            className={cn(
+                'group flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]',
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            <div
+                className={cn(
+                    'text-[10px] font-semibold uppercase tracking-wider text-zinc-600',
+                    highlightMissing && 'text-rose-400',
+                )}
+            >
                 {label}
             </div>
             <button

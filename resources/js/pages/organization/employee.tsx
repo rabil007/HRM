@@ -32,6 +32,7 @@ import { EmployeeContractTab } from '@/pages/organization/_components/employee-c
 import { EmployeeEducationTab } from '@/pages/organization/_components/employee-education-tab';
 import { EmployeeHeaderCard } from '@/pages/organization/_components/employee-header-card';
 import { EmployeeLanguagesTab } from '@/pages/organization/_components/employee-languages-tab';
+import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import { EmployeePersonalTab } from '@/pages/organization/_components/employee-personal-tab';
 import { EmployeeProfileActionBar } from '@/pages/organization/_components/employee-profile-action-bar';
 import { EmployeeSeaServiceTab } from '@/pages/organization/_components/employee-sea-service-tab';
@@ -42,6 +43,7 @@ import {
     useEmployeeProfileForm,
 } from '@/pages/organization/_hooks/use-employee-profile-form';
 import type { UseEmployeeProfileFormResult } from '@/pages/organization/_hooks/use-employee-profile-form';
+import { resolveTemplateTableFields } from '@/pages/organization/_lib/resolve-template-table-fields';
 import type {
     EmployeeDetails,
     EmployeePageProps,
@@ -176,6 +178,9 @@ function EmployeeDetailsPage({
         setActiveField,
         beginEdit,
         requiredDot,
+        isMissingRequired,
+        missingRequiredFields,
+        focusMissingField,
         saveChanges,
         uploadPhoto,
         isUploadingPhoto,
@@ -380,6 +385,10 @@ function EmployeeDetailsPage({
                                 </div>
                             </div>
                         ) : null}
+                        <EmployeeMissingRequiredFieldsAlert
+                            missingFields={missingRequiredFields}
+                            onFocusField={focusMissingField}
+                        />
                         <AlertDialog
                             open={unsavedDialogOpen}
                             onOpenChange={(open) => {
@@ -549,6 +558,7 @@ function EmployeeDetailsPage({
                             onPhotoSelect={uploadPhoto}
                             isUploadingPhoto={isUploadingPhoto}
                             templateProfileFields={employee_tabs.profile_fields}
+                            isMissingRequired={isMissingRequired}
                         />
 
                         <EmployeeProfileShell
@@ -567,6 +577,7 @@ function EmployeeDetailsPage({
                                             templateProfileFields={
                                                 employee_tabs.profile_fields
                                             }
+                                            isMissingRequired={isMissingRequired}
                                         />
                                     ) : null}
                                     {employee_tabs.contract && activeTab === 'contract' ? (
@@ -581,6 +592,13 @@ function EmployeeDetailsPage({
                                                     isCreateMode
                                                         ? ensureEmployee
                                                         : undefined
+                                                }
+                                                templateContractFields={
+                                                    resolveTemplateTableFields(
+                                                        employee_tabs.template_fields,
+                                                        resolved_template?.fields,
+                                                        'employee_contracts',
+                                                    )
                                                 }
                                             />
                                         )
@@ -599,6 +617,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_bank_accounts',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -619,6 +642,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_education_qualifications',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -638,6 +666,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_work_experiences',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -656,6 +689,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_vaccinations',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -673,6 +711,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_languages',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -691,6 +734,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_trainings',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -712,6 +760,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_sea_services',
+                                                )}
                                             />
                                         )
                                     ) : null}
@@ -739,6 +792,11 @@ function EmployeeDetailsPage({
                                                         ? ensureEmployee
                                                         : undefined
                                                 }
+                                                templateFields={resolveTemplateTableFields(
+                                                    employee_tabs.template_fields,
+                                                    resolved_template?.fields,
+                                                    'employee_documents',
+                                                )}
                                             />
                                         )
                                     ) : null}

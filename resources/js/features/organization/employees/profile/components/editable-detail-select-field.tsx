@@ -28,6 +28,7 @@ export type EditableDetailSelectFieldProps = {
     onChange: (value: string) => void;
     placeholder?: string;
     size?: 'sm' | 'default';
+    highlightMissing?: boolean;
 };
 
 export function EditableDetailSelectField({
@@ -46,6 +47,7 @@ export function EditableDetailSelectField({
     onChange,
     placeholder = '—',
     size = 'sm',
+    highlightMissing = false,
 }: EditableDetailSelectFieldProps): ReactElement {
     const [localOptions, setLocalOptions] = useState<CreatableOption[]>(options);
     const creatable = Boolean(creatableKey);
@@ -77,6 +79,7 @@ export function EditableDetailSelectField({
             activeField={activeField}
             beginEdit={beginEdit}
             canEdit={canEdit}
+            highlightMissing={highlightMissing}
             editControl={
                 <CreatableSelect
                     value={value}

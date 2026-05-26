@@ -1,6 +1,6 @@
 import { router, Link } from '@inertiajs/react';
 import { FolderOpen } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,11 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
-import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
+import { createTemplateFieldVisibility } from '@/pages/organization/_lib/template-field-visibility';
+import type {
+    EmployeeDetails,
+    TemplateFieldConfig,
+} from '@/pages/organization/employee-page.types';
 import { employee as employeeDocumentsBrowse } from '@/routes/organization/documents';
 
 const DOCUMENTS_RELOAD = {
@@ -46,6 +50,7 @@ export type EmployeeDocumentsTabProps = {
         documents_delete: boolean;
     };
     ensureEmployee?: () => Promise<number>;
+    templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
 export function EmployeeDocumentsTab({
@@ -54,7 +59,13 @@ export function EmployeeDocumentsTab({
     document_types,
     can,
     ensureEmployee,
+    templateFields = null,
 }: EmployeeDocumentsTabProps): ReactElement {
+    const showField = useMemo(
+        () => createTemplateFieldVisibility(templateFields),
+        [templateFields],
+    );
+
     const employeeId = employee.id;
     const hasEmployeeId = employeeId !== null && employeeId > 0;
     const [uploadOpen, setUploadOpen] = useState(false);
@@ -101,11 +112,21 @@ export function EmployeeDocumentsTab({
                 <EmployeeRecordsTable className="min-w-[1020px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            <th className={employeeRecordsTableThClass()}>Type</th>
-                            <th className={employeeRecordsTableThClass()}>Title</th>
-                            <th className={employeeRecordsTableThClass()}>Number</th>
-                            <th className={employeeRecordsTableThClass()}>Issue</th>
-                            <th className={employeeRecordsTableThClass()}>Expiry</th>
+                            {showField('document_type_id') ? (
+                                <th className={employeeRecordsTableThClass()}>Type</th>
+                            ) : null}
+                            {showField('title') ? (
+                                <th className={employeeRecordsTableThClass()}>Title</th>
+                            ) : null}
+                            {showField('document_number') ? (
+                                <th className={employeeRecordsTableThClass()}>Number</th>
+                            ) : null}
+                            {showField('issue_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Issue</th>
+                            ) : null}
+                            {showField('expiry_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Expiry</th>
+                            ) : null}
                             <th className={employeeRecordsTableThClass()}>Status</th>
                             <th className={employeeRecordsTableThClass()}>Uploaded by</th>
                             <EmployeeRecordsActionsHeader className="min-w-[13.5rem]" />
@@ -114,34 +135,44 @@ export function EmployeeDocumentsTab({
                     <tbody>
                         {documents.map((doc) => (
                             <tr key={doc.id} className={employeeRecordsTableRowClass()}>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
-                                    {doc.document_type_label ??
-                                        document_types.find(
-                                            (t) =>
-                                                String(t.id) ===
-                                                String(doc.document_type_id ?? doc.document_type),
-                                        )?.title ??
-                                        doc.document_type ??
-                                        doc.type ??
-                                        '—'}
-                                    {doc.current_version && doc.current_version > 1 ? (
-                                        <span className="ml-1 text-[10px] text-muted-foreground">
-                                            v{doc.current_version}
-                                        </span>
-                                    ) : null}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-foreground')}>
-                                    {doc.title || '—'}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-muted-foreground')}>
-                                    {doc.document_number || '—'}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
-                                    {formatDisplayDate(doc.issue_date)}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
-                                    {formatDisplayDate(doc.expiry_date)}
-                                </td>
+                                {showField('document_type_id') ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                        {doc.document_type_label ??
+                                            document_types.find(
+                                                (t) =>
+                                                    String(t.id) ===
+                                                    String(doc.document_type_id ?? doc.document_type),
+                                            )?.title ??
+                                            doc.document_type ??
+                                            doc.type ??
+                                            '—'}
+                                        {doc.current_version && doc.current_version > 1 ? (
+                                            <span className="ml-1 text-[10px] text-muted-foreground">
+                                                v{doc.current_version}
+                                            </span>
+                                        ) : null}
+                                    </td>
+                                ) : null}
+                                {showField('title') ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'font-medium text-foreground')}>
+                                        {doc.title || '—'}
+                                    </td>
+                                ) : null}
+                                {showField('document_number') ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'font-mono text-xs text-muted-foreground')}>
+                                        {doc.document_number || '—'}
+                                    </td>
+                                ) : null}
+                                {showField('issue_date') ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                        {formatDisplayDate(doc.issue_date)}
+                                    </td>
+                                ) : null}
+                                {showField('expiry_date') ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
+                                        {formatDisplayDate(doc.expiry_date)}
+                                    </td>
+                                ) : null}
                                 <td className={employeeRecordsTableTdClass()}>
                                     <DocumentExpiryStatusCell
                                         status={doc.expiry_status}
@@ -181,6 +212,7 @@ export function EmployeeDocumentsTab({
                 employeeName={employee.name}
                 documentTypes={document_types}
                 ensureEmployee={ensureEmployee}
+                templateFields={templateFields}
             />
 
             {hasEmployeeId ? (
@@ -189,6 +221,7 @@ export function EmployeeDocumentsTab({
                     document={editDoc}
                     employeeId={employeeId}
                     onOpenChange={(open) => !open && setEditDoc(null)}
+                    templateFields={templateFields}
                 />
             ) : null}
 

@@ -5,6 +5,10 @@ import { Input } from '@/components/ui/input';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { formatPhoneForDisplay } from '@/lib/phone-with-dial-code';
 import { cn } from '@/lib/utils';
+import {
+    employeeFieldMissingHighlightClass,
+    employeeFieldMissingLabelClass,
+} from '@/pages/organization/_lib/employee-required-field-labels';
 
 export const personalFieldRowClass =
     'grid grid-cols-1 gap-2 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-white/[0.06] hover:bg-white/[0.03] sm:grid-cols-[minmax(0,9.5rem)_1fr] sm:items-center sm:gap-5';
@@ -23,6 +27,7 @@ export type PersonalEditableTextRowProps = {
     onChange: (value: string) => void;
     error?: string;
     inputType?: 'text' | 'date';
+    highlightMissing?: boolean;
 };
 
 export function PersonalEditableTextRow({
@@ -36,15 +41,32 @@ export function PersonalEditableTextRow({
     onChange,
     error,
     inputType = 'text',
+    highlightMissing = false,
 }: PersonalEditableTextRowProps): ReactElement {
     return (
-        <div className={personalFieldRowClass}>
-            <label className={personalFieldLabelClass}>{label}</label>
+        <div
+            data-employee-field={field}
+            className={cn(
+                personalFieldRowClass,
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            <label
+                className={cn(
+                    personalFieldLabelClass,
+                    highlightMissing && employeeFieldMissingLabelClass,
+                )}
+            >
+                {label}
+            </label>
             {activeField === field ? (
                 <div>
                     <Input
                         type={inputType}
-                        className="h-10 rounded-xl border-white/5 bg-white/5"
+                        className={cn(
+                            'h-10 rounded-xl border-white/5 bg-white/5',
+                            highlightMissing && 'border-rose-500/50',
+                        )}
                         value={value}
                         onChange={(event) => onChange(event.target.value)}
                         onBlur={() => setActiveField(null)}
@@ -53,11 +75,17 @@ export function PersonalEditableTextRow({
                     {error ? (
                         <div className="mt-1 text-xs text-destructive">{error}</div>
                     ) : null}
+                    {highlightMissing ? (
+                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                    ) : null}
                 </div>
             ) : (
                 <button
                     type="button"
-                    className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                    className={cn(
+                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
+                        highlightMissing && 'text-rose-300',
+                    )}
                     onClick={() => beginEdit(field)}
                 >
                     {displayValue}
@@ -98,6 +126,7 @@ export type PersonalEditablePhoneRowProps = {
     onChange: (value: string) => void;
     error?: string;
     defaultDialCode?: string;
+    highlightMissing?: boolean;
 };
 
 export function PersonalEditablePhoneRow({
@@ -112,6 +141,7 @@ export function PersonalEditablePhoneRow({
     onChange,
     error,
     defaultDialCode,
+    highlightMissing = false,
 }: PersonalEditablePhoneRowProps): ReactElement {
     const displayValue = formatPhoneForDisplay(value || fallbackValue, {
         countries,
@@ -120,8 +150,21 @@ export function PersonalEditablePhoneRow({
     });
 
     return (
-        <div className={personalFieldRowClass}>
-            <label className={personalFieldLabelClass}>{label}</label>
+        <div
+            data-employee-field={field}
+            className={cn(
+                personalFieldRowClass,
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            <label
+                className={cn(
+                    personalFieldLabelClass,
+                    highlightMissing && employeeFieldMissingLabelClass,
+                )}
+            >
+                {label}
+            </label>
             {activeField === field ? (
                 <div>
                     <PhoneInputWithCountry
@@ -136,11 +179,17 @@ export function PersonalEditablePhoneRow({
                     {error ? (
                         <div className="mt-1 text-xs text-destructive">{error}</div>
                     ) : null}
+                    {highlightMissing ? (
+                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                    ) : null}
                 </div>
             ) : (
                 <button
                     type="button"
-                    className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                    className={cn(
+                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
+                        highlightMissing && 'text-rose-300',
+                    )}
                     onClick={() => beginEdit(field)}
                 >
                     {displayValue}
@@ -162,6 +211,7 @@ export type PersonalEditableSelectRowProps = {
     onChange: (value: string) => void;
     error?: string;
     className?: string;
+    highlightMissing?: boolean;
 };
 
 export function PersonalEditableSelectRow({
@@ -176,10 +226,25 @@ export function PersonalEditableSelectRow({
     onChange,
     error,
     className,
+    highlightMissing = false,
 }: PersonalEditableSelectRowProps): ReactElement {
     return (
-        <div className={cn(personalFieldRowClass, className)}>
-            <label className={personalFieldLabelClass}>{label}</label>
+        <div
+            data-employee-field={field}
+            className={cn(
+                personalFieldRowClass,
+                className,
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            <label
+                className={cn(
+                    personalFieldLabelClass,
+                    highlightMissing && employeeFieldMissingLabelClass,
+                )}
+            >
+                {label}
+            </label>
             {activeField === field ? (
                 <div>
                     <AppSelect
@@ -202,11 +267,17 @@ export function PersonalEditableSelectRow({
                     {error ? (
                         <div className="mt-1 text-xs text-destructive">{error}</div>
                     ) : null}
+                    {highlightMissing ? (
+                        <div className="mt-1 text-xs text-rose-400">Required</div>
+                    ) : null}
                 </div>
             ) : (
                 <button
                     type="button"
-                    className="text-left text-sm font-medium text-zinc-200 hover:text-white"
+                    className={cn(
+                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
+                        highlightMissing && 'text-rose-300',
+                    )}
                     onClick={() => beginEdit(field)}
                 >
                     {displayValue}

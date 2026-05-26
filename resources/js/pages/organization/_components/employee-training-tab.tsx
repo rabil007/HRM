@@ -32,6 +32,7 @@ import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
@@ -41,8 +42,23 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import {
+    RecordFormField,
+    RequiredIndicator,
+    recordFieldInputClass,
+    recordFieldLabelClass,
+} from '@/pages/organization/_components/record-form-field';
+import {
+    useClearMissingOnFormChange,
+    useTemplateRecordFields,
+} from '@/pages/organization/_hooks/use-template-record-fields';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
-import type { CourseOption, TrainingItem } from '@/pages/organization/employee-page.types';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import type {
+    CourseOption,
+    TemplateFieldConfig,
+    TrainingItem,
+} from '@/pages/organization/employee-page.types';
 
 const TRAINING_RELOAD = {
     preserveScroll: true,
@@ -56,6 +72,7 @@ export type EmployeeTrainingTabProps = {
     courses: CourseOption[];
     countries: CountryOption[];
     canManage: boolean;
+    templateFields?: Record<string, TemplateFieldConfig> | null;
 };
 
 export function EmployeeTrainingTab({
@@ -65,7 +82,21 @@ export function EmployeeTrainingTab({
     courses,
     countries,
     canManage,
+    templateFields = null,
 }: EmployeeTrainingTabProps): ReactElement {
+    const {
+        showField,
+        isFieldRequired,
+        isMissingRequired,
+        missingRequiredFieldsList,
+        clearMissingRequired,
+        focusMissingField,
+        validateRequired,
+        syncMissingFromFormData,
+    } = useTemplateRecordFields(templateFields, {
+        defaultRequiredFields: TEMPLATE_RECORD_DEFAULT_REQUIRED.employee_trainings,
+    });
+
     const [trainingDialogOpen, setTrainingDialogOpen] = useState(false);
     const [trainingImportOpen, setTrainingImportOpen] = useState(false);
     const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(null);
@@ -88,6 +119,11 @@ export function EmployeeTrainingTab({
         certificate: null,
     });
 
+    useClearMissingOnFormChange(
+        trainingForm.data as Record<string, unknown>,
+        syncMissingFromFormData,
+    );
+
     const trainingImport = trainingImportConfig(employeeId);
     const trainingImportUrls = useMemo(
         () =>
@@ -101,6 +137,39 @@ export function EmployeeTrainingTab({
     const { canCreate: canCreateCourse, createConfig: courseCreateConfig } =
         useCreatableMasterData('course');
 
+    const openCreateDialog = () => {
+        trainingForm.reset();
+        trainingForm.clearErrors();
+        clearMissingRequired();
+        setEditingTraining(null);
+
+        if (certificateInputRef.current) {
+            certificateInputRef.current.value = '';
+        }
+
+        setTrainingDialogOpen(true);
+    };
+
+    const openEditDialog = (row: TrainingItem) => {
+        setEditingTraining(row);
+        trainingForm.setData({
+            course_id: String(row.course_id),
+            issue_date: row.issue_date,
+            expiry_date: row.expiry_date ?? '',
+            institute_center: row.institute_center,
+            country_id: row.country_id ? String(row.country_id) : '',
+            certificate: null,
+        });
+        trainingForm.clearErrors();
+        clearMissingRequired();
+
+        if (certificateInputRef.current) {
+            certificateInputRef.current.value = '';
+        }
+
+        setTrainingDialogOpen(true);
+    };
+
     const submitTraining = async () => {
         let resolvedEmployeeId: number;
 
@@ -110,6 +179,10 @@ export function EmployeeTrainingTab({
                 ensureEmployee,
             );
         } catch {
+            return;
+        }
+
+        if (!validateRequired(trainingForm.data as Record<string, unknown>)) {
             return;
         }
 
@@ -137,6 +210,7 @@ export function EmployeeTrainingTab({
                 setTrainingDialogOpen(false);
                 trainingForm.reset();
                 setEditingTraining(null);
+                clearMissingRequired();
 
                 if (certificateInputRef.current) {
                     certificateInputRef.current.value = '';
@@ -150,6 +224,14 @@ export function EmployeeTrainingTab({
             trainingForm.post(url, options);
         }
     };
+
+    const showCourseSection =
+        showField('course_id') ||
+        showField('issue_date') ||
+        showField('expiry_date') ||
+        showField('institute_center') ||
+        showField('country_id') ||
+        showField('certificate');
 
     return (
         <TabsContent value="training" className="mt-6">
@@ -175,17 +257,7 @@ export function EmployeeTrainingTab({
                                 size="sm"
                                 className="h-8 gap-1.5 text-xs"
                                 type="button"
-                                onClick={() => {
-                                    trainingForm.reset();
-                                    trainingForm.clearErrors();
-                                    setEditingTraining(null);
-
-                                    if (certificateInputRef.current) {
-                                        certificateInputRef.current.value = '';
-                                    }
-
-                                    setTrainingDialogOpen(true);
-                                }}
+                                onClick={openCreateDialog}
                             >
                                 + Add training
                             </Button>
@@ -196,10 +268,18 @@ export function EmployeeTrainingTab({
                 <EmployeeRecordsTable className="min-w-[960px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            <th className={employeeRecordsTableThClass()}>Course</th>
-                            <th className={employeeRecordsTableThClass()}>Issue date</th>
-                            <th className={employeeRecordsTableThClass()}>Expiry date</th>
-                            <th className={employeeRecordsTableThClass()}>Institute/Center</th>
+                            {showField('course_id') ? (
+                                <th className={employeeRecordsTableThClass()}>Course</th>
+                            ) : null}
+                            {showField('issue_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Issue date</th>
+                            ) : null}
+                            {showField('expiry_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Expiry date</th>
+                            ) : null}
+                            {showField('institute_center') ? (
+                                <th className={employeeRecordsTableThClass()}>Institute/Center</th>
+                            ) : null}
                             <th className={employeeRecordsTableThClass()}>Created on</th>
                             {canManage ? <EmployeeRecordsActionsHeader /> : null}
                         </tr>
@@ -207,31 +287,54 @@ export function EmployeeTrainingTab({
                     <tbody>
                         {trainings.map((row) => (
                             <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                {showField('course_id') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[280px] truncate font-medium text-foreground',
+                                        )}
+                                        title={row.course_name ?? undefined}
+                                    >
+                                        {row.course_name ?? '—'}
+                                    </td>
+                                ) : null}
+                                {showField('issue_date') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.issue_date)}
+                                    </td>
+                                ) : null}
+                                {showField('expiry_date') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-xs text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.expiry_date)}
+                                    </td>
+                                ) : null}
+                                {showField('institute_center') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[200px] truncate text-muted-foreground',
+                                        )}
+                                        title={row.institute_center}
+                                    >
+                                        {row.institute_center}
+                                    </td>
+                                ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
-                                        'max-w-[280px] truncate font-medium text-foreground',
+                                        'whitespace-nowrap text-xs text-muted-foreground',
                                     )}
-                                    title={row.course_name ?? undefined}
                                 >
-                                    {row.course_name ?? '—'}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
-                                    {formatIsoDateDisplay(row.issue_date)}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
-                                    {formatIsoDateDisplay(row.expiry_date)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[200px] truncate text-muted-foreground',
-                                    )}
-                                    title={row.institute_center}
-                                >
-                                    {row.institute_center}
-                                </td>
-                                <td className={cn(employeeRecordsTableTdClass(), 'whitespace-nowrap text-xs text-muted-foreground')}>
                                     {formatDisplayDate(row.created_at)}
                                 </td>
                                 {canManage ? (
@@ -254,24 +357,7 @@ export function EmployeeTrainingTab({
                                                 </Button>
                                             ) : null}
                                             <EmployeeRecordRowActions
-                                                onEdit={() => {
-                                                    setEditingTraining(row);
-                                                    trainingForm.setData({
-                                                        course_id: String(row.course_id),
-                                                        issue_date: row.issue_date,
-                                                        expiry_date: row.expiry_date ?? '',
-                                                        institute_center: row.institute_center,
-                                                        country_id: row.country_id ? String(row.country_id) : '',
-                                                        certificate: null,
-                                                    });
-                                                    trainingForm.clearErrors();
-
-                                                    if (certificateInputRef.current) {
-                                                        certificateInputRef.current.value = '';
-                                                    }
-
-                                                    setTrainingDialogOpen(true);
-                                                }}
+                                                onEdit={() => openEditDialog(row)}
                                                 onDelete={() => setDeleteTrainingId(row.id)}
                                             />
                                         </div>
@@ -292,6 +378,7 @@ export function EmployeeTrainingTab({
                         trainingForm.reset();
                         trainingForm.clearErrors();
                         setEditingTraining(null);
+                        clearMissingRequired();
 
                         if (certificateInputRef.current) {
                             certificateInputRef.current.value = '';
@@ -307,138 +394,267 @@ export function EmployeeTrainingTab({
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="space-y-4 py-1">
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Course details</span>
-                            <div className="h-px flex-1 bg-muted/50" />
-                        </div>
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label className="text-xs">
-                                    Course <span className="text-red-400">*</span>
-                                </Label>
-                                <CreatableSelect
-                                    value={trainingForm.data.course_id}
-                                    onValueChange={(v) => trainingForm.setData('course_id', v)}
-                                    variant="dark"
-                                    placeholder="— Select a course —"
-                                    options={courseSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !courseSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
+                    <EmployeeMissingRequiredFieldsAlert
+                        missingFields={missingRequiredFieldsList}
+                        onFocusField={focusMissingField}
+                    />
 
-                                        if (added) {
-                                            appendCourseOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
-                                        }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateCourse}
-                                    createConfig={courseCreateConfig}
-                                />
-                                {trainingForm.errors.course_id ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.course_id}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">From master data courses</p>
-                                )}
+                    {showCourseSection ? (
+                        <div className="space-y-4 py-1">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    Course details
+                                </span>
+                                <div className="h-px flex-1 bg-muted/50" />
                             </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">
-                                    Issue date <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                    type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
-                                    value={trainingForm.data.issue_date}
-                                    onChange={(e) => trainingForm.setData('issue_date', e.target.value)}
-                                />
-                                {trainingForm.errors.issue_date ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.issue_date}</p>
-                                ) : null}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label className="text-xs">Expiry date</Label>
-                                <Input
-                                    type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
-                                    value={trainingForm.data.expiry_date}
-                                    onChange={(e) => trainingForm.setData('expiry_date', e.target.value)}
-                                />
-                                {trainingForm.errors.expiry_date ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.expiry_date}</p>
-                                ) : null}
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label className="text-xs">
-                                    Institute/Center <span className="text-red-400">*</span>
-                                </Label>
-                                <Input
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
-                                    placeholder="e.g. BINA SENA MTC"
-                                    value={trainingForm.data.institute_center}
-                                    onChange={(e) => trainingForm.setData('institute_center', e.target.value)}
-                                />
-                                {trainingForm.errors.institute_center ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.institute_center}</p>
-                                ) : null}
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label className="text-xs">Country</Label>
-                                <AppSelect
-                                    value={trainingForm.data.country_id}
-                                    onValueChange={(v) => trainingForm.setData('country_id', v)}
-                                    variant="dark"
-                                    placeholder="— Select a country —"
-                                >
-                                    <AppSelectItem value="">— Select a country —</AppSelectItem>
-                                    {countries.map((c) => (
-                                        <AppSelectItem key={c.id} value={String(c.id)}>
-                                            {c.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                                {trainingForm.errors.country_id ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.country_id}</p>
-                                ) : null}
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <Label className="text-xs">Certificate</Label>
-                                <Input
-                                    ref={certificateInputRef}
-                                    type="file"
-                                    accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:text-foreground"
-                                    onChange={(e) =>
-                                        trainingForm.setData('certificate', e.target.files?.[0] ?? null)
-                                    }
-                                />
-                                {editingTraining?.certificate_url ? (
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Leave empty to keep the current file.{' '}
-                                        <a
-                                            href={editingTraining.certificate_url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-primary hover:underline"
+                            <div className="grid gap-4 sm:grid-cols-2">
+                                {showField('course_id') ? (
+                                    <RecordFormField
+                                        field="course_id"
+                                        highlightMissing={isMissingRequired('course_id')}
+                                        className="sm:col-span-2"
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('course_id'),
+                                            )}
                                         >
-                                            View current certificate
-                                        </a>
-                                    </p>
+                                            Course
+                                            <RequiredIndicator show={isFieldRequired('course_id')} />
+                                        </Label>
+                                        <CreatableSelect
+                                            value={trainingForm.data.course_id}
+                                            onValueChange={(v) =>
+                                                trainingForm.setData('course_id', v)
+                                            }
+                                            variant="dark"
+                                            placeholder="— Select a course —"
+                                            options={courseSelectOptions}
+                                            onOptionsChange={(next) => {
+                                                const added = next.find(
+                                                    (option) =>
+                                                        !courseSelectOptions.some(
+                                                            (existing) =>
+                                                                existing.value === option.value,
+                                                        ),
+                                                );
+
+                                                if (added) {
+                                                    appendCourseOption({
+                                                        id: added.id,
+                                                        label: added.label,
+                                                    });
+                                                }
+                                            }}
+                                            creatable
+                                            canCreate={canCreateCourse}
+                                            createConfig={courseCreateConfig}
+                                        />
+                                        {trainingForm.errors.course_id ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.course_id}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                From master data courses
+                                                {isFieldRequired('course_id') ? '' : ' (optional)'}
+                                            </p>
+                                        )}
+                                    </RecordFormField>
                                 ) : null}
-                                {trainingForm.errors.certificate ? (
-                                    <p className="text-xs text-destructive">{trainingForm.errors.certificate}</p>
-                                ) : (
-                                    <p className="text-[11px] text-muted-foreground">PDF or image, max 5 MB (optional)</p>
-                                )}
+                                {showField('issue_date') ? (
+                                    <RecordFormField
+                                        field="issue_date"
+                                        highlightMissing={isMissingRequired('issue_date')}
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('issue_date'),
+                                            )}
+                                        >
+                                            Issue date
+                                            <RequiredIndicator show={isFieldRequired('issue_date')} />
+                                        </Label>
+                                        <Input
+                                            type="date"
+                                            className={recordFieldInputClass(
+                                                isMissingRequired('issue_date'),
+                                            )}
+                                            value={trainingForm.data.issue_date}
+                                            onChange={(e) =>
+                                                trainingForm.setData('issue_date', e.target.value)
+                                            }
+                                        />
+                                        {trainingForm.errors.issue_date ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.issue_date}
+                                            </p>
+                                        ) : null}
+                                    </RecordFormField>
+                                ) : null}
+                                {showField('expiry_date') ? (
+                                    <RecordFormField
+                                        field="expiry_date"
+                                        highlightMissing={isMissingRequired('expiry_date')}
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('expiry_date'),
+                                            )}
+                                        >
+                                            Expiry date
+                                            <RequiredIndicator show={isFieldRequired('expiry_date')} />
+                                        </Label>
+                                        <Input
+                                            type="date"
+                                            className={recordFieldInputClass(
+                                                isMissingRequired('expiry_date'),
+                                            )}
+                                            value={trainingForm.data.expiry_date}
+                                            onChange={(e) =>
+                                                trainingForm.setData('expiry_date', e.target.value)
+                                            }
+                                        />
+                                        {trainingForm.errors.expiry_date ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.expiry_date}
+                                            </p>
+                                        ) : null}
+                                    </RecordFormField>
+                                ) : null}
+                                {showField('institute_center') ? (
+                                    <RecordFormField
+                                        field="institute_center"
+                                        highlightMissing={isMissingRequired('institute_center')}
+                                        className="sm:col-span-2"
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('institute_center'),
+                                            )}
+                                        >
+                                            Institute/Center
+                                            <RequiredIndicator
+                                                show={isFieldRequired('institute_center')}
+                                            />
+                                        </Label>
+                                        <Input
+                                            className={recordFieldInputClass(
+                                                isMissingRequired('institute_center'),
+                                            )}
+                                            placeholder="e.g. BINA SENA MTC"
+                                            value={trainingForm.data.institute_center}
+                                            onChange={(e) =>
+                                                trainingForm.setData(
+                                                    'institute_center',
+                                                    e.target.value,
+                                                )
+                                            }
+                                        />
+                                        {trainingForm.errors.institute_center ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.institute_center}
+                                            </p>
+                                        ) : null}
+                                    </RecordFormField>
+                                ) : null}
+                                {showField('country_id') ? (
+                                    <RecordFormField
+                                        field="country_id"
+                                        highlightMissing={isMissingRequired('country_id')}
+                                        className="sm:col-span-2"
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('country_id'),
+                                            )}
+                                        >
+                                            Country
+                                            <RequiredIndicator show={isFieldRequired('country_id')} />
+                                        </Label>
+                                        <AppSelect
+                                            value={trainingForm.data.country_id}
+                                            onValueChange={(v) =>
+                                                trainingForm.setData('country_id', v)
+                                            }
+                                            variant="dark"
+                                            placeholder="— Select a country —"
+                                        >
+                                            <AppSelectItem value="">
+                                                — Select a country —
+                                            </AppSelectItem>
+                                            {countries.map((c) => (
+                                                <AppSelectItem key={c.id} value={String(c.id)}>
+                                                    {c.name}
+                                                </AppSelectItem>
+                                            ))}
+                                        </AppSelect>
+                                        {trainingForm.errors.country_id ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.country_id}
+                                            </p>
+                                        ) : null}
+                                    </RecordFormField>
+                                ) : null}
+                                {showField('certificate') ? (
+                                    <RecordFormField
+                                        field="certificate"
+                                        highlightMissing={isMissingRequired('certificate')}
+                                        className="sm:col-span-2"
+                                    >
+                                        <Label
+                                            className={recordFieldLabelClass(
+                                                isMissingRequired('certificate'),
+                                            )}
+                                        >
+                                            Certificate
+                                            <RequiredIndicator show={isFieldRequired('certificate')} />
+                                        </Label>
+                                        <Input
+                                            ref={certificateInputRef}
+                                            type="file"
+                                            accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                            className={cn(
+                                                recordFieldInputClass(
+                                                    isMissingRequired('certificate'),
+                                                ),
+                                                'file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:text-foreground',
+                                            )}
+                                            onChange={(e) =>
+                                                trainingForm.setData(
+                                                    'certificate',
+                                                    e.target.files?.[0] ?? null,
+                                                )
+                                            }
+                                        />
+                                        {editingTraining?.certificate_url ? (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Leave empty to keep the current file.{' '}
+                                                <a
+                                                    href={editingTraining.certificate_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="text-primary hover:underline"
+                                                >
+                                                    View current certificate
+                                                </a>
+                                            </p>
+                                        ) : null}
+                                        {trainingForm.errors.certificate ? (
+                                            <p className="text-xs text-destructive">
+                                                {trainingForm.errors.certificate}
+                                            </p>
+                                        ) : (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                PDF or image, max 5 MB
+                                                {isFieldRequired('certificate') ? '' : ' (optional)'}
+                                            </p>
+                                        )}
+                                    </RecordFormField>
+                                ) : null}
                             </div>
                         </div>
-                    </div>
+                    ) : null}
                     <DialogFooter className="border-t border-border/60 pt-4">
                         <Button
                             variant="outline"

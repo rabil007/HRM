@@ -42,6 +42,7 @@ export type EmployeePersonalTabProps = {
     beginEdit: (field: string) => void;
     /** null = no template, show all; string[] = only these field keys */
     templateProfileFields?: string[] | null;
+    isMissingRequired?: (field: string) => boolean;
 };
 
 export function EmployeePersonalTab({
@@ -52,6 +53,7 @@ export function EmployeePersonalTab({
     setActiveField,
     beginEdit,
     templateProfileFields = null,
+    isMissingRequired = () => false,
 }: EmployeePersonalTabProps): ReactElement {
     const showField = (key: string): boolean =>
         !templateProfileFields || templateProfileFields.includes(key);
@@ -107,6 +109,7 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('personal_email', value)}
                             error={form.errors.personal_email}
+                            highlightMissing={isMissingRequired('personal_email')}
                         />
                         ) : null}
 
@@ -122,6 +125,7 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('phone_home_country', value)}
                             error={form.errors.phone_home_country}
+                            highlightMissing={isMissingRequired('phone_home_country')}
                         />
                         ) : null}
                     </div>
@@ -149,6 +153,7 @@ export function EmployeePersonalTab({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('emergency_contact', value)}
+                            highlightMissing={isMissingRequired('emergency_contact')}
                         />
                         ) : null}
                         {showField('emergency_phone') ? (
@@ -163,6 +168,7 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('emergency_phone', value)}
                                             defaultDialCode="+971"
+                            highlightMissing={isMissingRequired('emergency_phone')}
                         />
                         ) : null}
                     </div>
@@ -189,6 +195,7 @@ export function EmployeePersonalTab({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('marital_status', value)}
+                            highlightMissing={isMissingRequired('marital_status')}
                         />
                         ) : null}
                         {showField('spouse_name') ? (
@@ -203,6 +210,7 @@ export function EmployeePersonalTab({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('spouse_name', value)}
+                            highlightMissing={isMissingRequired('spouse_name')}
                         />
                         ) : null}
                     </div>
@@ -247,6 +255,7 @@ export function EmployeePersonalTab({
                                 setActiveField={setActiveField}
                                 beginEdit={beginEdit}
                                 onChange={(value) => form.setData(row.key, value)}
+                                highlightMissing={isMissingRequired(row.key)}
                             />
                         ))}
                 </div>
@@ -272,6 +281,7 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('nationality_id', value)}
                             error={form.errors.nationality_id}
+                            highlightMissing={isMissingRequired('nationality_id')}
                         />
                 ) : null}
 
@@ -313,6 +323,7 @@ export function EmployeePersonalTab({
                                 setActiveField={setActiveField}
                                 beginEdit={beginEdit}
                                 onChange={(value) => form.setData(item.key, value)}
+                                highlightMissing={isMissingRequired(item.key)}
                             />
                         ))}
             </EmployeeSectionCard>

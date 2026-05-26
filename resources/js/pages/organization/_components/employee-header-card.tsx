@@ -50,6 +50,7 @@ export function EmployeeHeaderCard({
     onPhotoSelect,
     isUploadingPhoto = false,
     templateProfileFields = null,
+    isMissingRequired = () => false,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -70,6 +71,7 @@ export function EmployeeHeaderCard({
     isUploadingPhoto?: boolean;
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
+    isMissingRequired?: (field: string) => boolean;
 }) {
     const getInitials = useInitials();
 
@@ -259,6 +261,7 @@ export function EmployeeHeaderCard({
                                     setActiveField={setActiveField}
                                     beginEdit={beginEdit}
                                     canEdit={canUpdate}
+                                    highlightMissing={isMissingRequired('name')}
                                     onChange={(value) => form.setData('name', value)}
                                 />
                             </h1>
@@ -372,6 +375,7 @@ export function EmployeeHeaderCard({
                                         beginEdit={beginEdit}
                                         canEdit={canUpdate}
                                         onSelect={(value) => form.setData(item.field, value)}
+                                        highlightMissing={isMissingRequired(item.field)}
                                     />
                                 ))}
                             </div>
@@ -389,6 +393,7 @@ export function EmployeeHeaderCard({
                                     setActiveField={setActiveField}
                                     beginEdit={beginEdit}
                                     canEdit={canUpdate}
+                                    highlightMissing={isMissingRequired('employee_no')}
                                     onChange={(value) => form.setData('employee_no', value)}
                                 />
 
@@ -438,6 +443,7 @@ export function EmployeeHeaderCard({
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('work_email', value)}
                             inputType="email"
+                            highlightMissing={isMissingRequired('work_email')}
                         />
                     )}
 
@@ -447,6 +453,7 @@ export function EmployeeHeaderCard({
                             <EmployeeInlinePhoneField
                                 fieldKey="phone"
                                 label="Mobile (UAE)"
+                                highlightMissing={isMissingRequired('phone')}
                                 value={form.data.phone ?? ''}
                                 fallbackValue={employee.phone}
                                 countries={countries}
@@ -478,6 +485,7 @@ export function EmployeeHeaderCard({
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('date_of_birth', value)}
                             inputType="date"
+                            highlightMissing={isMissingRequired('date_of_birth')}
                         />
                     )}
 
@@ -499,6 +507,7 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('rank_id', value)}
+                            highlightMissing={isMissingRequired('rank_id')}
                         />
                     )}
 
@@ -515,6 +524,7 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('place_of_birth', value)}
+                            highlightMissing={isMissingRequired('place_of_birth')}
                         />
                     )}
 
@@ -534,6 +544,7 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('gender_id', value)}
+                            highlightMissing={isMissingRequired('gender_id')}
                         />
                     )}
 
@@ -553,6 +564,7 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('religion_id', value)}
+                            highlightMissing={isMissingRequired('religion_id')}
                         />
                     )}
 
@@ -573,6 +585,7 @@ export function EmployeeHeaderCard({
                             beginEdit={beginEdit}
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('visa_type_id', value)}
+                            highlightMissing={isMissingRequired('visa_type_id')}
                         />
                     )}
                 </div>

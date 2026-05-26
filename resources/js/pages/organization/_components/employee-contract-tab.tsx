@@ -1,7 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
-import type { ReactElement } from 'react';
-import { useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     destroy as destroyContract,
     store as storeContract,
@@ -24,7 +24,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import { actions } from '@/lib/design-system';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
 import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,
@@ -34,8 +36,21 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import {
+    employeeFieldMissingHighlightClass,
+    employeeFieldMissingLabelClass,
+} from '@/pages/organization/_lib/employee-required-field-labels';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
-import type { EmployeeContractDetails } from '@/pages/organization/employee-page.types';
+import {
+    createTemplateFieldVisibility,
+    getTemplateRequiredFieldKeys,
+    isEmptyTemplateFieldValue,
+    isTemplateFieldRequired,
+} from '@/pages/organization/_lib/template-field-visibility';
+import type {
+    EmployeeContractDetails,
+    TemplateFieldConfig,
+} from '@/pages/organization/employee-page.types';
 
 const CONTRACTS_RELOAD = {
     preserveScroll: true,
@@ -55,11 +70,53 @@ const STATUS_LABELS: Record<string, string> = {
     draft: 'Draft',
 };
 
+const DEFAULT_CONTRACT_REQUIRED_FIELDS = [
+    'contract_type',
+    'start_date',
+    'status',
+] as const;
+
+type ContractFormFieldProps = {
+    field: string;
+    highlightMissing: boolean;
+    children: ReactNode;
+};
+
+function ContractFormField({
+    field,
+    highlightMissing,
+    children,
+}: ContractFormFieldProps): ReactElement {
+    return (
+        <div
+            data-contract-field={field}
+            className={cn(
+                'space-y-1.5 rounded-xl',
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            {children}
+            {highlightMissing ? (
+                <p className="text-xs text-rose-400">Required</p>
+            ) : null}
+        </div>
+    );
+}
+
+function RequiredIndicator({ show }: { show: boolean }): ReactElement | null {
+    if (!show) {
+        return null;
+    }
+
+    return <span className="text-red-400"> *</span>;
+}
+
 export type EmployeeContractTabProps = {
     employeeId: number | null;
     contracts: EmployeeContractDetails[];
     canManage: boolean;
     ensureEmployee?: () => Promise<number>;
+    templateContractFields?: Record<string, TemplateFieldConfig> | null;
 };
 
 function formatContractType(value: string | null | undefined): string {
@@ -112,7 +169,66 @@ export function EmployeeContractTab({
     contracts,
     canManage,
     ensureEmployee,
+    templateContractFields = null,
 }: EmployeeContractTabProps): ReactElement {
+    const showField = useMemo(
+        () => createTemplateFieldVisibility(templateContractFields),
+        [templateContractFields],
+    );
+
+    const requiredFields = useMemo(
+        () =>
+            getTemplateRequiredFieldKeys(
+                templateContractFields,
+                [...DEFAULT_CONTRACT_REQUIRED_FIELDS],
+            ),
+        [templateContractFields],
+    );
+
+    const isFieldRequired = useCallback(
+        (fieldKey: string) =>
+            isTemplateFieldRequired(
+                templateContractFields,
+                fieldKey,
+                [...DEFAULT_CONTRACT_REQUIRED_FIELDS],
+            ),
+        [templateContractFields],
+    );
+
+    const [missingRequiredFields, setMissingRequiredFields] = useState<Set<string>>(
+        () => new Set(),
+    );
+
+    const isMissingRequired = useCallback(
+        (field: string) => missingRequiredFields.has(field),
+        [missingRequiredFields],
+    );
+
+    const missingRequiredFieldsList = useMemo(
+        () => Array.from(missingRequiredFields),
+        [missingRequiredFields],
+    );
+
+    const focusMissingField = useCallback((field: string) => {
+        requestAnimationFrame(() => {
+            document
+                .querySelector(`[data-contract-field="${field}"]`)
+                ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+    }, []);
+
+    const showContractDetailsSection =
+        showField('contract_type') ||
+        showField('status') ||
+        showField('labor_contract_id');
+    const showDurationSection = showField('start_date') || showField('end_date');
+    const showCompensationSection =
+        showField('basic_salary') ||
+        showField('housing_allowance') ||
+        showField('transport_allowance') ||
+        showField('other_allowances');
+    const showNoteSection = showField('note');
+
     const [dialogOpen, setDialogOpen] = useState(false);
     const [editingContract, setEditingContract] =
         useState<EmployeeContractDetails | null>(null);
@@ -133,9 +249,34 @@ export function EmployeeContractTab({
         note: '',
     });
 
+    useEffect(() => {
+        if (missingRequiredFields.size === 0) {
+            return;
+        }
+
+        setMissingRequiredFields((current) => {
+            const next = new Set(current);
+            let changed = false;
+
+            for (const field of current) {
+                const value =
+                    contractForm.data[field as keyof typeof contractForm.data];
+
+                if (!isEmptyTemplateFieldValue(value)) {
+                    next.delete(field);
+                    changed = true;
+                }
+            }
+
+            return changed ? next : current;
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
+    }, [contractForm.data]);
+
     const openCreateDialog = () => {
         contractForm.reset();
         contractForm.clearErrors();
+        setMissingRequiredFields(new Set());
         contractForm.setData({
             contract_type: 'unlimited',
             start_date: '',
@@ -154,6 +295,7 @@ export function EmployeeContractTab({
 
     const openEditDialog = (row: EmployeeContractDetails) => {
         contractForm.clearErrors();
+        setMissingRequiredFields(new Set());
         contractForm.setData({
             contract_type: row.contract_type ?? 'unlimited',
             start_date: row.start_date ?? '',
@@ -197,6 +339,32 @@ export function EmployeeContractTab({
             return;
         }
 
+        const missing: string[] = [];
+
+        for (const field of requiredFields) {
+            if (!showField(field)) {
+                continue;
+            }
+
+            const value =
+                contractForm.data[field as keyof typeof contractForm.data];
+
+            if (isEmptyTemplateFieldValue(value)) {
+                missing.push(field);
+            }
+        }
+
+        if (missing.length > 0) {
+            setMissingRequiredFields(new Set(missing));
+            toast.error(
+                'Please fill the highlighted required fields before saving.',
+            );
+            focusMissingField(missing[0]);
+
+            return;
+        }
+
+        setMissingRequiredFields(new Set());
         contractForm.clearErrors();
         contractForm.transform((data) => ({
             contract_type: data.contract_type,
@@ -230,6 +398,7 @@ export function EmployeeContractTab({
                 setDialogOpen(false);
                 contractForm.reset();
                 setEditingContract(null);
+                setMissingRequiredFields(new Set());
             },
         };
 
@@ -264,26 +433,46 @@ export function EmployeeContractTab({
                 <EmployeeRecordsTable className="min-w-[1480px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
-                            <th className={employeeRecordsTableThClass()}>Type</th>
-                            <th className={employeeRecordsTableThClass()}>Status</th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Labor contract ID
-                            </th>
-                            <th className={employeeRecordsTableThClass()}>Start</th>
-                            <th className={employeeRecordsTableThClass()}>End</th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Basic salary
-                            </th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Housing
-                            </th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Transport
-                            </th>
-                            <th className={employeeRecordsTableThClass()}>
-                                Other allowances
-                            </th>
-                            <th className={employeeRecordsTableThClass()}>Note</th>
+                            {showField('contract_type') ? (
+                                <th className={employeeRecordsTableThClass()}>Type</th>
+                            ) : null}
+                            {showField('status') ? (
+                                <th className={employeeRecordsTableThClass()}>Status</th>
+                            ) : null}
+                            {showField('labor_contract_id') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Labor contract ID
+                                </th>
+                            ) : null}
+                            {showField('start_date') ? (
+                                <th className={employeeRecordsTableThClass()}>Start</th>
+                            ) : null}
+                            {showField('end_date') ? (
+                                <th className={employeeRecordsTableThClass()}>End</th>
+                            ) : null}
+                            {showField('basic_salary') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Basic salary
+                                </th>
+                            ) : null}
+                            {showField('housing_allowance') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Housing
+                                </th>
+                            ) : null}
+                            {showField('transport_allowance') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Transport
+                                </th>
+                            ) : null}
+                            {showField('other_allowances') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Other allowances
+                                </th>
+                            ) : null}
+                            {showField('note') ? (
+                                <th className={employeeRecordsTableThClass()}>Note</th>
+                            ) : null}
                             {canManage ? <EmployeeRecordsActionsHeader /> : null}
                         </tr>
                     </thead>
@@ -293,92 +482,112 @@ export function EmployeeContractTab({
                                 key={row.id}
                                 className={employeeRecordsTableRowClass()}
                             >
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'font-medium text-foreground',
-                                    )}
-                                >
-                                    {formatContractType(row.contract_type)}
-                                </td>
-                                <td className={employeeRecordsTableTdClass()}>
-                                    <span
+                                {showField('contract_type') ? (
+                                    <td
                                         className={cn(
-                                            'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
-                                            contractStatusClass(row.status),
+                                            employeeRecordsTableTdClass(),
+                                            'font-medium text-foreground',
                                         )}
                                     >
-                                        {formatStatus(row.status)}
-                                    </span>
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[160px] truncate font-mono text-xs text-muted-foreground',
-                                    )}
-                                    title={row.labor_contract_id ?? undefined}
-                                >
-                                    {row.labor_contract_id || '—'}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-muted-foreground',
-                                    )}
-                                >
-                                    {formatIsoDateDisplay(row.start_date)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'whitespace-nowrap text-muted-foreground',
-                                    )}
-                                >
-                                    {formatIsoDateDisplay(row.end_date)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'tabular-nums text-muted-foreground',
-                                    )}
-                                >
-                                    {formatMoney(row.basic_salary)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'tabular-nums text-muted-foreground',
-                                    )}
-                                >
-                                    {formatMoney(row.housing_allowance)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'tabular-nums text-muted-foreground',
-                                    )}
-                                >
-                                    {formatMoney(row.transport_allowance)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'tabular-nums text-muted-foreground',
-                                    )}
-                                >
-                                    {formatMoney(row.other_allowances)}
-                                </td>
-                                <td
-                                    className={cn(
-                                        employeeRecordsTableTdClass(),
-                                        'max-w-[220px] text-muted-foreground',
-                                    )}
-                                    title={row.note ?? undefined}
-                                >
-                                    <span className="line-clamp-2 text-xs">
-                                        {row.note || '—'}
-                                    </span>
-                                </td>
+                                        {formatContractType(row.contract_type)}
+                                    </td>
+                                ) : null}
+                                {showField('status') ? (
+                                    <td className={employeeRecordsTableTdClass()}>
+                                        <span
+                                            className={cn(
+                                                'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+                                                contractStatusClass(row.status),
+                                            )}
+                                        >
+                                            {formatStatus(row.status)}
+                                        </span>
+                                    </td>
+                                ) : null}
+                                {showField('labor_contract_id') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[160px] truncate font-mono text-xs text-muted-foreground',
+                                        )}
+                                        title={row.labor_contract_id ?? undefined}
+                                    >
+                                        {row.labor_contract_id || '—'}
+                                    </td>
+                                ) : null}
+                                {showField('start_date') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.start_date)}
+                                    </td>
+                                ) : null}
+                                {showField('end_date') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'whitespace-nowrap text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatIsoDateDisplay(row.end_date)}
+                                    </td>
+                                ) : null}
+                                {showField('basic_salary') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.basic_salary)}
+                                    </td>
+                                ) : null}
+                                {showField('housing_allowance') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.housing_allowance)}
+                                    </td>
+                                ) : null}
+                                {showField('transport_allowance') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.transport_allowance)}
+                                    </td>
+                                ) : null}
+                                {showField('other_allowances') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.other_allowances)}
+                                    </td>
+                                ) : null}
+                                {showField('note') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'max-w-[220px] text-muted-foreground',
+                                        )}
+                                        title={row.note ?? undefined}
+                                    >
+                                        <span className="line-clamp-2 text-xs">
+                                            {row.note || '—'}
+                                        </span>
+                                    </td>
+                                ) : null}
                                 {canManage ? (
                                     <td
                                         className={cn(
@@ -407,6 +616,7 @@ export function EmployeeContractTab({
                         contractForm.reset();
                         contractForm.clearErrors();
                         setEditingContract(null);
+                        setMissingRequiredFields(new Set());
                     }
                 }}
             >
@@ -416,19 +626,39 @@ export function EmployeeContractTab({
                             {editingContract ? 'Edit contract' : 'Add contract'}
                         </DialogTitle>
                         <p className="text-xs text-muted-foreground">
-                            Fill in the contract details. Salary fields are optional.
+                            Fill in the contract details. Fields marked required in your
+                            profile template must be completed.
                         </p>
                     </DialogHeader>
 
-                    {/* Section: Contract details */}
+                    <EmployeeMissingRequiredFieldsAlert
+                        missingFields={missingRequiredFieldsList}
+                        onFocusField={focusMissingField}
+                    />
+
+                    {showContractDetailsSection ? (
                     <div className="space-y-4 py-1">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Contract details</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_type" className="text-xs">Contract type</Label>
+                            {showField('contract_type') ? (
+                            <ContractFormField
+                                field="contract_type"
+                                highlightMissing={isMissingRequired('contract_type')}
+                            >
+                                <Label
+                                    htmlFor="contract_type"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('contract_type') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Contract type
+                                    <RequiredIndicator show={isFieldRequired('contract_type')} />
+                                </Label>
                                 <AppSelect
                                     value={contractForm.data.contract_type}
                                     onValueChange={(v) => contractForm.setData('contract_type', v)}
@@ -440,9 +670,24 @@ export function EmployeeContractTab({
                                     <AppSelectItem value="contract">Contract</AppSelectItem>
                                 </AppSelect>
                                 <p className="text-[11px] text-muted-foreground">The nature of the employment term</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_status" className="text-xs">Status</Label>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('status') ? (
+                            <ContractFormField
+                                field="status"
+                                highlightMissing={isMissingRequired('status')}
+                            >
+                                <Label
+                                    htmlFor="contract_status"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('status') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Status
+                                    <RequiredIndicator show={isFieldRequired('status')} />
+                                </Label>
                                 <AppSelect
                                     value={contractForm.data.status}
                                     onValueChange={(v) => contractForm.setData('status', v)}
@@ -453,34 +698,77 @@ export function EmployeeContractTab({
                                     <AppSelectItem value="draft">Draft</AppSelectItem>
                                 </AppSelect>
                                 <p className="text-[11px] text-muted-foreground">Current state of this contract</p>
-                            </div>
+                            </ContractFormField>
+                            ) : null}
                         </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="contract_labor_contract_id" className="text-xs">Labor contract ID</Label>
+                        {showField('labor_contract_id') ? (
+                        <ContractFormField
+                            field="labor_contract_id"
+                            highlightMissing={isMissingRequired('labor_contract_id')}
+                        >
+                            <Label
+                                htmlFor="contract_labor_contract_id"
+                                className={cn(
+                                    'text-xs',
+                                    isMissingRequired('labor_contract_id') &&
+                                        employeeFieldMissingLabelClass,
+                                )}
+                            >
+                                Labor contract ID
+                                <RequiredIndicator
+                                    show={isFieldRequired('labor_contract_id')}
+                                />
+                            </Label>
                             <Input
                                 id="contract_labor_contract_id"
-                                className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                className={cn(
+                                    'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                    isMissingRequired('labor_contract_id') &&
+                                        'border-rose-500/50',
+                                )}
                                 placeholder="e.g. MOL-2024-00123"
                                 value={contractForm.data.labor_contract_id}
                                 onChange={(e) => contractForm.setData('labor_contract_id', e.target.value)}
                             />
-                            <p className="text-[11px] text-muted-foreground">Reference number from the labor authority (optional)</p>
-                        </div>
+                            <p className="text-[11px] text-muted-foreground">
+                                Reference number from the labor authority
+                                {isFieldRequired('labor_contract_id') ? '' : ' (optional)'}
+                            </p>
+                        </ContractFormField>
+                        ) : null}
                     </div>
+                    ) : null}
 
-                    {/* Section: Duration */}
+                    {showDurationSection ? (
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Duration</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_start_date" className="text-xs">Start date <span className="text-red-400">*</span></Label>
+                            {showField('start_date') ? (
+                            <ContractFormField
+                                field="start_date"
+                                highlightMissing={isMissingRequired('start_date')}
+                            >
+                                <Label
+                                    htmlFor="contract_start_date"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('start_date') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Start date
+                                    <RequiredIndicator show={isFieldRequired('start_date')} />
+                                </Label>
                                 <Input
                                     id="contract_start_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('start_date') && 'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.start_date}
                                     onChange={(e) => contractForm.setData('start_date', e.target.value)}
                                 />
@@ -489,92 +777,224 @@ export function EmployeeContractTab({
                                 ) : (
                                     <p className="text-[11px] text-muted-foreground">When the contract becomes effective</p>
                                 )}
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_end_date" className="text-xs">End date</Label>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('end_date') ? (
+                            <ContractFormField
+                                field="end_date"
+                                highlightMissing={isMissingRequired('end_date')}
+                            >
+                                <Label
+                                    htmlFor="contract_end_date"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('end_date') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    End date
+                                    <RequiredIndicator show={isFieldRequired('end_date')} />
+                                </Label>
                                 <Input
                                     id="contract_end_date"
                                     type="date"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('end_date') && 'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.end_date}
                                     onChange={(e) => contractForm.setData('end_date', e.target.value)}
                                 />
-                                <p className="text-[11px] text-muted-foreground">Leave blank for unlimited contracts</p>
-                            </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Leave blank for unlimited contracts
+                                    {isFieldRequired('end_date') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
                         </div>
                     </div>
+                    ) : null}
 
-                    {/* Section: Compensation */}
+                    {showCompensationSection ? (
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Compensation</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
                         <div className="grid gap-4 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_basic_salary" className="text-xs">Basic salary</Label>
+                            {showField('basic_salary') ? (
+                            <ContractFormField
+                                field="basic_salary"
+                                highlightMissing={isMissingRequired('basic_salary')}
+                            >
+                                <Label
+                                    htmlFor="contract_basic_salary"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('basic_salary') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Basic salary
+                                    <RequiredIndicator show={isFieldRequired('basic_salary')} />
+                                </Label>
                                 <Input
                                     id="contract_basic_salary"
                                     inputMode="decimal"
                                     placeholder="e.g. 5000.00"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('basic_salary') && 'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.basic_salary}
                                     onChange={(e) => contractForm.setData('basic_salary', e.target.value)}
                                 />
-                                <p className="text-[11px] text-muted-foreground">Monthly base salary in local currency</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_housing_allowance" className="text-xs">Housing allowance</Label>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Monthly base salary in local currency
+                                    {isFieldRequired('basic_salary') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('housing_allowance') ? (
+                            <ContractFormField
+                                field="housing_allowance"
+                                highlightMissing={isMissingRequired('housing_allowance')}
+                            >
+                                <Label
+                                    htmlFor="contract_housing_allowance"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('housing_allowance') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Housing allowance
+                                    <RequiredIndicator
+                                        show={isFieldRequired('housing_allowance')}
+                                    />
+                                </Label>
                                 <Input
                                     id="contract_housing_allowance"
                                     inputMode="decimal"
                                     placeholder="e.g. 1500.00"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('housing_allowance') &&
+                                            'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.housing_allowance}
                                     onChange={(e) => contractForm.setData('housing_allowance', e.target.value)}
                                 />
-                                <p className="text-[11px] text-muted-foreground">Monthly housing benefit (optional)</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_transport_allowance" className="text-xs">Transport allowance</Label>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Monthly housing benefit
+                                    {isFieldRequired('housing_allowance') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('transport_allowance') ? (
+                            <ContractFormField
+                                field="transport_allowance"
+                                highlightMissing={isMissingRequired('transport_allowance')}
+                            >
+                                <Label
+                                    htmlFor="contract_transport_allowance"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('transport_allowance') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Transport allowance
+                                    <RequiredIndicator
+                                        show={isFieldRequired('transport_allowance')}
+                                    />
+                                </Label>
                                 <Input
                                     id="contract_transport_allowance"
                                     inputMode="decimal"
                                     placeholder="e.g. 500.00"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('transport_allowance') &&
+                                            'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.transport_allowance}
                                     onChange={(e) => contractForm.setData('transport_allowance', e.target.value)}
                                 />
-                                <p className="text-[11px] text-muted-foreground">Monthly transport benefit (optional)</p>
-                            </div>
-                            <div className="space-y-1.5">
-                                <Label htmlFor="contract_other_allowances" className="text-xs">Other allowances</Label>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Monthly transport benefit
+                                    {isFieldRequired('transport_allowance') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('other_allowances') ? (
+                            <ContractFormField
+                                field="other_allowances"
+                                highlightMissing={isMissingRequired('other_allowances')}
+                            >
+                                <Label
+                                    htmlFor="contract_other_allowances"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('other_allowances') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Other allowances
+                                    <RequiredIndicator
+                                        show={isFieldRequired('other_allowances')}
+                                    />
+                                </Label>
                                 <Input
                                     id="contract_other_allowances"
                                     inputMode="decimal"
                                     placeholder="e.g. 200.00"
-                                    className="h-10 rounded-xl border-border/60 bg-muted/50 text-sm"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('other_allowances') &&
+                                            'border-rose-500/50',
+                                    )}
                                     value={contractForm.data.other_allowances}
                                     onChange={(e) => contractForm.setData('other_allowances', e.target.value)}
                                 />
-                                <p className="text-[11px] text-muted-foreground">Any additional monthly allowances (optional)</p>
-                            </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Any additional monthly allowances
+                                    {isFieldRequired('other_allowances') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
                         </div>
                     </div>
+                    ) : null}
 
-                    {/* Section: Note */}
+                    {showNoteSection ? (
                     <div className="space-y-4 pt-2">
                         <div className="flex items-center gap-2">
                             <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Note</span>
                             <div className="h-px flex-1 bg-muted/50" />
                         </div>
-                        <div className="space-y-1.5">
-                            <Label htmlFor="contract_note" className="text-xs">Note</Label>
+                        <ContractFormField
+                            field="note"
+                            highlightMissing={isMissingRequired('note')}
+                        >
+                            <Label
+                                htmlFor="contract_note"
+                                className={cn(
+                                    'text-xs',
+                                    isMissingRequired('note') && employeeFieldMissingLabelClass,
+                                )}
+                            >
+                                Note
+                                <RequiredIndicator show={isFieldRequired('note')} />
+                            </Label>
                             <Textarea
                                 id="contract_note"
                                 rows={3}
                                 placeholder="Reason for this contract or contract change…"
-                                className="min-h-[88px] resize-y rounded-xl border-border/60 bg-muted/50 text-sm"
+                                className={cn(
+                                    'min-h-[88px] resize-y rounded-xl border-border/60 bg-muted/50 text-sm',
+                                    isMissingRequired('note') && 'border-rose-500/50',
+                                )}
                                 value={contractForm.data.note}
                                 onChange={(e) => contractForm.setData('note', e.target.value)}
                             />
@@ -582,11 +1002,13 @@ export function EmployeeContractTab({
                                 <p className="text-xs text-destructive">{contractForm.errors.note}</p>
                             ) : (
                                 <p className="text-[11px] text-muted-foreground">
-                                    Optional context for new contracts or amendments (e.g. promotion, renewal, correction).
+                                    Context for new contracts or amendments
+                                    {isFieldRequired('note') ? '' : ' (optional)'}
                                 </p>
                             )}
-                        </div>
+                        </ContractFormField>
                     </div>
+                    ) : null}
 
                     <DialogFooter className="border-t border-border/60 pt-4">
                         <Button

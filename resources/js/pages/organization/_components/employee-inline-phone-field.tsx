@@ -5,6 +5,11 @@ import {
     
 } from '@/lib/phone-with-dial-code';
 import type {PhoneCountryOption} from '@/lib/phone-with-dial-code';
+import { cn } from '@/lib/utils';
+import {
+    employeeFieldMissingHighlightClass,
+    employeeFieldMissingLabelClass,
+} from '@/pages/organization/_lib/employee-required-field-labels';
 export type EmployeeInlinePhoneFieldProps = {
     fieldKey: string;
     label: string;
@@ -20,6 +25,7 @@ export type EmployeeInlinePhoneFieldProps = {
     rowClassName?: string;
     labelClassName?: string;
     canEdit?: boolean;
+    highlightMissing?: boolean;
 };
 
 export function EmployeeInlinePhoneField({
@@ -37,6 +43,7 @@ export function EmployeeInlinePhoneField({
     rowClassName,
     labelClassName,
     canEdit = true,
+    highlightMissing = false,
 }: EmployeeInlinePhoneFieldProps): ReactElement {
     const isEditing = activeField === fieldKey;
     const resolved = value || fallbackValue || '';
@@ -63,13 +70,19 @@ export function EmployeeInlinePhoneField({
                 {error ? (
                     <div className="mt-1 text-xs text-destructive">{error}</div>
                 ) : null}
+                {highlightMissing ? (
+                    <div className="mt-1 text-xs text-rose-400">Required</div>
+                ) : null}
             </div>
         );
     } else {
         editor = (
             <button
                 type="button"
-                className="min-w-0 text-left text-sm font-medium text-foreground hover:text-white disabled:cursor-default disabled:hover:text-foreground"
+                className={cn(
+                    'min-w-0 text-left text-sm font-medium text-foreground hover:text-white disabled:cursor-default disabled:hover:text-foreground',
+                    highlightMissing && 'text-rose-300',
+                )}
                 onClick={() => beginEdit(fieldKey)}
                 disabled={!canEdit}
             >
@@ -79,8 +92,21 @@ export function EmployeeInlinePhoneField({
     }
 
     return (
-        <div className={rowClassName}>
-            <label className={labelClassName}>{label}</label>
+        <div
+            data-employee-field={fieldKey}
+            className={cn(
+                rowClassName,
+                highlightMissing && employeeFieldMissingHighlightClass,
+            )}
+        >
+            <label
+                className={cn(
+                    labelClassName,
+                    highlightMissing && employeeFieldMissingLabelClass,
+                )}
+            >
+                {label}
+            </label>
             <div className="min-w-0">{editor}</div>
         </div>
     );
