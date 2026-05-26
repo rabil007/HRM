@@ -564,6 +564,9 @@ function EmployeeDetailsPage({
                                             activeField={activeField}
                                             setActiveField={setActiveField}
                                             beginEdit={beginEdit}
+                                            templateProfileFields={
+                                                employee_tabs.profile_fields
+                                            }
                                         />
                                     ) : null}
                                     {employee_tabs.contract && activeTab === 'contract' ? (

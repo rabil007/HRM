@@ -92,8 +92,6 @@ final class EmployeeProfileTemplateFieldRegistry
                 'passport_number' => 'Passport number',
                 'labor_card_number' => 'Labor card number',
                 'status' => 'Status',
-                'termination_date' => 'Termination date',
-                'termination_reason' => 'Termination reason',
             ],
             'employee_contracts' => [
                 'contract_type' => 'Contract type',

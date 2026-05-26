@@ -40,6 +40,8 @@ export type EmployeePersonalTabProps = {
     activeField: string | null;
     setActiveField: (v: string | null) => void;
     beginEdit: (field: string) => void;
+    /** null = no template, show all; string[] = only these field keys */
+    templateProfileFields?: string[] | null;
 };
 
 export function EmployeePersonalTab({
@@ -49,7 +51,10 @@ export function EmployeePersonalTab({
     activeField,
     setActiveField,
     beginEdit,
+    templateProfileFields = null,
 }: EmployeePersonalTabProps): ReactElement {
+    const showField = (key: string): boolean =>
+        !templateProfileFields || templateProfileFields.includes(key);
     const nationalityOptions = countries.map((country) => ({
         id: country.id,
         label: country.name,
@@ -65,15 +70,29 @@ export function EmployeePersonalTab({
         employee.nationality_ref?.name ??
         '—';
 
+    const showPrivateContact =
+        showField('personal_email') || showField('phone_home_country');
+    const showEmergencyContact =
+        showField('emergency_contact') || showField('emergency_phone');
+    const showFamily = showField('marital_status') || showField('spouse_name');
+    const showLocation = showField('nearest_airport') || showField('address');
+    const showCitizenship =
+        showField('nationality_id') ||
+        showField('passport_number') ||
+        showField('emirates_id') ||
+        showField('labor_card_number');
+
     return (
         <TabsContent value="personal" className="mt-6 space-y-6">
             <div className="grid items-stretch gap-4 lg:grid-cols-3">
+                {showPrivateContact ? (
                 <EmployeeSectionCard
                     title="Private contact"
                     description="Personal email and home-country mobile"
                     icon={Mail}
                 >
                     <div className="space-y-1">
+                        {showField('personal_email') ? (
                         <PersonalEditableTextRow
                             label="Email"
                             field="personal_email"
@@ -89,7 +108,9 @@ export function EmployeePersonalTab({
                             onChange={(value) => form.setData('personal_email', value)}
                             error={form.errors.personal_email}
                         />
+                        ) : null}
 
+                        {showField('phone_home_country') ? (
                         <PersonalEditablePhoneRow
                             label="Mobile (Home Country)"
                             field="phone_home_country"
@@ -102,15 +123,19 @@ export function EmployeePersonalTab({
                             onChange={(value) => form.setData('phone_home_country', value)}
                             error={form.errors.phone_home_country}
                         />
+                        ) : null}
                     </div>
                 </EmployeeSectionCard>
+                ) : null}
 
+                {showEmergencyContact ? (
                 <EmployeeSectionCard
                     title="Emergency contact"
                     description="Primary emergency contact"
                     icon={Phone}
                 >
                     <div className="space-y-1">
+                        {showField('emergency_contact') ? (
                         <PersonalEditableTextRow
                             label="Contacted Name"
                             field="emergency_contact"
@@ -125,6 +150,8 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('emergency_contact', value)}
                         />
+                        ) : null}
+                        {showField('emergency_phone') ? (
                         <PersonalEditablePhoneRow
                             label="Contacted Mobile"
                             field="emergency_phone"
@@ -137,15 +164,19 @@ export function EmployeePersonalTab({
                             onChange={(value) => form.setData('emergency_phone', value)}
                                             defaultDialCode="+971"
                         />
+                        ) : null}
                     </div>
                 </EmployeeSectionCard>
+                ) : null}
 
+                {showFamily ? (
                 <EmployeeSectionCard
                     title="Family"
                     description="Marital status and spouse"
                     icon={Users}
                 >
                     <div className="space-y-1">
+                        {showField('marital_status') ? (
                         <PersonalEditableSelectRow
                             label="Marital status"
                             field="marital_status"
@@ -159,6 +190,8 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('marital_status', value)}
                         />
+                        ) : null}
+                        {showField('spouse_name') ? (
                         <PersonalEditableTextRow
                             label="Spouse name"
                             field="spouse_name"
@@ -171,11 +204,15 @@ export function EmployeePersonalTab({
                             beginEdit={beginEdit}
                             onChange={(value) => form.setData('spouse_name', value)}
                         />
+                        ) : null}
                     </div>
                 </EmployeeSectionCard>
+                ) : null}
             </div>
 
+            {showLocation || showCitizenship ? (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:items-stretch">
+            {showLocation ? (
             <EmployeeSectionCard
                 title="Location"
                 description="Travel and residence"
@@ -197,7 +234,9 @@ export function EmployeePersonalTab({
                                 value:
                                     form.data.address || employee.address || '—',
                             },
-                        ].map((row) => (
+                        ]
+                            .filter((row) => showField(row.key))
+                            .map((row) => (
                             <PersonalEditableTextRow
                                 key={row.key}
                                 label={row.label}
@@ -212,13 +251,16 @@ export function EmployeePersonalTab({
                         ))}
                 </div>
             </EmployeeSectionCard>
+            ) : null}
 
+            {showCitizenship ? (
             <EmployeeSectionCard
                 title="Citizenship"
                 description="Identity documents and work permits"
                 icon={Globe}
                 bodyClassName="grid gap-1 lg:grid-cols-2 lg:gap-x-10"
             >
+                {showField('nationality_id') ? (
                 <PersonalEditableSelectRow
                             label="Nationality (Country)"
                             field="nationality_id"
@@ -231,6 +273,7 @@ export function EmployeePersonalTab({
                             onChange={(value) => form.setData('nationality_id', value)}
                             error={form.errors.nationality_id}
                         />
+                ) : null}
 
                         {[
                             {
@@ -257,7 +300,9 @@ export function EmployeePersonalTab({
                                     employee.labor_card_number ||
                                     '—',
                             },
-                        ].map((item) => (
+                        ]
+                            .filter((item) => showField(item.key))
+                            .map((item) => (
                             <PersonalEditableTextRow
                                 key={item.key}
                                 label={item.label}
@@ -271,7 +316,9 @@ export function EmployeePersonalTab({
                             />
                         ))}
             </EmployeeSectionCard>
+            ) : null}
             </div>
+            ) : null}
         </TabsContent>
     );
 }
