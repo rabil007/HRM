@@ -14,6 +14,7 @@ use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentDeletionService;
 use App\Support\EmployeeDocuments\DocumentExpiry;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -88,9 +89,23 @@ class EmployeeDocumentController extends Controller
 
         $validated = $request->validated();
 
+        $expiryDate = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'expiry_date')
+            ? ($validated['expiry_date'] ?? null)
+            : $document->expiry_date?->toDateString();
+
         $document->update([
-            ...$validated,
-            'status' => DocumentExpiry::persistedStatus($validated['expiry_date'] ?? $document->expiry_date?->toDateString()),
+            'title' => EmployeeProfileTemplateRequestRules::persistedValue($validated, 'title', $document->title),
+            'document_number' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'document_number')
+                ? ($validated['document_number'] ?? null)
+                : $document->document_number,
+            'issue_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'issue_date')
+                ? ($validated['issue_date'] ?? null)
+                : $document->issue_date?->toDateString(),
+            'expiry_date' => $expiryDate,
+            'notes' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'notes')
+                ? ($validated['notes'] ?? null)
+                : $document->notes,
+            'status' => DocumentExpiry::persistedStatus($expiryDate),
         ]);
 
         return back()->with('success', 'Document updated.');

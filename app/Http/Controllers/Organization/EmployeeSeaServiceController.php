@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\VesselType;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,12 @@ class EmployeeSeaServiceController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate($this->seaServiceRules());
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_sea_services',
+            $this->seaServiceRules(),
+        );
 
         $maxSort = EmployeeSeaService::query()
             ->where('employee_id', $employee->id)
@@ -36,7 +42,7 @@ class EmployeeSeaServiceController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            ...$this->seaServiceAttributes($validated),
+            ...$this->seaServiceAttributes($validated, null),
         ]);
 
         return back()->with('success', 'Sea service record added.');
@@ -53,9 +59,14 @@ class EmployeeSeaServiceController extends Controller
             403,
         );
 
-        $validated = $request->validate($this->seaServiceRules());
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_sea_services',
+            $this->seaServiceRules(),
+        );
 
-        $seaService->update($this->seaServiceAttributes($validated));
+        $seaService->update($this->seaServiceAttributes($validated, $seaService));
 
         return back()->with('success', 'Sea service record updated.');
     }
@@ -447,25 +458,60 @@ class EmployeeSeaServiceController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function seaServiceAttributes(array $validated): array
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function seaServiceAttributes(array $validated, ?EmployeeSeaService $existing = null): array
     {
+        $startDate = EmployeeProfileTemplateRequestRules::persistedValue(
+            $validated,
+            'start_date',
+            $existing?->start_date,
+        );
+        $endDate = EmployeeProfileTemplateRequestRules::persistedValue(
+            $validated,
+            'end_date',
+            $existing?->end_date,
+        );
+
         $duration = SeaServiceDuration::fromDates(
-            $validated['start_date'],
-            $validated['end_date'],
+            (string) $startDate,
+            (string) $endDate,
         );
 
         return [
-            'vessel_type_id' => (int) $validated['vessel_type_id'],
-            'vessel_name' => $validated['vessel_name'],
-            'rank_id' => (int) $validated['rank_id'],
-            'start_date' => $validated['start_date'],
-            'end_date' => $validated['end_date'],
+            'vessel_type_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'vessel_type_id',
+                $existing?->vessel_type_id ?? 0,
+            ),
+            'vessel_name' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'vessel_name',
+                $existing?->vessel_name,
+            ),
+            'rank_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'rank_id',
+                $existing?->rank_id ?? 0,
+            ),
+            'start_date' => $startDate,
+            'end_date' => $endDate,
             'total_months' => $duration['months'],
             'total_days' => $duration['days'],
-            'grt' => $validated['grt'] ?? null,
-            'bhp' => isset($validated['bhp']) ? (int) $validated['bhp'] : null,
-            'client_id' => isset($validated['client_id']) ? (int) $validated['client_id'] : null,
-            'is_offshore' => (bool) ($validated['is_offshore'] ?? false),
+            'grt' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'grt')
+                ? ($validated['grt'] ?? null)
+                : $existing?->grt,
+            'bhp' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'bhp')
+                ? (isset($validated['bhp']) ? (int) $validated['bhp'] : null)
+                : $existing?->bhp,
+            'client_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'client_id')
+                ? (isset($validated['client_id']) ? (int) $validated['client_id'] : null)
+                : $existing?->client_id,
+            'is_offshore' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_offshore')
+                ? (bool) ($validated['is_offshore'] ?? false)
+                : (bool) ($existing?->is_offshore ?? false),
         ];
     }
 

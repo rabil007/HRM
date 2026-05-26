@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeEducationQualification;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -17,12 +18,17 @@ class EmployeeEducationQualificationController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate([
-            'certificate' => ['required', 'string', 'max:200'],
-            'issue_date' => ['nullable', 'date'],
-            'university' => ['nullable', 'string', 'max:255'],
-            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_education_qualifications',
+            [
+                'certificate' => ['required', 'string', 'max:200'],
+                'issue_date' => ['nullable', 'date'],
+                'university' => ['nullable', 'string', 'max:255'],
+                'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
+            ],
+        );
 
         EmployeeEducationQualification::query()->create([
             'company_id' => $companyId,
@@ -47,18 +53,33 @@ class EmployeeEducationQualificationController extends Controller
             403,
         );
 
-        $validated = $request->validate([
-            'certificate' => ['required', 'string', 'max:200'],
-            'issue_date' => ['nullable', 'date'],
-            'university' => ['nullable', 'string', 'max:255'],
-            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_education_qualifications',
+            [
+                'certificate' => ['required', 'string', 'max:200'],
+                'issue_date' => ['nullable', 'date'],
+                'university' => ['nullable', 'string', 'max:255'],
+                'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
+            ],
+        );
 
         $qualification->update([
-            'certificate' => $validated['certificate'],
-            'issue_date' => $validated['issue_date'] ?? null,
-            'university' => $validated['university'] ?? null,
-            'country_id' => $validated['country_id'] ?? null,
+            'certificate' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'certificate',
+                $qualification->certificate,
+            ),
+            'issue_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'issue_date')
+                ? ($validated['issue_date'] ?? null)
+                : $qualification->issue_date,
+            'university' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'university')
+                ? ($validated['university'] ?? null)
+                : $qualification->university,
+            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
+                ? ($validated['country_id'] ?? null)
+                : $qualification->country_id,
         ]);
 
         return back()->with('success', 'Education qualification updated.');

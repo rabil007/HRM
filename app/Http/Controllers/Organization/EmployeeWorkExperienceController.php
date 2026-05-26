@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\ImportEmployeeWorkExperienceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeWorkExperience;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class EmployeeWorkExperienceController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_work_experiences', [
             'company_name' => ['required', 'string', 'max:255'],
             'job_title' => ['required', 'string', 'max:255'],
             'date_from' => ['required', 'date'],
@@ -59,7 +60,7 @@ class EmployeeWorkExperienceController extends Controller
             403,
         );
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_work_experiences', [
             'company_name' => ['required', 'string', 'max:255'],
             'job_title' => ['required', 'string', 'max:255'],
             'date_from' => ['required', 'date'],
@@ -68,13 +69,29 @@ class EmployeeWorkExperienceController extends Controller
         ]);
 
         $workExperience->update([
-            'company_name' => $validated['company_name'],
-            'job_title' => $validated['job_title'],
-            'date_from' => $validated['date_from'],
-            'date_to' => $validated['date_to'] ?? null,
-            'responsibility' => isset($validated['responsibility']) && $validated['responsibility'] !== ''
-                ? $validated['responsibility']
-                : null,
+            'company_name' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'company_name',
+                $workExperience->company_name,
+            ),
+            'job_title' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'job_title',
+                $workExperience->job_title,
+            ),
+            'date_from' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'date_from',
+                $workExperience->date_from,
+            ),
+            'date_to' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'date_to')
+                ? ($validated['date_to'] ?? null)
+                : $workExperience->date_to,
+            'responsibility' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'responsibility')
+                ? (isset($validated['responsibility']) && $validated['responsibility'] !== ''
+                    ? $validated['responsibility']
+                    : null)
+                : $workExperience->responsibility,
         ]);
 
         return back()->with('success', 'Work experience updated.');

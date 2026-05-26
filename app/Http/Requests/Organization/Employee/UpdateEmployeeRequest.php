@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Models\Employee;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +19,7 @@ class UpdateEmployeeRequest extends FormRequest
         $companyId = (int) $this->attributes->get('current_company_id');
         $employeeId = (int) $this->route('employee')?->id;
 
-        return [
+        $rules = [
             'user_id' => [
                 'nullable',
                 'integer',
@@ -79,5 +81,13 @@ class UpdateEmployeeRequest extends FormRequest
             'termination_date' => ['nullable', 'date'],
             'termination_reason' => ['nullable', 'string'],
         ];
+
+        $employee = $this->route('employee');
+
+        if ($employee instanceof Employee) {
+            return EmployeeProfileTemplateRequestRules::applyToRules($employee, 'employees', $rules);
+        }
+
+        return $rules;
     }
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,7 +19,7 @@ class EmployeeBankAccountController extends Controller
 
         abort_unless((int) $employee->company_id === $companyId, 403);
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_bank_accounts', [
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],
             'iban' => ['nullable', 'string', 'max:50'],
             'account_name' => ['nullable', 'string', 'max:200'],
@@ -81,7 +82,7 @@ class EmployeeBankAccountController extends Controller
             403,
         );
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_bank_accounts', [
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],
             'iban' => ['nullable', 'string', 'max:50'],
             'account_name' => ['nullable', 'string', 'max:200'],
@@ -122,9 +123,17 @@ class EmployeeBankAccountController extends Controller
             }
 
             $bankAccount->update([
-                'bank_id' => $validated['bank_id'] ?? null,
-                'iban' => $normalizedIban,
-                'account_name' => $normalizedAccountName,
+                'bank_id' => EmployeeProfileTemplateRequestRules::persistedValue(
+                    $validated,
+                    'bank_id',
+                    $bankAccount->bank_id,
+                ),
+                'iban' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'iban')
+                    ? $normalizedIban
+                    : $bankAccount->iban,
+                'account_name' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'account_name')
+                    ? $normalizedAccountName
+                    : $bankAccount->account_name,
                 'is_primary' => $isPrimary,
             ]);
 

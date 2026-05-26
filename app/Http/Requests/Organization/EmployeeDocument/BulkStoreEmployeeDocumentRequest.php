@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Organization\EmployeeDocument;
 
+use App\Http\Requests\Organization\EmployeeDocument\Concerns\AppliesEmployeeDocumentTemplateRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class BulkStoreEmployeeDocumentRequest extends FormRequest
 {
+    use AppliesEmployeeDocumentTemplateRules;
+
     public function authorize(): bool
     {
         return true;
@@ -17,7 +20,7 @@ class BulkStoreEmployeeDocumentRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [
+        return $this->applyEmployeeDocumentTemplateRules([
             'documents' => ['required', 'array', 'min:1', 'max:20'],
             'documents.*.document_type_id' => ['required', 'integer', Rule::exists('document_types', 'id')->where('is_active', true)],
             'documents.*.title' => ['nullable', 'string', 'max:200'],
@@ -26,6 +29,6 @@ class BulkStoreEmployeeDocumentRequest extends FormRequest
             'documents.*.expiry_date' => ['nullable', 'date'],
             'documents.*.document_number' => ['nullable', 'string', 'max:120'],
             'documents.*.notes' => ['nullable', 'string', 'max:1000'],
-        ];
+        ], wildcard: true);
     }
 }

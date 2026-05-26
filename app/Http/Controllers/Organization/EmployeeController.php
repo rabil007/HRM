@@ -9,6 +9,7 @@ use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeStatusRequest;
 use App\Models\Employee;
 use App\Models\EmployeeProfileTemplate;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
@@ -176,7 +177,13 @@ class EmployeeController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
 
-        $data = $request->validated();
+        $employee->loadMissing('employeeProfileTemplate');
+
+        $data = EmployeeProfileTemplateRequestRules::onlyVisibleAttributes(
+            $employee,
+            'employees',
+            $request->validated(),
+        );
         $data['company_id'] = $companyId;
 
         if ($request->hasFile('image')) {

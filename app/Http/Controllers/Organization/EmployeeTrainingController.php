@@ -8,6 +8,7 @@ use App\Models\Country;
 use App\Models\Course;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,7 +25,12 @@ class EmployeeTrainingController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate($this->trainingRules());
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_trainings',
+            $this->trainingRules(),
+        );
 
         $maxSort = EmployeeTraining::query()
             ->where('employee_id', $employee->id)
@@ -35,7 +41,7 @@ class EmployeeTrainingController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            ...$this->trainingAttributes($validated),
+            ...$this->trainingAttributes($validated, null),
         ]);
 
         if ($request->hasFile('certificate')) {
@@ -58,9 +64,14 @@ class EmployeeTrainingController extends Controller
             403,
         );
 
-        $validated = $request->validate($this->trainingRules());
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_trainings',
+            $this->trainingRules(),
+        );
 
-        $attributes = $this->trainingAttributes($validated);
+        $attributes = $this->trainingAttributes($validated, $training);
 
         if ($request->hasFile('certificate')) {
             $this->deleteCertificate($training->certificate_path);
@@ -268,18 +279,38 @@ class EmployeeTrainingController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    private function trainingAttributes(array $validated): array
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function trainingAttributes(array $validated, ?EmployeeTraining $existing = null): array
     {
         return [
-            'course_id' => (int) $validated['course_id'],
-            'issue_date' => $validated['issue_date'],
-            'expiry_date' => isset($validated['expiry_date']) && $validated['expiry_date'] !== ''
-                ? $validated['expiry_date']
-                : null,
-            'institute_center' => $validated['institute_center'],
-            'country_id' => isset($validated['country_id']) && $validated['country_id'] !== ''
-                ? (int) $validated['country_id']
-                : null,
+            'course_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'course_id',
+                $existing?->course_id ?? 0,
+            ),
+            'issue_date' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'issue_date',
+                $existing?->issue_date,
+            ),
+            'expiry_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'expiry_date')
+                ? (isset($validated['expiry_date']) && $validated['expiry_date'] !== ''
+                    ? $validated['expiry_date']
+                    : null)
+                : $existing?->expiry_date,
+            'institute_center' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'institute_center',
+                $existing?->institute_center,
+            ),
+            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
+                ? (isset($validated['country_id']) && $validated['country_id'] !== ''
+                    ? (int) $validated['country_id']
+                    : null)
+                : $existing?->country_id,
         ];
     }
 

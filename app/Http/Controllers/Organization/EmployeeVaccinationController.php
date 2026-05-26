@@ -7,6 +7,7 @@ use App\Http\Requests\Organization\Employee\ImportEmployeeVaccinationRequest;
 use App\Models\Country;
 use App\Models\Employee;
 use App\Models\EmployeeVaccination;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,7 @@ class EmployeeVaccinationController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_vaccinations', [
             'vaccination_name' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
             'first_dose_date' => ['nullable', 'date'],
@@ -59,7 +60,7 @@ class EmployeeVaccinationController extends Controller
             403,
         );
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_vaccinations', [
             'vaccination_name' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
             'first_dose_date' => ['nullable', 'date'],
@@ -68,11 +69,23 @@ class EmployeeVaccinationController extends Controller
         ]);
 
         $vaccination->update([
-            'vaccination_name' => $validated['vaccination_name'],
-            'country_id' => $validated['country_id'] ?? null,
-            'first_dose_date' => $validated['first_dose_date'] ?? null,
-            'second_dose_date' => $validated['second_dose_date'] ?? null,
-            'booster_dose_date' => $validated['booster_dose_date'] ?? null,
+            'vaccination_name' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'vaccination_name',
+                $vaccination->vaccination_name,
+            ),
+            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
+                ? ($validated['country_id'] ?? null)
+                : $vaccination->country_id,
+            'first_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'first_dose_date')
+                ? ($validated['first_dose_date'] ?? null)
+                : $vaccination->first_dose_date,
+            'second_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'second_dose_date')
+                ? ($validated['second_dose_date'] ?? null)
+                : $vaccination->second_dose_date,
+            'booster_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'booster_dose_date')
+                ? ($validated['booster_dose_date'] ?? null)
+                : $vaccination->booster_dose_date,
         ]);
 
         return back()->with('success', 'Vaccination record updated.');

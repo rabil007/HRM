@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeLanguage;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -16,7 +17,7 @@ class EmployeeLanguageController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_languages', [
             'language_name' => ['required', 'string', 'max:255'],
             'is_spoken' => ['sometimes', 'boolean'],
             'is_written' => ['sometimes', 'boolean'],
@@ -54,7 +55,7 @@ class EmployeeLanguageController extends Controller
             403,
         );
 
-        $validated = $request->validate([
+        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_languages', [
             'language_name' => ['required', 'string', 'max:255'],
             'is_spoken' => ['sometimes', 'boolean'],
             'is_written' => ['sometimes', 'boolean'],
@@ -63,11 +64,23 @@ class EmployeeLanguageController extends Controller
         ]);
 
         $language->update([
-            'language_name' => $validated['language_name'],
-            'is_spoken' => (bool) ($validated['is_spoken'] ?? false),
-            'is_written' => (bool) ($validated['is_written'] ?? false),
-            'is_understood' => (bool) ($validated['is_understood'] ?? false),
-            'is_mother_tongue' => (bool) ($validated['is_mother_tongue'] ?? false),
+            'language_name' => EmployeeProfileTemplateRequestRules::persistedValue(
+                $validated,
+                'language_name',
+                $language->language_name,
+            ),
+            'is_spoken' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_spoken')
+                ? (bool) ($validated['is_spoken'] ?? false)
+                : $language->is_spoken,
+            'is_written' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_written')
+                ? (bool) ($validated['is_written'] ?? false)
+                : $language->is_written,
+            'is_understood' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_understood')
+                ? (bool) ($validated['is_understood'] ?? false)
+                : $language->is_understood,
+            'is_mother_tongue' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'is_mother_tongue')
+                ? (bool) ($validated['is_mother_tongue'] ?? false)
+                : $language->is_mother_tongue,
         ]);
 
         return back()->with('success', 'Language updated.');
