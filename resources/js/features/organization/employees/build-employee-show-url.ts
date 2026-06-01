@@ -6,6 +6,12 @@ export type EmployeeListQuery = {
     department_id?: string;
     position_id?: string;
     status?: string;
+    manager_id?: string;
+    gender_id?: string;
+    nationality_id?: string;
+    visa_type_id?: string;
+    company_visa_type_id?: string;
+    rank_id?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -32,6 +38,30 @@ export function buildEmployeeListQuery(
 
     if (filters.status) {
         query.status = filters.status;
+    }
+
+    if (filters.manager_id) {
+        query.manager_id = filters.manager_id;
+    }
+
+    if (filters.gender_id) {
+        query.gender_id = filters.gender_id;
+    }
+
+    if (filters.nationality_id) {
+        query.nationality_id = filters.nationality_id;
+    }
+
+    if (filters.visa_type_id) {
+        query.visa_type_id = filters.visa_type_id;
+    }
+
+    if (filters.company_visa_type_id) {
+        query.company_visa_type_id = filters.company_visa_type_id;
+    }
+
+    if (filters.rank_id) {
+        query.rank_id = filters.rank_id;
     }
 
     return query;

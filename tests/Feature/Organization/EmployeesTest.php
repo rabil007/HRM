@@ -9,6 +9,7 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\Gender;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Position;
 use App\Models\Rank;
@@ -1796,6 +1797,80 @@ test('employee show navigation is hidden when employee is outside filtered set',
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('employee_navigation', null));
+});
+
+test('employee directory index can be filtered by manager and gender', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'MGF',
+        'name' => 'Manager Filter Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'MGF',
+        'name' => 'Manager Filter Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Manager Filter Co',
+        'slug' => 'manager-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $manager = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MGR001',
+        'name' => 'Team Lead',
+    ]);
+
+    $maleGender = Gender::query()->create([
+        'name' => 'Male',
+        'is_active' => true,
+    ]);
+
+    $femaleGender = Gender::query()->create([
+        'name' => 'Female',
+        'is_active' => true,
+    ]);
+
+    $matchedEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MGF001',
+        'manager_id' => $manager->id,
+        'gender_id' => $maleGender->id,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MGF002',
+        'manager_id' => $manager->id,
+        'gender_id' => $femaleGender->id,
+    ]);
+
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'MGF003',
+        'manager_id' => null,
+        'gender_id' => $maleGender->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->get('/organization/employees?'.http_build_query([
+        'manager_id' => $manager->id,
+        'gender_id' => $maleGender->id,
+    ]))->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['employees'])->pluck('id')->all();
+
+    expect($ids)->toBe([$matchedEmployee->id]);
 });
 
 test('employee without profile template can assign one', function () {

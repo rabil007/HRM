@@ -15,14 +15,25 @@ final class EmployeeDirectoryQuery
 
     public function apply(Builder $query): Builder
     {
-        return $query
-            ->where('company_id', $this->companyId)
-            ->when($this->filters->branchId, fn (Builder $q) => $q->where('branch_id', $this->filters->branchId))
-            ->when($this->filters->departmentId, function (Builder $q): void {
-                $departmentId = (int) $this->filters->departmentId;
+        self::applyAttributeFilters($query, $this->companyId, $this->filters);
+
+        return $query->latest('id');
+    }
+
+    public static function applyAttributeFilters(
+        Builder $query,
+        int $companyId,
+        EmployeeDirectoryFilters $filters,
+        bool $exceptDepartment = false,
+    ): void {
+        $query
+            ->where('company_id', $companyId)
+            ->when($filters->branchId, fn (Builder $q) => $q->where('branch_id', $filters->branchId))
+            ->when(! $exceptDepartment && $filters->departmentId, function (Builder $q) use ($companyId, $filters): void {
+                $departmentId = (int) $filters->departmentId;
 
                 $departments = Department::query()
-                    ->where('company_id', $this->companyId)
+                    ->where('company_id', $companyId)
                     ->get(['id', 'parent_id'])
                     ->map(fn (Department $department): array => [
                         'id' => $department->id,
@@ -33,10 +44,16 @@ final class EmployeeDirectoryQuery
 
                 $q->whereIn('department_id', $departmentIds);
             })
-            ->when($this->filters->positionId, fn (Builder $q) => $q->where('position_id', $this->filters->positionId))
-            ->when($this->filters->status, fn (Builder $q) => $q->where('status', $this->filters->status))
-            ->when($this->filters->search, function (Builder $q): void {
-                $search = $this->filters->search;
+            ->when($filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
+            ->when($filters->status, fn (Builder $q) => $q->where('status', $filters->status))
+            ->when($filters->managerId, fn (Builder $q) => $q->where('manager_id', $filters->managerId))
+            ->when($filters->genderId, fn (Builder $q) => $q->where('gender_id', $filters->genderId))
+            ->when($filters->nationalityId, fn (Builder $q) => $q->where('nationality_id', $filters->nationalityId))
+            ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))
+            ->when($filters->companyVisaTypeId, fn (Builder $q) => $q->where('company_visa_type_id', $filters->companyVisaTypeId))
+            ->when($filters->rankId, fn (Builder $q) => $q->where('rank_id', $filters->rankId))
+            ->when($filters->search, function (Builder $q) use ($filters): void {
+                $search = $filters->search;
 
                 $q->where(function (Builder $inner) use ($search): void {
                     $inner->where('employee_no', 'like', "%{$search}%")
@@ -45,8 +62,7 @@ final class EmployeeDirectoryQuery
                         ->orWhere('personal_email', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
-            })
-            ->latest('id');
+            });
     }
 
     public function base(): Builder

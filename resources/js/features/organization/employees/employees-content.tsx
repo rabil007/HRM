@@ -24,7 +24,10 @@ import { Switch } from '@/components/ui/switch';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
 import { EmployeeDeleteDialog } from '@/features/organization/employees/components/employee-delete-dialog';
-import { EmployeeFiltersSheet } from '@/features/organization/employees/components/employee-filters-sheet';
+import {
+    EMPTY_EMPLOYEE_FILTERS,
+    EmployeeFiltersSheet,
+} from '@/features/organization/employees/components/employee-filters-sheet';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -37,14 +40,18 @@ import type { EmployeeFilters } from './components/employee-filters-sheet';
 import type {
     BankOption,
     BranchOption,
+    CompanyVisaTypeOption,
     CountryOption,
+    DepartmentOption,
     DepartmentTreeNode,
     Employee,
     GenderOption,
     ManagerOption,
     PositionOption,
+    RankOption,
     ReligionOption,
     UserOption,
+    VisaTypeOption,
 } from './types';
 
 export function EmployeesContent({
@@ -55,34 +62,39 @@ export function EmployeesContent({
     department_tree,
     department_tree_selected_id,
     branches,
+    departments,
     positions,
-    managers: _managers,
+    managers,
     users: _users,
-    countries: _countries,
+    countries,
     religions: _religions,
-    genders: _genders,
+    genders,
+    visa_types,
+    company_visa_types,
+    ranks,
     banks: _banks,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
     search: string;
-    filters: { branch_id: string; department_id: string; position_id: string; status: string };
+    filters: EmployeeFilters;
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     branches: BranchOption[];
+    departments: DepartmentOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
     countries: CountryOption[];
     religions: ReligionOption[];
     genders: GenderOption[];
+    visa_types: VisaTypeOption[];
+    company_visa_types: CompanyVisaTypeOption[];
+    ranks: RankOption[];
     banks: BankOption[];
 }) {
-    void _managers;
     void _users;
-    void _countries;
     void _religions;
-    void _genders;
     void _banks;
 
     const list = useServerPaginationFilters({
@@ -99,18 +111,19 @@ export function EmployeesContent({
     const [currentEmployee, setCurrentEmployee] = useState<Employee | null>(null);
 
     const filters: EmployeeFilters = {
-        branch_id: initialFilters.branch_id,
-        department_id: initialFilters.department_id,
-        position_id: initialFilters.position_id,
-        status: initialFilters.status,
+        branch_id: initialFilters.branch_id ?? '',
+        department_id: initialFilters.department_id ?? '',
+        position_id: initialFilters.position_id ?? '',
+        status: initialFilters.status ?? '',
+        manager_id: initialFilters.manager_id ?? '',
+        gender_id: initialFilters.gender_id ?? '',
+        nationality_id: initialFilters.nationality_id ?? '',
+        visa_type_id: initialFilters.visa_type_id ?? '',
+        company_visa_type_id: initialFilters.company_visa_type_id ?? '',
+        rank_id: initialFilters.rank_id ?? '',
     };
 
-    const activeFiltersCount = [
-        initialFilters.branch_id,
-        initialFilters.department_id,
-        initialFilters.position_id,
-        initialFilters.status,
-    ].filter(Boolean).length;
+    const activeFiltersCount = Object.values(filters).filter(Boolean).length;
 
     const listQuery = useMemo(
         () => buildEmployeeListQuery(initialSearch, initialFilters),
@@ -177,21 +190,11 @@ return;
 params.set('search', initialSearch);
 }
 
-        if (initialFilters.branch_id) {
-params.set('branch_id', initialFilters.branch_id);
-}
+        const listQuery = buildEmployeeListQuery(initialSearch, initialFilters);
 
-        if (initialFilters.department_id) {
-params.set('department_id', initialFilters.department_id);
-}
-
-        if (initialFilters.position_id) {
-params.set('position_id', initialFilters.position_id);
-}
-
-        if (initialFilters.status) {
-params.set('status', initialFilters.status);
-}
+        Object.entries(listQuery).forEach(([key, value]) => {
+            params.set(key, value);
+        });
 
         params.set('format', format);
 
@@ -443,9 +446,15 @@ params.set('status', initialFilters.status);
                 onOpenChange={setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ branch_id: '', department_id: '', position_id: '', status: '' })}
+                onReset={() => handleFiltersChange(EMPTY_EMPLOYEE_FILTERS)}
                 branches={branches}
                 positions={positions}
+                managers={managers}
+                genders={genders}
+                countries={countries}
+                visaTypes={visa_types}
+                companyVisaTypes={company_visa_types}
+                ranks={ranks}
             />
 
             <EmployeeDeleteDialog

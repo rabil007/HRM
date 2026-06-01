@@ -139,7 +139,7 @@ final class BuildDepartmentEmployeeTree
             ->where('company_id', $companyId)
             ->whereNotNull('department_id');
 
-        self::applyFiltersExceptDepartment($query, $filters);
+        self::applyFiltersExceptDepartment($query, $companyId, $filters);
 
         $rows = $query
             ->select('department_id', DB::raw('count(*) as aggregate'))
@@ -159,29 +159,16 @@ final class BuildDepartmentEmployeeTree
     {
         $query = Employee::query()->where('company_id', $companyId);
 
-        self::applyFiltersExceptDepartment($query, $filters);
+        self::applyFiltersExceptDepartment($query, $companyId, $filters);
 
         return $query->count();
     }
 
     private static function applyFiltersExceptDepartment(
         Builder $query,
+        int $companyId,
         EmployeeDirectoryFilters $filters,
     ): void {
-        $query
-            ->when($filters->branchId, fn ($q) => $q->where('branch_id', $filters->branchId))
-            ->when($filters->positionId, fn ($q) => $q->where('position_id', $filters->positionId))
-            ->when($filters->status, fn ($q) => $q->where('status', $filters->status))
-            ->when($filters->search, function ($q) use ($filters): void {
-                $search = $filters->search;
-
-                $q->where(function ($inner) use ($search): void {
-                    $inner->where('employee_no', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('work_email', 'like', "%{$search}%")
-                        ->orWhere('personal_email', 'like', "%{$search}%")
-                        ->orWhere('phone', 'like', "%{$search}%");
-                });
-            });
+        EmployeeDirectoryQuery::applyAttributeFilters($query, $companyId, $filters, exceptDepartment: true);
     }
 }

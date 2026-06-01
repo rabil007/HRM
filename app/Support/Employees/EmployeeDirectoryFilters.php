@@ -12,6 +12,12 @@ final class EmployeeDirectoryFilters
         public readonly string $departmentId = '',
         public readonly string $positionId = '',
         public readonly string $status = '',
+        public readonly string $managerId = '',
+        public readonly string $genderId = '',
+        public readonly string $nationalityId = '',
+        public readonly string $visaTypeId = '',
+        public readonly string $companyVisaTypeId = '',
+        public readonly string $rankId = '',
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -22,6 +28,12 @@ final class EmployeeDirectoryFilters
             departmentId: trim((string) $request->query('department_id', '')),
             positionId: trim((string) $request->query('position_id', '')),
             status: trim((string) $request->query('status', '')),
+            managerId: trim((string) $request->query('manager_id', '')),
+            genderId: trim((string) $request->query('gender_id', '')),
+            nationalityId: trim((string) $request->query('nationality_id', '')),
+            visaTypeId: trim((string) $request->query('visa_type_id', '')),
+            companyVisaTypeId: trim((string) $request->query('company_visa_type_id', '')),
+            rankId: trim((string) $request->query('rank_id', '')),
         );
     }
 
@@ -50,6 +62,30 @@ final class EmployeeDirectoryFilters
 
         if ($this->status !== '') {
             $query['status'] = $this->status;
+        }
+
+        if ($this->managerId !== '') {
+            $query['manager_id'] = $this->managerId;
+        }
+
+        if ($this->genderId !== '') {
+            $query['gender_id'] = $this->genderId;
+        }
+
+        if ($this->nationalityId !== '') {
+            $query['nationality_id'] = $this->nationalityId;
+        }
+
+        if ($this->visaTypeId !== '') {
+            $query['visa_type_id'] = $this->visaTypeId;
+        }
+
+        if ($this->companyVisaTypeId !== '') {
+            $query['company_visa_type_id'] = $this->companyVisaTypeId;
+        }
+
+        if ($this->rankId !== '') {
+            $query['rank_id'] = $this->rankId;
         }
 
         return $query;

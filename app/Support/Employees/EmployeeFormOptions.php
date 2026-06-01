@@ -33,6 +33,7 @@ final class EmployeeFormOptions
      *     genders: Collection,
      *     visa_types: Collection,
      *     company_visa_types: Collection,
+     *     ranks: Collection,
      *     banks: Collection
      * }
      */
@@ -49,6 +50,7 @@ final class EmployeeFormOptions
             'genders' => self::genders(),
             'visa_types' => self::visaTypes(),
             'company_visa_types' => self::companyVisaTypes(),
+            'ranks' => self::activeRanks(),
             'banks' => self::banks(),
         ];
     }
