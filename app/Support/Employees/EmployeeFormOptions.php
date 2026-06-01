@@ -4,6 +4,7 @@ namespace App\Support\Employees;
 
 use App\Models\Bank;
 use App\Models\Branch;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Department;
 use App\Models\DocumentType;
@@ -31,6 +32,7 @@ final class EmployeeFormOptions
      *     religions: Collection,
      *     genders: Collection,
      *     visa_types: Collection,
+     *     company_visa_types: Collection,
      *     banks: Collection
      * }
      */
@@ -46,6 +48,7 @@ final class EmployeeFormOptions
             'religions' => self::religions(),
             'genders' => self::genders(),
             'visa_types' => self::visaTypes(),
+            'company_visa_types' => self::companyVisaTypes(),
             'banks' => self::banks(),
         ];
     }
@@ -62,6 +65,7 @@ final class EmployeeFormOptions
      *     religions: Collection,
      *     genders: Collection,
      *     visa_types: Collection,
+     *     company_visa_types: Collection,
      *     banks: Collection,
      *     ranks: Collection,
      *     document_types: Collection
@@ -78,6 +82,7 @@ final class EmployeeFormOptions
             'religions' => self::religions(),
             'genders' => self::genders(),
             'visa_types' => self::visaTypes(),
+            'company_visa_types' => self::companyVisaTypes(),
             'banks' => self::banks(),
             'ranks' => self::activeRanks(),
             'document_types' => self::documentTypes(),
@@ -197,6 +202,14 @@ final class EmployeeFormOptions
     private static function visaTypes()
     {
         return once(fn () => VisaType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']));
+    }
+
+    private static function companyVisaTypes()
+    {
+        return once(fn () => CompanyVisaType::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']));

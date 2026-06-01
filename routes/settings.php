@@ -3,6 +3,7 @@
 use App\Http\Controllers\Settings\ApplicationSettingsController;
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
+use App\Http\Controllers\Settings\MasterData\CompanyVisaTypeController;
 use App\Http\Controllers\Settings\MasterData\CountryController;
 use App\Http\Controllers\Settings\MasterData\CourseController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
@@ -97,6 +98,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('visa-types/{visa_type}', [VisaTypeController::class, 'destroy'])
             ->middleware('can:settings.master-data.visa-types.delete')
             ->name('visa-types.destroy');
+
+        Route::get('company-visa-types', [CompanyVisaTypeController::class, 'index'])
+            ->middleware('can:settings.master-data.company-visa-types.view')
+            ->name('company-visa-types.index');
+        Route::post('company-visa-types', [CompanyVisaTypeController::class, 'store'])
+            ->middleware('can:settings.master-data.company-visa-types.create')
+            ->name('company-visa-types.store');
+        Route::put('company-visa-types/{company_visa_type}', [CompanyVisaTypeController::class, 'update'])
+            ->middleware('can:settings.master-data.company-visa-types.update')
+            ->name('company-visa-types.update');
+        Route::delete('company-visa-types/{company_visa_type}', [CompanyVisaTypeController::class, 'destroy'])
+            ->middleware('can:settings.master-data.company-visa-types.delete')
+            ->name('company-visa-types.destroy');
 
         Route::get('religions', [ReligionController::class, 'index'])
             ->middleware('can:settings.master-data.religions.view')

@@ -13,6 +13,7 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     gender_id: 'Gender',
     religion_id: 'Religion',
     visa_type_id: 'Visa type',
+    company_visa_type_id: 'Company visa type',
     nationality_id: 'Nationality',
     marital_status: 'Marital status',
     spouse_name: 'Spouse name',

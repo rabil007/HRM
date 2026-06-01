@@ -90,6 +90,11 @@ const baseSidebarData: SidebarData = {
                             icon: IdCard,
                         },
                         {
+                            title: 'Company visa types',
+                            url: '/settings/master-data/company-visa-types',
+                            icon: IdCard,
+                        },
+                        {
                             title: 'Religions',
                             url: '/settings/master-data/religions',
                             icon: BadgeCheck,
@@ -231,6 +236,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/visa-types') {
                                 return has(permissions, 'settings.master-data.visa-types.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/company-visa-types') {
+                                return has(permissions, 'settings.master-data.company-visa-types.view');
                             }
 
                             if (sub.url === '/settings/master-data/religions') {

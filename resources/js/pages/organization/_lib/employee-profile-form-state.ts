@@ -25,6 +25,7 @@ export const EMPLOYEE_PROFILE_FORM_KEYS = [
     'gender_id',
     'religion_id',
     'visa_type_id',
+    'company_visa_type_id',
     'nationality_id',
     'marital_status',
     'spouse_name',
@@ -63,6 +64,9 @@ export function buildEmployeeProfileFormInitial(
         gender_id: employee.gender_id ? String(employee.gender_id) : '',
         religion_id: employee.religion_id ? String(employee.religion_id) : '',
         visa_type_id: employee.visa_type_id ? String(employee.visa_type_id) : '',
+        company_visa_type_id: employee.company_visa_type_id
+            ? String(employee.company_visa_type_id)
+            : '',
         nationality_id: employee.nationality_id
             ? String(employee.nationality_id)
             : '',
@@ -98,6 +102,9 @@ export function transformEmployeeProfileFormData(
         gender_id: data.gender_id ? Number(data.gender_id) : null,
         religion_id: data.religion_id ? Number(data.religion_id) : null,
         visa_type_id: data.visa_type_id ? Number(data.visa_type_id) : null,
+        company_visa_type_id: data.company_visa_type_id
+            ? Number(data.company_visa_type_id)
+            : null,
         nationality_id: data.nationality_id ? Number(data.nationality_id) : null,
         marital_status: data.marital_status || null,
         spouse_name: String(data.spouse_name ?? '').trim() || null,

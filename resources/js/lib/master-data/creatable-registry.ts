@@ -8,11 +8,13 @@ import { store as storeGender } from '@/actions/App/Http/Controllers/Settings/Ma
 import { store as storeRank } from '@/actions/App/Http/Controllers/Settings/MasterData/RankController';
 import { store as storeReligion } from '@/actions/App/Http/Controllers/Settings/MasterData/ReligionController';
 import { store as storeVesselType } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselTypeController';
+import { store as storeCompanyVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/CompanyVisaTypeController';
 import { store as storeVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/VisaTypeController';
 
 export type CreatableMasterDataKey =
     | 'bank'
     | 'visaType'
+    | 'companyVisaType'
     | 'religion'
     | 'gender'
     | 'course'
@@ -45,6 +47,12 @@ export const creatableRegistry: Record<CreatableMasterDataKey, CreatableRegistry
         permission: 'settings.master-data.visa-types.create',
         labelField: 'name',
         url: () => storeVisaType.url(),
+        body: (query) => ({ name: query, is_active: true }),
+    },
+    companyVisaType: {
+        permission: 'settings.master-data.company-visa-types.create',
+        labelField: 'name',
+        url: () => storeCompanyVisaType.url(),
         body: (query) => ({ name: query, is_active: true }),
     },
     religion: {

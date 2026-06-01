@@ -2,6 +2,7 @@
 
 use App\Models\Bank;
 use App\Models\Company;
+use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
@@ -131,6 +132,70 @@ test('json quick-create returns existing visa type when name matches case-insens
         ]);
 
     expect(VisaType::query()->count())->toBe(1);
+});
+
+test('json quick-create returns id and label for company visa types', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.company-visa-types.create',
+    ]);
+
+    $this->postJson('/settings/master-data/company-visa-types', [
+        'name' => 'Company Visit Visa',
+        'is_active' => true,
+    ])
+        ->assertSuccessful()
+        ->assertJson([
+            'label' => 'Company Visit Visa',
+            'name' => 'Company Visit Visa',
+        ]);
+});
+
+test('json quick-create rejects duplicate company visa type names with 422', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.company-visa-types.create',
+    ]);
+
+    CompanyVisaType::query()->create([
+        'name' => 'Company Employment Visa',
+        'is_active' => true,
+    ]);
+
+    $this->postJson('/settings/master-data/company-visa-types', [
+        'name' => 'Company Employment Visa',
+        'is_active' => true,
+    ])->assertUnprocessable();
+});
+
+test('json quick-create returns existing company visa type when name matches case-insensitively', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.company-visa-types.create',
+    ]);
+
+    $existing = CompanyVisaType::query()->create([
+        'name' => 'Company Golden Visa',
+        'is_active' => true,
+    ]);
+
+    $this->postJson('/settings/master-data/company-visa-types', [
+        'name' => 'company golden visa',
+        'is_active' => true,
+    ])
+        ->assertSuccessful()
+        ->assertJson([
+            'id' => $existing->id,
+            'label' => 'Company Golden Visa',
+        ]);
+
+    expect(CompanyVisaType::query()->count())->toBe(1);
 });
 
 test('json quick-create returns id and title for document types', function () {

@@ -110,6 +110,7 @@ class EmployeeController extends Controller
                 'religionRef:id,name',
                 'genderRef:id,name',
                 'visaTypeRef:id,name',
+                'companyVisaTypeRef:id,name',
                 'nationalityRef:id,name,code',
                 'bankAccounts.bank:id,name',
                 'primaryBankAccount.bank:id,name',
@@ -210,6 +211,10 @@ class EmployeeController extends Controller
             $data['visa_type_id'] = null;
         }
 
+        if (($data['company_visa_type_id'] ?? null) === '') {
+            $data['company_visa_type_id'] = null;
+        }
+
         foreach ([
             'user_id',
             'branch_id',
@@ -220,6 +225,7 @@ class EmployeeController extends Controller
             'date_of_birth',
             'nationality_id',
             'visa_type_id',
+            'company_visa_type_id',
             'marital_status',
             'personal_email',
             'work_email',

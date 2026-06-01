@@ -43,6 +43,7 @@ export function EmployeeHeaderCard({
     genders,
     religions,
     visa_types = [],
+    company_visa_types = [],
     ranks,
     form,
     activeField,
@@ -65,6 +66,7 @@ export function EmployeeHeaderCard({
     genders: Option[];
     religions: Option[];
     visa_types?: Option[];
+    company_visa_types?: Option[];
     ranks: Option[];
     form: any;
     activeField: string | null;
@@ -146,6 +148,7 @@ export function EmployeeHeaderCard({
     const { selectOptions: genderOptions } = useMutableSelectOptions(genders);
     const { selectOptions: religionOptions } = useMutableSelectOptions(religions);
     const { selectOptions: visaTypeOptions } = useMutableSelectOptions(visa_types);
+    const { selectOptions: companyVisaTypeOptions } = useMutableSelectOptions(company_visa_types);
 
     const positionCreatableContext = useMemo(
         () => ({
@@ -597,6 +600,27 @@ export function EmployeeHeaderCard({
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('visa_type_id', value)}
                             highlightMissing={isMissingRequired('visa_type_id')}
+                        />
+                    )}
+
+                    {showField('company_visa_type_id') && (
+                        <EditableDetailSelectField
+                            label="Company visa type"
+                            field="company_visa_type_id"
+                            value={form.data.company_visa_type_id}
+                            displayValue={optionLabel(
+                                company_visa_types,
+                                form.data.company_visa_type_id || employee.company_visa_type_id,
+                                employee.company_visa_type_ref?.name,
+                            )}
+                            options={companyVisaTypeOptions}
+                            creatableKey="companyVisaType"
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('company_visa_type_id', value)}
+                            highlightMissing={isMissingRequired('company_visa_type_id')}
                         />
                     )}
                 </div>

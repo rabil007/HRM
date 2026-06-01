@@ -48,6 +48,11 @@ export type VisaTypeOption = {
     name: string;
 };
 
+export type CompanyVisaTypeOption = {
+    id: number;
+    name: string;
+};
+
 export type RankOption = {
     id: number;
     name: string;

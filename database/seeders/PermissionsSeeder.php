@@ -35,6 +35,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.visa-types.update',
             'settings.master-data.visa-types.delete',
 
+            'settings.master-data.company-visa-types.view',
+            'settings.master-data.company-visa-types.create',
+            'settings.master-data.company-visa-types.update',
+            'settings.master-data.company-visa-types.delete',
+
             'settings.master-data.religions.view',
             'settings.master-data.religions.create',
             'settings.master-data.religions.update',

@@ -102,6 +102,7 @@ function EmployeeDetailsPage({
     religions,
     genders,
     visa_types,
+    company_visa_types,
     banks,
     ranks,
     vessel_types,
@@ -552,6 +553,7 @@ function EmployeeDetailsPage({
                             genders={genders}
                             religions={religions}
                             visa_types={visa_types}
+                            company_visa_types={company_visa_types}
                             form={form}
                             activeField={activeField}
                             setActiveField={setActiveField}
