@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { ClipboardList, Loader2 } from 'lucide-react';
-import { useState, type ReactElement } from 'react';
+import { useState  } from 'react';
+import type {ReactElement} from 'react';
 import { assignProfileTemplate } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';

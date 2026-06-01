@@ -1,7 +1,6 @@
 import { Head, useForm } from '@inertiajs/react';
 import {
     Activity,
-    ArrowRight,
     Calendar,
     ChevronDown,
     ChevronUp,
@@ -159,11 +158,26 @@ export default function ActivityLogs({
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
-        if (form.data.q) count++;
-        if (form.data.event) count++;
-        if (form.data.subject) count++;
-        if (form.data.date_from) count++;
-        if (form.data.date_to) count++;
+
+        if (form.data.q) {
+count++;
+}
+
+        if (form.data.event) {
+count++;
+}
+
+        if (form.data.subject) {
+count++;
+}
+
+        if (form.data.date_from) {
+count++;
+}
+
+        if (form.data.date_to) {
+count++;
+}
 
         return count;
     }, [form.data]);

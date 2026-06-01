@@ -1,7 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useMemo, useRef, useState } from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
     destroy as destroyTraining,
     store as storeTraining,
@@ -10,6 +9,7 @@ import {
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { CreatableSelect } from '@/components/ui/creatable-select';
 import {
     Dialog,
