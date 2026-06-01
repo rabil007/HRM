@@ -21,7 +21,6 @@ import {
     ChevronRight,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { cn } from '@/lib/utils';
 import { Main } from '@/components/layout/main';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +36,7 @@ import { DistributionBarChart } from '@/features/dashboard/charts/distribution-b
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
+import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { documents, employees } from '@/routes/organization';
 import { show as showEmployee } from '@/routes/organization/employees';
