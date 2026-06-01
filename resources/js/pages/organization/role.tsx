@@ -22,6 +22,10 @@ function normalizePermissions(value: string[]): string[] {
     ).sort();
 }
 
+function formatPermissionGroupLabel(segment: string): string {
+    return segment.replace(/[-_]/g, ' ').toUpperCase();
+}
+
 export default function RoleDetails({
     role,
     company,
@@ -64,14 +68,14 @@ return name;
 
         for (const permission of list) {
             const parts = permission.split('.');
-            const mainGroup = (parts[0] || 'other').toUpperCase();
-            
+            const mainGroup = formatPermissionGroupLabel(parts[0] || 'other');
+
             // Sub-group logic: take all parts between the first and the last
             let subGroup = 'GENERAL';
 
             if (parts.length > 2) {
                 subGroup = parts.slice(1, -1)
-                    .map(p => p.replace(/-/g, ' ').toUpperCase())
+                    .map((p) => formatPermissionGroupLabel(p))
                     .join(' • ');
             } else if (parts.length === 2 && mainGroup === 'SETTINGS') {
                 // Handle cases like settings.view
