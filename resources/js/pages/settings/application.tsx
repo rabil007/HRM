@@ -1,10 +1,19 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { Building2, ImageIcon, Mail, Settings2 } from 'lucide-react';
+import {
+    Building2,
+    CheckCircle2,
+    ImageIcon,
+    Layout,
+    Lock,
+    Mail,
+    Palette,
+    Send,
+    Settings2,
+} from 'lucide-react';
 import { useState } from 'react';
-import Heading from '@/components/heading';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,10 +25,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 
 type CurrencyOption = { code: string; name: string; symbol: string };
 
@@ -68,6 +77,87 @@ type Props = {
     };
 };
 
+const NAV_ITEMS = [
+    { id: 'general', label: 'General', icon: Building2, description: 'Identity & regional' },
+    { id: 'branding', label: 'Branding', icon: ImageIcon, description: 'Logos & visuals' },
+    { id: 'smtp', label: 'SMTP / Email', icon: Mail, description: 'Mail delivery' },
+    { id: 'preferences', label: 'System', icon: Settings2, description: 'UI preferences' },
+] as const;
+
+type NavId = (typeof NAV_ITEMS)[number]['id'];
+
+/** Reusable section heading inside a settings card */
+function SectionHeading({
+    icon: Icon,
+    title,
+    description,
+    color = 'bg-primary/10 border-primary/20 text-primary',
+}: {
+    icon: React.ComponentType<{ className?: string }>;
+    title: string;
+    description?: string;
+    color?: string;
+}) {
+    return (
+        <div className="flex items-center gap-4 mb-6">
+            <div
+                className={cn(
+                    'w-10 h-10 rounded-2xl border flex items-center justify-center shrink-0',
+                    color,
+                )}
+            >
+                <Icon className="w-5 h-5" />
+            </div>
+            <div>
+                <h2 className="text-base font-bold tracking-tight text-foreground">{title}</h2>
+                {description ? (
+                    <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                ) : null}
+            </div>
+        </div>
+    );
+}
+
+/** Styled label for form fields */
+function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
+    return (
+        <Label
+            htmlFor={htmlFor}
+            className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold ml-0.5"
+        >
+            {children}
+        </Label>
+    );
+}
+
+/** Styled input wrapper */
+function FieldInput(props: React.ComponentProps<typeof Input>) {
+    return (
+        <Input
+            {...props}
+            className={cn(
+                'rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                props.className,
+            )}
+        />
+    );
+}
+
+/** A settings card with consistent padding */
+function SettingsCard({
+    children,
+    className,
+}: {
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <Card className={cn('border-white/5 bg-white/5', className)}>
+            <CardContent className="p-6">{children}</CardContent>
+        </Card>
+    );
+}
+
 export default function ApplicationSettings({
     general,
     branding,
@@ -77,7 +167,7 @@ export default function ApplicationSettings({
     currencies,
     smtp,
 }: Props) {
-    const [tab, setTab] = useState('general');
+    const [tab, setTab] = useState<NavId>('general');
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
         () => `${general.app_name || 'HRM'} — SMTP test`,
@@ -142,9 +232,7 @@ export default function ApplicationSettings({
 
     function submitPreferences(e: React.FormEvent) {
         e.preventDefault();
-        preferencesForm.post('/settings/application/branding', {
-            preserveScroll: true,
-        });
+        preferencesForm.post('/settings/application/branding', { preserveScroll: true });
     }
 
     function submitSmtp(e: React.FormEvent) {
@@ -198,106 +286,183 @@ export default function ApplicationSettings({
     return (
         <>
             <Head title="Application settings" />
-
             <h1 className="sr-only">Application settings</h1>
 
-            <div className="space-y-6">
-                <Heading
-                    variant="small"
-                    title="Application settings"
-                    description="Manage branding, identity, and system preferences for the entire platform"
-                />
+            <div className="flex flex-col gap-2 mb-8">
+                <div className="flex items-center gap-2">
+                    <span className="flex h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                        Settings
+                    </span>
+                </div>
+                <h1 className="text-4xl font-extrabold tracking-tight bg-linear-to-br from-foreground to-foreground/50 bg-clip-text text-transparent">
+                    Application
+                </h1>
+                <p className="text-sm text-muted-foreground/80 font-medium">
+                    Manage branding, identity, and system preferences for the entire platform.
+                </p>
+            </div>
 
-                <Tabs value={tab} onValueChange={setTab} className="w-full">
-                    <TabsList className="grid h-10 w-full max-w-2xl grid-cols-2 sm:grid-cols-4">
-                        <TabsTrigger value="general" className="gap-2 data-[state=active]:shadow-none">
-                            <Building2 className="size-4" />
-                            General
-                        </TabsTrigger>
-                        <TabsTrigger value="branding" className="gap-2 data-[state=active]:shadow-none">
-                            <ImageIcon className="size-4" />
-                            Branding
-                        </TabsTrigger>
-                        <TabsTrigger value="smtp" className="gap-2 data-[state=active]:shadow-none">
-                            <Mail className="size-4" />
-                            SMTP
-                        </TabsTrigger>
-                        <TabsTrigger value="preferences" className="gap-2 data-[state=active]:shadow-none">
-                            <Settings2 className="size-4" />
-                            System
-                        </TabsTrigger>
-                    </TabsList>
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* ── Sidebar nav ── */}
+                <aside className="lg:col-span-3 lg:sticky lg:top-6 lg:self-start">
+                    <Card className="border-white/5 bg-white/5 overflow-hidden">
+                        <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                            <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                                Settings
+                            </h3>
+                        </div>
+                        <div className="p-2 space-y-1">
+                            {NAV_ITEMS.map((item) => {
+                                const isActive = tab === item.id;
 
-                    <TabsContent value="general" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>General</CardTitle>
-                                <CardDescription>
-                                    Application identity and regional defaults used across the platform.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={submitGeneral} className="grid gap-5 sm:grid-cols-2">
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="app_name">Application name</Label>
-                                        <Input
+                                return (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => setTab(item.id)}
+                                        className={cn(
+                                            'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left',
+                                            isActive
+                                                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                                                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+                                        )}
+                                    >
+                                        <item.icon
+                                            className={cn(
+                                                'w-4 h-4 shrink-0',
+                                                isActive ? 'text-primary-foreground' : 'text-primary',
+                                            )}
+                                        />
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold truncate tracking-tight">
+                                                {item.label}
+                                            </p>
+                                            <p
+                                                className={cn(
+                                                    'text-[10px] truncate',
+                                                    isActive
+                                                        ? 'text-primary-foreground/70'
+                                                        : 'text-muted-foreground/50',
+                                                )}
+                                            >
+                                                {item.description}
+                                            </p>
+                                        </div>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </Card>
+                </aside>
+
+                {/* ── Main content ── */}
+                <main className="lg:col-span-9 space-y-6">
+                    {/* ══ GENERAL ══ */}
+                    {tab === 'general' && (
+                        <form onSubmit={submitGeneral} className="space-y-6">
+                            {/* Identity */}
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Building2}
+                                    title="Application identity"
+                                    description="Core names used across the platform and emails."
+                                />
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel htmlFor="app_name">Application name</FieldLabel>
+                                        <FieldInput
                                             id="app_name"
                                             value={generalForm.data.app_name}
-                                            onChange={(e) => generalForm.setData('app_name', e.target.value)}
+                                            onChange={(e) =>
+                                                generalForm.setData('app_name', e.target.value)
+                                            }
+                                            placeholder="e.g. Herd OMS"
                                         />
                                         {generalForm.errors.app_name ? (
-                                            <p className="text-xs text-destructive">{generalForm.errors.app_name}</p>
+                                            <p className="text-xs text-destructive">
+                                                {generalForm.errors.app_name}
+                                            </p>
                                         ) : null}
                                     </div>
 
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="company_name">Company name</Label>
-                                        <Input
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel htmlFor="company_name">Company name</FieldLabel>
+                                        <FieldInput
                                             id="company_name"
                                             value={generalForm.data.company_name}
-                                            onChange={(e) => generalForm.setData('company_name', e.target.value)}
+                                            onChange={(e) =>
+                                                generalForm.setData('company_name', e.target.value)
+                                            }
                                         />
                                         {generalForm.errors.company_name ? (
-                                            <p className="text-xs text-destructive">{generalForm.errors.company_name}</p>
+                                            <p className="text-xs text-destructive">
+                                                {generalForm.errors.company_name}
+                                            </p>
                                         ) : null}
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="support_email">Support email</Label>
-                                        <Input
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="support_email">Support email</FieldLabel>
+                                        <FieldInput
                                             id="support_email"
                                             type="email"
                                             value={generalForm.data.support_email}
-                                            onChange={(e) => generalForm.setData('support_email', e.target.value)}
+                                            onChange={(e) =>
+                                                generalForm.setData('support_email', e.target.value)
+                                            }
                                         />
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="support_phone">Support phone</Label>
-                                        <Input
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="support_phone">Support phone</FieldLabel>
+                                        <FieldInput
                                             id="support_phone"
                                             value={generalForm.data.support_phone}
-                                            onChange={(e) => generalForm.setData('support_phone', e.target.value)}
+                                            onChange={(e) =>
+                                                generalForm.setData('support_phone', e.target.value)
+                                            }
                                         />
                                     </div>
 
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="company_address">Company address</Label>
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel htmlFor="company_address">
+                                            Company address
+                                        </FieldLabel>
                                         <Textarea
                                             id="company_address"
                                             rows={3}
                                             value={generalForm.data.company_address}
-                                            onChange={(e) => generalForm.setData('company_address', e.target.value)}
+                                            onChange={(e) =>
+                                                generalForm.setData(
+                                                    'company_address',
+                                                    e.target.value,
+                                                )
+                                            }
+                                            className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
                                         />
                                     </div>
+                                </div>
+                            </SettingsCard>
 
-                                    <div className="space-y-2">
-                                        <Label>Timezone</Label>
+                            {/* Regional */}
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Settings2}
+                                    title="Regional defaults"
+                                    description="Timezone, currency, and date display used across the platform."
+                                    color="bg-sky-500/10 border-sky-500/20 text-sky-500"
+                                />
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <FieldLabel>Timezone</FieldLabel>
                                         <Select
                                             value={generalForm.data.timezone}
-                                            onValueChange={(value) => generalForm.setData('timezone', value)}
+                                            onValueChange={(value) =>
+                                                generalForm.setData('timezone', value)
+                                            }
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
                                                 <SelectValue placeholder="Select timezone" />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64">
@@ -310,13 +475,15 @@ export default function ApplicationSettings({
                                         </Select>
                                     </div>
 
-                                    <div className="space-y-2">
-                                        <Label>Currency</Label>
+                                    <div className="space-y-1.5">
+                                        <FieldLabel>Currency</FieldLabel>
                                         <Select
                                             value={generalForm.data.currency}
-                                            onValueChange={(value) => generalForm.setData('currency', value)}
+                                            onValueChange={(value) =>
+                                                generalForm.setData('currency', value)
+                                            }
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
                                                 <SelectValue placeholder="Select currency" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -329,13 +496,15 @@ export default function ApplicationSettings({
                                         </Select>
                                     </div>
 
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label>Date format</Label>
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel>Date format</FieldLabel>
                                         <Select
                                             value={generalForm.data.date_format}
-                                            onValueChange={(value) => generalForm.setData('date_format', value)}
+                                            onValueChange={(value) =>
+                                                generalForm.setData('date_format', value)
+                                            }
                                         >
-                                            <SelectTrigger>
+                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
                                                 <SelectValue placeholder="Select format" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -347,40 +516,49 @@ export default function ApplicationSettings({
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                </div>
+                            </SettingsCard>
 
-                                    <div className="sm:col-span-2">
-                                        <Button type="submit" disabled={generalForm.processing}>
-                                            {generalForm.processing ? <Spinner /> : null}
-                                            Save general settings
-                                        </Button>
-                                    </div>
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl h-11 px-6"
+                                    disabled={generalForm.processing}
+                                >
+                                    {generalForm.processing ? <Spinner /> : null}
+                                    Save general settings
+                                </Button>
+                            </div>
+                        </form>
+                    )}
 
-                    <TabsContent value="branding" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Branding</CardTitle>
-                                <CardDescription>
-                                    Upload logos and favicon. Changes apply immediately across login and the browser tab.
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={submitBranding} className="grid gap-6">
+                    {/* ══ BRANDING ══ */}
+                    {tab === 'branding' && (
+                        <form onSubmit={submitBranding} className="space-y-6">
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={ImageIcon}
+                                    title="Brand assets"
+                                    description="Upload logos and favicon. Changes apply immediately across login and browser tab."
+                                    color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                />
+                                <div className="space-y-6">
                                     <BrandingUploadField
                                         label="Main logo"
                                         assetKey="main_logo"
                                         currentUrl={branding.main_logo_url}
-                                        onFileChange={(file) => brandingForm.setData('main_logo', file)}
+                                        onFileChange={(file) =>
+                                            brandingForm.setData('main_logo', file)
+                                        }
                                         error={brandingForm.errors.main_logo}
                                     />
                                     <BrandingUploadField
                                         label="Login page logo"
                                         assetKey="login_logo"
                                         currentUrl={branding.login_logo_url}
-                                        onFileChange={(file) => brandingForm.setData('login_logo', file)}
+                                        onFileChange={(file) =>
+                                            brandingForm.setData('login_logo', file)
+                                        }
                                         error={brandingForm.errors.login_logo}
                                     />
                                     <BrandingUploadField
@@ -389,147 +567,203 @@ export default function ApplicationSettings({
                                         currentUrl={branding.favicon_url}
                                         accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/x-icon,.ico"
                                         hint="PNG, JPG, SVG, or ICO — max 512 KB"
-                                        onFileChange={(file) => brandingForm.setData('favicon', file)}
+                                        onFileChange={(file) =>
+                                            brandingForm.setData('favicon', file)
+                                        }
                                         error={brandingForm.errors.favicon}
                                     />
                                     <BrandingUploadField
                                         label="Login background"
                                         assetKey="login_background"
                                         currentUrl={branding.login_background_url}
-                                        onFileChange={(file) => brandingForm.setData('login_background', file)}
+                                        onFileChange={(file) =>
+                                            brandingForm.setData('login_background', file)
+                                        }
                                         error={brandingForm.errors.login_background}
                                     />
+                                </div>
+                            </SettingsCard>
 
-                                    <Button type="submit" disabled={brandingForm.processing}>
-                                        {brandingForm.processing ? <Spinner /> : null}
-                                        Save branding
-                                    </Button>
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl h-11 px-6"
+                                    disabled={brandingForm.processing}
+                                >
+                                    {brandingForm.processing ? <Spinner /> : null}
+                                    Save branding
+                                </Button>
+                            </div>
+                        </form>
+                    )}
 
-                    <TabsContent value="smtp" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>SMTP / Email</CardTitle>
-                                <CardDescription>
-                                    Configure SMTP, email footer branding, and test delivery. Saved settings
-                                    override <code className="text-xs">.env</code>. Company name, phone, and
-                                    address in the footer come from the General tab.
-                                    {smtp.uses_env_fallback ? (
-                                        <span className="mt-1 block text-amber-600 dark:text-amber-400">
-                                            Currently using values from .env until you save SMTP settings.
-                                        </span>
-                                    ) : null}
-                                </CardDescription>
-                            </CardHeader>
-                            <CardContent className="space-y-8">
-                                <form onSubmit={submitSmtp} className="grid gap-5 sm:grid-cols-2">
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="mail_host">SMTP host</Label>
-                                        <Input
-                                            id="mail_host"
-                                            value={smtpForm.data.host}
-                                            onChange={(e) => smtpForm.setData('host', e.target.value)}
-                                            placeholder="smtp.example.com"
-                                        />
-                                        {smtpForm.errors.host ? (
-                                            <p className="text-xs text-destructive">{smtpForm.errors.host}</p>
-                                        ) : null}
+                    {/* ══ SMTP ══ */}
+                    {tab === 'smtp' && (
+                        <div className="space-y-6">
+                            {smtp.uses_env_fallback ? (
+                                <div className="flex items-start gap-3 px-4 py-3 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-400 text-sm">
+                                    <span className="mt-0.5 shrink-0">⚠</span>
+                                    <p>
+                                        Currently using values from{' '}
+                                        <code className="font-mono text-xs">.env</code> until you
+                                        save SMTP settings here.
+                                    </p>
+                                </div>
+                            ) : null}
+
+                            {/* Server settings */}
+                            <form onSubmit={submitSmtp} className="space-y-6">
+                                <SettingsCard>
+                                    <SectionHeading
+                                        icon={Mail}
+                                        title="SMTP server"
+                                        description="Connection credentials for outgoing mail delivery."
+                                        color="bg-sky-500/10 border-sky-500/20 text-sky-500"
+                                    />
+                                    <div className="grid gap-5 sm:grid-cols-2">
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <FieldLabel htmlFor="mail_host">SMTP host</FieldLabel>
+                                            <FieldInput
+                                                id="mail_host"
+                                                value={smtpForm.data.host}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('host', e.target.value)
+                                                }
+                                                placeholder="smtp.example.com"
+                                            />
+                                            {smtpForm.errors.host ? (
+                                                <p className="text-xs text-destructive">
+                                                    {smtpForm.errors.host}
+                                                </p>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_port">Port</FieldLabel>
+                                            <FieldInput
+                                                id="mail_port"
+                                                type="number"
+                                                min={1}
+                                                max={65535}
+                                                value={smtpForm.data.port}
+                                                onChange={(e) =>
+                                                    smtpForm.setData(
+                                                        'port',
+                                                        Number(e.target.value) || 587,
+                                                    )
+                                                }
+                                            />
+                                            {smtpForm.errors.port ? (
+                                                <p className="text-xs text-destructive">
+                                                    {smtpForm.errors.port}
+                                                </p>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <FieldLabel>Encryption</FieldLabel>
+                                            <Select
+                                                value={smtpForm.data.encryption}
+                                                onValueChange={(value) =>
+                                                    smtpForm.setData('encryption', value)
+                                                }
+                                            >
+                                                <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="tls">TLS (587)</SelectItem>
+                                                    <SelectItem value="ssl">SSL (465)</SelectItem>
+                                                    <SelectItem value="none">None</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <FieldLabel htmlFor="mail_username">Username</FieldLabel>
+                                            <FieldInput
+                                                id="mail_username"
+                                                value={smtpForm.data.username}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('username', e.target.value)
+                                                }
+                                                autoComplete="off"
+                                            />
+                                        </div>
+
+                                        <div className="space-y-1.5 sm:col-span-2">
+                                            <FieldLabel htmlFor="mail_password">Password</FieldLabel>
+                                            <div className="relative">
+                                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
+                                                <FieldInput
+                                                    id="mail_password"
+                                                    type="password"
+                                                    value={smtpForm.data.password}
+                                                    onChange={(e) =>
+                                                        smtpForm.setData('password', e.target.value)
+                                                    }
+                                                    placeholder={
+                                                        smtp.has_password
+                                                            ? 'Leave blank to keep current password'
+                                                            : 'SMTP password'
+                                                    }
+                                                    autoComplete="new-password"
+                                                    className="pl-10"
+                                                />
+                                            </div>
+                                            {smtpForm.errors.password ? (
+                                                <p className="text-xs text-destructive">
+                                                    {smtpForm.errors.password}
+                                                </p>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_from_address">
+                                                From address
+                                            </FieldLabel>
+                                            <FieldInput
+                                                id="mail_from_address"
+                                                type="email"
+                                                value={smtpForm.data.from_address}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('from_address', e.target.value)
+                                                }
+                                            />
+                                            {smtpForm.errors.from_address ? (
+                                                <p className="text-xs text-destructive">
+                                                    {smtpForm.errors.from_address}
+                                                </p>
+                                            ) : null}
+                                        </div>
+
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_from_name">From name</FieldLabel>
+                                            <FieldInput
+                                                id="mail_from_name"
+                                                value={smtpForm.data.from_name}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('from_name', e.target.value)
+                                                }
+                                            />
+                                            {smtpForm.errors.from_name ? (
+                                                <p className="text-xs text-destructive">
+                                                    {smtpForm.errors.from_name}
+                                                </p>
+                                            ) : null}
+                                        </div>
                                     </div>
+                                </SettingsCard>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="mail_port">Port</Label>
-                                        <Input
-                                            id="mail_port"
-                                            type="number"
-                                            min={1}
-                                            max={65535}
-                                            value={smtpForm.data.port}
-                                            onChange={(e) =>
-                                                smtpForm.setData('port', Number(e.target.value) || 587)
-                                            }
-                                        />
-                                        {smtpForm.errors.port ? (
-                                            <p className="text-xs text-destructive">{smtpForm.errors.port}</p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label>Encryption</Label>
-                                        <Select
-                                            value={smtpForm.data.encryption}
-                                            onValueChange={(value) => smtpForm.setData('encryption', value)}
-                                        >
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="tls">TLS (587)</SelectItem>
-                                                <SelectItem value="ssl">SSL (465)</SelectItem>
-                                                <SelectItem value="none">None</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="mail_username">Username</Label>
-                                        <Input
-                                            id="mail_username"
-                                            value={smtpForm.data.username}
-                                            onChange={(e) => smtpForm.setData('username', e.target.value)}
-                                            autoComplete="off"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-2 sm:col-span-2">
-                                        <Label htmlFor="mail_password">Password</Label>
-                                        <Input
-                                            id="mail_password"
-                                            type="password"
-                                            value={smtpForm.data.password}
-                                            onChange={(e) => smtpForm.setData('password', e.target.value)}
-                                            placeholder={
-                                                smtp.has_password
-                                                    ? 'Leave blank to keep current password'
-                                                    : 'SMTP password'
-                                            }
-                                            autoComplete="new-password"
-                                        />
-                                        {smtpForm.errors.password ? (
-                                            <p className="text-xs text-destructive">{smtpForm.errors.password}</p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="mail_from_address">From address</Label>
-                                        <Input
-                                            id="mail_from_address"
-                                            type="email"
-                                            value={smtpForm.data.from_address}
-                                            onChange={(e) => smtpForm.setData('from_address', e.target.value)}
-                                        />
-                                        {smtpForm.errors.from_address ? (
-                                            <p className="text-xs text-destructive">
-                                                {smtpForm.errors.from_address}
-                                            </p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <Label htmlFor="mail_from_name">From name</Label>
-                                        <Input
-                                            id="mail_from_name"
-                                            value={smtpForm.data.from_name}
-                                            onChange={(e) => smtpForm.setData('from_name', e.target.value)}
-                                        />
-                                        {smtpForm.errors.from_name ? (
-                                            <p className="text-xs text-destructive">{smtpForm.errors.from_name}</p>
-                                        ) : null}
-                                    </div>
-
-                                    <div className="space-y-4 rounded-lg border border-dashed p-4 sm:col-span-2">
+                                {/* Email branding + footer */}
+                                <SettingsCard>
+                                    <SectionHeading
+                                        icon={Palette}
+                                        title="Email branding & footer"
+                                        description="Logo and text shown in the footer of every outgoing email."
+                                        color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                    />
+                                    <div className="space-y-5">
                                         <BrandingUploadField
                                             label="Email branding logo"
                                             assetKey="email_branding_logo"
@@ -540,38 +774,46 @@ export default function ApplicationSettings({
                                             }
                                             error={smtpForm.errors.email_branding_logo}
                                         />
-                                        <div>
-                                            <h3 className="text-sm font-semibold">Email footer text</h3>
-                                            <p className="mt-1 text-sm text-muted-foreground">
-                                                Shown below the message body on every email. Company name,
-                                                phone, email, and address come from General settings.
-                                            </p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="mail_footer_tagline">Tagline</Label>
-                                            <Input
+
+                                        <div className="h-px bg-white/5" />
+
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_footer_tagline">
+                                                Tagline
+                                            </FieldLabel>
+                                            <FieldInput
                                                 id="mail_footer_tagline"
                                                 value={smtpForm.data.mail_footer_tagline}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('mail_footer_tagline', e.target.value)
+                                                    smtpForm.setData(
+                                                        'mail_footer_tagline',
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 placeholder="Your Complete Marine Solutions"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="mail_footer_website">Website</Label>
-                                            <Input
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_footer_website">
+                                                Website
+                                            </FieldLabel>
+                                            <FieldInput
                                                 id="mail_footer_website"
                                                 value={smtpForm.data.mail_footer_website}
                                                 onChange={(e) =>
-                                                    smtpForm.setData('mail_footer_website', e.target.value)
+                                                    smtpForm.setData(
+                                                        'mail_footer_website',
+                                                        e.target.value,
+                                                    )
                                                 }
                                                 placeholder="www.overseas-ms.com"
                                             />
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="mail_footer_certifications">Certifications bar</Label>
-                                            <Input
+                                        <div className="space-y-1.5">
+                                            <FieldLabel htmlFor="mail_footer_certifications">
+                                                Certifications bar
+                                            </FieldLabel>
+                                            <FieldInput
                                                 id="mail_footer_certifications"
                                                 value={smtpForm.data.mail_footer_certifications}
                                                 onChange={(e) =>
@@ -580,170 +822,236 @@ export default function ApplicationSettings({
                                                         e.target.value,
                                                     )
                                                 }
-                                                placeholder="ISO 9001:2015 | ISO 14001:2015 | ISO 45001:2018 | ICV Certified"
+                                                placeholder="ISO 9001:2015 | ISO 14001:2015 | ICV Certified"
                                             />
                                         </div>
+                                    </div>
+                                </SettingsCard>
+
+                                <div className="flex justify-end">
+                                    <Button
+                                        type="submit"
+                                        className="rounded-xl h-11 px-6"
+                                        disabled={smtpForm.processing}
+                                    >
+                                        {smtpForm.processing ? <Spinner /> : null}
+                                        Save email settings
+                                    </Button>
+                                </div>
+                            </form>
+
+                            {/* Test email */}
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Send}
+                                    title="Send test email"
+                                    description="Uses current SMTP fields (saved or unsaved). Check inbox and junk after sending."
+                                    color="bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                />
+                                <div className="grid gap-5 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="test_recipient">Recipient</FieldLabel>
+                                        <FieldInput
+                                            id="test_recipient"
+                                            type="email"
+                                            value={testRecipient}
+                                            onChange={(e) => setTestRecipient(e.target.value)}
+                                            placeholder={authUser?.email ?? 'you@company.com'}
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="test_subject">Subject</FieldLabel>
+                                        <FieldInput
+                                            id="test_subject"
+                                            value={testSubject}
+                                            onChange={(e) => setTestSubject(e.target.value)}
+                                            placeholder="SMTP test"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel htmlFor="test_body">Body</FieldLabel>
+                                        <Textarea
+                                            id="test_body"
+                                            rows={4}
+                                            value={testBody}
+                                            onChange={(e) => setTestBody(e.target.value)}
+                                            placeholder="Message shown in the email body…"
+                                            className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
+                                        />
+                                    </div>
+                                    <div className="space-y-1.5 sm:col-span-2">
+                                        <FieldLabel htmlFor="test_attachment">
+                                            Attachment (optional)
+                                        </FieldLabel>
+                                        <Input
+                                            id="test_attachment"
+                                            type="file"
+                                            accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,image/*"
+                                            onChange={(e) =>
+                                                setTestAttachment(e.target.files?.[0] ?? null)
+                                            }
+                                            className="rounded-xl border-white/10 bg-white/5 h-11 px-4 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:font-medium transition-all"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground/50 ml-0.5">
+                                            {testAttachment
+                                                ? `${testAttachment.name} (${(testAttachment.size / 1024).toFixed(1)} KB)`
+                                                : 'PDF, PNG, JPG, or Word — max 20 MB'}
+                                        </p>
                                     </div>
 
                                     <div className="sm:col-span-2">
-                                        <Button type="submit" disabled={smtpForm.processing}>
-                                            {smtpForm.processing ? <Spinner /> : null}
-                                            Save email settings
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            className="rounded-xl h-11 px-6"
+                                            disabled={
+                                                isSendingTest || smtpForm.data.host.trim() === ''
+                                            }
+                                            onClick={() => void handleSendTestEmail()}
+                                        >
+                                            {isSendingTest ? (
+                                                <Spinner />
+                                            ) : (
+                                                <Send className="w-4 h-4" />
+                                            )}
+                                            Send test email
                                         </Button>
                                     </div>
-                                </form>
+                                </div>
+                            </SettingsCard>
+                        </div>
+                    )}
 
-                                <div className="rounded-lg border border-dashed p-5">
-                                    <h3 className="text-sm font-semibold">Send test email</h3>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                        Uses SMTP settings above (saved or unsaved). Customize the message
-                                        below. Check inbox and junk after sending.
-                                    </p>
-                                    <div className="mt-4 grid max-w-2xl gap-4">
-                                        <div className="space-y-2">
-                                            <Label htmlFor="test_recipient">Recipient</Label>
-                                            <Input
-                                                id="test_recipient"
-                                                type="email"
-                                                value={testRecipient}
-                                                onChange={(e) => setTestRecipient(e.target.value)}
-                                                placeholder={authUser?.email ?? 'you@company.com'}
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="test_subject">Subject</Label>
-                                            <Input
-                                                id="test_subject"
-                                                value={testSubject}
-                                                onChange={(e) => setTestSubject(e.target.value)}
-                                                placeholder="SMTP test"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="test_body">Body</Label>
-                                            <Textarea
-                                                id="test_body"
-                                                rows={5}
-                                                value={testBody}
-                                                onChange={(e) => setTestBody(e.target.value)}
-                                                placeholder="Message shown in the email body…"
-                                            />
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label htmlFor="test_attachment">Attachment (optional)</Label>
-                                            <Input
-                                                id="test_attachment"
-                                                type="file"
-                                                accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,application/pdf,image/*"
-                                                onChange={(e) =>
-                                                    setTestAttachment(e.target.files?.[0] ?? null)
-                                                }
-                                            />
-                                            {testAttachment ? (
-                                                <p className="text-xs text-muted-foreground">
-                                                    {testAttachment.name} (
-                                                    {(testAttachment.size / 1024).toFixed(1)} KB)
-                                                </p>
-                                            ) : (
-                                                <p className="text-xs text-muted-foreground">
-                                                    PDF, PNG, JPG, or Word — max 20 MB
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div>
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                disabled={
-                                                    isSendingTest || smtpForm.data.host.trim() === ''
-                                                }
-                                                onClick={() => void handleSendTestEmail()}
+                    {/* ══ PREFERENCES ══ */}
+                    {tab === 'preferences' && (
+                        <form onSubmit={submitPreferences} className="space-y-6">
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Palette}
+                                    title="Theme colors"
+                                    description="Primary and accent colors applied globally across the UI."
+                                    color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                />
+                                <div className="grid gap-6 sm:grid-cols-2">
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="primary_color">Primary color</FieldLabel>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-11 h-11 rounded-xl border border-white/10 shrink-0 overflow-hidden cursor-pointer"
+                                                style={{
+                                                    backgroundColor:
+                                                        preferencesForm.data.primary_color,
+                                                }}
                                             >
-                                                {isSendingTest ? <Spinner /> : null}
-                                                Send test email
-                                            </Button>
+                                                <input
+                                                    id="primary_color"
+                                                    type="color"
+                                                    className="w-full h-full opacity-0 cursor-pointer"
+                                                    value={preferencesForm.data.primary_color}
+                                                    onChange={(e) =>
+                                                        preferencesForm.setData(
+                                                            'primary_color',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <FieldInput
+                                                value={preferencesForm.data.primary_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData(
+                                                        'primary_color',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="font-mono"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <FieldLabel htmlFor="accent_color">Accent color</FieldLabel>
+                                        <div className="flex items-center gap-3">
+                                            <div
+                                                className="w-11 h-11 rounded-xl border border-white/10 shrink-0 overflow-hidden cursor-pointer"
+                                                style={{
+                                                    backgroundColor:
+                                                        preferencesForm.data.accent_color,
+                                                }}
+                                            >
+                                                <input
+                                                    id="accent_color"
+                                                    type="color"
+                                                    className="w-full h-full opacity-0 cursor-pointer"
+                                                    value={preferencesForm.data.accent_color}
+                                                    onChange={(e) =>
+                                                        preferencesForm.setData(
+                                                            'accent_color',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <FieldInput
+                                                value={preferencesForm.data.accent_color}
+                                                onChange={(e) =>
+                                                    preferencesForm.setData(
+                                                        'accent_color',
+                                                        e.target.value,
+                                                    )
+                                                }
+                                                className="font-mono"
+                                            />
                                         </div>
                                     </div>
                                 </div>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
+                            </SettingsCard>
 
-                    <TabsContent value="preferences" className="mt-6">
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>System preferences</CardTitle>
-                                <CardDescription>Theme accents and default UI behavior.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                <form onSubmit={submitPreferences} className="grid max-w-md gap-5">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="primary_color">Primary color</Label>
-                                        <div className="flex items-center gap-3">
-                                            <Input
-                                                id="primary_color"
-                                                type="color"
-                                                className="h-11 w-14 cursor-pointer p-1"
-                                                value={preferencesForm.data.primary_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData('primary_color', e.target.value)
-                                                }
-                                            />
-                                            <Input
-                                                value={preferencesForm.data.primary_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData('primary_color', e.target.value)
-                                                }
-                                            />
-                                        </div>
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={Layout}
+                                    title="UI behavior"
+                                    description="Default layout and navigation preferences."
+                                    color="bg-sky-500/10 border-sky-500/20 text-sky-500"
+                                />
+                                <label className="flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors">
+                                    <Checkbox
+                                        id="sidebar_compact_default"
+                                        checked={preferencesForm.data.sidebar_compact_default}
+                                        onCheckedChange={(checked) =>
+                                            preferencesForm.setData(
+                                                'sidebar_compact_default',
+                                                checked === true,
+                                            )
+                                        }
+                                    />
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">
+                                            Collapse sidebar by default
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">
+                                            New sessions will open with the sidebar collapsed
+                                        </p>
                                     </div>
+                                    {preferencesForm.data.sidebar_compact_default ? (
+                                        <CheckCircle2 className="w-4 h-4 text-primary ml-auto shrink-0" />
+                                    ) : null}
+                                </label>
+                            </SettingsCard>
 
-                                    <div className="space-y-2">
-                                        <Label htmlFor="accent_color">Accent color</Label>
-                                        <div className="flex items-center gap-3">
-                                            <Input
-                                                id="accent_color"
-                                                type="color"
-                                                className="h-11 w-14 cursor-pointer p-1"
-                                                value={preferencesForm.data.accent_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData('accent_color', e.target.value)
-                                                }
-                                            />
-                                            <Input
-                                                value={preferencesForm.data.accent_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData('accent_color', e.target.value)
-                                                }
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <Checkbox
-                                            id="sidebar_compact_default"
-                                            checked={preferencesForm.data.sidebar_compact_default}
-                                            onCheckedChange={(checked) =>
-                                                preferencesForm.setData(
-                                                    'sidebar_compact_default',
-                                                    checked === true,
-                                                )
-                                            }
-                                        />
-                                        <Label htmlFor="sidebar_compact_default" className="cursor-pointer font-normal">
-                                            Collapse sidebar by default for new sessions
-                                        </Label>
-                                    </div>
-
-                                    <Button type="submit" disabled={preferencesForm.processing}>
-                                        {preferencesForm.processing ? <Spinner /> : null}
-                                        Save preferences
-                                    </Button>
-                                </form>
-                            </CardContent>
-                        </Card>
-                    </TabsContent>
-                </Tabs>
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl h-11 px-6"
+                                    disabled={preferencesForm.processing}
+                                >
+                                    {preferencesForm.processing ? <Spinner /> : null}
+                                    Save preferences
+                                </Button>
+                            </div>
+                        </form>
+                    )}
+                </main>
             </div>
         </>
     );
