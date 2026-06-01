@@ -1,4 +1,4 @@
-import { CheckIcon, ChevronDownIcon, Loader2, PlusIcon } from 'lucide-react';
+import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import * as React from 'react';
 import {
     Command,
@@ -7,6 +7,7 @@ import {
     CommandItem,
     CommandList,
 } from '@/components/ui/command';
+import { CommandCreateRow } from '@/components/ui/command-create-row';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 
@@ -175,6 +176,13 @@ export function CreatableSelect({
                         value={searchQuery}
                         onValueChange={setSearchQuery}
                     />
+                    {showCreateRow ? (
+                        <CommandCreateRow
+                            query={searchQuery}
+                            isCreating={isCreating}
+                            onCreate={handleCreate}
+                        />
+                    ) : null}
                     <CommandList>
                         <CommandEmpty>{emptyMessage}</CommandEmpty>
                         <CommandItem
@@ -201,25 +209,6 @@ export function CreatableSelect({
                                 ) : null}
                             </CommandItem>
                         ))}
-                        {showCreateRow ? (
-                            <CommandItem
-                                value={`__create__ ${searchQuery}`}
-                                disabled={isCreating}
-                                onSelect={() => {
-                                    void handleCreate();
-                                }}
-                                className="border-t border-border/60 text-primary"
-                            >
-                                {isCreating ? (
-                                    <Loader2 className="size-4 shrink-0 animate-spin" />
-                                ) : (
-                                    <PlusIcon className="size-4 shrink-0" />
-                                )}
-                                <span className="flex-1 truncate">
-                                    Create &quot;{searchQuery.trim()}&quot;
-                                </span>
-                            </CommandItem>
-                        ) : null}
                     </CommandList>
                     {createError ? (
                         <p className="border-t border-border/60 px-3 py-2 text-xs text-destructive">
