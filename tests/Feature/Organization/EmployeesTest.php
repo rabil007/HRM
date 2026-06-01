@@ -1288,6 +1288,116 @@ test('employee import template download only includes fields from selected profi
         ->and($headers)->not->toContain('bank', 'iban', 'account_name', 'contract_type');
 });
 
+test('employee import template download includes visible personal fields such as address', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ITC2',
+        'name' => 'Import Template Columns 2',
+        'dial_code' => '+988',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ITC2',
+        'name' => 'Import Template Columns Currency 2',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Template Columns Co 2',
+        'slug' => 'import-template-columns-co-2',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'address',
+        'nearest_airport',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Address Import', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $response = $this->get("/organization/employees/import/template?template_id={$template->id}");
+
+    $response->assertOk();
+    $lines = array_values(array_filter(explode("\n", trim($response->streamedContent()))));
+    $headers = str_getcsv($lines[0]);
+
+    expect($headers)->toContain('address', 'nearest_airport')
+        ->and($headers)->not->toContain('work_email', 'phone');
+});
+
+test('employee import preview enforces template required work email', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'IRE',
+        'name' => 'Import Required Email',
+        'dial_code' => '+987',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'IRE',
+        'name' => 'Import Required Email Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Import Required Email Co',
+        'slug' => 'import-required-email-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'work_email',
+    ]);
+    $configuration['fields']['employees']['work_email']['required'] = true;
+
+    $template = createEmployeeProfileTemplate($company, 'Work email required', $configuration);
+
+    grantCompanyPermissions($user, $company, ['employees.import']);
+
+    $csv = "employee_no,name,work_email\nEMP-REQ-1,Missing Email,\n";
+
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $preview = $this->post('/organization/employees/import/preview', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ]);
+
+    $preview->assertOk();
+
+    $errors = collect($preview->json('errors'));
+
+    expect($errors->firstWhere('field', 'work_email'))->not->toBeNull();
+
+    $workEmailOption = collect($preview->json('field_options'))->firstWhere('field', 'work_email');
+
+    expect($workEmailOption['required'] ?? false)->toBeTrue();
+});
+
 test('employee import assigns employee_profile_template_id to imported employees', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

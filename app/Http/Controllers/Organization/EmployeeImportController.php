@@ -91,7 +91,8 @@ class EmployeeImportController extends Controller
         $headers = $importer->readHeaders($file);
         $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->importOrchestrator->allowedImportFields($request));
         $rows = $this->importOrchestrator->readImportRows($importer, $file);
-        $result = $importer->validateRows($rows, $mapping);
+        $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
+        $result = $importer->validateRows($rows, $mapping, $template);
 
         return response()->json([
             'headers' => $headers,
@@ -116,7 +117,8 @@ class EmployeeImportController extends Controller
         $headers = $importer->readHeaders($file);
         $mapping = $importer->sanitizeMapping($headers, $validated['mapping'] ?? null, $this->importOrchestrator->allowedImportFields($request));
         $rows = $this->importOrchestrator->readImportRows($importer, $file);
-        $validation = $importer->validateRows($rows, $mapping);
+        $template = $this->importOrchestrator->resolveProfileTemplateForImport($request);
+        $validation = $importer->validateRows($rows, $mapping, $template);
 
         $invalidRowNumbers = collect($validation['errors'])->pluck('row')->unique()->all();
         $importable = collect($validation['rows'])

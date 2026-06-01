@@ -9,9 +9,11 @@ use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Religion;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -71,6 +73,55 @@ class EmployeesImport
     ];
 
     public const REQUIRED_FIELDS = ['employee_no', 'name'];
+
+    /**
+     * Import column => [template table, template field key].
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    public static function importFieldTemplateMap(): array
+    {
+        return [
+            'employee_no' => ['employees', 'employee_no'],
+            'name' => ['employees', 'name'],
+            'work_email' => ['employees', 'work_email'],
+            'personal_email' => ['employees', 'personal_email'],
+            'phone' => ['employees', 'phone'],
+            'phone_home_country' => ['employees', 'phone_home_country'],
+            'date_of_birth' => ['employees', 'date_of_birth'],
+            'place_of_birth' => ['employees', 'place_of_birth'],
+            'marital_status' => ['employees', 'marital_status'],
+            'spouse_name' => ['employees', 'spouse_name'],
+            'address' => ['employees', 'address'],
+            'nearest_airport' => ['employees', 'nearest_airport'],
+            'emergency_contact' => ['employees', 'emergency_contact'],
+            'emergency_phone' => ['employees', 'emergency_phone'],
+            'passport_number' => ['employees', 'passport_number'],
+            'emirates_id' => ['employees', 'emirates_id'],
+            'labor_card_number' => ['employees', 'labor_card_number'],
+            'branch' => ['employees', 'branch_id'],
+            'department' => ['employees', 'department_id'],
+            'position' => ['employees', 'position_id'],
+            'manager_employee_no' => ['employees', 'manager_id'],
+            'manager' => ['employees', 'manager_id'],
+            'gender' => ['employees', 'gender_id'],
+            'religion' => ['employees', 'religion_id'],
+            'nationality' => ['employees', 'nationality_id'],
+            'status' => ['employees', 'status'],
+            'contract_type' => ['employee_contracts', 'contract_type'],
+            'start_date' => ['employee_contracts', 'start_date'],
+            'end_date' => ['employee_contracts', 'end_date'],
+            'labor_contract_id' => ['employee_contracts', 'labor_contract_id'],
+            'basic_salary' => ['employee_contracts', 'basic_salary'],
+            'housing_allowance' => ['employee_contracts', 'housing_allowance'],
+            'transport_allowance' => ['employee_contracts', 'transport_allowance'],
+            'other_allowances' => ['employee_contracts', 'other_allowances'],
+            'note' => ['employee_contracts', 'note'],
+            'bank' => ['employee_bank_accounts', 'bank_id'],
+            'iban' => ['employee_bank_accounts', 'iban'],
+            'account_name' => ['employee_bank_accounts', 'account_name'],
+        ];
+    }
 
     public const SENSITIVE_FIELD_PERMISSIONS = [
         'passport_number' => 'employees.identity.import',
@@ -353,7 +404,7 @@ class EmployeesImport
      * @param  array<string, string|null>  $mapping
      * @return array{rows: array<int, array<string, mixed>>, errors: array<int, array{row: int, field: string, message: string}>, summary: array{total: int, valid: int, invalid: int}}
      */
-    public function validateRows(array $rows, array $mapping): array
+    public function validateRows(array $rows, array $mapping, ?EmployeeProfileTemplate $template = null): array
     {
         $this->primeLookups();
 
@@ -362,28 +413,11 @@ class EmployeesImport
 
         $duplicateNos = [];
         $existingNos = $this->existingEmployeeNos();
+        $rules = $this->validationRulesForTemplate($template);
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
             $shaped = $this->shapeRow($row, $mapping);
-
-            $rules = [
-                'employee_no' => ['required', 'string', 'max:50'],
-                'name' => ['required', 'string', 'max:200'],
-                'start_date' => ['nullable', 'date'],
-                'contract_type' => ['nullable', 'in:limited,unlimited,part_time,contract'],
-                'work_email' => ['nullable', 'email', 'max:200'],
-                'personal_email' => ['nullable', 'email', 'max:200'],
-                'date_of_birth' => ['nullable', 'date'],
-                'end_date' => ['nullable', 'date'],
-                'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
-                'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
-                'basic_salary' => ['nullable', 'numeric', 'min:0'],
-                'housing_allowance' => ['nullable', 'numeric', 'min:0'],
-                'transport_allowance' => ['nullable', 'numeric', 'min:0'],
-                'other_allowances' => ['nullable', 'numeric', 'min:0'],
-                'note' => ['nullable', 'string', 'max:2000'],
-            ];
 
             $validator = Validator::make($shaped, $rules);
 
@@ -578,6 +612,67 @@ class EmployeesImport
      * @param  array<string, string|null>  $mapping
      * @return array<string, mixed>
      */
+    /**
+     * @return array<string, list<string|object>>
+     */
+    private function validationRulesForTemplate(?EmployeeProfileTemplate $template): array
+    {
+        $rules = [
+            'employee_no' => ['required', 'string', 'max:50'],
+            'name' => ['required', 'string', 'max:200'],
+            'work_email' => ['nullable', 'email', 'max:200'],
+            'personal_email' => ['nullable', 'email', 'max:200'],
+            'phone' => ['nullable', 'string', 'max:30'],
+            'phone_home_country' => ['nullable', 'string', 'max:30'],
+            'date_of_birth' => ['nullable', 'date'],
+            'place_of_birth' => ['nullable', 'string', 'max:150'],
+            'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
+            'spouse_name' => ['nullable', 'string', 'max:200'],
+            'address' => ['nullable', 'string'],
+            'nearest_airport' => ['nullable', 'string', 'max:150'],
+            'emergency_contact' => ['nullable', 'string', 'max:200'],
+            'emergency_phone' => ['nullable', 'string', 'max:30'],
+            'passport_number' => ['nullable', 'string', 'max:50'],
+            'emirates_id' => ['nullable', 'string', 'max:30'],
+            'labor_card_number' => ['nullable', 'string', 'max:100'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'contract_type' => ['nullable', 'in:limited,unlimited,part_time,contract'],
+            'labor_contract_id' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
+            'basic_salary' => ['nullable', 'numeric', 'min:0'],
+            'housing_allowance' => ['nullable', 'numeric', 'min:0'],
+            'transport_allowance' => ['nullable', 'numeric', 'min:0'],
+            'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'note' => ['nullable', 'string', 'max:2000'],
+            'iban' => ['nullable', 'string', 'max:50'],
+            'account_name' => ['nullable', 'string', 'max:200'],
+        ];
+
+        if ($template === null) {
+            return $rules;
+        }
+
+        $employee = new Employee;
+        $employee->setRelation('employeeProfileTemplate', $template);
+
+        foreach (self::importFieldTemplateMap() as $importField => [$table, $fieldKey]) {
+            if (! isset($rules[$importField])) {
+                continue;
+            }
+
+            $adjusted = EmployeeProfileTemplateRequestRules::applyToRules(
+                $employee,
+                $table,
+                [$fieldKey => $rules[$importField]],
+            );
+
+            $rules[$importField] = $adjusted[$fieldKey];
+        }
+
+        return $rules;
+    }
+
     private function shapeRow(array $row, array $mapping): array
     {
         $shaped = [];

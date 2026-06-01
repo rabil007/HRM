@@ -84,15 +84,18 @@ final class EmployeeImportOrchestrator
     public function importFieldOptions(Request $request): array
     {
         $permitted = array_fill_keys($this->permittedImportFields($request), true);
+        $requiredFields = EmployeeProfileTemplateImportFields::requiredImportFieldsForTemplate(
+            $this->resolveProfileTemplateForImport($request),
+        );
 
         return collect($this->importColumnsForRequest($request))
-            ->map(function (string $field) use ($permitted) {
+            ->map(function (string $field) use ($permitted, $requiredFields) {
                 $permission = EmployeesImport::SENSITIVE_FIELD_PERMISSIONS[$field] ?? null;
 
                 return [
                     'field' => $field,
                     'label' => Str::headline($field),
-                    'required' => in_array($field, EmployeesImport::REQUIRED_FIELDS, true),
+                    'required' => in_array($field, $requiredFields, true),
                     'sensitive' => $permission !== null,
                     'permission' => $permission,
                     'allowed' => isset($permitted[$field]),

@@ -69,7 +69,6 @@ type Props = {
     default_template_id: number | null;
 };
 
-const REQUIRED_FIELDS = ['employee_no', 'name'];
 const PRIORITY_FIELDS = [
     'employee_no',
     'name',
@@ -129,13 +128,19 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
         return ordered.map((option) => ({ ...option, header: mapping[option.field] ?? null }));
     }, [field_options, mapping, preview]);
 
+    const requiredFields = useMemo(() => {
+        const fields = preview?.field_options ?? field_options;
+
+        return fields.filter((option) => option.required).map((option) => option.field);
+    }, [field_options, preview]);
+
     const unmappedRequired = useMemo(() => {
         if (!preview) {
             return [];
         }
 
-        return REQUIRED_FIELDS.filter((field) => !mapping[field]);
-    }, [mapping, preview]);
+        return requiredFields.filter((field) => !mapping[field]);
+    }, [mapping, preview, requiredFields]);
 
     const reset = useCallback(() => {
         setFile(null);
@@ -479,9 +484,14 @@ toast.error('Template selection is optional for import.');
                                     <h2 className="text-sm font-semibold text-foreground">Help</h2>
                                     <a href={templateDownloadUrl} className="block text-primary hover:underline">Import Template for Employees</a>
                                     <span className="block text-muted-foreground">
-                                        Required fields to map are <strong className="text-foreground">Employee No</strong> and{' '}
-                                        <strong className="text-foreground">Name</strong>. If you leave Contract type or Start date
-                                        as &quot;Do not import&quot;, new employees get unlimited contract and start date today.
+                                        Required fields to map:{' '}
+                                        <strong className="text-foreground">
+                                            {requiredFields.length > 0
+                                                ? requiredFields.map((field) => field.replaceAll('_', ' ')).join(', ')
+                                                : 'employee no, name'}
+                                        </strong>
+                                        . If you leave Contract type or Start date as &quot;Do not import&quot;, new
+                                        employees get unlimited contract and start date today.
                                     </span>
                                     <span className="block text-muted-foreground">Use exact column names for the cleanest mapping.</span>
                                 </section>
