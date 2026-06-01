@@ -207,8 +207,8 @@ return name;
                     {/* Main Workspace */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
                         {/* Sidebar Navigator */}
-                        <aside className="lg:col-span-3 space-y-4">
-                            <Card className="border-white/5 bg-white/5 h-full flex flex-col overflow-hidden">
+                        <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-6 lg:self-start">
+                            <Card className="border-white/5 bg-white/5 flex flex-col overflow-hidden max-h-[calc(100vh-6rem)]">
                                 <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
                                     <Badge variant="outline" className="text-[10px] border-white/5 font-mono opacity-60">
