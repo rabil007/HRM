@@ -11,7 +11,9 @@ test('defaults expose all tabs and require name and employee number', function (
         ->and($resolved['employee_tabs']['contract'])->toBeTrue()
         ->and($resolved['employee_tabs']['bank'])->toBeTrue()
         ->and($resolved['fields']['employees']['name']['required'])->toBeTrue()
-        ->and($resolved['fields']['employees']['employee_no']['required'])->toBeTrue();
+        ->and($resolved['fields']['employees']['employee_no']['required'])->toBeTrue()
+        ->and($resolved['fields']['employee_sea_services']['vessel_name']['required'])->toBeTrue()
+        ->and($resolved['fields']['employee_education_qualifications']['certificate']['required'])->toBeTrue();
 });
 
 test('template can hide bank tab and fields', function () {

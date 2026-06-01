@@ -181,11 +181,12 @@ final class EmployeeProfileTemplateFieldRegistry
         $fields = [];
         foreach (self::fieldsByTable() as $table => $tableFields) {
             $fields[$table] = [];
+            $defaultRequired = EmployeeProfileTemplateRequestRules::DEFAULT_REQUIRED_BY_TABLE[$table] ?? [];
+
             foreach (array_keys($tableFields) as $fieldKey) {
-                $required = $table === 'employees' && in_array($fieldKey, ['employee_no', 'name'], true);
                 $fields[$table][$fieldKey] = [
                     'visible' => true,
-                    'required' => $required,
+                    'required' => in_array($fieldKey, $defaultRequired, true),
                 ];
             }
         }
