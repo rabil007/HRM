@@ -55,6 +55,13 @@ class EmployeesImport
         'housing_allowance' => ['housing_allowance', 'housing allowance', 'housing'],
         'transport_allowance' => ['transport_allowance', 'transport allowance', 'transport'],
         'other_allowances' => ['other_allowances', 'other allowances', 'allowances'],
+        'supplementary_allowance' => [
+            'supplementary_allowance',
+            'supplementary allowance',
+            'supplimentary allowance',
+            'supplimentry allowance',
+        ],
+        'site_allowance' => ['site_allowance', 'site allowance'],
         'note' => ['note', 'contract note', 'contract reason', 'contract change reason'],
         'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'hire date'],
         'end_date' => ['end_date', 'end date', 'termination date'],
@@ -126,6 +133,8 @@ class EmployeesImport
             'housing_allowance' => ['employee_contracts', 'housing_allowance'],
             'transport_allowance' => ['employee_contracts', 'transport_allowance'],
             'other_allowances' => ['employee_contracts', 'other_allowances'],
+            'supplementary_allowance' => ['employee_contracts', 'supplementary_allowance'],
+            'site_allowance' => ['employee_contracts', 'site_allowance'],
             'note' => ['employee_contracts', 'note'],
             'bank' => ['employee_bank_accounts', 'bank_id'],
             'iban' => ['employee_bank_accounts', 'iban'],
@@ -142,6 +151,8 @@ class EmployeesImport
         'housing_allowance' => 'employees.contracts.import',
         'transport_allowance' => 'employees.contracts.import',
         'other_allowances' => 'employees.contracts.import',
+        'supplementary_allowance' => 'employees.contracts.import',
+        'site_allowance' => 'employees.contracts.import',
         'bank' => 'employees.bank_accounts.import',
         'iban' => 'employees.bank_accounts.import',
         'account_name' => 'employees.bank_accounts.import',
@@ -166,6 +177,10 @@ class EmployeesImport
         'housing_allowance',
         'transport_allowance',
         'other_allowances',
+        'supplementary_allowance',
+        'site_allowance',
+        'supplementary_allowance',
+        'site_allowance',
     ];
 
     public const TEMPLATE_HEADERS = [
@@ -201,6 +216,8 @@ class EmployeesImport
         'housing_allowance',
         'transport_allowance',
         'other_allowances',
+        'supplementary_allowance',
+        'site_allowance',
         'note',
         'bank',
         'iban',
@@ -573,6 +590,10 @@ class EmployeesImport
                         'housing_allowance' => $row['housing_allowance'] !== '' ? $row['housing_allowance'] : null,
                         'transport_allowance' => $row['transport_allowance'] !== '' ? $row['transport_allowance'] : null,
                         'other_allowances' => $row['other_allowances'] !== '' ? $row['other_allowances'] : null,
+                        'supplementary_allowance' => $row['supplementary_allowance'] !== ''
+                            ? $row['supplementary_allowance']
+                            : null,
+                        'site_allowance' => $row['site_allowance'] !== '' ? $row['site_allowance'] : null,
                         'note' => isset($row['note']) && trim((string) $row['note']) !== ''
                             ? trim((string) $row['note'])
                             : null,
@@ -658,6 +679,8 @@ class EmployeesImport
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
+            'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'iban' => ['nullable', 'string', 'max:50'],
             'account_name' => ['nullable', 'string', 'max:200'],

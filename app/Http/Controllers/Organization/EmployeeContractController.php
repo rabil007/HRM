@@ -85,6 +85,8 @@ class EmployeeContractController extends Controller
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
+            'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
         ]);
     }
@@ -135,6 +137,12 @@ class EmployeeContractController extends Controller
             'other_allowances' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'other_allowances')
                 ? ($validated['other_allowances'] ?? null)
                 : $existing?->other_allowances,
+            'supplementary_allowance' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'supplementary_allowance')
+                ? ($validated['supplementary_allowance'] ?? null)
+                : $existing?->supplementary_allowance,
+            'site_allowance' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'site_allowance')
+                ? ($validated['site_allowance'] ?? null)
+                : $existing?->site_allowance,
             'note' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'note')
                 ? (isset($validated['note']) && trim((string) $validated['note']) !== ''
                     ? trim((string) $validated['note'])

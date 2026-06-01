@@ -36,6 +36,8 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     housing_allowance: 'Housing allowance',
     transport_allowance: 'Transport allowance',
     other_allowances: 'Other allowances',
+    supplementary_allowance: 'Supplementary allowance',
+    site_allowance: 'Site allowance',
     note: 'Note',
     bank_id: 'Bank',
     iban: 'IBAN',

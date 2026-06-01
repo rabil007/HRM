@@ -88,6 +88,8 @@ final class EmployeeDetailResource
             'housing_allowance' => $employee->currentContract?->housing_allowance,
             'transport_allowance' => $employee->currentContract?->transport_allowance,
             'other_allowances' => $employee->currentContract?->other_allowances,
+            'supplementary_allowance' => $employee->currentContract?->supplementary_allowance,
+            'site_allowance' => $employee->currentContract?->site_allowance,
             'bank_id' => $employee->primaryBankAccount?->bank_id,
             'bank' => $employee->primaryBankAccount?->bank_id ? [
                 'id' => $employee->primaryBankAccount->bank_id,

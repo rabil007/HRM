@@ -75,6 +75,8 @@ class StoreEmployeeRequest extends FormRequest
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
             'other_allowances' => ['nullable', 'numeric', 'min:0'],
+            'supplementary_allowance' => ['nullable', 'numeric', 'min:0'],
+            'site_allowance' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:2000'],
             'iban' => ['nullable', 'string', 'max:50'],
             'bank_id' => ['nullable', 'integer', Rule::exists('banks', 'id')],

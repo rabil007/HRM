@@ -272,3 +272,62 @@ test('activating a contract ends other active contracts for the employee', funct
 
     expect($first->fresh()->status)->toBe('ended');
 });
+
+test('contract store persists supplementary and site allowances', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CWA',
+        'name' => 'Crew Allowance Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CWA',
+        'name' => 'Crew Allowance Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Crew Allowance Co',
+        'slug' => 'crew-allowance-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-CWA-1',
+            'name' => 'Crew Member',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+
+    $this->post(route('organization.employees.contracts.store', $employee), [
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 50,
+        'supplementary_allowance' => 428,
+        'site_allowance' => 715,
+    ])->assertRedirect();
+
+    $contract = EmployeeContract::query()
+        ->where('employee_id', $employee->id)
+        ->where('status', 'active')
+        ->first();
+
+    expect($contract)->not->toBeNull()
+        ->and($contract->basic_salary)->toBe('50.00')
+        ->and($contract->supplementary_allowance)->toBe('428.00')
+        ->and($contract->site_allowance)->toBe('715.00');
+});

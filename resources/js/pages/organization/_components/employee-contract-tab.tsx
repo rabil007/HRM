@@ -226,7 +226,9 @@ export function EmployeeContractTab({
         showField('basic_salary') ||
         showField('housing_allowance') ||
         showField('transport_allowance') ||
-        showField('other_allowances');
+        showField('other_allowances') ||
+        showField('supplementary_allowance') ||
+        showField('site_allowance');
     const showNoteSection = showField('note');
 
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -246,6 +248,8 @@ export function EmployeeContractTab({
         housing_allowance: '',
         transport_allowance: '',
         other_allowances: '',
+        supplementary_allowance: '',
+        site_allowance: '',
         note: '',
     });
 
@@ -287,6 +291,8 @@ export function EmployeeContractTab({
             housing_allowance: '',
             transport_allowance: '',
             other_allowances: '',
+            supplementary_allowance: '',
+            site_allowance: '',
             note: '',
         });
         setEditingContract(null);
@@ -321,6 +327,15 @@ export function EmployeeContractTab({
                 row.other_allowances === undefined
                     ? ''
                     : String(row.other_allowances),
+            supplementary_allowance:
+                row.supplementary_allowance === null ||
+                row.supplementary_allowance === undefined
+                    ? ''
+                    : String(row.supplementary_allowance),
+            site_allowance:
+                row.site_allowance === null || row.site_allowance === undefined
+                    ? ''
+                    : String(row.site_allowance),
             note: row.note ?? '',
         });
         setEditingContract(row);
@@ -382,6 +397,12 @@ export function EmployeeContractTab({
                 data.transport_allowance === '' ? null : data.transport_allowance,
             other_allowances:
                 data.other_allowances === '' ? null : data.other_allowances,
+            supplementary_allowance:
+                data.supplementary_allowance === ''
+                    ? null
+                    : data.supplementary_allowance,
+            site_allowance:
+                data.site_allowance === '' ? null : data.site_allowance,
             note: data.note.trim() === '' ? null : data.note.trim(),
         }));
 
@@ -468,6 +489,16 @@ export function EmployeeContractTab({
                             {showField('other_allowances') ? (
                                 <th className={employeeRecordsTableThClass()}>
                                     Other allowances
+                                </th>
+                            ) : null}
+                            {showField('supplementary_allowance') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Supplementary
+                                </th>
+                            ) : null}
+                            {showField('site_allowance') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Site allowance
                                 </th>
                             ) : null}
                             {showField('note') ? (
@@ -573,6 +604,26 @@ export function EmployeeContractTab({
                                         )}
                                     >
                                         {formatMoney(row.other_allowances)}
+                                    </td>
+                                ) : null}
+                                {showField('supplementary_allowance') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.supplementary_allowance)}
+                                    </td>
+                                ) : null}
+                                {showField('site_allowance') ? (
+                                    <td
+                                        className={cn(
+                                            employeeRecordsTableTdClass(),
+                                            'tabular-nums text-muted-foreground',
+                                        )}
+                                    >
+                                        {formatMoney(row.site_allowance)}
                                     </td>
                                 ) : null}
                                 {showField('note') ? (
@@ -960,6 +1011,87 @@ export function EmployeeContractTab({
                                 <p className="text-[11px] text-muted-foreground">
                                     Any additional monthly allowances
                                     {isFieldRequired('other_allowances') ? '' : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('supplementary_allowance') ? (
+                            <ContractFormField
+                                field="supplementary_allowance"
+                                highlightMissing={isMissingRequired('supplementary_allowance')}
+                            >
+                                <Label
+                                    htmlFor="contract_supplementary_allowance"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('supplementary_allowance') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Supplementary allowance
+                                    <RequiredIndicator
+                                        show={isFieldRequired('supplementary_allowance')}
+                                    />
+                                </Label>
+                                <Input
+                                    id="contract_supplementary_allowance"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 428.00"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('supplementary_allowance') &&
+                                            'border-rose-500/50',
+                                    )}
+                                    value={contractForm.data.supplementary_allowance}
+                                    onChange={(e) =>
+                                        contractForm.setData(
+                                            'supplementary_allowance',
+                                            e.target.value,
+                                        )
+                                    }
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Daily supplementary rate (crewing)
+                                    {isFieldRequired('supplementary_allowance')
+                                        ? ''
+                                        : ' (optional)'}
+                                </p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('site_allowance') ? (
+                            <ContractFormField
+                                field="site_allowance"
+                                highlightMissing={isMissingRequired('site_allowance')}
+                            >
+                                <Label
+                                    htmlFor="contract_site_allowance"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('site_allowance') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Site allowance
+                                    <RequiredIndicator
+                                        show={isFieldRequired('site_allowance')}
+                                    />
+                                </Label>
+                                <Input
+                                    id="contract_site_allowance"
+                                    inputMode="decimal"
+                                    placeholder="e.g. 715.00"
+                                    className={cn(
+                                        'h-10 rounded-xl border-border/60 bg-muted/50 text-sm',
+                                        isMissingRequired('site_allowance') &&
+                                            'border-rose-500/50',
+                                    )}
+                                    value={contractForm.data.site_allowance}
+                                    onChange={(e) =>
+                                        contractForm.setData('site_allowance', e.target.value)
+                                    }
+                                />
+                                <p className="text-[11px] text-muted-foreground">
+                                    Daily site rate (on-site days)
+                                    {isFieldRequired('site_allowance') ? '' : ' (optional)'}
                                 </p>
                             </ContractFormField>
                             ) : null}

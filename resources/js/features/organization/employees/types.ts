@@ -104,6 +104,8 @@ export type Employee = {
     housing_allowance?: number | null;
     transport_allowance?: number | null;
     other_allowances?: number | null;
+    supplementary_allowance?: number | null;
+    site_allowance?: number | null;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
     start_date?: string | null;
     end_date?: string | null;
@@ -143,6 +145,8 @@ export type EmployeeFormData = {
     housing_allowance: string;
     transport_allowance: string;
     other_allowances: string;
+    supplementary_allowance: string;
+    site_allowance: string;
     start_date: string;
     end_date: string;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';

@@ -76,6 +76,8 @@ export type EmployeeDetails = {
     housing_allowance?: number | null;
     transport_allowance?: number | null;
     other_allowances?: number | null;
+    supplementary_allowance?: number | null;
+    site_allowance?: number | null;
     work_email: string | null;
     phone: string | null;
     start_date?: string | null;
@@ -111,6 +113,8 @@ export type EmployeeContractDetails = {
     housing_allowance: number | null;
     transport_allowance: number | null;
     other_allowances: number | null;
+    supplementary_allowance: number | null;
+    site_allowance: number | null;
     note: string | null;
     created_at: string;
     updated_at: string;
