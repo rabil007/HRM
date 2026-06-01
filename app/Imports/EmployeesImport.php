@@ -75,6 +75,16 @@ class EmployeesImport
     public const REQUIRED_FIELDS = ['employee_no', 'name'];
 
     /**
+     * Import fields that may be omitted from the file; execute() applies defaults.
+     *
+     * @var list<string>
+     */
+    public const IMPORT_DEFAULTABLE_FIELDS = [
+        'contract_type',
+        'start_date',
+    ];
+
+    /**
      * Import column => [template table, template field key].
      *
      * @return array<string, array{0: string, 1: string}>
@@ -413,7 +423,7 @@ class EmployeesImport
 
         $duplicateNos = [];
         $existingNos = $this->existingEmployeeNos();
-        $rules = $this->validationRulesForTemplate($template);
+        $rules = $this->validationRulesForTemplate($template, $mapping);
 
         foreach ($rows as $index => $row) {
             $rowNumber = $index + 2;
@@ -615,7 +625,11 @@ class EmployeesImport
     /**
      * @return array<string, list<string|object>>
      */
-    private function validationRulesForTemplate(?EmployeeProfileTemplate $template): array
+    /**
+     * @param  array<string, string|null>  $mapping
+     * @return array<string, list<string|object>>
+     */
+    private function validationRulesForTemplate(?EmployeeProfileTemplate $template, array $mapping): array
     {
         $rules = [
             'employee_no' => ['required', 'string', 'max:50'],
@@ -670,7 +684,33 @@ class EmployeesImport
             $rules[$importField] = $adjusted[$fieldKey];
         }
 
+        foreach (self::IMPORT_DEFAULTABLE_FIELDS as $field) {
+            if (($mapping[$field] ?? null) !== null || ! isset($rules[$field])) {
+                continue;
+            }
+
+            $rules[$field] = $this->importRulesAsOptional($rules[$field]);
+        }
+
         return $rules;
+    }
+
+    /**
+     * @param  list<mixed>  $rules
+     * @return list<mixed>
+     */
+    private function importRulesAsOptional(array $rules): array
+    {
+        $filtered = array_values(array_filter(
+            $rules,
+            static fn (mixed $rule): bool => $rule !== 'required',
+        ));
+
+        if (! in_array('nullable', $filtered, true)) {
+            array_unshift($filtered, 'nullable');
+        }
+
+        return $filtered;
     }
 
     private function shapeRow(array $row, array $mapping): array

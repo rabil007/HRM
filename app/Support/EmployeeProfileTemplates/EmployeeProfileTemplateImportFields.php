@@ -108,6 +108,10 @@ final class EmployeeProfileTemplateImportFields
         $required = [];
 
         foreach (EmployeesImport::importFieldTemplateMap() as $importField => [$table, $fieldKey]) {
+            if (in_array($importField, EmployeesImport::IMPORT_DEFAULTABLE_FIELDS, true)) {
+                continue;
+            }
+
             if (EmployeeProfileTemplateRequestRules::isFieldRequired($employee, $table, $fieldKey)) {
                 $required[] = $importField;
             }
