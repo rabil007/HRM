@@ -19,6 +19,11 @@ use Illuminate\Validation\Rule;
 
 class EmployeeTrainingController extends Controller
 {
+    /** @var array<string, string> */
+    private const TRAINING_REQUEST_FIELD_ALIASES = [
+        'certificate' => 'certificate_path',
+    ];
+
     public function store(Request $request, Employee $employee): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -30,6 +35,15 @@ class EmployeeTrainingController extends Controller
             $employee,
             'employee_trainings',
             $this->trainingRules(),
+            self::TRAINING_REQUEST_FIELD_ALIASES,
+        );
+
+        EmployeeProfileTemplateRequestRules::assertRequiredFilePresent(
+            $request,
+            $employee,
+            'employee_trainings',
+            'certificate_path',
+            'certificate',
         );
 
         $maxSort = EmployeeTraining::query()
@@ -69,12 +83,29 @@ class EmployeeTrainingController extends Controller
             $employee,
             'employee_trainings',
             $this->trainingRules(),
+            self::TRAINING_REQUEST_FIELD_ALIASES,
         );
 
         $attributes = $this->trainingAttributes($validated, $training);
+        $certificatePath = $training->certificate_path;
+
+        if ($request->boolean('remove_certificate')) {
+            $this->deleteCertificate($certificatePath);
+            $certificatePath = null;
+            $attributes['certificate_path'] = null;
+        }
+
+        EmployeeProfileTemplateRequestRules::assertRequiredFilePresent(
+            $request,
+            $employee,
+            'employee_trainings',
+            'certificate_path',
+            'certificate',
+            $certificatePath,
+        );
 
         if ($request->hasFile('certificate')) {
-            $this->deleteCertificate($training->certificate_path);
+            $this->deleteCertificate($certificatePath);
             $attributes['certificate_path'] = $this->storeCertificate($request->file('certificate'), $companyId);
         }
 
@@ -272,6 +303,7 @@ class EmployeeTrainingController extends Controller
             'institute_center' => ['required', 'string', 'max:255'],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'certificate' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:5120'],
+            'remove_certificate' => ['sometimes', 'boolean'],
         ];
     }
 

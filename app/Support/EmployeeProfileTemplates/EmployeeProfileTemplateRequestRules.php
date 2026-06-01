@@ -117,20 +117,35 @@ final class EmployeeProfileTemplateRequestRules
      * @param  array<string, mixed>  $baseRules
      * @return array<string, mixed>
      */
-    public static function applyToRules(Employee $employee, string $table, array $baseRules): array
-    {
+    /**
+     * @param  array<string, mixed>  $baseRules
+     * @param  array<string, string>  $requestFieldAliases  Request input key => template registry field key
+     * @return array<string, mixed>
+     */
+    public static function applyToRules(
+        Employee $employee,
+        string $table,
+        array $baseRules,
+        array $requestFieldAliases = [],
+    ): array {
         $resolved = self::resolved($employee);
         $tableFields = $resolved['fields'][$table] ?? [];
 
         foreach ($baseRules as $fieldKey => $rules) {
-            if (! is_string($fieldKey) || ! array_key_exists($fieldKey, $tableFields)) {
+            if (! is_string($fieldKey)) {
+                continue;
+            }
+
+            $templateFieldKey = $requestFieldAliases[$fieldKey] ?? $fieldKey;
+
+            if (! array_key_exists($templateFieldKey, $tableFields)) {
                 continue;
             }
 
             $baseRules[$fieldKey] = self::rulesForField(
                 $employee,
                 $table,
-                $fieldKey,
+                $templateFieldKey,
                 is_array($rules) ? $rules : [$rules],
             );
         }
@@ -177,17 +192,44 @@ final class EmployeeProfileTemplateRequestRules
      * @param  array<string, mixed>  $baseRules
      * @return array<string, mixed>
      */
+    /**
+     * @param  array<string, mixed>  $baseRules
+     * @param  array<string, string>  $requestFieldAliases
+     * @return array<string, mixed>
+     */
     public static function validate(
         Request $request,
         Employee $employee,
         string $table,
         array $baseRules,
+        array $requestFieldAliases = [],
     ): array {
         self::assertTabForTable($employee, $table);
 
-        $rules = self::applyToRules($employee, $table, $baseRules);
+        $rules = self::applyToRules($employee, $table, $baseRules, $requestFieldAliases);
 
         return $request->validate($rules);
+    }
+
+    public static function assertRequiredFilePresent(
+        Request $request,
+        Employee $employee,
+        string $table,
+        string $templateFieldKey,
+        string $requestFileKey,
+        ?string $existingPath = null,
+    ): void {
+        if (! self::isFieldRequired($employee, $table, $templateFieldKey)) {
+            return;
+        }
+
+        if ($request->hasFile($requestFileKey) || ($existingPath !== null && $existingPath !== '')) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            $requestFileKey => 'The certificate field is required.',
+        ]);
     }
 
     /**
@@ -242,11 +284,25 @@ final class EmployeeProfileTemplateRequestRules
             return ['prohibited'];
         }
 
-        if (self::isFieldRequired($employee, $table, $fieldKey)) {
+        if (self::isFieldRequired($employee, $table, $fieldKey) && ! self::rulesContainFile($rules)) {
             return self::rulesAsRequired($rules);
         }
 
         return self::rulesAsOptional($rules);
+    }
+
+    /**
+     * @param  list<mixed>  $rules
+     */
+    private static function rulesContainFile(array $rules): bool
+    {
+        foreach ($rules as $rule) {
+            if ($rule === 'file') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

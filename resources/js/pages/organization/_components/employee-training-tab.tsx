@@ -1,6 +1,7 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useMemo, useRef, useState } from 'react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
     destroy as destroyTraining,
     store as storeTraining,
@@ -65,6 +66,8 @@ const TRAINING_RELOAD = {
     only: ['trainings'],
 } as const;
 
+const CERTIFICATE_TEMPLATE_FIELD = 'certificate_path';
+
 export type EmployeeTrainingTabProps = {
     employeeId: number | null;
     ensureEmployee?: () => Promise<number>;
@@ -101,6 +104,7 @@ export function EmployeeTrainingTab({
     const [trainingImportOpen, setTrainingImportOpen] = useState(false);
     const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(null);
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(null);
+    const [removeCertificate, setRemoveCertificate] = useState(false);
     const certificateInputRef = useRef<HTMLInputElement>(null);
 
     const trainingForm = useForm<{
@@ -110,6 +114,7 @@ export function EmployeeTrainingTab({
         institute_center: string;
         country_id: string;
         certificate: File | null;
+        remove_certificate: boolean;
     }>({
         course_id: '',
         issue_date: '',
@@ -117,12 +122,22 @@ export function EmployeeTrainingTab({
         institute_center: '',
         country_id: '',
         certificate: null,
+        remove_certificate: false,
     });
 
-    useClearMissingOnFormChange(
-        trainingForm.data as Record<string, unknown>,
-        syncMissingFromFormData,
-    );
+    const trainingFormDataForTemplate = useMemo(() => {
+        const hasExistingCertificate =
+            !removeCertificate && Boolean(editingTraining?.certificate_url);
+
+        return {
+            ...trainingForm.data,
+            certificate_path:
+                trainingForm.data.certificate ??
+                (hasExistingCertificate ? 'existing' : null),
+        };
+    }, [editingTraining?.certificate_url, removeCertificate, trainingForm.data]);
+
+    useClearMissingOnFormChange(trainingFormDataForTemplate, syncMissingFromFormData);
 
     const trainingImport = trainingImportConfig(employeeId);
     const trainingImportUrls = useMemo(
@@ -142,6 +157,7 @@ export function EmployeeTrainingTab({
         trainingForm.clearErrors();
         clearMissingRequired();
         setEditingTraining(null);
+        setRemoveCertificate(false);
 
         if (certificateInputRef.current) {
             certificateInputRef.current.value = '';
@@ -152,6 +168,7 @@ export function EmployeeTrainingTab({
 
     const openEditDialog = (row: TrainingItem) => {
         setEditingTraining(row);
+        setRemoveCertificate(false);
         trainingForm.setData({
             course_id: String(row.course_id),
             issue_date: row.issue_date,
@@ -159,6 +176,7 @@ export function EmployeeTrainingTab({
             institute_center: row.institute_center,
             country_id: row.country_id ? String(row.country_id) : '',
             certificate: null,
+            remove_certificate: false,
         });
         trainingForm.clearErrors();
         clearMissingRequired();
@@ -182,7 +200,7 @@ export function EmployeeTrainingTab({
             return;
         }
 
-        if (!validateRequired(trainingForm.data as Record<string, unknown>)) {
+        if (!validateRequired(trainingFormDataForTemplate)) {
             return;
         }
 
@@ -194,6 +212,7 @@ export function EmployeeTrainingTab({
             institute_center: data.institute_center.trim(),
             country_id: data.country_id === '' ? null : data.country_id,
             certificate: data.certificate,
+            remove_certificate: data.remove_certificate,
         }));
 
         const url = editingTraining
@@ -210,6 +229,7 @@ export function EmployeeTrainingTab({
                 setTrainingDialogOpen(false);
                 trainingForm.reset();
                 setEditingTraining(null);
+                setRemoveCertificate(false);
                 clearMissingRequired();
 
                 if (certificateInputRef.current) {
@@ -231,7 +251,7 @@ export function EmployeeTrainingTab({
         showField('expiry_date') ||
         showField('institute_center') ||
         showField('country_id') ||
-        showField('certificate');
+        showField(CERTIFICATE_TEMPLATE_FIELD);
 
     return (
         <TabsContent value="training" className="mt-6">
@@ -279,6 +299,9 @@ export function EmployeeTrainingTab({
                             ) : null}
                             {showField('institute_center') ? (
                                 <th className={employeeRecordsTableThClass()}>Institute/Center</th>
+                            ) : null}
+                            {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
+                                <th className={employeeRecordsTableThClass()}>Certificate</th>
                             ) : null}
                             <th className={employeeRecordsTableThClass()}>Created on</th>
                             {canManage ? <EmployeeRecordsActionsHeader /> : null}
@@ -329,6 +352,28 @@ export function EmployeeTrainingTab({
                                         {row.institute_center}
                                     </td>
                                 ) : null}
+                                {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
+                                    <td className={employeeRecordsTableTdClass()}>
+                                        {row.certificate_url ? (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-xs"
+                                                asChild
+                                            >
+                                                <a
+                                                    href={row.certificate_url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                >
+                                                    View
+                                                </a>
+                                            </Button>
+                                        ) : (
+                                            <span className="text-xs text-muted-foreground">—</span>
+                                        )}
+                                    </td>
+                                ) : null}
                                 <td
                                     className={cn(
                                         employeeRecordsTableTdClass(),
@@ -340,22 +385,6 @@ export function EmployeeTrainingTab({
                                 {canManage ? (
                                     <td className={cn(employeeRecordsTableTdClass(), 'text-right')}>
                                         <div className="flex items-center justify-end gap-2">
-                                            {row.certificate_url ? (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-7 text-xs"
-                                                    asChild
-                                                >
-                                                    <a
-                                                        href={row.certificate_url}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        Certificate
-                                                    </a>
-                                                </Button>
-                                            ) : null}
                                             <EmployeeRecordRowActions
                                                 onEdit={() => openEditDialog(row)}
                                                 onDelete={() => setDeleteTrainingId(row.id)}
@@ -378,6 +407,7 @@ export function EmployeeTrainingTab({
                         trainingForm.reset();
                         trainingForm.clearErrors();
                         setEditingTraining(null);
+                        setRemoveCertificate(false);
                         clearMissingRequired();
 
                         if (certificateInputRef.current) {
@@ -596,38 +626,51 @@ export function EmployeeTrainingTab({
                                         ) : null}
                                     </RecordFormField>
                                 ) : null}
-                                {showField('certificate') ? (
+                                {showField(CERTIFICATE_TEMPLATE_FIELD) ? (
                                     <RecordFormField
-                                        field="certificate"
-                                        highlightMissing={isMissingRequired('certificate')}
+                                        field={CERTIFICATE_TEMPLATE_FIELD}
+                                        highlightMissing={isMissingRequired(
+                                            CERTIFICATE_TEMPLATE_FIELD,
+                                        )}
                                         className="sm:col-span-2"
                                     >
                                         <Label
                                             className={recordFieldLabelClass(
-                                                isMissingRequired('certificate'),
+                                                isMissingRequired(CERTIFICATE_TEMPLATE_FIELD),
                                             )}
                                         >
                                             Certificate
-                                            <RequiredIndicator show={isFieldRequired('certificate')} />
+                                            <RequiredIndicator
+                                                show={isFieldRequired(CERTIFICATE_TEMPLATE_FIELD)}
+                                            />
                                         </Label>
                                         <Input
                                             ref={certificateInputRef}
                                             type="file"
                                             accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                            disabled={removeCertificate}
                                             className={cn(
                                                 recordFieldInputClass(
-                                                    isMissingRequired('certificate'),
+                                                    isMissingRequired(CERTIFICATE_TEMPLATE_FIELD),
                                                 ),
                                                 'file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1 file:text-xs file:text-foreground',
+                                                removeCertificate && 'pointer-events-none opacity-50',
                                             )}
-                                            onChange={(e) =>
+                                            onChange={(e) => {
                                                 trainingForm.setData(
                                                     'certificate',
                                                     e.target.files?.[0] ?? null,
-                                                )
-                                            }
+                                                );
+                                                trainingForm.setData('remove_certificate', false);
+                                                setRemoveCertificate(false);
+                                            }}
                                         />
-                                        {editingTraining?.certificate_url ? (
+                                        {trainingForm.data.certificate ? (
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Selected: {trainingForm.data.certificate.name}
+                                            </p>
+                                        ) : null}
+                                        {editingTraining?.certificate_url && !removeCertificate ? (
                                             <p className="text-[11px] text-muted-foreground">
                                                 Leave empty to keep the current file.{' '}
                                                 <a
@@ -640,6 +683,30 @@ export function EmployeeTrainingTab({
                                                 </a>
                                             </p>
                                         ) : null}
+                                        {editingTraining?.certificate_url ? (
+                                            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                                                <Checkbox
+                                                    checked={removeCertificate}
+                                                    onCheckedChange={(checked) => {
+                                                        const shouldRemove = checked === true;
+                                                        setRemoveCertificate(shouldRemove);
+                                                        trainingForm.setData(
+                                                            'remove_certificate',
+                                                            shouldRemove,
+                                                        );
+
+                                                        if (shouldRemove) {
+                                                            trainingForm.setData('certificate', null);
+
+                                                            if (certificateInputRef.current) {
+                                                                certificateInputRef.current.value = '';
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                                Remove current certificate
+                                            </label>
+                                        ) : null}
                                         {trainingForm.errors.certificate ? (
                                             <p className="text-xs text-destructive">
                                                 {trainingForm.errors.certificate}
@@ -647,7 +714,9 @@ export function EmployeeTrainingTab({
                                         ) : (
                                             <p className="text-[11px] text-muted-foreground">
                                                 PDF or image, max 5 MB
-                                                {isFieldRequired('certificate') ? '' : ' (optional)'}
+                                                {isFieldRequired(CERTIFICATE_TEMPLATE_FIELD)
+                                                    ? ''
+                                                    : ' (optional)'}
                                             </p>
                                         )}
                                     </RecordFormField>

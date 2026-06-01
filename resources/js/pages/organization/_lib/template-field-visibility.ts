@@ -54,5 +54,9 @@ export function getTemplateRequiredFieldKeys(
 }
 
 export function isEmptyTemplateFieldValue(value: unknown): boolean {
+    if (value instanceof File) {
+        return false;
+    }
+
     return String(value ?? '').trim() === '';
 }
