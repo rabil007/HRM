@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/command';
 import { CommandCreateRow } from '@/components/ui/command-create-row';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { filterCreatableOptions } from '@/lib/filter-creatable-options';
 import { cn } from '@/lib/utils';
 
 const NONE_SENTINEL = '__creatable_select_none__';
@@ -42,16 +43,6 @@ export type CreatableSelectProps = {
     emptyMessage?: string;
 };
 
-function hasExactLabelMatch(query: string, options: CreatableOption[]): boolean {
-    const normalized = query.trim().toLowerCase();
-
-    if (normalized === '') {
-        return false;
-    }
-
-    return options.some((option) => option.label.trim().toLowerCase() === normalized);
-}
-
 export function CreatableSelect({
     value,
     onValueChange,
@@ -74,16 +65,22 @@ export function CreatableSelect({
     const [isCreating, setIsCreating] = React.useState(false);
     const [createError, setCreateError] = React.useState<string | null>(null);
 
-    const radixValue = value === '' ? NONE_SENTINEL : value || NONE_SENTINEL;
     const selectedOption = options.find((option) => option.value === value);
     const displayLabel = selectedOption?.label || (value === '' ? '' : value);
+
+    const filteredOptions = React.useMemo(
+        () => filterCreatableOptions(options, searchQuery),
+        [options, searchQuery],
+    );
+
+    const isSearching = searchQuery.trim() !== '';
 
     const showCreateRow =
         creatable &&
         canCreate &&
         Boolean(createConfig) &&
-        searchQuery.trim() !== '' &&
-        !hasExactLabelMatch(searchQuery, options);
+        isSearching &&
+        filteredOptions.length === 0;
 
     const handleOpenChange = (nextOpen: boolean): void => {
         setOpen(nextOpen);
@@ -130,6 +127,7 @@ export function CreatableSelect({
             onValueChange(nextValue);
             setSearchQuery('');
             setCreateError(null);
+            handleOpenChange(false);
         } catch (error) {
             setCreateError(error instanceof Error ? error.message : 'Could not create this option.');
         } finally {
@@ -170,30 +168,27 @@ export function CreatableSelect({
                 className="w-(--radix-popover-trigger-width) p-0"
                 align="start"
             >
-                <Command shouldFilter>
+                <Command shouldFilter={false}>
                     <CommandInput
                         placeholder={searchPlaceholder}
                         value={searchQuery}
                         onValueChange={setSearchQuery}
                     />
-                    {showCreateRow ? (
-                        <CommandCreateRow
-                            query={searchQuery}
-                            isCreating={isCreating}
-                            onCreate={handleCreate}
-                        />
-                    ) : null}
                     <CommandList>
-                        <CommandEmpty>{emptyMessage}</CommandEmpty>
-                        <CommandItem
-                            value="__none__"
-                            onSelect={() => {
-                                handleSelect(NONE_SENTINEL);
-                            }}
-                        >
-                            {placeholder}
-                        </CommandItem>
-                        {options.map((option) => (
+                        {!showCreateRow && filteredOptions.length === 0 && isSearching ? (
+                            <CommandEmpty>{emptyMessage}</CommandEmpty>
+                        ) : null}
+                        {!isSearching ? (
+                            <CommandItem
+                                value="__none__"
+                                onSelect={() => {
+                                    handleSelect(NONE_SENTINEL);
+                                }}
+                            >
+                                {placeholder}
+                            </CommandItem>
+                        ) : null}
+                        {filteredOptions.map((option) => (
                             <CommandItem
                                 key={option.value}
                                 value={[option.label, option.value, option.keywords]
@@ -210,6 +205,13 @@ export function CreatableSelect({
                             </CommandItem>
                         ))}
                     </CommandList>
+                    {showCreateRow ? (
+                        <CommandCreateRow
+                            query={searchQuery}
+                            isCreating={isCreating}
+                            onCreate={handleCreate}
+                        />
+                    ) : null}
                     {createError ? (
                         <p className="border-t border-border/60 px-3 py-2 text-xs text-destructive">
                             {createError}

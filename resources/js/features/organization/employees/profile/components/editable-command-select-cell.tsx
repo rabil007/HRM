@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/command';
 import { CommandCreateRow } from '@/components/ui/command-create-row';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { filterCreatableOptions } from '@/lib/filter-creatable-options';
 import type { CreatableMasterDataContext, CreatableMasterDataKey } from '@/lib/master-data/creatable-registry';
 import { cn } from '@/lib/utils';
 import { employeeFieldMissingHighlightClass } from '@/pages/organization/_lib/employee-required-field-labels';
@@ -38,16 +39,6 @@ export type EditableCommandSelectCellProps = {
     onSelect: (value: string) => void;
     highlightMissing?: boolean;
 };
-
-function hasExactLabelMatch(query: string, items: CommandSelectOption[]): boolean {
-    const normalized = query.trim().toLowerCase();
-
-    if (normalized === '') {
-        return false;
-    }
-
-    return items.some((item) => item.label.trim().toLowerCase() === normalized);
-}
 
 export function EditableCommandSelectCell({
     field,
@@ -81,13 +72,16 @@ export function EditableCommandSelectCell({
         setLocalItems(items);
     }, [items]);
 
+    const filteredItems = useMemo(
+        () => filterCreatableOptions(localItems, searchQuery),
+        [localItems, searchQuery],
+    );
+
+    const isSearching = searchQuery.trim() !== '';
+
     const showCreateRow = useMemo(
-        () =>
-            creatable &&
-            canCreate &&
-            searchQuery.trim() !== '' &&
-            !hasExactLabelMatch(searchQuery, localItems),
-        [canCreate, creatable, localItems, searchQuery],
+        () => creatable && canCreate && Boolean(createConfig) && isSearching && filteredItems.length === 0,
+        [canCreate, creatable, createConfig, filteredItems.length, isSearching],
     );
 
     const handleCreate = async (): Promise<void> => {
@@ -155,6 +149,7 @@ export function EditableCommandSelectCell({
 
             <CommandDialog
                 open={activeField === field && canEdit}
+                shouldFilter={false}
                 onOpenChange={(open) => {
                     if (!open) {
                         setSearchQuery('');
@@ -170,25 +165,22 @@ export function EditableCommandSelectCell({
                     value={searchQuery}
                     onValueChange={setSearchQuery}
                 />
-                {showCreateRow ? (
-                    <CommandCreateRow
-                        query={searchQuery}
-                        isCreating={isCreating}
-                        onCreate={handleCreate}
-                    />
-                ) : null}
                 <CommandList>
-                    <CommandEmpty>No results found.</CommandEmpty>
-                    <CommandItem
-                        value="__none__"
-                        onSelect={() => {
-                            onSelect('');
-                            setActiveField(null);
-                        }}
-                    >
-                        —
-                    </CommandItem>
-                    {localItems.map((row) => (
+                    {!showCreateRow && filteredItems.length === 0 && isSearching ? (
+                        <CommandEmpty>No results found.</CommandEmpty>
+                    ) : null}
+                    {!isSearching ? (
+                        <CommandItem
+                            value="__none__"
+                            onSelect={() => {
+                                onSelect('');
+                                setActiveField(null);
+                            }}
+                        >
+                            —
+                        </CommandItem>
+                    ) : null}
+                    {filteredItems.map((row) => (
                         <CommandItem
                             key={row.id}
                             value={row.search ?? row.label}
@@ -206,6 +198,13 @@ export function EditableCommandSelectCell({
                         </CommandItem>
                     ))}
                 </CommandList>
+                {showCreateRow ? (
+                    <CommandCreateRow
+                        query={searchQuery}
+                        isCreating={isCreating}
+                        onCreate={handleCreate}
+                    />
+                ) : null}
                 {createError ? (
                     <p className="border-t border-border/60 px-3 py-2 text-xs text-destructive">
                         {createError}
