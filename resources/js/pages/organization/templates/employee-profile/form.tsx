@@ -1,5 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
-import { Eye, EyeOff, FileText, Lock, Settings2, ToggleLeft, Unlock } from 'lucide-react';
+import { Eye, EyeOff, FileText, Lock, Search, Settings2, ToggleLeft, Unlock, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
@@ -49,6 +49,7 @@ export default function EmployeeProfileTemplateForm({
         template?.configuration_json ?? defaultConfiguration,
     );
     const [activeTab, setActiveTab] = useState(registry.tab_order[0] ?? 'personal');
+    const [fieldQuery, setFieldQuery] = useState('');
 
     const form = useForm({
         name: template?.name ?? '',
@@ -91,6 +92,67 @@ export default function EmployeeProfileTemplateForm({
         () => registry.tab_to_tables[activeTab] ?? [],
         [activeTab, registry.tab_to_tables],
     );
+
+    /** Normalised search query */
+    const trimmedQuery = fieldQuery.trim().toLowerCase();
+
+    /**
+     * For the active tab: only tables/fields that match the query.
+     * When query is empty, returns all tables/fields as-is.
+     */
+    const filteredTablesForActiveTab = useMemo(() => {
+        if (!trimmedQuery) {
+            return tablesForActiveTab.map((table) => ({
+                table,
+                fieldEntries: Object.entries(registry.fields_by_table[table] ?? {}),
+            }));
+        }
+
+        return tablesForActiveTab
+            .map((table) => ({
+                table,
+                fieldEntries: Object.entries(registry.fields_by_table[table] ?? {}).filter(
+                    ([fieldKey, label]) =>
+                        label.toLowerCase().includes(trimmedQuery) ||
+                        fieldKey.toLowerCase().includes(trimmedQuery),
+                ),
+            }))
+            .filter(({ fieldEntries }) => fieldEntries.length > 0);
+    }, [trimmedQuery, tablesForActiveTab, registry.fields_by_table]);
+
+    /**
+     * Cross-tab search results — other tabs (not the active one) that have matching fields.
+     * Only computed when there is a non-empty query.
+     */
+    const crossTabResults = useMemo(() => {
+        if (!trimmedQuery) {
+            return [];
+        }
+
+        return registry.tab_order
+            .filter((tabKey) => tabKey !== activeTab)
+            .flatMap((tabKey) => {
+                const tables = registry.tab_to_tables[tabKey] ?? [];
+                const matched = tables
+                    .map((table) => ({
+                        table,
+                        fieldEntries: Object.entries(
+                            registry.fields_by_table[table] ?? {},
+                        ).filter(
+                            ([fieldKey, label]) =>
+                                label.toLowerCase().includes(trimmedQuery) ||
+                                fieldKey.toLowerCase().includes(trimmedQuery),
+                        ),
+                    }))
+                    .filter(({ fieldEntries }) => fieldEntries.length > 0);
+
+                if (matched.length === 0) {
+                    return [];
+                }
+
+                return [{ tabKey, tabLabel: registry.tab_labels[tabKey] ?? tabKey, matched }];
+            });
+    }, [trimmedQuery, activeTab, registry]);
 
     /** Count of fields that are visible in a given tab */
     const visibleFieldCountForTab = (tabKey: string) => {
@@ -338,49 +400,98 @@ export default function EmployeeProfileTemplateForm({
                         <main className="lg:col-span-9">
                             <Card className="border-white/5 bg-white/5 h-full flex flex-col overflow-hidden shadow-2xl">
                                 {/* Content header */}
-                                <div className="p-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between sticky top-0 z-10 backdrop-blur-md">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-                                            <FileText className="w-5 h-5" />
+                                <div className="border-b border-white/5 bg-white/[0.02] sticky top-0 z-10 backdrop-blur-md">
+                                    {/* Top row: title + tab toggle */}
+                                    <div className="px-6 pt-5 pb-4 flex items-center justify-between gap-4">
+                                        <div className="flex items-center gap-4 min-w-0">
+                                            <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                                                <FileText className="w-5 h-5" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h2 className="text-lg font-bold tracking-tight text-foreground truncate">
+                                                    {registry.tab_labels[activeTab] ?? activeTab}
+                                                </h2>
+                                                <p className="text-xs text-muted-foreground font-medium">
+                                                    Configure field visibility and requirements
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h2 className="text-lg font-bold tracking-tight text-foreground">
-                                                {registry.tab_labels[activeTab] ?? activeTab}
-                                            </h2>
-                                            <p className="text-xs text-muted-foreground font-medium">
-                                                Configure field visibility and requirements
-                                            </p>
-                                        </div>
+
+                                        {/* Tab visibility toggle */}
+                                        <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.03] cursor-pointer hover:bg-white/[0.06] transition-colors shrink-0">
+                                            <Switch
+                                                checked={
+                                                    activeTab === 'personal'
+                                                        ? true
+                                                        : isTabVisible(activeTab)
+                                                }
+                                                disabled={activeTab === 'personal'}
+                                                onCheckedChange={(value) =>
+                                                    setTabVisible(activeTab, value)
+                                                }
+                                            />
+                                            <div>
+                                                <p className="text-xs font-semibold text-foreground leading-none">
+                                                    Tab visible
+                                                </p>
+                                                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                                                    {activeTab === 'personal'
+                                                        ? 'Always shown'
+                                                        : 'Toggle tab visibility'}
+                                                </p>
+                                            </div>
+                                        </label>
                                     </div>
 
-                                    {/* Tab visibility toggle */}
-                                    <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.03] cursor-pointer hover:bg-white/[0.06] transition-colors">
-                                        <Switch
-                                            checked={
-                                                activeTab === 'personal'
-                                                    ? true
-                                                    : isTabVisible(activeTab)
-                                            }
-                                            disabled={activeTab === 'personal'}
-                                            onCheckedChange={(value) =>
-                                                setTabVisible(activeTab, value)
-                                            }
-                                        />
-                                        <div>
-                                            <p className="text-xs font-semibold text-foreground leading-none">
-                                                Tab visible
-                                            </p>
-                                            <p className="text-[10px] text-muted-foreground/60 mt-0.5">
-                                                {activeTab === 'personal'
-                                                    ? 'Always shown'
-                                                    : 'Toggle tab visibility'}
-                                            </p>
+                                    {/* Search bar row */}
+                                    <div className="px-6 pb-4">
+                                        <div className="relative group">
+                                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 group-focus-within:text-primary transition-colors pointer-events-none" />
+                                            <Input
+                                                id="field-search"
+                                                value={fieldQuery}
+                                                onChange={(e) => setFieldQuery(e.target.value)}
+                                                placeholder="Search fields by name or key…"
+                                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-10 pl-10 pr-10 text-sm transition-all"
+                                            />
+                                            {fieldQuery ? (
+                                                <button
+                                                    type="button"
+                                                    aria-label="Clear search"
+                                                    onClick={() => setFieldQuery('')}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-white/10 transition-colors"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            ) : null}
                                         </div>
-                                    </label>
+                                        {trimmedQuery ? (
+                                            <p className="text-[10px] text-muted-foreground/50 mt-1.5 ml-1">
+                                                {filteredTablesForActiveTab.reduce(
+                                                    (acc, { fieldEntries }) =>
+                                                        acc + fieldEntries.length,
+                                                    0,
+                                                )}{' '}
+                                                match
+                                                {filteredTablesForActiveTab.reduce(
+                                                    (acc, { fieldEntries }) =>
+                                                        acc + fieldEntries.length,
+                                                    0,
+                                                ) !== 1
+                                                    ? 'es'
+                                                    : ''}{' '}
+                                                in this tab
+                                                {crossTabResults.length > 0
+                                                    ? `, ${crossTabResults.reduce((acc, { matched }) => acc + matched.reduce((a, { fieldEntries }) => a + fieldEntries.length, 0), 0)} more across other tabs`
+                                                    : ''}
+                                            </p>
+                                        ) : null}
+                                    </div>
                                 </div>
 
                                 <ScrollArea className="flex-1">
                                     <div className="p-8 space-y-8">
+                                        {/* Empty state — no tables at all */}
                                         {tablesForActiveTab.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-20 text-center">
                                                 <div className="w-16 h-16 rounded-3xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center mb-4">
@@ -392,143 +503,80 @@ export default function EmployeeProfileTemplateForm({
                                             </div>
                                         ) : null}
 
-                                        {tablesForActiveTab.map((table) => {
-                                            const fieldEntries = Object.entries(
-                                                registry.fields_by_table[table] ?? {},
-                                            );
+                                        {/* Empty state — search returned nothing in active tab */}
+                                        {tablesForActiveTab.length > 0 &&
+                                        trimmedQuery &&
+                                        filteredTablesForActiveTab.length === 0 ? (
+                                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center mb-4">
+                                                    <Search className="w-6 h-6 text-muted-foreground/20" />
+                                                </div>
+                                                <p className="text-sm font-medium text-foreground/70">
+                                                    No fields match &ldquo;{fieldQuery}&rdquo;
+                                                </p>
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                    Try searching in other tabs below
+                                                </p>
+                                            </div>
+                                        ) : null}
 
-                                            return (
-                                                <div key={table} className="space-y-4">
-                                                    {/* Table heading */}
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-5 w-1 rounded-full bg-primary" />
-                                                        <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                                                            {table}
-                                                        </h4>
-                                                        <div className="flex-1 h-px bg-white/5" />
-                                                    </div>
+                                        {/* Field tables for the active tab */}
+                                        {filteredTablesForActiveTab.map(({ table, fieldEntries }) => (
+                                            <FieldTableBlock
+                                                key={table}
+                                                table={table}
+                                                fieldEntries={fieldEntries}
+                                                configuration={configuration}
+                                                setFieldConfig={setFieldConfig}
+                                                searchQuery={trimmedQuery}
+                                            />
+                                        ))}
 
-                                                    {/* Field rows */}
-                                                    <div className="rounded-2xl border border-white/5 overflow-hidden divide-y divide-white/5">
-                                                        {/* Column headers */}
-                                                        <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-white/[0.02]">
-                                                            <div className="col-span-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
-                                                                Field
-                                                            </div>
-                                                            <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 text-center">
-                                                                Visible
-                                                            </div>
-                                                            <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 text-center">
-                                                                Required
-                                                            </div>
+                                        {/* Cross-tab results */}
+                                        {crossTabResults.length > 0 ? (
+                                            <div className="space-y-6 pt-2">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="flex-1 h-px bg-white/5" />
+                                                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 px-2">
+                                                        Results in other tabs
+                                                    </span>
+                                                    <div className="flex-1 h-px bg-white/5" />
+                                                </div>
+
+                                                {crossTabResults.map(({ tabKey, tabLabel, matched }) => (
+                                                    <div key={tabKey} className="space-y-4">
+                                                        {/* Tab badge header */}
+                                                        <div className="flex items-center gap-3">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setActiveTab(tabKey);
+                                                                    setFieldQuery('');
+                                                                }}
+                                                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary hover:bg-primary/20 transition-colors"
+                                                            >
+                                                                <FileText className="w-3.5 h-3.5" />
+                                                                <span className="text-xs font-bold">
+                                                                    {tabLabel}
+                                                                </span>
+                                                            </button>
+                                                            <div className="flex-1 h-px bg-white/5" />
                                                         </div>
 
-                                                        {fieldEntries.map(([fieldKey, label]) => {
-                                                            const field = configuration.fields[
-                                                                table
-                                                            ]?.[fieldKey] ?? {
-                                                                visible: true,
-                                                                required: false,
-                                                            };
-
-                                                            return (
-                                                                <div
-                                                                    key={fieldKey}
-                                                                    className={cn(
-                                                                        'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
-                                                                        field.visible
-                                                                            ? 'bg-white/[0.01] hover:bg-white/[0.03]'
-                                                                            : 'bg-transparent opacity-60 hover:opacity-80',
-                                                                    )}
-                                                                >
-                                                                    {/* Field label + key */}
-                                                                    <div className="col-span-6 flex items-center gap-3 min-w-0">
-                                                                        <div
-                                                                            className={cn(
-                                                                                'w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 transition-colors',
-                                                                                field.visible
-                                                                                    ? 'bg-primary/10 border-primary/20 text-primary'
-                                                                                    : 'bg-white/[0.03] border-white/5 text-muted-foreground/30',
-                                                                            )}
-                                                                        >
-                                                                            {field.visible ? (
-                                                                                <Eye className="w-3.5 h-3.5" />
-                                                                            ) : (
-                                                                                <EyeOff className="w-3.5 h-3.5" />
-                                                                            )}
-                                                                        </div>
-                                                                        <div className="min-w-0">
-                                                                            <p className="text-sm font-semibold text-foreground/90 truncate">
-                                                                                {label}
-                                                                            </p>
-                                                                            <p className="text-[10px] text-muted-foreground/40 font-mono truncate">
-                                                                                {fieldKey}
-                                                                            </p>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {/* Visible toggle */}
-                                                                    <div className="col-span-3 flex justify-center">
-                                                                        <Switch
-                                                                            checked={field.visible}
-                                                                            onCheckedChange={(
-                                                                                value,
-                                                                            ) =>
-                                                                                setFieldConfig(
-                                                                                    table,
-                                                                                    fieldKey,
-                                                                                    {
-                                                                                        visible:
-                                                                                            value,
-                                                                                        // auto-clear required when hiding
-                                                                                        required:
-                                                                                            value
-                                                                                                ? field.required
-                                                                                                : false,
-                                                                                    },
-                                                                                )
-                                                                            }
-                                                                        />
-                                                                    </div>
-
-                                                                    {/* Required toggle */}
-                                                                    <div className="col-span-3 flex justify-center">
-                                                                        <div className="flex items-center gap-2">
-                                                                            {field.required &&
-                                                                            field.visible ? (
-                                                                                <Lock className="w-3 h-3 text-amber-500/70" />
-                                                                            ) : (
-                                                                                <Unlock className="w-3 h-3 text-muted-foreground/20" />
-                                                                            )}
-                                                                            <Switch
-                                                                                checked={
-                                                                                    field.required
-                                                                                }
-                                                                                disabled={
-                                                                                    !field.visible
-                                                                                }
-                                                                                onCheckedChange={(
-                                                                                    value,
-                                                                                ) =>
-                                                                                    setFieldConfig(
-                                                                                        table,
-                                                                                        fieldKey,
-                                                                                        {
-                                                                                            required:
-                                                                                                value,
-                                                                                        },
-                                                                                    )
-                                                                                }
-                                                                            />
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            );
-                                                        })}
+                                                        {matched.map(({ table, fieldEntries }) => (
+                                                            <FieldTableBlock
+                                                                key={table}
+                                                                table={table}
+                                                                fieldEntries={fieldEntries}
+                                                                configuration={configuration}
+                                                                setFieldConfig={setFieldConfig}
+                                                                searchQuery={trimmedQuery}
+                                                            />
+                                                        ))}
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
+                                                ))}
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </ScrollArea>
                             </Card>
@@ -537,5 +585,146 @@ export default function EmployeeProfileTemplateForm({
                 </div>
             </Main>
         </>
+    );
+}
+
+/** Highlights a substring match within text. */
+function HighlightMatch({ text, query }: { text: string; query: string }): React.ReactElement {
+    if (!query) {
+        return <>{text}</>;
+    }
+
+    const index = text.toLowerCase().indexOf(query.toLowerCase());
+
+    if (index === -1) {
+        return <>{text}</>;
+    }
+
+    return (
+        <>
+            {text.slice(0, index)}
+            <mark className="bg-primary/20 text-primary rounded px-0.5">{text.slice(index, index + query.length)}</mark>
+            {text.slice(index + query.length)}
+        </>
+    );
+}
+
+/** Reusable table block for a group of fields. */
+function FieldTableBlock({
+    table,
+    fieldEntries,
+    configuration,
+    setFieldConfig,
+    searchQuery,
+}: {
+    table: string;
+    fieldEntries: [string, string][];
+    configuration: Configuration;
+    setFieldConfig: (table: string, fieldKey: string, patch: Partial<FieldConfig>) => void;
+    searchQuery: string;
+}): React.ReactElement {
+    return (
+        <div className="space-y-4">
+            {/* Table heading */}
+            <div className="flex items-center gap-3">
+                <div className="h-5 w-1 rounded-full bg-primary" />
+                <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    {table}
+                </h4>
+                <div className="flex-1 h-px bg-white/5" />
+            </div>
+
+            {/* Field rows */}
+            <div className="rounded-2xl border border-white/5 overflow-hidden divide-y divide-white/5">
+                {/* Column headers */}
+                <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-white/[0.02]">
+                    <div className="col-span-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                        Field
+                    </div>
+                    <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 text-center">
+                        Visible
+                    </div>
+                    <div className="col-span-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 text-center">
+                        Required
+                    </div>
+                </div>
+
+                {fieldEntries.map(([fieldKey, label]) => {
+                    const field = configuration.fields[table]?.[fieldKey] ?? {
+                        visible: true,
+                        required: false,
+                    };
+
+                    return (
+                        <div
+                            key={fieldKey}
+                            className={cn(
+                                'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
+                                field.visible
+                                    ? 'bg-white/[0.01] hover:bg-white/[0.03]'
+                                    : 'bg-transparent opacity-60 hover:opacity-80',
+                            )}
+                        >
+                            {/* Field label + key */}
+                            <div className="col-span-6 flex items-center gap-3 min-w-0">
+                                <div
+                                    className={cn(
+                                        'w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 transition-colors',
+                                        field.visible
+                                            ? 'bg-primary/10 border-primary/20 text-primary'
+                                            : 'bg-white/[0.03] border-white/5 text-muted-foreground/30',
+                                    )}
+                                >
+                                    {field.visible ? (
+                                        <Eye className="w-3.5 h-3.5" />
+                                    ) : (
+                                        <EyeOff className="w-3.5 h-3.5" />
+                                    )}
+                                </div>
+                                <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-foreground/90 truncate">
+                                        <HighlightMatch text={label} query={searchQuery} />
+                                    </p>
+                                    <p className="text-[10px] text-muted-foreground/40 font-mono truncate">
+                                        <HighlightMatch text={fieldKey} query={searchQuery} />
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Visible toggle */}
+                            <div className="col-span-3 flex justify-center">
+                                <Switch
+                                    checked={field.visible}
+                                    onCheckedChange={(value) =>
+                                        setFieldConfig(table, fieldKey, {
+                                            visible: value,
+                                            required: value ? field.required : false,
+                                        })
+                                    }
+                                />
+                            </div>
+
+                            {/* Required toggle */}
+                            <div className="col-span-3 flex justify-center">
+                                <div className="flex items-center gap-2">
+                                    {field.required && field.visible ? (
+                                        <Lock className="w-3 h-3 text-amber-500/70" />
+                                    ) : (
+                                        <Unlock className="w-3 h-3 text-muted-foreground/20" />
+                                    )}
+                                    <Switch
+                                        checked={field.required}
+                                        disabled={!field.visible}
+                                        onCheckedChange={(value) =>
+                                            setFieldConfig(table, fieldKey, { required: value })
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
     );
 }
