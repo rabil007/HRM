@@ -554,6 +554,84 @@ CSV;
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(1);
 });
 
+test('csv import accepts day-first date formats for multiple rows', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TDF',
+        'name' => 'Testland Date Formats',
+        'dial_code' => '+992',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TDF',
+        'name' => 'Test Currency Date Formats',
+        'symbol' => 'D$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme Date Formats',
+        'slug' => 'acme-date-formats',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-DF-1',
+            'name' => 'Date Format Importer',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+    ]);
+
+    VesselType::query()->create(['name' => 'new', 'is_active' => true]);
+    Rank::query()->create(['name' => 'rank', 'is_active' => true]);
+
+    grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
+
+    $csv = <<<'CSV'
+vessel_type,vessel_name,rank,start_date,end_date
+new,BES SINCERE,rank,18/10/2024,23/12/2024
+new,CREST MARS,rank,31/01/2025,25/03/2025
+new,BES SAVVY,rank,3/1/26,10/2/26
+
+CSV;
+
+    $file = UploadedFile::fake()->createWithContent('sea-service.csv', $csv);
+
+    $this->post(route('organization.employees.sea-services.import', $employee), [
+        'file' => $file,
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(3);
+
+    expect(
+        EmployeeSeaService::query()
+            ->where('employee_id', $employee->id)
+            ->where('vessel_name', 'BES SINCERE')
+            ->whereDate('start_date', '2024-10-18')
+            ->whereDate('end_date', '2024-12-23')
+            ->exists(),
+    )->toBeTrue();
+});
+
 test('sea service import returns a clear error when vessel type is missing', function () {
     Storage::fake('public');
 

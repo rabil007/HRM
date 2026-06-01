@@ -120,7 +120,7 @@ export function seaServiceImportConfig(employeeId: number | null): RecordImportC
         description:
             "Rows are appended to this employee's sea service history. Vessel type and rank must match active master data names exactly.",
         templateHint:
-            'Download the sample CSV, then fill in rows using your master data names.',
+            'Download the sample CSV, then fill in rows using your master data names. Dates accept DD/MM/YYYY, D/M/YY, or YYYY-MM-DD.',
         reloadOnly: ['sea_services'],
         importUrl: (id) => importSeaService.url({ employee: id }),
         templateUrl: (id) => seaServiceImportTemplate.url({ employee: id }),
@@ -128,8 +128,8 @@ export function seaServiceImportConfig(employeeId: number | null): RecordImportC
             columnItem('vessel_type', 'required (aliases: Vessel type, Type)'),
             columnItem('vessel_name', 'required (aliases: Vessel name, Vessel)'),
             columnItem('rank', 'required (aliases: Rank name, Position)'),
-            columnItem('start_date', 'required (aliases: Start date, Date from)'),
-            columnItem('end_date', 'required (aliases: End date, Date to)'),
+            columnItem('start_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
+            columnItem('end_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
             columnItem('grt', 'optional'),
             columnItem('bhp', 'optional'),
             columnItem('client', 'optional (must match an active client name)'),

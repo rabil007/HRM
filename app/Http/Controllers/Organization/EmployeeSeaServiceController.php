@@ -11,7 +11,7 @@ use App\Models\Rank;
 use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
-use Carbon\CarbonImmutable;
+use App\Support\Imports\FlexibleCsvDateParser;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -251,14 +251,14 @@ class EmployeeSeaServiceController extends Controller
                 continue;
             }
 
-            $parsedStart = $this->parseSeaServiceCsvDate($startDateRaw);
+            $parsedStart = FlexibleCsvDateParser::parse($startDateRaw);
             if ($parsedStart === null) {
                 $skipped['invalid_start_date']++;
 
                 continue;
             }
 
-            $parsedEnd = $this->parseSeaServiceCsvDate($endDateRaw);
+            $parsedEnd = FlexibleCsvDateParser::parse($endDateRaw);
             if ($parsedEnd === null) {
                 $skipped['invalid_end_date']++;
 
@@ -338,7 +338,14 @@ class EmployeeSeaServiceController extends Controller
             ]);
         }
 
-        return back()->with('success', "Imported {$imported} sea service row(s).");
+        $totalSkipped = array_sum($skipped);
+        $message = "Imported {$imported} sea service row(s).";
+
+        if ($totalSkipped > 0) {
+            $message .= ' '.$this->formatSeaServiceImportSkippedSummary($skipped, $unknownVesselTypes, $unknownRanks);
+        }
+
+        return back()->with('success', $message);
     }
 
     /**
@@ -388,6 +395,48 @@ class EmployeeSeaServiceController extends Controller
         }
 
         return 'No rows were imported. '.implode('; ', $details).'.';
+    }
+
+    /**
+     * @param  array<string, int>  $skipped
+     * @param  array<string, bool>  $unknownVesselTypes
+     * @param  array<string, bool>  $unknownRanks
+     */
+    private function formatSeaServiceImportSkippedSummary(
+        array $skipped,
+        array $unknownVesselTypes,
+        array $unknownRanks,
+    ): string {
+        $details = [];
+
+        if ($skipped['invalid_start_date'] > 0 || $skipped['invalid_end_date'] > 0) {
+            $dateSkipped = $skipped['invalid_start_date'] + $skipped['invalid_end_date'];
+            $details[] = "{$dateSkipped} row(s) had unrecognised dates (use DD/MM/YYYY or YYYY-MM-DD)";
+        }
+
+        if ($skipped['invalid_date_range'] > 0) {
+            $details[] = "{$skipped['invalid_date_range']} row(s) had end date before start date";
+        }
+
+        if ($skipped['unknown_vessel_type'] > 0) {
+            $names = implode(', ', array_keys($unknownVesselTypes));
+            $details[] = "unknown vessel type: {$names}";
+        }
+
+        if ($skipped['unknown_rank'] > 0) {
+            $names = implode(', ', array_keys($unknownRanks));
+            $details[] = "unknown rank: {$names}";
+        }
+
+        if ($skipped['missing_required_fields'] > 0) {
+            $details[] = "{$skipped['missing_required_fields']} row(s) missing required fields";
+        }
+
+        if ($details === []) {
+            return 'Some rows were skipped.';
+        }
+
+        return 'Skipped: '.implode('; ', $details).'.';
     }
 
     /**
@@ -513,19 +562,5 @@ class EmployeeSeaServiceController extends Controller
                 ? (bool) ($validated['is_offshore'] ?? false)
                 : (bool) ($existing?->is_offshore ?? false),
         ];
-    }
-
-    private function parseSeaServiceCsvDate(string $value): ?CarbonImmutable
-    {
-        $trimmed = trim($value);
-        if ($trimmed === '') {
-            return null;
-        }
-
-        try {
-            return CarbonImmutable::parse($trimmed)->startOfDay();
-        } catch (\Throwable) {
-            return null;
-        }
     }
 }
