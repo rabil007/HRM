@@ -77,14 +77,21 @@ final class EmployeeProfilePageData
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $canUpdateEmployee = $authUser?->can('employees.update') ?? false;
+        $needsProfileTemplate = $employee->employee_profile_template_id === null;
+
         return [
             'mode' => 'edit',
             'employee_navigation' => $employeeNavigation,
             'employee' => EmployeeDetailResource::toArray($employee),
             'resolved_template' => EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate),
+            'profile_templates' => $needsProfileTemplate
+                ? self::activeProfileTemplates($companyId)
+                : [],
             'roles' => $roles,
             'can' => [
-                'create_user' => $authUser?->can('employees.update') && $authUser?->can('users.create'),
+                'create_user' => $canUpdateEmployee && ($authUser?->can('users.create') ?? false),
+                'assign_profile_template' => $canUpdateEmployee && $needsProfileTemplate,
                 'documents_view' => $authUser?->can('documents.view'),
                 'documents_download' => $authUser?->can('documents.download'),
                 'documents_upload' => $authUser?->can('documents.upload'),
@@ -178,11 +185,7 @@ final class EmployeeProfilePageData
 
         $employeeTabsPayload = self::applyDocumentsPermission($resolved['employee_tabs'], $authUser);
 
-        $profileTemplates = EmployeeProfileTemplate::query()
-            ->where('company_id', $companyId)
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name', 'description']);
+        $profileTemplates = self::activeProfileTemplates($companyId);
 
         $formOptions = EmployeeFormOptions::for($companyId, $employee);
         $profileLookups = $employee !== null
@@ -248,10 +251,29 @@ final class EmployeeProfilePageData
     /**
      * @return array<string, mixed>
      */
+    /**
+     * @return list<array{id: int, name: string, description: string|null}>
+     */
+    private static function activeProfileTemplates(int $companyId): array
+    {
+        return EmployeeProfileTemplate::query()
+            ->where('company_id', $companyId)
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'description'])
+            ->map(fn (EmployeeProfileTemplate $template) => [
+                'id' => $template->id,
+                'name' => $template->name,
+                'description' => $template->description,
+            ])
+            ->all();
+    }
+
     private static function permissionsPayload(?User $authUser): array
     {
         return [
             'create_user' => false,
+            'assign_profile_template' => false,
             'documents_view' => $authUser?->can('documents.view') ?? false,
             'documents_download' => $authUser?->can('documents.download') ?? false,
             'documents_upload' => $authUser?->can('documents.upload') ?? false,

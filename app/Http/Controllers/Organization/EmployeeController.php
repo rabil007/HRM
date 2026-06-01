@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Employee\AssignEmployeeProfileTemplateRequest;
 use App\Http\Requests\Organization\Employee\StoreEmployeeRequest;
 use App\Http\Requests\Organization\Employee\StoreEnsureEmployeeRequest;
 use App\Http\Requests\Organization\Employee\UpdateEmployeeRequest;
@@ -270,5 +271,21 @@ class EmployeeController extends Controller
         return redirect()
             ->route('organization.employees')
             ->with('success', 'Employee status updated successfully.');
+    }
+
+    public function assignProfileTemplate(
+        AssignEmployeeProfileTemplateRequest $request,
+        Employee $employee,
+    ) {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $employee->company_id === $companyId, 404);
+
+        $employee->update([
+            'employee_profile_template_id' => (int) $request->validated('employee_profile_template_id'),
+        ]);
+
+        return redirect()
+            ->route('organization.employees.show', $employee)
+            ->with('success', 'Profile template assigned successfully.');
     }
 }

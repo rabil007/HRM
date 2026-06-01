@@ -278,6 +278,7 @@ export type EmployeePageProps = {
     roles?: { id: number; name: string }[];
     can: {
         create_user: boolean;
+        assign_profile_template?: boolean;
         documents_view: boolean;
         documents_download: boolean;
         documents_upload: boolean;

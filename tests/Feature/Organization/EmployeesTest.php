@@ -1659,3 +1659,118 @@ test('employee show navigation is hidden when employee is outside filtered set',
         ->assertInertia(fn (Assert $page) => $page
             ->where('employee_navigation', null));
 });
+
+test('employee without profile template can assign one', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'APT',
+        'name' => 'Assign Template Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'APT',
+        'name' => 'Assign Template Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Assign Template Co',
+        'slug' => 'assign-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = createEmployeeProfileTemplate($company, 'Marine', EmployeeProfileTemplateFieldRegistry::defaultConfiguration());
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-APT-1',
+            'name' => 'No Template Yet',
+            'status' => 'active',
+            'employee_profile_template_id' => null,
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->get(route('organization.employees.show', $employee))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.assign_profile_template', true)
+            ->where('employee.employee_profile_template_id', null)
+            ->has('profile_templates', 1));
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $template->id,
+    ])
+        ->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($template->id);
+});
+
+test('employee with profile template cannot be reassigned', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'APR',
+        'name' => 'Reassign Block Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'APR',
+        'name' => 'Reassign Block Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Reassign Block Co',
+        'slug' => 'reassign-block-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existingTemplate = createEmployeeProfileTemplate($company, 'Existing', EmployeeProfileTemplateFieldRegistry::defaultConfiguration());
+    $otherTemplate = createEmployeeProfileTemplate($company, 'Other', EmployeeProfileTemplateFieldRegistry::defaultConfiguration());
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $existingTemplate->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put(route('organization.employees.profile-template.assign', $employee), [
+        'employee_profile_template_id' => $otherTemplate->id,
+    ])
+        ->assertSessionHasErrors('employee_profile_template_id');
+
+    expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
+});

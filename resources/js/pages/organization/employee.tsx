@@ -541,6 +541,8 @@ function EmployeeDetailsPage({
 
                         <EmployeeHeaderCard
                             canUpdate={canUpdate}
+                            canAssignProfileTemplate={can?.assign_profile_template ?? false}
+                            profileTemplates={profile_templates}
                             employee={localEmployee}
                             departments={departments}
                             positions={positions}

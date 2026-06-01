@@ -18,7 +18,9 @@ import { useInitials } from '@/hooks/use-initials';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
+import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
 
 function optionLabel(
@@ -51,6 +53,8 @@ export function EmployeeHeaderCard({
     isUploadingPhoto = false,
     templateProfileFields = null,
     isMissingRequired = () => false,
+    canAssignProfileTemplate = false,
+    profileTemplates = [],
 }: {
     canUpdate: boolean;
     employee: any;
@@ -72,6 +76,8 @@ export function EmployeeHeaderCard({
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
     isMissingRequired?: (field: string) => boolean;
+    canAssignProfileTemplate?: boolean;
+    profileTemplates?: ProfileTemplateOption[];
 }) {
     const getInitials = useInitials();
 
@@ -412,6 +418,11 @@ export function EmployeeHeaderCard({
                                     <ClipboardList className="h-3 w-3 shrink-0" />
                                     <span className="truncate">{employee.employee_profile_template.name}</span>
                                 </Badge>
+                            ) : canAssignProfileTemplate ? (
+                                <AssignEmployeeProfileTemplate
+                                    employeeId={employee.id}
+                                    profileTemplates={profileTemplates}
+                                />
                             ) : null}
                         </div>
                     </div>
