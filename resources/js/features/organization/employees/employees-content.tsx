@@ -42,7 +42,6 @@ import type {
     BranchOption,
     CompanyVisaTypeOption,
     CountryOption,
-    DepartmentOption,
     DepartmentTreeNode,
     Employee,
     GenderOption,
@@ -62,7 +61,6 @@ export function EmployeesContent({
     department_tree,
     department_tree_selected_id,
     branches,
-    departments,
     positions,
     managers,
     users: _users,
@@ -81,7 +79,6 @@ export function EmployeesContent({
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     branches: BranchOption[];
-    departments: DepartmentOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];

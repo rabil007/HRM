@@ -5,7 +5,6 @@ import type {
     BankOption,
     CompanyVisaTypeOption,
     CountryOption,
-    DepartmentOption,
     DepartmentTreeNode,
     Employee,
     GenderOption,
@@ -26,7 +25,6 @@ export default function Employees({
     department_tree,
     department_tree_selected_id,
     branches,
-    departments,
     positions,
     managers,
     users,
@@ -56,7 +54,6 @@ export default function Employees({
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
     branches: BranchOption[];
-    departments: DepartmentOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
     users: UserOption[];
@@ -79,7 +76,6 @@ export default function Employees({
                 department_tree={department_tree}
                 department_tree_selected_id={department_tree_selected_id}
                 branches={branches}
-                departments={departments}
                 positions={positions}
                 managers={managers}
                 users={users}
