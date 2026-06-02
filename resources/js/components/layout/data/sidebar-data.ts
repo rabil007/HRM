@@ -95,6 +95,16 @@ const baseSidebarData: SidebarData = {
                             icon: IdCard,
                         },
                         {
+                            title: 'Approval locations',
+                            url: '/settings/master-data/approval-locations',
+                            icon: MapPin,
+                        },
+                        {
+                            title: 'SSSA options',
+                            url: '/settings/master-data/sssa-options',
+                            icon: MapPin,
+                        },
+                        {
                             title: 'Religions',
                             url: '/settings/master-data/religions',
                             icon: BadgeCheck,
@@ -240,6 +250,14 @@ export function getSidebarData(permissions: string[]): SidebarData {
 
                             if (sub.url === '/settings/master-data/company-visa-types') {
                                 return has(permissions, 'settings.master-data.company-visa-types.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/approval-locations') {
+                                return has(permissions, 'settings.master-data.approval-locations.view');
+                            }
+
+                            if (sub.url === '/settings/master-data/sssa-options') {
+                                return has(permissions, 'settings.master-data.sssa-options.view');
                             }
 
                             if (sub.url === '/settings/master-data/religions') {

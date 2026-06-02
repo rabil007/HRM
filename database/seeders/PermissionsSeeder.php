@@ -40,6 +40,16 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.company-visa-types.update',
             'settings.master-data.company-visa-types.delete',
 
+            'settings.master-data.approval-locations.view',
+            'settings.master-data.approval-locations.create',
+            'settings.master-data.approval-locations.update',
+            'settings.master-data.approval-locations.delete',
+
+            'settings.master-data.sssa-options.view',
+            'settings.master-data.sssa-options.create',
+            'settings.master-data.sssa-options.update',
+            'settings.master-data.sssa-options.delete',
+
             'settings.master-data.religions.view',
             'settings.master-data.religions.create',
             'settings.master-data.religions.update',

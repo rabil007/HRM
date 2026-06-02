@@ -1,16 +1,18 @@
 import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import type {
+    ApprovalLocationOption,
     BankOption,
     BranchOption,
+    CompanyVisaTypeOption,
     CountryOption,
     DepartmentOption,
     GenderOption,
-    CompanyVisaTypeOption,
-    VisaTypeOption,
     ManagerOption,
     PositionOption,
     RankOption,
     ReligionOption,
+    SssaOption,
+    VisaTypeOption,
 } from '@/features/organization/employees/types';
 
 export type { DocumentTypeOption };
@@ -63,6 +65,10 @@ export type EmployeeDetails = {
         id: number;
         name: string | null;
     } | null;
+    approval_location_ids?: number[];
+    approval_locations?: { id: number; name: string }[];
+    sssa_option_ids?: number[];
+    sssa_options?: { id: number; name: string }[];
     nationality_id?: number | null;
     nationality_ref?: {
         id: number;
@@ -311,6 +317,8 @@ export type EmployeePageProps = {
     genders: GenderOption[];
     visa_types: VisaTypeOption[];
     company_visa_types: CompanyVisaTypeOption[];
+    approval_locations: ApprovalLocationOption[];
+    sssa_options: SssaOption[];
     banks: BankOption[];
     ranks: RankOption[];
     vessel_types?: VesselTypeOption[];

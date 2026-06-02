@@ -53,6 +53,16 @@ export type CompanyVisaTypeOption = {
     name: string;
 };
 
+export type ApprovalLocationOption = {
+    id: number;
+    name: string;
+};
+
+export type SssaOption = {
+    id: number;
+    name: string;
+};
+
 export type RankOption = {
     id: number;
     name: string;

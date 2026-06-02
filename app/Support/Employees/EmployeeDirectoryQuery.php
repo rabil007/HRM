@@ -52,6 +52,14 @@ final class EmployeeDirectoryQuery
             ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))
             ->when($filters->companyVisaTypeId, fn (Builder $q) => $q->where('company_visa_type_id', $filters->companyVisaTypeId))
             ->when($filters->rankId, fn (Builder $q) => $q->where('rank_id', $filters->rankId))
+            ->when($filters->approvalLocationId, fn (Builder $q) => $q->whereHas(
+                'approvalLocations',
+                fn (Builder $rel) => $rel->where('approval_locations.id', $filters->approvalLocationId),
+            ))
+            ->when($filters->sssaOptionId, fn (Builder $q) => $q->whereHas(
+                'sssaOptions',
+                fn (Builder $rel) => $rel->where('sssa_options.id', $filters->sssaOptionId),
+            ))
             ->when($filters->search, function (Builder $q) use ($filters): void {
                 $search = $filters->search;
 

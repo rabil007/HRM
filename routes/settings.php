@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
+use App\Http\Controllers\Settings\MasterData\ApprovalLocationController;
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
 use App\Http\Controllers\Settings\MasterData\CompanyVisaTypeController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
 use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
+use App\Http\Controllers\Settings\MasterData\SssaOptionController;
 use App\Http\Controllers\Settings\MasterData\VesselTypeController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
 use App\Http\Controllers\Settings\SecurityController;
@@ -111,6 +113,32 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('company-visa-types/{company_visa_type}', [CompanyVisaTypeController::class, 'destroy'])
             ->middleware('can:settings.master-data.company-visa-types.delete')
             ->name('company-visa-types.destroy');
+
+        Route::get('approval-locations', [ApprovalLocationController::class, 'index'])
+            ->middleware('can:settings.master-data.approval-locations.view')
+            ->name('approval-locations.index');
+        Route::post('approval-locations', [ApprovalLocationController::class, 'store'])
+            ->middleware('can:settings.master-data.approval-locations.create')
+            ->name('approval-locations.store');
+        Route::put('approval-locations/{approval_location}', [ApprovalLocationController::class, 'update'])
+            ->middleware('can:settings.master-data.approval-locations.update')
+            ->name('approval-locations.update');
+        Route::delete('approval-locations/{approval_location}', [ApprovalLocationController::class, 'destroy'])
+            ->middleware('can:settings.master-data.approval-locations.delete')
+            ->name('approval-locations.destroy');
+
+        Route::get('sssa-options', [SssaOptionController::class, 'index'])
+            ->middleware('can:settings.master-data.sssa-options.view')
+            ->name('sssa-options.index');
+        Route::post('sssa-options', [SssaOptionController::class, 'store'])
+            ->middleware('can:settings.master-data.sssa-options.create')
+            ->name('sssa-options.store');
+        Route::put('sssa-options/{sssa_option}', [SssaOptionController::class, 'update'])
+            ->middleware('can:settings.master-data.sssa-options.update')
+            ->name('sssa-options.update');
+        Route::delete('sssa-options/{sssa_option}', [SssaOptionController::class, 'destroy'])
+            ->middleware('can:settings.master-data.sssa-options.delete')
+            ->name('sssa-options.destroy');
 
         Route::get('religions', [ReligionController::class, 'index'])
             ->middleware('can:settings.master-data.religions.view')

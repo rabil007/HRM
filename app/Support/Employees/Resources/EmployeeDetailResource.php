@@ -69,6 +69,24 @@ final class EmployeeDetailResource
                 'id' => $employee->company_visa_type_id,
                 'name' => $employee->companyVisaTypeRef?->name,
             ] : null,
+            'approval_location_ids' => $employee->relationLoaded('approvalLocations')
+                ? $employee->approvalLocations->pluck('id')->values()->all()
+                : [],
+            'approval_locations' => $employee->relationLoaded('approvalLocations')
+                ? $employee->approvalLocations->map(fn ($location) => [
+                    'id' => $location->id,
+                    'name' => $location->name,
+                ])->values()->all()
+                : [],
+            'sssa_option_ids' => $employee->relationLoaded('sssaOptions')
+                ? $employee->sssaOptions->pluck('id')->values()->all()
+                : [],
+            'sssa_options' => $employee->relationLoaded('sssaOptions')
+                ? $employee->sssaOptions->map(fn ($option) => [
+                    'id' => $option->id,
+                    'name' => $option->name,
+                ])->values()->all()
+                : [],
             'nationality_id' => $employee->nationality_id,
             'nationality_ref' => $employee->nationality_id ? [
                 'id' => $employee->nationality_id,

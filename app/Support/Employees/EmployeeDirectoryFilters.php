@@ -18,6 +18,8 @@ final class EmployeeDirectoryFilters
         public readonly string $visaTypeId = '',
         public readonly string $companyVisaTypeId = '',
         public readonly string $rankId = '',
+        public readonly string $approvalLocationId = '',
+        public readonly string $sssaOptionId = '',
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -34,6 +36,8 @@ final class EmployeeDirectoryFilters
             visaTypeId: trim((string) $request->query('visa_type_id', '')),
             companyVisaTypeId: trim((string) $request->query('company_visa_type_id', '')),
             rankId: trim((string) $request->query('rank_id', '')),
+            approvalLocationId: trim((string) $request->query('approval_location_id', '')),
+            sssaOptionId: trim((string) $request->query('sssa_option_id', '')),
         );
     }
 
@@ -86,6 +90,14 @@ final class EmployeeDirectoryFilters
 
         if ($this->rankId !== '') {
             $query['rank_id'] = $this->rankId;
+        }
+
+        if ($this->approvalLocationId !== '') {
+            $query['approval_location_id'] = $this->approvalLocationId;
+        }
+
+        if ($this->sssaOptionId !== '') {
+            $query['sssa_option_id'] = $this->sssaOptionId;
         }
 
         return $query;

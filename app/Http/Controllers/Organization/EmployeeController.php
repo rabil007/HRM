@@ -13,6 +13,7 @@ use App\Models\EmployeeProfileTemplate;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
+use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
@@ -71,6 +72,8 @@ class EmployeeController extends Controller
                 'visa_type_id' => $directoryFilters->visaTypeId,
                 'company_visa_type_id' => $directoryFilters->companyVisaTypeId,
                 'rank_id' => $directoryFilters->rankId,
+                'approval_location_id' => $directoryFilters->approvalLocationId,
+                'sssa_option_id' => $directoryFilters->sssaOptionId,
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
@@ -82,6 +85,8 @@ class EmployeeController extends Controller
             'genders' => $formOptions['genders'],
             'visa_types' => $formOptions['visa_types'],
             'company_visa_types' => $formOptions['company_visa_types'],
+            'approval_locations' => $formOptions['approval_locations'],
+            'sssa_options' => $formOptions['sssa_options'],
             'ranks' => $formOptions['ranks'],
             'banks' => $formOptions['banks'],
             'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
@@ -255,7 +260,16 @@ class EmployeeController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
+        $approvalLocationIds = $data['approval_location_ids'] ?? null;
+        $sssaOptionIds = $data['sssa_option_ids'] ?? null;
+        unset($data['approval_location_ids'], $data['sssa_option_ids']);
+
         $employee->update($data);
+
+        SyncEmployeeWorkAssignments::sync($employee, array_filter([
+            'approval_location_ids' => $approvalLocationIds,
+            'sssa_option_ids' => $sssaOptionIds,
+        ], fn ($value) => $value !== null));
 
         return redirect()
             ->route('organization.employees.show', $employee)

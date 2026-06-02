@@ -2,6 +2,7 @@
 
 namespace App\Support\Employees;
 
+use App\Models\ApprovalLocation;
 use App\Models\Bank;
 use App\Models\Branch;
 use App\Models\CompanyVisaType;
@@ -13,6 +14,7 @@ use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Rank;
 use App\Models\Religion;
+use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
 use Illuminate\Support\Collection;
@@ -33,6 +35,8 @@ final class EmployeeFormOptions
      *     genders: Collection,
      *     visa_types: Collection,
      *     company_visa_types: Collection,
+     *     approval_locations: Collection,
+     *     sssa_options: Collection,
      *     ranks: Collection,
      *     banks: Collection
      * }
@@ -50,6 +54,8 @@ final class EmployeeFormOptions
             'genders' => self::genders(),
             'visa_types' => self::visaTypes(),
             'company_visa_types' => self::companyVisaTypes(),
+            'approval_locations' => self::approvalLocations(),
+            'sssa_options' => self::sssaOptions(),
             'ranks' => self::activeRanks(),
             'banks' => self::banks(),
         ];
@@ -85,6 +91,8 @@ final class EmployeeFormOptions
             'genders' => self::genders(),
             'visa_types' => self::visaTypes(),
             'company_visa_types' => self::companyVisaTypes(),
+            'approval_locations' => self::approvalLocations(),
+            'sssa_options' => self::sssaOptions(),
             'banks' => self::banks(),
             'ranks' => self::activeRanks(),
             'document_types' => self::documentTypes(),
@@ -212,6 +220,22 @@ final class EmployeeFormOptions
     private static function companyVisaTypes()
     {
         return once(fn () => CompanyVisaType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']));
+    }
+
+    private static function approvalLocations()
+    {
+        return once(fn () => ApprovalLocation::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']));
+    }
+
+    private static function sssaOptions()
+    {
+        return once(fn () => SssaOption::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get(['id', 'name']));

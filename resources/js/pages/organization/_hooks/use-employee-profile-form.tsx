@@ -174,6 +174,22 @@ export function useEmployeeProfileForm(
                 const missing: string[] = [];
 
                 for (const field of requiredFields) {
+                    if (field === 'approval_location_ids') {
+                        if ((form.data.approval_location_ids ?? []).length === 0) {
+                            missing.push(field);
+                        }
+
+                        continue;
+                    }
+
+                    if (field === 'sssa_option_ids') {
+                        if ((form.data.sssa_option_ids ?? []).length === 0) {
+                            missing.push(field);
+                        }
+
+                        continue;
+                    }
+
                     if (!String(form.data[field as keyof typeof form.data] ?? '').trim()) {
                         missing.push(field);
                     }

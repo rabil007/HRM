@@ -7,7 +7,6 @@ use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 final class CreateEmployee
@@ -22,6 +21,10 @@ final class CreateEmployee
 
         $documents = $data['documents'] ?? [];
         unset($data['documents']);
+
+        $approvalLocationIds = $data['approval_location_ids'] ?? [];
+        $sssaOptionIds = $data['sssa_option_ids'] ?? [];
+        unset($data['approval_location_ids'], $data['sssa_option_ids']);
 
         $primaryBankId = $data['bank_id'] ?? null;
         $primaryIban = $data['iban'] ?? null;
@@ -124,6 +127,11 @@ final class CreateEmployee
         $data['status'] = $data['status'] ?? 'active';
 
         $employee = Employee::create($data);
+
+        SyncEmployeeWorkAssignments::sync($employee, [
+            'approval_location_ids' => $approvalLocationIds,
+            'sssa_option_ids' => $sssaOptionIds,
+        ]);
 
         EmployeeContract::query()->create([
             'company_id' => $companyId,
