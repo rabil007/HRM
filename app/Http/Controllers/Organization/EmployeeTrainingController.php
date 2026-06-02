@@ -318,11 +318,9 @@ class EmployeeTrainingController extends Controller
     private function trainingAttributes(array $validated, ?EmployeeTraining $existing = null): array
     {
         return [
-            'course_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'course_id',
-                $existing?->course_id ?? 0,
-            ),
+            'course_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'course_id')
+                ? ((isset($validated['course_id']) && $validated['course_id'] !== '') ? (int) $validated['course_id'] : null)
+                : ($existing?->course_id ?? null),
             'issue_date' => EmployeeProfileTemplateRequestRules::persistedValue(
                 $validated,
                 'issue_date',
