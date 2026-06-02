@@ -69,26 +69,29 @@ class WhatsAppService
     /**
      * @return array{media_id: string, api: array<string, mixed>}
      */
-    private function uploadDocumentWithMeta(string $filePath, ?string $mime = null): array
+    private function uploadDocumentWithMeta(string $filePath, ?string $mime = null, ?string $fileName = null): array
     {
         if (! is_readable($filePath)) {
             throw new InvalidArgumentException("File is not readable: {$filePath}");
         }
 
         $credentials = $this->resolveCredentials();
-        $mime ??= mime_content_type($filePath) ?: 'application/octet-stream';
+        $mime = $this->resolveMimeType($filePath, $mime, $fileName);
+        $uploadFileName = $fileName ?: basename($filePath);
         $payload = [
             'messaging_product' => 'whatsapp',
             'type' => $mime,
         ];
 
         $response = $this->client($credentials['access_token'])
-            ->attach('file', file_get_contents($filePath), basename($filePath))
+            ->attach('file', file_get_contents($filePath), $uploadFileName, [
+                'Content-Type' => $mime,
+            ])
             ->post($this->mediaPath($credentials['phone_number_id']), $payload);
 
         $api = $this->buildApiExchange('POST', $credentials['phone_number_id'], $this->mediaPath($credentials['phone_number_id']), [
             ...$payload,
-            'file' => basename($filePath),
+            'file' => $uploadFileName,
         ], $response);
 
         if (! $response->successful()) {
@@ -107,17 +110,17 @@ class WhatsAppService
         ];
     }
 
-    public function uploadDocument(string $filePath, ?string $mime = null): string
+    public function uploadDocument(string $filePath, ?string $mime = null, ?string $fileName = null): string
     {
-        return $this->uploadDocumentWithMeta($filePath, $mime)['media_id'];
+        return $this->uploadDocumentWithMeta($filePath, $mime, $fileName)['media_id'];
     }
 
     /**
      * @return array<string, mixed>
      */
-    public function sendDocument(string $phone, string $filePath, string $fileName, ?string $caption = null): array
+    public function sendDocument(string $phone, string $filePath, string $fileName, ?string $caption = null, ?string $mime = null): array
     {
-        $upload = $this->uploadDocumentWithMeta($filePath);
+        $upload = $this->uploadDocumentWithMeta($filePath, $mime, $fileName);
         $credentials = $this->resolveCredentials();
 
         $document = [
@@ -255,6 +258,82 @@ class WhatsAppService
         }
 
         return $digits;
+    }
+
+    public function resolveMimeType(string $filePath, ?string $mime = null, ?string $fileName = null): string
+    {
+        $candidates = array_values(array_filter([
+            $mime,
+            is_readable($filePath) ? (mime_content_type($filePath) ?: null) : null,
+            $this->mimeTypeFromFileName($fileName ?? basename($filePath)),
+        ], fn (?string $candidate): bool => is_string($candidate) && $candidate !== ''));
+
+        foreach ($candidates as $candidate) {
+            if ($this->isAllowedWhatsAppMime($candidate)) {
+                return $candidate;
+            }
+        }
+
+        throw new InvalidArgumentException(
+            'Unsupported file type for WhatsApp. Allowed types include PDF, images, video, audio, and Office documents.',
+        );
+    }
+
+    private function mimeTypeFromFileName(string $fileName): ?string
+    {
+        $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        return match ($extension) {
+            'pdf' => 'application/pdf',
+            'txt' => 'text/plain',
+            'jpg', 'jpeg' => 'image/jpeg',
+            'png' => 'image/png',
+            'webp' => 'image/webp',
+            'mp4' => 'video/mp4',
+            '3gp', '3gpp' => 'video/3gpp',
+            'aac' => 'audio/aac',
+            'mp3' => 'audio/mpeg',
+            'amr' => 'audio/amr',
+            'ogg' => 'audio/ogg',
+            'opus' => 'audio/opus',
+            'm4a' => 'audio/mp4',
+            'doc' => 'application/msword',
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'ppt' => 'application/vnd.ms-powerpoint',
+            'pptx' => 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'xls' => 'application/vnd.ms-excel',
+            'xlsx' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            default => null,
+        };
+    }
+
+    private function isAllowedWhatsAppMime(string $mime): bool
+    {
+        if ($mime === 'application/octet-stream') {
+            return false;
+        }
+
+        return in_array(strtolower($mime), [
+            'audio/aac',
+            'audio/mp4',
+            'audio/mpeg',
+            'audio/amr',
+            'audio/ogg',
+            'audio/opus',
+            'application/vnd.ms-powerpoint',
+            'application/msword',
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'application/pdf',
+            'text/plain',
+            'application/vnd.ms-excel',
+            'image/jpeg',
+            'image/png',
+            'image/webp',
+            'video/mp4',
+            'video/3gpp',
+        ], true);
     }
 
     private function messagesPath(string $phoneNumberId): string

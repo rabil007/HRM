@@ -89,6 +89,7 @@ class WhatsAppIntegrationController extends Controller
                 $file->getRealPath(),
                 $file->getClientOriginalName(),
                 $request->validated('caption'),
+                $file->getMimeType(),
             ),
         );
     }

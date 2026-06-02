@@ -293,6 +293,13 @@ test('whatsapp test text message sends successfully using stored credentials', f
         ]);
 });
 
+test('whatsapp resolves pdf mime type from filename when detection returns octet-stream', function () {
+    $service = app(WhatsAppService::class);
+
+    expect($service->resolveMimeType('/tmp/sample.pdf', 'application/octet-stream', 'ADNOC CV FORM.pdf'))
+        ->toBe('application/pdf');
+});
+
 test('whatsapp test document upload sends file successfully', function () {
     Http::fake([
         'graph.facebook.com/*/media' => Http::response(['id' => 'media-test-123'], 200),
@@ -329,7 +336,8 @@ test('whatsapp test document upload sends file successfully', function () {
             'success' => true,
             'message_id' => 'wamid.test-doc-id',
             'media_id' => 'media-test-123',
-        ]);
+        ])
+        ->assertJsonPath('media_api.request.payload.type', 'application/pdf');
 });
 
 test('whatsapp normalizes uae numbers with trunk zero after country code', function () {
