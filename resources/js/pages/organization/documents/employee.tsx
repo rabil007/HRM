@@ -16,10 +16,9 @@ import { DocumentsBreadcrumbs } from '@/features/organization/documents/document
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import {
-    EmailDocumentsModal
-    
+    EmailDocumentsModal,
+    type EmailDocumentItem,
 } from '@/features/organization/documents/email-send';
-import type {EmailDocumentItem} from '@/features/organization/documents/email-send';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
@@ -45,10 +44,7 @@ import {
     buildWhatsAppMessage,
     fetchDocumentShareLinks,
 } from '@/features/organization/documents/whatsapp-share';
-import {
-    WhatsAppDocumentsModal,
-    type WhatsAppDocumentItem,
-} from '@/features/organization/documents/whatsapp-send';
+import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
@@ -62,6 +58,7 @@ type Props = {
         download: boolean;
         share: boolean;
         delete: boolean;
+        whatsapp_template: boolean;
     };
 };
 
@@ -83,6 +80,7 @@ export default function EmployeeDocumentsBrowse({
     const canDeleteDocuments = can.delete;
     const canDownloadDocuments = can.download;
     const canShareDocuments = can.share;
+    const canSendWhatsAppTemplate = can.whatsapp_template;
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
@@ -92,11 +90,13 @@ export default function EmployeeDocumentsBrowse({
     const [mergeDocuments, setMergeDocuments] = useState<MergeDocumentItem[]>([]);
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
-    const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
-    const [whatsappDocuments, setWhatsappDocuments] = useState<WhatsAppDocumentItem[]>([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isWhatsAppSharing, setIsWhatsAppSharing] = useState(false);
+    const [whatsappTemplateDocument, setWhatsappTemplateDocument] = useState<{
+        id: number;
+        name: string;
+    } | null>(null);
 
     const filteredDocuments = useMemo(() => {
         const byExpiry = filterDocumentsByExpiry(allDocuments, expiryFilter);
@@ -192,26 +192,25 @@ export default function EmployeeDocumentsBrowse({
         setEmailModalOpen(true);
     };
 
-    const handleDirectWhatsApp = () => {
-        const selectedDocs = filteredDocuments.filter((document) =>
-            selectedDocumentIds.includes(document.id),
-        );
-
-        if (selectedDocs.length === 0) {
-            toast.error('Select at least one document to send.');
+    const handleSendViaWhatsAppTemplate = () => {
+        if (selectedDocumentIds.length !== 1) {
+            toast.error('Select exactly one document to send via WhatsApp.');
 
             return;
         }
 
-        setWhatsappDocuments(
-            selectedDocs.map((document) => ({
-                id: document.id,
-                document_name: document.document_name,
-                mime_type: document.mime_type,
-                size_bytes: document.size_bytes,
-            })),
+        const selectedDoc = filteredDocuments.find((document) =>
+            selectedDocumentIds.includes(document.id),
         );
-        setWhatsappModalOpen(true);
+
+        if (!selectedDoc) {
+            return;
+        }
+
+        setWhatsappTemplateDocument({
+            id: selectedDoc.id,
+            name: selectedDoc.document_name,
+        });
     };
 
     const handleWhatsAppShare = async () => {
@@ -351,34 +350,39 @@ export default function EmployeeDocumentsBrowse({
                             Email
                         </Button>
                         {canShareDocuments ? (
-                            <>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="rounded-lg"
-                                    disabled={isWhatsAppSharing || selectedDocumentCount === 0}
-                                    onClick={handleWhatsAppShare}
-                                >
-                                    {isWhatsAppSharing ? (
-                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <MessageCircle className="mr-2 h-4 w-4" />
-                                    )}
-                                    WhatsApp
-                                </Button>
-                                <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="outline"
-                                    className="rounded-lg"
-                                    disabled={selectedDocumentCount === 0}
-                                    onClick={handleDirectWhatsApp}
-                                >
-                                    <Send className="mr-2 h-4 w-4" />
-                                    Direct WhatsApp
-                                </Button>
-                            </>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg"
+                                disabled={isWhatsAppSharing || selectedDocumentCount === 0}
+                                onClick={handleWhatsAppShare}
+                            >
+                                {isWhatsAppSharing ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                    <MessageCircle className="mr-2 h-4 w-4" />
+                                )}
+                                Share links
+                            </Button>
+                        ) : null}
+                        {canSendWhatsAppTemplate ? (
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="rounded-lg border-green-500/30 text-green-400 hover:bg-green-500/10 hover:text-green-300"
+                                disabled={selectedDocumentCount !== 1}
+                                onClick={handleSendViaWhatsAppTemplate}
+                                title={
+                                    selectedDocumentCount !== 1
+                                        ? 'Select exactly one file to send via WhatsApp'
+                                        : 'Send PDF using the document_delivery template'
+                                }
+                            >
+                                <Send className="mr-2 h-4 w-4" />
+                                Send via WhatsApp
+                            </Button>
                         ) : null}
                         {canDeleteDocuments ? (
                             <Button
@@ -450,8 +454,11 @@ export default function EmployeeDocumentsBrowse({
                             <EmployeeDocumentTableRow
                                 key={doc.id}
                                 doc={doc}
+                                employeeId={employee.id}
+                                employeePhone={employee.phone}
                                 onPreview={setPreviewDoc}
                                 canDownload={canDownloadDocuments}
+                                canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}
@@ -488,11 +495,17 @@ export default function EmployeeDocumentsBrowse({
                 onSendComplete={clearDocumentSelection}
             />
 
-            <WhatsAppDocumentsModal
-                open={whatsappModalOpen}
-                onOpenChange={setWhatsappModalOpen}
-                employee={employee}
-                documents={whatsappDocuments}
+            <ConfirmSendWhatsAppDocumentDialog
+                open={whatsappTemplateDocument !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setWhatsappTemplateDocument(null);
+                    }
+                }}
+                employeeId={employee.id}
+                employeePhone={employee.phone}
+                documentId={whatsappTemplateDocument?.id ?? 0}
+                documentName={whatsappTemplateDocument?.name ?? ''}
                 onSendComplete={clearDocumentSelection}
             />
 

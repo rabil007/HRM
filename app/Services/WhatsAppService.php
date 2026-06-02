@@ -6,6 +6,7 @@ use App\Models\WhatsAppSetting;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -230,13 +231,116 @@ class WhatsAppService
 
     private function client(string $accessToken): PendingRequest
     {
-        $version = config('whatsapp.graph_api_version');
+        $version = (string) config('services.whatsapp.graph_api_version', 'v25.0');
         $baseUrl = rtrim((string) config('whatsapp.graph_base_url'), '/')."/{$version}";
 
         return Http::withToken($accessToken)
             ->timeout((int) config('whatsapp.timeout'))
             ->acceptJson()
             ->baseUrl($baseUrl);
+    }
+
+    /**
+     * @return array{success: bool, message: string, message_id: string|null, http_status: int, normalized_phone: string}
+     */
+    public function sendDocumentTemplate(
+        string $phone,
+        string $employeeName,
+        string $documentUrl,
+        string $fileName,
+    ): array {
+        $phone = trim($phone);
+
+        if ($phone === '') {
+            throw new InvalidArgumentException('Phone number is required.');
+        }
+
+        $credentials = $this->resolveCredentials();
+        $normalizedPhone = $this->normalizePhone($phone);
+
+        if ($normalizedPhone === '') {
+            throw new InvalidArgumentException('Phone number is invalid.');
+        }
+
+        $templateName = (string) config('whatsapp.document_delivery_template.name', 'document_delivery');
+        $templateLanguage = (string) config('whatsapp.document_delivery_template.language', 'en');
+
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $normalizedPhone,
+            'type' => 'template',
+            'template' => [
+                'name' => $templateName,
+                'language' => [
+                    'code' => $templateLanguage,
+                ],
+                'components' => [
+                    [
+                        'type' => 'header',
+                        'parameters' => [
+                            [
+                                'type' => 'document',
+                                'document' => [
+                                    'link' => $documentUrl,
+                                    'filename' => $fileName,
+                                ],
+                            ],
+                        ],
+                    ],
+                    [
+                        'type' => 'body',
+                        'parameters' => [
+                            [
+                                'type' => 'text',
+                                'text' => $employeeName,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        Log::info('WhatsApp document template request', [
+            'phone' => $normalizedPhone,
+            'employee_name' => $employeeName,
+            'document_url' => $documentUrl,
+            'file_name' => $fileName,
+            'template' => $templateName,
+            'template_language' => $templateLanguage,
+            'payload' => $payload,
+        ]);
+
+        $response = $this->client($credentials['access_token'])
+            ->post($this->messagesPath($credentials['phone_number_id']), $payload);
+
+        Log::info('WhatsApp document template response', [
+            'phone' => $normalizedPhone,
+            'http_status' => $response->status(),
+            'body' => $response->json(),
+        ]);
+
+        if (! $response->successful()) {
+            $errorMessage = $this->parseMetaError($response);
+
+            Log::error('WhatsApp document template failed', [
+                'phone' => $normalizedPhone,
+                'http_status' => $response->status(),
+                'error' => $errorMessage,
+                'body' => $response->json(),
+            ]);
+
+            throw new RuntimeException($errorMessage);
+        }
+
+        $messageId = $response->json('messages.0.id');
+
+        return [
+            'success' => true,
+            'message' => 'Document template sent via WhatsApp.',
+            'message_id' => is_string($messageId) ? $messageId : null,
+            'http_status' => $response->status(),
+            'normalized_phone' => $normalizedPhone,
+        ];
     }
 
     public function normalizePhone(string $phone): string
@@ -348,7 +452,7 @@ class WhatsAppService
 
     private function graphUrl(string $phoneNumberId, string $path): string
     {
-        $version = config('whatsapp.graph_api_version');
+        $version = (string) config('services.whatsapp.graph_api_version', 'v25.0');
         $baseUrl = rtrim((string) config('whatsapp.graph_base_url'), '/');
 
         return "{$baseUrl}/{$version}{$path}";

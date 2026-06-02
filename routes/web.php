@@ -36,6 +36,7 @@ use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
+use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
@@ -126,6 +127,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::post('organization/documents/employees/{employee}/files/whatsapp', DocumentBulkWhatsAppController::class)->name('organization.documents.employee.files.whatsapp');
+        Route::post('organization/documents/employees/{employee}/files/{document}/whatsapp-template', SendWhatsAppDocumentTemplateController::class)
+            ->name('organization.documents.employee.files.whatsapp-template');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
     Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)

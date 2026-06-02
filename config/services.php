@@ -43,4 +43,8 @@ return [
         'email_max_attachment_bytes' => (int) env('DOCUMENT_EMAIL_MAX_ATTACHMENT_BYTES', 20 * 1024 * 1024),
     ],
 
+    'whatsapp' => [
+        'graph_api_version' => env('WHATSAPP_GRAPH_API_VERSION', 'v25.0'),
+    ],
+
 ];

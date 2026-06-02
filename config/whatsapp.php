@@ -7,4 +7,9 @@ return [
     'webhook_route_name' => 'whatsapp.webhook',
     'test_message' => 'Hello from Herd OMS. WhatsApp test message.',
     'document_caption' => 'Document shared from Herd OMS',
+    'document_delivery_template' => [
+        'name' => env('WHATSAPP_DOCUMENT_TEMPLATE_NAME', 'document_delivery'),
+        // Must match the exact locale shown in Meta WhatsApp Manager (e.g. "English" → en, "English (US)" → en_US).
+        'language' => env('WHATSAPP_DOCUMENT_TEMPLATE_LANGUAGE', 'en'),
+    ],
 ];
