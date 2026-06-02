@@ -105,26 +105,6 @@ export function EmployeePersonalTab({
 
     return (
         <TabsContent value="personal" className="mt-6 space-y-6">
-            {showWorkAssignments ? (
-                <EmployeeWorkAssignmentsSection
-                    approvalLocations={approvalLocations}
-                    sssaOptions={sssaOptions}
-                    approvalLocationIds={form.data.approval_location_ids ?? []}
-                    sssaOptionIds={form.data.sssa_option_ids ?? []}
-                    canUpdate={canUpdate}
-                    showApprovalLocations={showField('approval_location_ids')}
-                    showSssaOptions={showField('sssa_option_ids')}
-                    highlightMissingApprovalLocations={isMissingRequired(
-                        'approval_location_ids',
-                    )}
-                    highlightMissingSssaOptions={isMissingRequired('sssa_option_ids')}
-                    onApprovalLocationIdsChange={(ids) =>
-                        form.setData('approval_location_ids', ids)
-                    }
-                    onSssaOptionIdsChange={(ids) => form.setData('sssa_option_ids', ids)}
-                />
-            ) : null}
-
             <div className="grid items-stretch gap-4 lg:grid-cols-3">
                 {showPrivateContact ? (
                 <EmployeeSectionCard
@@ -368,6 +348,26 @@ export function EmployeePersonalTab({
             </EmployeeSectionCard>
             ) : null}
             </div>
+            ) : null}
+
+            {showWorkAssignments ? (
+                <EmployeeWorkAssignmentsSection
+                    approvalLocations={approvalLocations}
+                    sssaOptions={sssaOptions}
+                    approvalLocationIds={form.data.approval_location_ids ?? []}
+                    sssaOptionIds={form.data.sssa_option_ids ?? []}
+                    canUpdate={canUpdate}
+                    showApprovalLocations={showField('approval_location_ids')}
+                    showSssaOptions={showField('sssa_option_ids')}
+                    highlightMissingApprovalLocations={isMissingRequired(
+                        'approval_location_ids',
+                    )}
+                    highlightMissingSssaOptions={isMissingRequired('sssa_option_ids')}
+                    onApprovalLocationIdsChange={(ids) =>
+                        form.setData('approval_location_ids', ids)
+                    }
+                    onSssaOptionIdsChange={(ids) => form.setData('sssa_option_ids', ids)}
+                />
             ) : null}
         </TabsContent>
     );
