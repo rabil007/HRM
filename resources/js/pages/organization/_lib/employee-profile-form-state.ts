@@ -139,6 +139,7 @@ export function transformEmployeeProfileFormData(
         branch_id: data.branch_id ? Number(data.branch_id) : null,
         department_id: data.department_id ? Number(data.department_id) : null,
         position_id: data.position_id ? Number(data.position_id) : null,
+        rank_id: data.rank_id ? Number(data.rank_id) : null,
         manager_id: data.manager_id ? Number(data.manager_id) : null,
         personal_email: String(data.personal_email ?? '').trim() || null,
         work_email: String(data.work_email ?? '').trim() || null,
