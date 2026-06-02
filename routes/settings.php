@@ -16,13 +16,11 @@ use App\Http\Controllers\Settings\MasterData\SssaOptionController;
 use App\Http\Controllers\Settings\MasterData\VesselTypeController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
 use App\Http\Controllers\Settings\SecurityController;
+use App\Http\Controllers\Settings\SettingsHubController;
 use Illuminate\Support\Facades\Route;
 
-Route::middleware(['auth'])->group(function () {
-    Route::redirect('settings', '/settings/security');
-});
-
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('settings', SettingsHubController::class)->name('settings.index');
     Route::get('settings/security', [SecurityController::class, 'edit'])
         ->middleware('can:settings.security.view')
         ->name('security.edit');

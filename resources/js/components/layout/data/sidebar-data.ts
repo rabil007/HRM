@@ -9,13 +9,10 @@ import {
     MapPin,
     NotebookTabs,
     Receipt,
-    Shield,
     Timer,
     Users,
     Wallet,
-    Palette,
     Settings,
-    SlidersHorizontal,
     BriefcaseBusiness,
     FileText,
     IdCard,
@@ -23,16 +20,10 @@ import {
     Activity,
     CalendarCheck2,
     PiggyBank,
-    Globe2,
-    Sailboat,
-    Award,
-    Handshake,
-    GraduationCap,
 } from 'lucide-react';
 import { dashboard } from '@/routes';
-import { edit as editAppearance } from '@/routes/appearance';
 import { documents } from '@/routes/organization';
-import { edit as editSecurity } from '@/routes/security';
+import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import type { SidebarData } from '../types';
 
 const placeholder = (key: string) =>
@@ -58,93 +49,7 @@ const baseSidebarData: SidebarData = {
                 {
                     title: 'Settings',
                     icon: Settings,
-                    items: [
-                        {
-                            title: 'Application',
-                            url: '/settings/application',
-                            icon: SlidersHorizontal,
-                        },
-                        {
-                            title: 'Security',
-                            url: editSecurity.url(),
-                            icon: Shield,
-                        },
-                        {
-                            title: 'Appearance',
-                            url: editAppearance.url(),
-                            icon: Palette,
-                        },
-                        {
-                            title: 'Countries',
-                            url: '/settings/master-data/countries',
-                            icon: Globe2,
-                        },
-                        {
-                            title: 'Currencies',
-                            url: '/settings/master-data/currencies',
-                            icon: Wallet,
-                        },
-                        {
-                            title: 'Visa types',
-                            url: '/settings/master-data/visa-types',
-                            icon: IdCard,
-                        },
-                        {
-                            title: 'Company visa types',
-                            url: '/settings/master-data/company-visa-types',
-                            icon: IdCard,
-                        },
-                        {
-                            title: 'Approval locations',
-                            url: '/settings/master-data/approval-locations',
-                            icon: MapPin,
-                        },
-                        {
-                            title: 'SSSA options',
-                            url: '/settings/master-data/sssa-options',
-                            icon: MapPin,
-                        },
-                        {
-                            title: 'Religions',
-                            url: '/settings/master-data/religions',
-                            icon: BadgeCheck,
-                        },
-                        {
-                            title: 'Genders',
-                            url: '/settings/master-data/genders',
-                            icon: Users,
-                        },
-                        {
-                            title: 'Courses',
-                            url: '/settings/master-data/courses',
-                            icon: GraduationCap,
-                        },
-                        {
-                            title: 'Banks',
-                            url: '/settings/master-data/banks',
-                            icon: PiggyBank,
-                        },
-                        {
-                            title: 'Vessel types',
-                            url: '/settings/master-data/vessel-types',
-                            icon: Sailboat,
-                        },
-                        {
-                            title: 'Ranks',
-                            url: '/settings/master-data/ranks',
-                            icon: Award,
-                        },
-                        {
-                            title: 'Clients',
-                            url: '/settings/master-data/clients',
-                            icon: Handshake,
-                        },
-                        {
-                            title: 'Document types',
-                            url: '/settings/master-data/document-types',
-                            icon: FileText,
-                        },
-                    ],
+                    items: [],
                 },
             ],
         },
@@ -219,77 +124,22 @@ export function getSidebarData(permissions: string[]): SidebarData {
             const items = group.items
                 .map((item) => {
                     if ('items' in item && item.items) {
+                        if (item.title === 'Settings') {
+                            const filteredSub = getSettingsSidebarSubItems(permissions);
+
+                            if (!filteredSub.length) {
+                                return null;
+                            }
+
+                            return {
+                                ...item,
+                                items: filteredSub,
+                            };
+                        }
+
                         const filteredSub = item.items.filter((sub) => {
                             if (sub.url === '/organization/templates/employee-profile') {
                                 return has(permissions, 'employee_profile_templates.view');
-                            }
-
-                            if (sub.url === '/settings/application') {
-                                return has(permissions, 'settings.application.view');
-                            }
-
-                            if (sub.url === editSecurity.url()) {
-                                return has(permissions, 'settings.security.view');
-                            }
-
-                            if (sub.url === editAppearance.url()) {
-                                return has(permissions, 'settings.appearance.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/countries') {
-                                return has(permissions, 'settings.master-data.countries.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/currencies') {
-                                return has(permissions, 'settings.master-data.currencies.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/visa-types') {
-                                return has(permissions, 'settings.master-data.visa-types.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/company-visa-types') {
-                                return has(permissions, 'settings.master-data.company-visa-types.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/approval-locations') {
-                                return has(permissions, 'settings.master-data.approval-locations.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/sssa-options') {
-                                return has(permissions, 'settings.master-data.sssa-options.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/religions') {
-                                return has(permissions, 'settings.master-data.religions.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/genders') {
-                                return has(permissions, 'settings.master-data.genders.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/courses') {
-                                return has(permissions, 'settings.master-data.courses.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/banks') {
-                                return has(permissions, 'settings.master-data.banks.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/vessel-types') {
-                                return has(permissions, 'settings.master-data.vessel-types.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/ranks') {
-                                return has(permissions, 'settings.master-data.ranks.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/clients') {
-                                return has(permissions, 'settings.master-data.clients.view');
-                            }
-
-                            if (sub.url === '/settings/master-data/document-types') {
-                                return has(permissions, 'settings.master-data.document-types.view');
                             }
 
                             return true;

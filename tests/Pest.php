@@ -4,6 +4,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 require __DIR__.'/Support/application-settings.php';
+require __DIR__.'/Support/settings.php';
 require __DIR__.'/Support/spatie.php';
 require __DIR__.'/Support/document-fixtures.php';
 require __DIR__.'/Support/employee-profile-inertia.php';

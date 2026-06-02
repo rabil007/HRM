@@ -214,12 +214,25 @@ function SidebarMenuCollapsedDropdown({
 }
 
 function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
+    const path = href.split('?')[0];
+
+    if ('url' in item && item.url) {
+        if (path === item.url) {
+            return true;
+        }
+
+        if (
+            item.url === '/settings' &&
+            path.startsWith('/settings/master-data/')
+        ) {
+            return true;
+        }
+    }
+
     return (
-        href === item.url ||
-        href.split('?')[0] === item.url ||
-        !!item?.items?.filter((i) => i.url === href).length ||
+        !!item?.items?.filter((i) => i.url === path).length ||
         (mainNav &&
-            href.split('/')[1] !== '' &&
-            href.split('/')[1] === item?.url?.split('/')[1])
+            path.split('/')[1] !== '' &&
+            path.split('/')[1] === item?.url?.split('/')[1])
     );
 }
