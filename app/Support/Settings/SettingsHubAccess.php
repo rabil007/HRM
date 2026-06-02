@@ -15,6 +15,7 @@ final class SettingsHubAccess
             'settings.application.view',
             'settings.security.view',
             'settings.appearance.view',
+            'settings.integrations.whatsapp.view',
             'settings.master-data.countries.view',
             'settings.master-data.currencies.view',
             'settings.master-data.visa-types.view',

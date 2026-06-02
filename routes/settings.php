@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
+use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Controllers\Settings\MasterData\ApprovalLocationController;
 use App\Http\Controllers\Settings\MasterData\BankController;
 use App\Http\Controllers\Settings\MasterData\ClientController;
@@ -58,6 +59,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('settings/application/smtp/test', [ApplicationSettingsController::class, 'sendTestMail'])
         ->middleware('can:settings.application.update')
         ->name('application.smtp.test');
+
+    Route::get('settings/integrations/whatsapp', [WhatsAppIntegrationController::class, 'edit'])
+        ->middleware('can:settings.integrations.whatsapp.view')
+        ->name('integrations.whatsapp.edit');
+
+    Route::put('settings/integrations/whatsapp', [WhatsAppIntegrationController::class, 'update'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('integrations.whatsapp.update');
+
+    Route::post('settings/integrations/whatsapp/test', [WhatsAppIntegrationController::class, 'testConnection'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('integrations.whatsapp.test');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])

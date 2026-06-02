@@ -21,6 +21,8 @@ class PermissionsSeeder extends Seeder
             'settings.appearance.view',
             'settings.application.view',
             'settings.application.update',
+            'settings.integrations.whatsapp.view',
+            'settings.integrations.whatsapp.update',
             'settings.master-data.countries.view',
             'settings.master-data.countries.create',
             'settings.master-data.countries.update',

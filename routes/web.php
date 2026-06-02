@@ -36,6 +36,7 @@ use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\UserController;
+use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
@@ -43,6 +44,9 @@ Route::get('/', fn () => redirect()->route('login'))->name('home');
 Route::get('organization/documents/share/{document}', DocumentShareController::class)
     ->middleware('signed')
     ->name('organization.documents.share');
+
+Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::class)
+    ->name('webhooks.whatsapp');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');

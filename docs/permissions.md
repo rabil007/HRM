@@ -77,3 +77,12 @@ See [README.md](../README.md#permissions-cheatsheet) for companies, branches, de
 ## Settings
 
 Master data and application settings use `settings.*` permissions; SMTP updates use application settings routes in `routes/settings.php` (see [Email configuration](./email-configuration.md)).
+
+### WhatsApp integration (Owner only by default)
+
+| Permission | Typical use |
+|------------|-------------|
+| `settings.integrations.whatsapp.view` | View Settings → Integrations → WhatsApp |
+| `settings.integrations.whatsapp.update` | Save credentials, test connection |
+
+Granted to the **Owner** role only on migration; assign manually to other roles if needed.

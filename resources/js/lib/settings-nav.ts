@@ -9,6 +9,7 @@ import {
     IdCard,
     LayoutGrid,
     MapPin,
+    MessageCircle,
     Palette,
     PiggyBank,
     Sailboat,
@@ -47,6 +48,16 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         permission: 'settings.appearance.view',
         icon: Palette,
         color: 'bg-purple-500/10 text-purple-600',
+    },
+];
+
+export const SETTINGS_INTEGRATIONS_ITEMS: SettingsNavItem[] = [
+    {
+        title: 'WhatsApp',
+        href: '/settings/integrations/whatsapp',
+        permission: 'settings.integrations.whatsapp.view',
+        icon: MessageCircle,
+        color: 'bg-green-500/10 text-green-600',
     },
 ];
 
@@ -154,6 +165,7 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
 /** Keep in sync with App\Support\Settings\SettingsHubAccess::viewPermissions() */
 export const SETTINGS_VIEW_PERMISSIONS: string[] = [
     ...SETTINGS_SYSTEM_ITEMS.map((item) => item.permission),
+    ...SETTINGS_INTEGRATIONS_ITEMS.map((item) => item.permission),
     ...SETTINGS_MASTER_DATA_ITEMS.map((item) => item.permission),
 ];
 
