@@ -45,7 +45,7 @@ export async function sendWhatsAppTestText(
 ): Promise<WhatsAppTestSendResult> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
-    const response = await fetch('/settings/integrations/whatsapp/send-test-text', {
+    const response = await fetch('/settings/application/whatsapp/send-test-text', {
         method: 'POST',
         headers: {
             Accept: 'application/json',
@@ -81,7 +81,7 @@ export async function sendWhatsAppTestDocument(
         formData.append('caption', caption.trim());
     }
 
-    const response = await fetch('/settings/integrations/whatsapp/send-test-document', {
+    const response = await fetch('/settings/application/whatsapp/send-test-document', {
         method: 'POST',
         headers: {
             Accept: 'application/json',
@@ -105,7 +105,7 @@ export async function sendWhatsAppTestDocument(
 export async function sendWhatsAppTestTemplate(phone: string): Promise<WhatsAppTestSendResult> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
 
-    const response = await fetch('/settings/integrations/whatsapp/send-test-template', {
+    const response = await fetch('/settings/application/whatsapp/send-test-template', {
         method: 'POST',
         headers: {
             Accept: 'application/json',

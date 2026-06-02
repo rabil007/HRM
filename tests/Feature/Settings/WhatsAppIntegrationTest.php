@@ -11,23 +11,46 @@ test('owner can view whatsapp integration settings page', function () {
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
 
     $this->actingAs($user)
-        ->get(route('integrations.whatsapp.edit'))
+        ->get(route('application.edit'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page
-            ->component('settings/integrations/whatsapp')
-            ->has('settings')
-            ->has('callback_url')
-            ->where('settings.has_access_token', false),
+            ->component('settings/application')
+            ->has('whatsapp.settings')
+            ->has('whatsapp.callback_url')
+            ->where('whatsapp.settings.has_access_token', false),
         );
 });
 
-test('users without permission cannot view whatsapp integration settings', function () {
+test('legacy whatsapp settings url redirects to application tab', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+
+    $this->actingAs($user)
+        ->get(route('integrations.whatsapp.edit'))
+        ->assertRedirect('/settings/application?tab=whatsapp');
+});
+
+test('users without whatsapp permission do not receive whatsapp settings props', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
 
     $this->actingAs($user)
-        ->get(route('integrations.whatsapp.edit'))
-        ->assertForbidden();
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/application')
+            ->where('whatsapp', null),
+        );
+});
+
+test('users with whatsapp permission can open application settings without application view', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->has('whatsapp'));
 });
 
 test('whatsapp settings can be saved with encrypted secrets', function () {
@@ -38,7 +61,7 @@ test('whatsapp settings can be saved with encrypted secrets', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('integrations.whatsapp.update'), [
+        ->put(route('application.whatsapp.update'), [
             'business_account_id' => '123456789',
             'phone_number_id' => '987654321',
             'access_token' => 'test-access-token',
@@ -83,7 +106,7 @@ test('whatsapp secrets are kept when update omits them', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('integrations.whatsapp.update'), [
+        ->put(route('application.whatsapp.update'), [
             'business_account_id' => '123456789',
             'phone_number_id' => '987654321',
             'access_token' => '',
@@ -116,7 +139,7 @@ test('whatsapp test connection returns success when meta api responds ok', funct
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('integrations.whatsapp.test'), [
+        ->postJson(route('application.whatsapp.test'), [
             'business_account_id' => '123456789',
             'phone_number_id' => '987654321',
             'access_token' => 'valid-token',
@@ -149,7 +172,7 @@ test('whatsapp test connection returns meta error message on failure', function 
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('integrations.whatsapp.test'), [
+        ->postJson(route('application.whatsapp.test'), [
             'business_account_id' => '123456789',
             'phone_number_id' => '987654321',
             'access_token' => 'invalid-token',
@@ -238,7 +261,7 @@ test('users without permission cannot update whatsapp settings', function () {
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
 
     $this->actingAs($user)
-        ->put(route('integrations.whatsapp.update'), [
+        ->put(route('application.whatsapp.update'), [
             'business_account_id' => '123456789',
             'phone_number_id' => '987654321',
             'access_token' => 'test-access-token',
@@ -276,7 +299,7 @@ test('whatsapp test text message sends successfully using stored credentials', f
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('integrations.whatsapp.send-test-text'), [
+        ->postJson(route('application.whatsapp.send-test-text'), [
             'phone' => '+971501234567',
             'message' => 'Hello from the test panel.',
         ])
@@ -326,7 +349,7 @@ test('whatsapp test document upload sends file successfully', function () {
     ]);
 
     $this->actingAs($user)
-        ->post(route('integrations.whatsapp.send-test-document'), [
+        ->post(route('application.whatsapp.send-test-document'), [
             'phone' => '+971501234567',
             'caption' => 'Test PDF from settings',
             'file' => UploadedFile::fake()->createWithContent('sample.pdf', '%PDF-1.4 test content'),
@@ -373,7 +396,7 @@ test('whatsapp test template sends hello_world successfully', function () {
     ]);
 
     $this->actingAs($user)
-        ->postJson(route('integrations.whatsapp.send-test-template'), [
+        ->postJson(route('application.whatsapp.send-test-template'), [
             'phone' => '+9710563769023',
         ])
         ->assertOk()

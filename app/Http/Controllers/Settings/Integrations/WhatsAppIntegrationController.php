@@ -8,30 +8,36 @@ use App\Http\Requests\Settings\SendWhatsAppTestTemplateRequest;
 use App\Http\Requests\Settings\SendWhatsAppTestTextRequest;
 use App\Http\Requests\Settings\TestWhatsAppConnectionRequest;
 use App\Http\Requests\Settings\UpdateWhatsAppIntegrationRequest;
+use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Services\WhatsAppService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
-use Inertia\Inertia;
-use Inertia\Response;
 use RuntimeException;
 
 class WhatsAppIntegrationController extends Controller
 {
     public function __construct(private WhatsAppService $whatsapp) {}
 
-    public function edit(): Response
+    /**
+     * @return array<string, mixed>|null
+     */
+    public static function pageProps(?User $user): ?array
     {
+        if (! $user?->can('settings.integrations.whatsapp.view')) {
+            return null;
+        }
+
         $settings = WhatsAppSetting::current();
 
-        return Inertia::render('settings/integrations/whatsapp', [
+        return [
             'settings' => $settings->toSettingsPageArray(),
             'callback_url' => route(config('whatsapp.webhook_route_name')),
             'default_test_message' => (string) config('whatsapp.test_message'),
             'can' => [
-                'update' => request()->user()?->can('settings.integrations.whatsapp.update') ?? false,
+                'update' => $user->can('settings.integrations.whatsapp.update'),
             ],
-        ]);
+        ];
     }
 
     public function update(UpdateWhatsAppIntegrationRequest $request): RedirectResponse

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Settings;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Requests\Settings\TestApplicationMailRequest;
 use App\Http\Requests\Settings\UpdateApplicationBrandingRequest;
 use App\Http\Requests\Settings\UpdateApplicationGeneralRequest;
@@ -27,6 +28,15 @@ class ApplicationSettingsController extends Controller
 
     public function edit(): Response
     {
+        $user = request()->user();
+
+        if (
+            ! $user?->can('settings.application.view')
+            && ! $user?->can('settings.integrations.whatsapp.view')
+        ) {
+            abort(403);
+        }
+
         $currencies = Currency::query()
             ->where('is_active', true)
             ->orderBy('code')
@@ -59,6 +69,7 @@ class ApplicationSettingsController extends Controller
             ],
             'currencies' => $currencies,
             'smtp' => $this->mailSettings->forSettingsPage(),
+            'whatsapp' => WhatsAppIntegrationController::pageProps($user),
         ]);
     }
 

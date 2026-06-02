@@ -4,24 +4,17 @@ import Heading from '@/components/heading';
 import { Card } from '@/components/ui/card';
 import {
     filterSettingsNavItems,
-    SETTINGS_INTEGRATIONS_ITEMS,
     SETTINGS_MASTER_DATA_ITEMS,
-    SETTINGS_SYSTEM_ITEMS
-    
+    SETTINGS_SYSTEM_ITEMS,
 } from '@/lib/settings-nav';
-import type {SettingsNavItem} from '@/lib/settings-nav';
+import type { SettingsNavItem } from '@/lib/settings-nav';
 import { cn } from '@/lib/utils';
 
 const SETTINGS_GROUPS = [
     {
         title: 'System',
-        description: 'Application branding, security, and appearance preferences.',
+        description: 'Application branding, email, WhatsApp, security, and appearance.',
         items: SETTINGS_SYSTEM_ITEMS,
-    },
-    {
-        title: 'Integrations',
-        description: 'Third-party services for messaging, notifications, and delivery.',
-        items: SETTINGS_INTEGRATIONS_ITEMS,
     },
     {
         title: 'Master data',

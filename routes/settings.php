@@ -36,7 +36,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('appearance.edit');
 
     Route::get('settings/application', [ApplicationSettingsController::class, 'edit'])
-        ->middleware('can:settings.application.view')
         ->name('application.edit');
 
     Route::put('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
@@ -60,29 +59,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.application.update')
         ->name('application.smtp.test');
 
-    Route::get('settings/integrations/whatsapp', [WhatsAppIntegrationController::class, 'edit'])
-        ->middleware('can:settings.integrations.whatsapp.view')
+    Route::redirect('settings/integrations/whatsapp', '/settings/application?tab=whatsapp')
         ->name('integrations.whatsapp.edit');
 
-    Route::put('settings/integrations/whatsapp', [WhatsAppIntegrationController::class, 'update'])
+    Route::put('settings/application/whatsapp', [WhatsAppIntegrationController::class, 'update'])
         ->middleware('can:settings.integrations.whatsapp.update')
-        ->name('integrations.whatsapp.update');
+        ->name('application.whatsapp.update');
 
-    Route::post('settings/integrations/whatsapp/test', [WhatsAppIntegrationController::class, 'testConnection'])
+    Route::post('settings/application/whatsapp/test', [WhatsAppIntegrationController::class, 'testConnection'])
         ->middleware('can:settings.integrations.whatsapp.update')
-        ->name('integrations.whatsapp.test');
+        ->name('application.whatsapp.test');
 
-    Route::post('settings/integrations/whatsapp/send-test-text', [WhatsAppIntegrationController::class, 'sendTestText'])
+    Route::post('settings/application/whatsapp/send-test-text', [WhatsAppIntegrationController::class, 'sendTestText'])
         ->middleware('can:settings.integrations.whatsapp.update')
-        ->name('integrations.whatsapp.send-test-text');
+        ->name('application.whatsapp.send-test-text');
 
-    Route::post('settings/integrations/whatsapp/send-test-document', [WhatsAppIntegrationController::class, 'sendTestDocument'])
+    Route::post('settings/application/whatsapp/send-test-document', [WhatsAppIntegrationController::class, 'sendTestDocument'])
         ->middleware('can:settings.integrations.whatsapp.update')
-        ->name('integrations.whatsapp.send-test-document');
+        ->name('application.whatsapp.send-test-document');
 
-    Route::post('settings/integrations/whatsapp/send-test-template', [WhatsAppIntegrationController::class, 'sendTestTemplate'])
+    Route::post('settings/application/whatsapp/send-test-template', [WhatsAppIntegrationController::class, 'sendTestTemplate'])
         ->middleware('can:settings.integrations.whatsapp.update')
-        ->name('integrations.whatsapp.send-test-template');
+        ->name('application.whatsapp.send-test-template');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])

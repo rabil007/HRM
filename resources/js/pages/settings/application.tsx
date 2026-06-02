@@ -6,11 +6,12 @@ import {
     Layout,
     Lock,
     Mail,
+    MessageCircle,
     Palette,
     Send,
     Settings2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,6 +28,10 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
+import {
+    WhatsAppSettingsPanel,
+    type WhatsAppSettingsPanelProps,
+} from '@/features/settings/whatsapp-settings-panel';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -75,16 +80,59 @@ type Props = {
             certifications: string;
         };
     };
+    whatsapp: WhatsAppSettingsPanelProps | null;
 };
 
-const NAV_ITEMS = [
-    { id: 'general', label: 'General', icon: Building2, description: 'Identity & regional' },
-    { id: 'branding', label: 'Branding', icon: ImageIcon, description: 'Logos & visuals' },
-    { id: 'smtp', label: 'SMTP / Email', icon: Mail, description: 'Mail delivery' },
-    { id: 'preferences', label: 'System', icon: Settings2, description: 'UI preferences' },
+const ALL_NAV_ITEMS = [
+    {
+        id: 'general',
+        label: 'General',
+        icon: Building2,
+        description: 'Identity & regional',
+        permission: 'settings.application.view',
+    },
+    {
+        id: 'branding',
+        label: 'Branding',
+        icon: ImageIcon,
+        description: 'Logos & visuals',
+        permission: 'settings.application.view',
+    },
+    {
+        id: 'smtp',
+        label: 'SMTP / Email',
+        icon: Mail,
+        description: 'Mail delivery',
+        permission: 'settings.application.view',
+    },
+    {
+        id: 'whatsapp',
+        label: 'WhatsApp',
+        icon: MessageCircle,
+        description: 'Business messaging',
+        permission: 'settings.integrations.whatsapp.view',
+    },
+    {
+        id: 'preferences',
+        label: 'System',
+        icon: Settings2,
+        description: 'UI preferences',
+        permission: 'settings.application.view',
+    },
 ] as const;
 
-type NavId = (typeof NAV_ITEMS)[number]['id'];
+type NavId = (typeof ALL_NAV_ITEMS)[number]['id'];
+
+function resolveInitialTab(
+    navItems: { id: NavId }[],
+    requestedTab: string | null,
+): NavId {
+    if (requestedTab && navItems.some((item) => item.id === requestedTab)) {
+        return requestedTab as NavId;
+    }
+
+    return navItems[0]?.id ?? 'general';
+}
 
 /** Reusable section heading inside a settings card */
 function SectionHeading({
@@ -166,8 +214,23 @@ export default function ApplicationSettings({
     date_formats,
     currencies,
     smtp,
+    whatsapp,
 }: Props) {
-    const [tab, setTab] = useState<NavId>('general');
+    const authUser = usePage().props.auth?.user as { email?: string } | undefined;
+    const permissions =
+        (usePage().props.auth as { permissions?: string[] } | undefined)?.permissions ?? [];
+
+    const navItems = useMemo(
+        () => ALL_NAV_ITEMS.filter((item) => permissions.includes(item.permission)),
+        [permissions],
+    );
+
+    const requestedTab =
+        typeof window !== 'undefined'
+            ? new URLSearchParams(window.location.search).get('tab')
+            : null;
+
+    const [tab, setTab] = useState<NavId>(() => resolveInitialTab(navItems, requestedTab));
     const [testRecipient, setTestRecipient] = useState('');
     const [testSubject, setTestSubject] = useState(
         () => `${general.app_name || 'HRM'} — SMTP test`,
@@ -177,7 +240,6 @@ export default function ApplicationSettings({
     );
     const [testAttachment, setTestAttachment] = useState<File | null>(null);
     const [isSendingTest, setIsSendingTest] = useState(false);
-    const authUser = usePage().props.auth?.user as { email?: string } | undefined;
 
     const generalForm = useForm({
         app_name: general.app_name ?? '',
@@ -299,7 +361,7 @@ export default function ApplicationSettings({
                     Application
                 </h1>
                 <p className="text-sm text-muted-foreground/80 font-medium">
-                    Manage branding, identity, and system preferences for the entire platform.
+                    Manage branding, email, WhatsApp, and system preferences for the entire platform.
                 </p>
             </div>
 
@@ -313,7 +375,7 @@ export default function ApplicationSettings({
                             </h3>
                         </div>
                         <div className="p-2 space-y-1">
-                            {NAV_ITEMS.map((item) => {
+                            {navItems.map((item) => {
                                 const isActive = tab === item.id;
 
                                 return (
@@ -921,6 +983,11 @@ export default function ApplicationSettings({
                             </SettingsCard>
                         </div>
                     )}
+
+                    {/* ══ WHATSAPP ══ */}
+                    {tab === 'whatsapp' && whatsapp ? (
+                        <WhatsAppSettingsPanel {...whatsapp} />
+                    ) : null}
 
                     {/* ══ PREFERENCES ══ */}
                     {tab === 'preferences' && (

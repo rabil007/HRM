@@ -82,7 +82,7 @@ Master data and application settings use `settings.*` permissions; SMTP updates 
 
 | Permission | Typical use |
 |------------|-------------|
-| `settings.integrations.whatsapp.view` | View Settings → Integrations → WhatsApp |
-| `settings.integrations.whatsapp.update` | Save credentials, test connection |
+| `settings.integrations.whatsapp.view` | View Settings → Application → WhatsApp tab |
+| `settings.integrations.whatsapp.update` | Save WhatsApp credentials, test connection |
 
 Granted to the **Owner** role only on migration; assign manually to other roles if needed.
