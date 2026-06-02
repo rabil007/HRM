@@ -1,8 +1,8 @@
 <?php
 
+use App\Models\ApprovalLocation;
 use App\Models\Branch;
 use App\Models\Company;
-use App\Models\ApprovalLocation;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Currency;
@@ -10,12 +10,12 @@ use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
-use App\Models\Gender;
 use App\Models\EmployeeProfileTemplate;
+use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Rank;
-use App\Models\User;
 use App\Models\SssaOption;
+use App\Models\User;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Illuminate\Http\UploadedFile;
@@ -518,6 +518,129 @@ test('employee can be created and updated with company_visa_type_id', function (
     ])->assertRedirect(route('organization.employees.show', $employee));
 
     expect($employee->fresh()->company_visa_type_id)->toBe($groupSponsored->id);
+});
+
+test('employee can update company_visa_type_id when visa_type_id is hidden in template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CVH',
+        'name' => 'Company Visa Hidden Global',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CVH',
+        'name' => 'Company Visa Hidden Currency',
+        'symbol' => 'CH$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Company Visa Hidden Co',
+        'slug' => 'company-visa-hidden-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $oms = CompanyVisaType::query()->create(['name' => 'OMS', 'is_active' => true]);
+    $group = CompanyVisaType::query()->create(['name' => 'Group', 'is_active' => true]);
+
+    VisaType::query()->create(['name' => 'Residential Visa', 'is_active' => true]);
+
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Company visa only',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'company_visa_type_id',
+        ]),
+    );
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+            'company_visa_type_id' => $oms->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => $employee->employee_no,
+        'name' => $employee->name,
+        'company_visa_type_id' => $group->id,
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->company_visa_type_id)->toBe($group->id);
+});
+
+test('employee update rejects visa_type_id when hidden in profile template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VPH',
+        'name' => 'Visa Prohibitedland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VPH',
+        'name' => 'Visa Prohibited Currency',
+        'symbol' => 'VP$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Visa Prohibited Co',
+        'slug' => 'visa-prohibited-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $visaType = VisaType::query()->create(['name' => 'Mission Visa', 'is_active' => true]);
+    $companyVisaType = CompanyVisaType::query()->create(['name' => 'OMS', 'is_active' => true]);
+
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Company visa only',
+        employeeProfileTemplateWithVisibleEmployeeFields([
+            'employee_no',
+            'name',
+            'company_visa_type_id',
+        ]),
+    );
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+            'company_visa_type_id' => $companyVisaType->id,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update']);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->put("/organization/employees/{$employee->id}", [
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+            'company_visa_type_id' => $companyVisaType->id,
+            'visa_type_id' => $visaType->id,
+        ])
+        ->assertSessionHasErrors('visa_type_id');
 });
 
 test('employee profile includes image and can be updated with a photo', function () {

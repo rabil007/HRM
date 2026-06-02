@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
 final class CreateEmployee

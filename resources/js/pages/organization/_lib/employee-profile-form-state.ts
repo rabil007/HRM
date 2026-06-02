@@ -1,4 +1,7 @@
-import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
+import type {
+    EmployeeDetails,
+    TemplateFieldConfig,
+} from '@/pages/organization/employee-page.types';
 
 /**
  * All keys persisted via the employee profile header + personal tab inline editors.
@@ -94,8 +97,32 @@ export function buildEmployeeProfileFormInitial(
     };
 }
 
+/**
+ * Drop employee profile keys hidden by the assigned template. The API marks
+ * non-visible fields as prohibited when they are present in the request.
+ */
+export function omitHiddenTemplateEmployeeFields(
+    payload: Record<string, unknown>,
+    templateEmployeeFields?: Record<string, TemplateFieldConfig>,
+): Record<string, unknown> {
+    if (!templateEmployeeFields) {
+        return payload;
+    }
+
+    const result = { ...payload };
+
+    for (const [fieldKey, config] of Object.entries(templateEmployeeFields)) {
+        if (!config.visible && fieldKey in result) {
+            delete result[fieldKey];
+        }
+    }
+
+    return result;
+}
+
 export function transformEmployeeProfileFormData(
     data: Record<string, unknown>,
+    templateEmployeeFields?: Record<string, TemplateFieldConfig>,
 ): Record<string, unknown> {
     const approvalLocationIds = Array.isArray(data.approval_location_ids)
         ? data.approval_location_ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
@@ -105,7 +132,8 @@ export function transformEmployeeProfileFormData(
         ? data.sssa_option_ids.map((id) => Number(id)).filter((id) => !Number.isNaN(id))
         : [];
 
-    return {
+    return omitHiddenTemplateEmployeeFields(
+        {
         employee_no: String(data.employee_no ?? '').trim() || null,
         name: String(data.name ?? '').trim() || null,
         branch_id: data.branch_id ? Number(data.branch_id) : null,
@@ -136,7 +164,9 @@ export function transformEmployeeProfileFormData(
         labor_card_number: String(data.labor_card_number ?? '').trim() || null,
         approval_location_ids: approvalLocationIds,
         sssa_option_ids: sssaOptionIds,
-    };
+        },
+        templateEmployeeFields,
+    );
 }
 
 export function isEmployeeProfileFormDirty(

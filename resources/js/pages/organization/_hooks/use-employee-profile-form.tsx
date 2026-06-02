@@ -224,7 +224,12 @@ export function useEmployeeProfileForm(
                 return;
             }
 
-            form.transform((data) => transformEmployeeProfileFormData(data));
+            form.transform((data) =>
+                transformEmployeeProfileFormData(
+                    data,
+                    options?.templateRequiredFields,
+                ),
+            );
 
             form.put(updateEmployee.url({ employee: targetEmployeeId }), {
                 preserveScroll: true,
@@ -243,7 +248,15 @@ export function useEmployeeProfileForm(
                 },
             });
         },
-        [canUpdate, employee.id, ensureEmployee, focusMissingField, form, requiredFields],
+        [
+            canUpdate,
+            employee.id,
+            ensureEmployee,
+            focusMissingField,
+            form,
+            options?.templateRequiredFields,
+            requiredFields,
+        ],
     );
 
     const uploadPhoto = useCallback(
@@ -261,7 +274,10 @@ export function useEmployeeProfileForm(
             setIsUploadingPhoto(true);
 
             form.transform((data) => ({
-                ...transformEmployeeProfileFormData(data),
+                ...transformEmployeeProfileFormData(
+                    data,
+                    options?.templateRequiredFields,
+                ),
                 image: file,
             }));
 
@@ -286,11 +302,16 @@ export function useEmployeeProfileForm(
                 },
                 onFinish: () => {
                     setIsUploadingPhoto(false);
-                    form.transform((data) => transformEmployeeProfileFormData(data));
+                    form.transform((data) =>
+                        transformEmployeeProfileFormData(
+                            data,
+                            options?.templateRequiredFields,
+                        ),
+                    );
                 },
             });
         },
-        [canUpdate, employee.id, form],
+        [canUpdate, employee.id, form, options?.templateRequiredFields],
     );
 
     const discardChanges = useCallback(() => {
