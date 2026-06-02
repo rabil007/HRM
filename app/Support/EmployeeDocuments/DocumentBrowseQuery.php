@@ -207,6 +207,7 @@ class DocumentBrowseQuery
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
                 'email' => $employee->work_email ?: $employee->personal_email,
+                'phone' => $employee->phone,
             ],
             'documents' => $documents,
         ];

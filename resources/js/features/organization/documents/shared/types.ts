@@ -10,6 +10,7 @@ export type EmployeeSummary = {
     name: string;
     employee_no: string;
     email?: string | null;
+    phone?: string | null;
 };
 
 export type DocumentExpiryStatus =

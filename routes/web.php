@@ -12,6 +12,7 @@ use App\Http\Controllers\Organization\DocumentBulkFilesDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentBulkPdfMergeController;
 use App\Http\Controllers\Organization\DocumentBulkShareLinksController;
+use App\Http\Controllers\Organization\DocumentBulkWhatsAppController;
 use App\Http\Controllers\Organization\DocumentFileDownloadController;
 use App\Http\Controllers\Organization\DocumentFolderDownloadController;
 use App\Http\Controllers\Organization\DocumentsFolderIndexController;
@@ -124,6 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
+        Route::post('organization/documents/employees/{employee}/files/whatsapp', DocumentBulkWhatsAppController::class)->name('organization.documents.employee.files.whatsapp');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
     Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)

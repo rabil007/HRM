@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Download, FileStack, FolderOpen, Loader2, Mail, MessageCircle, Trash2 } from 'lucide-react';
+import { Download, FileStack, FolderOpen, Loader2, Mail, MessageCircle, Send, Trash2 } from 'lucide-react';
 import { lazy, Suspense, useMemo, useState } from 'react';
 import {
     OrganizationDataTable,
@@ -45,6 +45,10 @@ import {
     buildWhatsAppMessage,
     fetchDocumentShareLinks,
 } from '@/features/organization/documents/whatsapp-share';
+import {
+    WhatsAppDocumentsModal,
+    type WhatsAppDocumentItem,
+} from '@/features/organization/documents/whatsapp-send';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
@@ -88,6 +92,8 @@ export default function EmployeeDocumentsBrowse({
     const [mergeDocuments, setMergeDocuments] = useState<MergeDocumentItem[]>([]);
     const [emailModalOpen, setEmailModalOpen] = useState(false);
     const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
+    const [whatsappModalOpen, setWhatsappModalOpen] = useState(false);
+    const [whatsappDocuments, setWhatsappDocuments] = useState<WhatsAppDocumentItem[]>([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isWhatsAppSharing, setIsWhatsAppSharing] = useState(false);
@@ -184,6 +190,28 @@ export default function EmployeeDocumentsBrowse({
             })),
         );
         setEmailModalOpen(true);
+    };
+
+    const handleDirectWhatsApp = () => {
+        const selectedDocs = filteredDocuments.filter((document) =>
+            selectedDocumentIds.includes(document.id),
+        );
+
+        if (selectedDocs.length === 0) {
+            toast.error('Select at least one document to send.');
+
+            return;
+        }
+
+        setWhatsappDocuments(
+            selectedDocs.map((document) => ({
+                id: document.id,
+                document_name: document.document_name,
+                mime_type: document.mime_type,
+                size_bytes: document.size_bytes,
+            })),
+        );
+        setWhatsappModalOpen(true);
     };
 
     const handleWhatsAppShare = async () => {
@@ -323,21 +351,34 @@ export default function EmployeeDocumentsBrowse({
                             Email
                         </Button>
                         {canShareDocuments ? (
-                            <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="rounded-lg"
-                                disabled={isWhatsAppSharing || selectedDocumentCount === 0}
-                                onClick={handleWhatsAppShare}
-                            >
-                                {isWhatsAppSharing ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <MessageCircle className="mr-2 h-4 w-4" />
-                                )}
-                                WhatsApp
-                            </Button>
+                            <>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={isWhatsAppSharing || selectedDocumentCount === 0}
+                                    onClick={handleWhatsAppShare}
+                                >
+                                    {isWhatsAppSharing ? (
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    ) : (
+                                        <MessageCircle className="mr-2 h-4 w-4" />
+                                    )}
+                                    WhatsApp
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="rounded-lg"
+                                    disabled={selectedDocumentCount === 0}
+                                    onClick={handleDirectWhatsApp}
+                                >
+                                    <Send className="mr-2 h-4 w-4" />
+                                    Direct WhatsApp
+                                </Button>
+                            </>
                         ) : null}
                         {canDeleteDocuments ? (
                             <Button
@@ -444,6 +485,14 @@ export default function EmployeeDocumentsBrowse({
                 employee={employee}
                 organizationName={organizationName}
                 documents={emailDocuments}
+                onSendComplete={clearDocumentSelection}
+            />
+
+            <WhatsAppDocumentsModal
+                open={whatsappModalOpen}
+                onOpenChange={setWhatsappModalOpen}
+                employee={employee}
+                documents={whatsappDocuments}
                 onSendComplete={clearDocumentSelection}
             />
 

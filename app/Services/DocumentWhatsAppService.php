@@ -5,11 +5,10 @@ namespace App\Services;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
-use App\Models\WhatsAppDocumentDelivery;
 use App\Models\WhatsAppSetting;
 use App\Support\EmployeeDocuments\DocumentBulkActionService;
-use App\Support\EmployeeDocuments\DocumentDownloadService;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Throwable;
 
@@ -18,7 +17,6 @@ class DocumentWhatsAppService
     public function __construct(
         private WhatsAppService $whatsapp,
         private DocumentBulkActionService $bulkActions,
-        private DocumentDownloadService $downloads,
     ) {}
 
     /**
@@ -36,6 +34,7 @@ class DocumentWhatsAppService
         int $companyId,
         User $sender,
         string $whatsappNumber,
+        bool $sendTemplateFirst = false,
     ): array {
         $whatsappNumber = trim($whatsappNumber);
 
@@ -57,12 +56,33 @@ class DocumentWhatsAppService
         $sentCount = 0;
         $failedCount = 0;
 
+        if ($sendTemplateFirst) {
+            $templateResult = $this->whatsapp->sendTemplateMessage($whatsappNumber);
+            $results[] = [
+                'document_id' => null,
+                'document_name' => 'hello_world template',
+                'success' => (bool) ($templateResult['success'] ?? false),
+                'status' => ($templateResult['success'] ?? false) ? 'sent' : 'failed',
+                'message' => (string) ($templateResult['message'] ?? ''),
+                'message_id' => $templateResult['message_id'] ?? null,
+                'media_id' => null,
+                'http_status' => $templateResult['http_status'] ?? null,
+                'api' => $templateResult['api'] ?? null,
+                'delivery_note' => $templateResult['delivery_note'] ?? null,
+                'error' => ($templateResult['success'] ?? false) ? null : ($templateResult['message'] ?? 'Template send failed.'),
+            ];
+
+            if ($templateResult['success'] ?? false) {
+                $sentCount++;
+            } else {
+                $failedCount++;
+            }
+        }
+
         foreach ($documents as $document) {
             $results[] = $this->sendSingleDocument(
-                employee: $employee,
                 document: $document,
                 companyId: $companyId,
-                sender: $sender,
                 whatsappNumber: $whatsappNumber,
                 caption: $caption,
             );
@@ -74,15 +94,18 @@ class DocumentWhatsAppService
             }
         }
 
+        $documentCount = $documents->count();
         $message = match (true) {
-            $failedCount === 0 => "{$sentCount} ".($sentCount === 1 ? 'document' : 'documents').' sent via WhatsApp.',
+            $failedCount === 0 => "{$sentCount} ".($sentCount === 1 ? 'message' : 'messages').' accepted by Meta via WhatsApp.',
             $sentCount === 0 => 'Failed to send documents via WhatsApp.',
-            default => "{$sentCount} sent, {$failedCount} failed via WhatsApp.",
+            default => "{$sentCount} accepted, {$failedCount} failed via WhatsApp.",
         };
 
         Log::info('WhatsApp Document Delivery Batch', [
             'employee_id' => $employee->id,
             'whatsapp_number' => $whatsappNumber,
+            'document_count' => $documentCount,
+            'send_template_first' => $sendTemplateFirst,
             'sent_count' => $sentCount,
             'failed_count' => $failedCount,
             'sent_by' => $sender->id,
@@ -100,194 +123,141 @@ class DocumentWhatsAppService
      * @return array<string, mixed>
      */
     private function sendSingleDocument(
-        Employee $employee,
         EmployeeDocument $document,
         int $companyId,
-        User $sender,
         string $whatsappNumber,
         string $caption,
     ): array {
-        $documentName = $this->downloads->downloadFilenameForDocument($document);
-        $resolvedPath = $this->downloads->resolveAbsolutePath($document, $companyId);
+        $resolvedFile = $this->resolveDocumentFile($document, $companyId);
 
-        if ($resolvedPath === null) {
-            return $this->recordFailure(
-                employee: $employee,
+        if ($resolvedFile === null) {
+            return $this->failureResult(
                 document: $document,
-                companyId: $companyId,
-                sender: $sender,
-                whatsappNumber: $whatsappNumber,
-                documentName: $documentName,
+                documentName: $this->documentFilename($document),
                 errorMessage: 'Document file is not available for WhatsApp delivery.',
-                requestPayload: null,
-                responsePayload: null,
-                mediaId: null,
-                messageId: null,
             );
         }
 
-        $absolutePath = $resolvedPath['path'];
-        $temporary = $resolvedPath['temporary'];
-        $mediaId = null;
-
         try {
-            $mediaId = $this->whatsapp->uploadDocument(
-                $absolutePath,
-                (string) ($document->mime_type ?: 'application/pdf'),
-                $documentName,
-            );
-
-            $result = $this->whatsapp->sendDocumentMessage(
+            $result = $this->whatsapp->sendDocument(
                 $whatsappNumber,
-                $mediaId,
-                $documentName,
+                $resolvedFile['path'],
+                $resolvedFile['name'],
                 $caption,
-                [
-                    'employee_id' => $employee->id,
-                    'document_id' => $document->id,
-                    'whatsapp_number' => $whatsappNumber,
-                ],
+                $resolvedFile['mime'],
             );
 
             if ($result['success']) {
-                $delivery = $this->recordSuccess(
-                    employee: $employee,
-                    document: $document,
-                    companyId: $companyId,
-                    sender: $sender,
-                    whatsappNumber: $whatsappNumber,
-                    mediaId: $mediaId,
-                    messageId: $result['message_id'],
-                    requestPayload: $result['request_payload'],
-                    responsePayload: $result['response_payload'],
-                );
-
                 return [
                     'document_id' => $document->id,
-                    'document_name' => $documentName,
+                    'document_name' => $resolvedFile['name'],
                     'success' => true,
                     'status' => 'sent',
                     'message' => $result['message'],
                     'message_id' => $result['message_id'],
-                    'media_id' => $mediaId,
+                    'media_id' => $result['media_id'] ?? null,
                     'http_status' => $result['http_status'],
-                    'request_payload' => $result['request_payload'],
-                    'response_payload' => $result['response_payload'],
+                    'normalized_phone' => $result['normalized_phone'] ?? null,
+                    'delivery_note' => $result['delivery_note'] ?? null,
+                    'media_api' => $result['media_api'] ?? null,
+                    'api' => $result['api'] ?? null,
                     'error' => null,
-                    'delivery_id' => $delivery->id,
                 ];
             }
 
-            return $this->recordFailure(
-                employee: $employee,
+            return $this->failureResult(
                 document: $document,
-                companyId: $companyId,
-                sender: $sender,
-                whatsappNumber: $whatsappNumber,
-                documentName: $documentName,
-                errorMessage: (string) ($result['error'] ?? $result['message']),
-                requestPayload: $result['request_payload'],
-                responsePayload: $result['response_payload'],
-                mediaId: $mediaId,
-                messageId: null,
-                httpStatus: $result['http_status'] ?? null,
+                documentName: $resolvedFile['name'],
+                errorMessage: (string) $result['message'],
+                result: $result,
             );
         } catch (Throwable $exception) {
             report($exception);
 
-            return $this->recordFailure(
-                employee: $employee,
+            return $this->failureResult(
                 document: $document,
-                companyId: $companyId,
-                sender: $sender,
-                whatsappNumber: $whatsappNumber,
-                documentName: $documentName,
+                documentName: $resolvedFile['name'],
                 errorMessage: $exception->getMessage(),
-                requestPayload: null,
-                responsePayload: null,
-                mediaId: $mediaId,
-                messageId: null,
             );
-        } finally {
-            if ($temporary) {
-                @unlink($absolutePath);
-            }
         }
     }
 
     /**
-     * @param  array<string, mixed>|null  $requestPayload
-     * @param  array<string, mixed>|null  $responsePayload
+     * @return array{path: string, name: string, mime: string}|null
      */
-    private function recordSuccess(
-        Employee $employee,
-        EmployeeDocument $document,
-        int $companyId,
-        User $sender,
-        string $whatsappNumber,
-        string $mediaId,
-        ?string $messageId,
-        ?array $requestPayload,
-        ?array $responsePayload,
-    ): WhatsAppDocumentDelivery {
-        return WhatsAppDocumentDelivery::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $employee->id,
-            'employee_document_id' => $document->id,
-            'whatsapp_number' => $whatsappNumber,
-            'media_id' => $mediaId,
-            'message_id' => $messageId,
-            'status' => 'sent',
-            'error_message' => null,
-            'request_payload' => $requestPayload,
-            'response_payload' => $responsePayload,
-            'sent_by' => $sender->id,
-            'sent_at' => now(),
-        ]);
+    private function resolveDocumentFile(EmployeeDocument $document, int $companyId): ?array
+    {
+        if ($this->isExternalUrl((string) $document->file_path)) {
+            return null;
+        }
+
+        $diskPath = $this->validatedDiskPath((string) $document->file_path, $companyId);
+
+        if ($diskPath === null || ! Storage::disk('public')->exists($diskPath)) {
+            return null;
+        }
+
+        $absolutePath = Storage::disk('public')->path($diskPath);
+
+        if (! is_readable($absolutePath)) {
+            return null;
+        }
+
+        $mimeType = (string) ($document->mime_type ?: Storage::disk('public')->mimeType($diskPath) ?: 'application/pdf');
+
+        return [
+            'path' => $absolutePath,
+            'name' => $this->documentFilename($document),
+            'mime' => $mimeType,
+        ];
+    }
+
+    private function documentFilename(EmployeeDocument $document): string
+    {
+        $candidate = (string) ($document->original_filename ?: $document->title ?: "document-{$document->id}");
+        $basename = basename($candidate);
+        $basename = preg_replace('/[^\w\.\-]+/u', '_', $basename) ?? 'document';
+        $basename = trim($basename, '._');
+
+        return $basename !== '' ? $basename : 'document';
+    }
+
+    private function isExternalUrl(string $filePath): bool
+    {
+        return str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://');
+    }
+
+    private function validatedDiskPath(string $filePath, int $companyId): ?string
+    {
+        $filePath = ltrim($filePath, '/');
+
+        if ($filePath === '' || str_contains($filePath, '..')) {
+            return null;
+        }
+
+        $expectedPrefix = "employee-documents/{$companyId}/";
+
+        if (! str_starts_with($filePath, $expectedPrefix)) {
+            return null;
+        }
+
+        return $filePath;
     }
 
     /**
-     * @param  array<string, mixed>|null  $requestPayload
-     * @param  array<string, mixed>|null  $responsePayload
+     * @param  array<string, mixed>|null  $result
      * @return array<string, mixed>
      */
-    private function recordFailure(
-        Employee $employee,
+    private function failureResult(
         EmployeeDocument $document,
-        int $companyId,
-        User $sender,
-        string $whatsappNumber,
         string $documentName,
         string $errorMessage,
-        ?array $requestPayload,
-        ?array $responsePayload,
-        ?string $mediaId,
-        ?string $messageId,
-        ?int $httpStatus = null,
+        ?array $result = null,
     ): array {
-        $delivery = WhatsAppDocumentDelivery::query()->create([
-            'company_id' => $companyId,
-            'employee_id' => $employee->id,
-            'employee_document_id' => $document->id,
-            'whatsapp_number' => $whatsappNumber,
-            'media_id' => $mediaId,
-            'message_id' => $messageId,
-            'status' => 'failed',
-            'error_message' => $errorMessage,
-            'request_payload' => $requestPayload,
-            'response_payload' => $responsePayload,
-            'sent_by' => $sender->id,
-            'sent_at' => now(),
-        ]);
-
         Log::error('WhatsApp Document Delivery Failed', [
-            'employee_id' => $employee->id,
             'document_id' => $document->id,
-            'whatsapp_number' => $whatsappNumber,
-            'media_id' => $mediaId,
-            'message_id' => $messageId,
+            'document_name' => $documentName,
             'error' => $errorMessage,
-            'delivery_id' => $delivery->id,
         ]);
 
         return [
@@ -296,13 +266,14 @@ class DocumentWhatsAppService
             'success' => false,
             'status' => 'failed',
             'message' => $errorMessage,
-            'message_id' => $messageId,
-            'media_id' => $mediaId,
-            'http_status' => $httpStatus,
-            'request_payload' => $requestPayload,
-            'response_payload' => $responsePayload,
+            'message_id' => $result['message_id'] ?? null,
+            'media_id' => $result['media_id'] ?? null,
+            'http_status' => $result['http_status'] ?? null,
+            'normalized_phone' => $result['normalized_phone'] ?? null,
+            'delivery_note' => $result['delivery_note'] ?? null,
+            'media_api' => $result['media_api'] ?? null,
+            'api' => $result['api'] ?? null,
             'error' => $errorMessage,
-            'delivery_id' => $delivery->id,
         ];
     }
 }
