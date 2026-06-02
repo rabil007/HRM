@@ -2,7 +2,10 @@
 
 namespace App\Services;
 
+use App\Enums\WhatsAppTemplateCategory;
+use App\Enums\WhatsAppTemplateHeaderType;
 use App\Models\WhatsAppSetting;
+use App\Models\WhatsAppTemplate;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -231,7 +234,7 @@ class WhatsAppService
 
     private function client(string $accessToken): PendingRequest
     {
-        $version = (string) config('services.whatsapp.graph_api_version', 'v25.0');
+        $version = (string) config('whatsapp.graph_api_version', 'v25.0');
         $baseUrl = rtrim((string) config('whatsapp.graph_base_url'), '/')."/{$version}";
 
         return Http::withToken($accessToken)
@@ -248,6 +251,7 @@ class WhatsAppService
         string $employeeName,
         string $documentUrl,
         string $fileName,
+        WhatsAppTemplate|string|null $templateOrSlug = null,
     ): array {
         $phone = trim($phone);
 
@@ -262,8 +266,18 @@ class WhatsAppService
             throw new InvalidArgumentException('Phone number is invalid.');
         }
 
-        $templateName = (string) config('whatsapp.document_delivery_template.name', 'document_delivery');
-        $templateLanguage = (string) config('whatsapp.document_delivery_template.language', 'en');
+        $template = match (true) {
+            $templateOrSlug instanceof WhatsAppTemplate => $templateOrSlug,
+            is_string($templateOrSlug) && $templateOrSlug !== '' => WhatsAppTemplate::resolveBySlug($templateOrSlug),
+            default => WhatsAppTemplate::defaultForCategory(WhatsAppTemplateCategory::Document),
+        };
+
+        if ($template->header_type !== WhatsAppTemplateHeaderType::Document) {
+            throw new InvalidArgumentException('Selected template must use a document header.');
+        }
+
+        $templateName = $template->meta_name;
+        $templateLanguage = $template->meta_language;
 
         $payload = [
             'messaging_product' => 'whatsapp',
@@ -306,6 +320,7 @@ class WhatsAppService
             'document_url' => $documentUrl,
             'file_name' => $fileName,
             'template' => $templateName,
+            'template_slug' => $template->slug,
             'template_language' => $templateLanguage,
             'payload' => $payload,
         ]);
@@ -452,7 +467,7 @@ class WhatsAppService
 
     private function graphUrl(string $phoneNumberId, string $path): string
     {
-        $version = (string) config('services.whatsapp.graph_api_version', 'v25.0');
+        $version = (string) config('whatsapp.graph_api_version', 'v25.0');
         $baseUrl = rtrim((string) config('whatsapp.graph_base_url'), '/');
 
         return "{$baseUrl}/{$version}{$path}";

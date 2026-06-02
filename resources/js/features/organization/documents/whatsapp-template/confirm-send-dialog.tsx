@@ -1,5 +1,5 @@
 import { Loader2, MessageCircle } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import {
     AlertDialog,
@@ -13,7 +13,18 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { sendWhatsAppDocumentTemplate } from '@/features/organization/documents/whatsapp-template/send-whatsapp-document-template';
+import {
+    resolveDefaultWhatsAppTemplate,
+    type WhatsAppTemplateOption,
+} from '@/features/organization/documents/whatsapp-template/types';
 import { toast } from '@/lib/toast';
 import { whatsappTemplate } from '@/routes/organization/documents/employee/files';
 
@@ -24,6 +35,7 @@ type ConfirmSendWhatsAppDocumentDialogProps = {
     employeePhone?: string | null;
     documentId: number;
     documentName: string;
+    templates?: WhatsAppTemplateOption[];
     onSendComplete?: () => void;
 };
 
@@ -34,22 +46,39 @@ export function ConfirmSendWhatsAppDocumentDialog({
     employeePhone,
     documentId,
     documentName,
+    templates = [],
     onSendComplete,
 }: ConfirmSendWhatsAppDocumentDialogProps) {
     const [whatsappNumber, setWhatsappNumber] = useState('');
+    const [templateSlug, setTemplateSlug] = useState('');
     const [isSending, setIsSending] = useState(false);
+
+    const defaultTemplate = useMemo(() => resolveDefaultWhatsAppTemplate(templates), [templates]);
+
+    const selectedTemplate = useMemo(
+        () => templates.find((template) => template.slug === templateSlug) ?? defaultTemplate,
+        [defaultTemplate, templateSlug, templates],
+    );
 
     useEffect(() => {
         if (open) {
             setWhatsappNumber(employeePhone?.trim() ?? '');
+            setTemplateSlug(defaultTemplate?.slug ?? '');
         }
-    }, [employeePhone, open]);
+    }, [defaultTemplate?.slug, employeePhone, open]);
 
     const handleConfirm = async () => {
         const number = whatsappNumber.trim();
+        const slug = templateSlug.trim() || defaultTemplate?.slug;
 
         if (!number) {
             toast.error('Enter a WhatsApp number with country code.');
+
+            return;
+        }
+
+        if (!slug) {
+            toast.error('Choose a WhatsApp template.');
 
             return;
         }
@@ -59,7 +88,7 @@ export function ConfirmSendWhatsAppDocumentDialog({
         try {
             const result = await sendWhatsAppDocumentTemplate(
                 whatsappTemplate.url({ employee: employeeId, document: documentId }),
-                { whatsapp_number: number },
+                { whatsapp_number: number, template_slug: slug },
             );
 
             onOpenChange(false);
@@ -86,10 +115,41 @@ export function ConfirmSendWhatsAppDocumentDialog({
                         <div className="space-y-4 text-left">
                             <p>
                                 Send this document using the{' '}
-                                <span className="font-medium text-foreground">document_delivery</span>{' '}
-                                template.
+                                <span className="font-medium text-foreground">
+                                    {selectedTemplate?.meta_name ?? 'document_delivery'}
+                                </span>{' '}
+                                Meta template.
                             </p>
                             <p className="font-medium text-foreground">{documentName}</p>
+
+                            {templates.length > 1 ? (
+                                <div className="space-y-2">
+                                    <Label htmlFor="whatsapp-template-select">Template</Label>
+                                    <Select
+                                        value={templateSlug}
+                                        onValueChange={setTemplateSlug}
+                                        disabled={isSending}
+                                    >
+                                        <SelectTrigger
+                                            id="whatsapp-template-select"
+                                            className="rounded-lg border-white/10 bg-zinc-950/60"
+                                        >
+                                            <SelectValue placeholder="Select template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {templates.map((template) => (
+                                                <SelectItem
+                                                    key={template.slug}
+                                                    value={template.slug}
+                                                >
+                                                    {template.label}
+                                                    {template.is_default ? ' (default)' : ''}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            ) : null}
 
                             <div className="space-y-2">
                                 <Label htmlFor="whatsapp-template-number">

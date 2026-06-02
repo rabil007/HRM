@@ -16,7 +16,7 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 
 export async function sendWhatsAppDocumentTemplate(
     url: string,
-    payload: { whatsapp_number: string },
+    payload: { whatsapp_number: string; template_slug?: string },
     errorFallback = 'Failed to send document via WhatsApp.',
 ): Promise<{ message: string; message_id?: string | null }> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;

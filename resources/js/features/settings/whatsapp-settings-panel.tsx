@@ -1,4 +1,4 @@
-import { useForm } from '@inertiajs/react';
+import { Link, useForm } from '@inertiajs/react';
 import {
     CheckCircle2,
     Copy,
@@ -18,11 +18,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
     sendWhatsAppTestDocument,
+    sendWhatsAppTestDocumentTemplate,
     sendWhatsAppTestTemplate,
     sendWhatsAppTestText,
     type WhatsAppApiExchange,
@@ -33,6 +41,13 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 type ConnectionStatus = 'idle' | 'connected' | 'failed';
+
+type DocumentTemplateOption = {
+    slug: string;
+    label: string;
+    meta_name: string;
+    is_default: boolean;
+};
 
 export type WhatsAppSettingsPanelProps = {
     settings: {
@@ -48,6 +63,8 @@ export type WhatsAppSettingsPanelProps = {
     };
     callback_url: string;
     default_test_message: string;
+    default_preview_sample_name: string;
+    document_templates: DocumentTemplateOption[];
     can: {
         update: boolean;
     };
@@ -80,6 +97,8 @@ export function WhatsAppSettingsPanel({
     settings,
     callback_url,
     default_test_message,
+    default_preview_sample_name,
+    document_templates,
     can,
 }: WhatsAppSettingsPanelProps) {
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
@@ -89,9 +108,16 @@ export function WhatsAppSettingsPanel({
     const [testMessage, setTestMessage] = useState(default_test_message);
     const [testCaption, setTestCaption] = useState('');
     const [testFile, setTestFile] = useState<File | null>(null);
+    const [previewSampleName, setPreviewSampleName] = useState(default_preview_sample_name);
+    const [testTemplateSlug, setTestTemplateSlug] = useState(
+        () => document_templates.find((template) => template.is_default)?.slug
+            ?? document_templates[0]?.slug
+            ?? 'document_delivery',
+    );
     const [sendingText, setSendingText] = useState(false);
     const [sendingDocument, setSendingDocument] = useState(false);
     const [sendingTemplate, setSendingTemplate] = useState(false);
+    const [sendingDocumentTemplate, setSendingDocumentTemplate] = useState(false);
     const [testResult, setTestResult] = useState<WhatsAppTestSendResult | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +130,10 @@ export function WhatsAppSettingsPanel({
         webhook_verify_token: settings.webhook_verify_token ?? '',
         enabled: settings.enabled ?? false,
     });
+
+    const selectedTestTemplate =
+        document_templates.find((template) => template.slug === testTemplateSlug)
+        ?? document_templates[0];
 
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
@@ -299,6 +329,51 @@ export function WhatsAppSettingsPanel({
         }
     };
 
+    const handleSendTestDocumentTemplate = async () => {
+        if (!can.update || !canSendTests) {
+            return;
+        }
+
+        const phone = testPhone.trim();
+
+        if (!phone) {
+            toast.error('Enter a WhatsApp number with country code.');
+            return;
+        }
+
+        if (!testFile) {
+            toast.error('Choose a file to send with the document template.');
+            return;
+        }
+
+        setSendingDocumentTemplate(true);
+        setTestResult(null);
+
+        try {
+            const result = await sendWhatsAppTestDocumentTemplate(
+                phone,
+                testFile,
+                previewSampleName,
+                testTemplateSlug,
+            );
+            setTestResult(result);
+
+            if (result.success) {
+                toast.success(result.message);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error
+                    ? error.message
+                    : 'Failed to send WhatsApp document delivery template.';
+            toast.error(message);
+        } finally {
+            setSendingDocumentTemplate(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <Card className="border-white/5 bg-white/5">
@@ -465,13 +540,14 @@ export function WhatsAppSettingsPanel({
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                disabled={
-                                    !canSendTests ||
-                                    sendingText ||
-                                    sendingDocument ||
-                                    sendingTemplate
-                                }
-                                onClick={handleSendTestTemplate}
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate ||
+                                        sendingDocumentTemplate
+                                    }
+                                    onClick={handleSendTestTemplate}
                             >
                                 {sendingTemplate ? <Spinner className="mr-2" /> : null}
                                 Send hello_world template
@@ -480,13 +556,14 @@ export function WhatsAppSettingsPanel({
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                disabled={
-                                    !canSendTests ||
-                                    sendingText ||
-                                    sendingDocument ||
-                                    sendingTemplate
-                                }
-                                onClick={handleSendTestText}
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate ||
+                                        sendingDocumentTemplate
+                                    }
+                                    onClick={handleSendTestText}
                             >
                                 {sendingText ? <Spinner className="mr-2" /> : null}
                                 Send text message
@@ -495,20 +572,78 @@ export function WhatsAppSettingsPanel({
                                 type="button"
                                 variant="outline"
                                 className="rounded-xl"
-                                disabled={
-                                    !canSendTests ||
-                                    sendingText ||
-                                    sendingDocument ||
-                                    sendingTemplate ||
-                                    !testFile
-                                }
-                                onClick={handleSendTestDocument}
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate ||
+                                        sendingDocumentTemplate ||
+                                        !testFile
+                                    }
+                                    onClick={handleSendTestDocument}
                             >
                                 {sendingDocument ? <Spinner className="mr-2" /> : null}
-                                <FileUp className="mr-2 h-4 w-4" />
-                                Send file
-                            </Button>
-                        </div>
+                                    <FileUp className="mr-2 h-4 w-4" />
+                                    Send file
+                                </Button>
+                                <Button
+                                    type="button"
+                                    className="rounded-xl"
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate ||
+                                        sendingDocumentTemplate ||
+                                        !testFile
+                                    }
+                                    onClick={handleSendTestDocumentTemplate}
+                                >
+                                    {sendingDocumentTemplate ? <Spinner className="mr-2" /> : null}
+                                    Send {selectedTestTemplate?.meta_name ?? 'document template'}
+                                </Button>
+                            </div>
+
+                        {document_templates.length > 0 ? (
+                            <div className="grid gap-5 sm:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="test_template_slug">
+                                        Document template
+                                    </FieldLabel>
+                                    <Select
+                                        value={testTemplateSlug}
+                                        onValueChange={setTestTemplateSlug}
+                                        disabled={!canSendTests}
+                                    >
+                                        <SelectTrigger
+                                            id="test_template_slug"
+                                            className="rounded-xl border-white/10 bg-white/5 h-11"
+                                        >
+                                            <SelectValue placeholder="Select template" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {document_templates.map((template) => (
+                                                <SelectItem key={template.slug} value={template.slug}>
+                                                    {template.label}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="preview_sample_name">
+                                        Sample employee name
+                                    </FieldLabel>
+                                    <FieldInput
+                                        id="preview_sample_name"
+                                        value={previewSampleName}
+                                        onChange={(e) => setPreviewSampleName(e.target.value)}
+                                        placeholder={default_preview_sample_name}
+                                    />
+                                </div>
+                            </div>
+                        ) : null}
 
                         {!canSendTests ? (
                             <p className="text-xs text-muted-foreground">
@@ -521,6 +656,22 @@ export function WhatsAppSettingsPanel({
                     </CardContent>
                 </Card>
             ) : null}
+
+            <Alert className="border-green-500/20 bg-green-500/5">
+                <Info className="h-4 w-4" />
+                <AlertTitle>WhatsApp templates</AlertTitle>
+                <AlertDescription className="space-y-3">
+                    <p>
+                        Document and payroll message templates are managed separately from API
+                        credentials.
+                    </p>
+                    <Button asChild variant="outline" size="sm" className="rounded-xl">
+                        <Link href="/settings/application/whatsapp-templates">
+                            Open template library
+                        </Link>
+                    </Button>
+                </AlertDescription>
+            </Alert>
 
             <form onSubmit={submit} className="space-y-6">
                 <Card className="border-white/5 bg-white/5">

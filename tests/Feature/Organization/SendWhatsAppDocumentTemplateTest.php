@@ -80,6 +80,7 @@ test('whatsapp document template sends successfully', function () {
         'document' => $doc,
     ]), [
         'whatsapp_number' => '+971501234567',
+        'template_slug' => 'document_delivery',
     ]);
 
     $response->assertOk()
@@ -144,6 +145,7 @@ test('whatsapp document template returns error when meta api fails', function ()
         'document' => $doc,
     ]), [
         'whatsapp_number' => '+971501234567',
+        'template_slug' => 'document_delivery',
     ])->assertUnprocessable()
         ->assertJson([
             'message' => 'Template name does not exist in the translation',
@@ -186,5 +188,6 @@ test('users cannot send whatsapp document template for another employees documen
         'document' => $doc,
     ]), [
         'whatsapp_number' => '+971501234567',
+        'template_slug' => 'document_delivery',
     ])->assertNotFound();
 });

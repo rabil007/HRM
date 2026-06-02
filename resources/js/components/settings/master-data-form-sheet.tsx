@@ -24,6 +24,7 @@ type MasterDataFormSheetProps = {
     description: string;
     children: ReactNode;
     footer?: ReactNode;
+    contentClassName?: string;
 };
 
 export function MasterDataFormSheet({
@@ -33,12 +34,16 @@ export function MasterDataFormSheet({
     description,
     children,
     footer,
+    contentClassName,
 }: MasterDataFormSheetProps) {
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md"
+                className={cn(
+                    'flex w-full flex-col rounded-none p-0 glass-card sm:max-w-md',
+                    contentClassName,
+                )}
             >
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">{title}</SheetTitle>

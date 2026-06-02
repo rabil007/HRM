@@ -18,6 +18,7 @@ use App\Http\Controllers\Settings\MasterData\VesselTypeController;
 use App\Http\Controllers\Settings\MasterData\VisaTypeController;
 use App\Http\Controllers\Settings\SecurityController;
 use App\Http\Controllers\Settings\SettingsHubController;
+use App\Http\Controllers\Settings\WhatsAppTemplateController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['auth', 'verified'])->group(function () {
@@ -81,6 +82,25 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('settings/application/whatsapp/send-test-template', [WhatsAppIntegrationController::class, 'sendTestTemplate'])
         ->middleware('can:settings.integrations.whatsapp.update')
         ->name('application.whatsapp.send-test-template');
+
+    Route::post('settings/application/whatsapp/send-test-document-template', [WhatsAppIntegrationController::class, 'sendTestDocumentTemplate'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('application.whatsapp.send-test-document-template');
+
+    Route::get('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'index'])
+        ->name('application.whatsapp-templates.index');
+
+    Route::post('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'store'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('application.whatsapp-templates.store');
+
+    Route::put('settings/application/whatsapp-templates/{whatsapp_template}', [WhatsAppTemplateController::class, 'update'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('application.whatsapp-templates.update');
+
+    Route::delete('settings/application/whatsapp-templates/{whatsapp_template}', [WhatsAppTemplateController::class, 'destroy'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('application.whatsapp-templates.destroy');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])

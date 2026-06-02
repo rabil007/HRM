@@ -3,6 +3,7 @@ import { useState } from 'react';
 
 import { TableRowActions } from '@/components/table-row-actions';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
+import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { documents } from '@/routes/organization';
 import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 
@@ -13,6 +14,7 @@ export function BrowseDocumentActions({
     onPreview,
     canDownload = false,
     canSendWhatsAppTemplate = false,
+    whatsappTemplates = [],
 }: {
     doc: DocumentBrowseItem;
     employeeId: number;
@@ -20,6 +22,7 @@ export function BrowseDocumentActions({
     onPreview: (doc: DocumentBrowseItem) => void;
     canDownload?: boolean;
     canSendWhatsAppTemplate?: boolean;
+    whatsappTemplates?: WhatsAppTemplateOption[];
 }) {
     const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
 
@@ -62,6 +65,7 @@ export function BrowseDocumentActions({
                 employeePhone={employeePhone}
                 documentId={doc.id}
                 documentName={doc.document_name}
+                templates={whatsappTemplates}
             />
         </>
     );

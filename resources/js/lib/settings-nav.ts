@@ -9,6 +9,7 @@ import {
     IdCard,
     LayoutGrid,
     MapPin,
+    MessageCircle,
     Palette,
     PiggyBank,
     Sailboat,
@@ -33,6 +34,13 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         permission: 'settings.application.view',
         icon: SlidersHorizontal,
         color: 'bg-indigo-500/10 text-indigo-600',
+    },
+    {
+        title: 'WhatsApp templates',
+        href: '/settings/application/whatsapp-templates',
+        permission: 'settings.integrations.whatsapp.view',
+        icon: MessageCircle,
+        color: 'bg-green-500/10 text-green-600',
     },
     {
         title: 'Security',

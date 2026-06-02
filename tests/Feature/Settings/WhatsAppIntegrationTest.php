@@ -6,6 +6,22 @@ use App\Services\WhatsAppService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 
+/**
+ * @return array<string, mixed>
+ */
+function whatsappSettingsUpdatePayload(array $overrides = []): array
+{
+    return array_merge([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'test-access-token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'test-app-secret',
+        'webhook_verify_token' => 'verify-token-abc',
+        'enabled' => true,
+    ], $overrides);
+}
+
 test('owner can view whatsapp integration settings page', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
@@ -17,6 +33,7 @@ test('owner can view whatsapp integration settings page', function () {
             ->component('settings/application')
             ->has('whatsapp.settings')
             ->has('whatsapp.callback_url')
+            ->has('whatsapp.document_templates')
             ->where('whatsapp.settings.has_access_token', false),
         );
 });
@@ -61,15 +78,7 @@ test('whatsapp settings can be saved with encrypted secrets', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('application.whatsapp.update'), [
-            'business_account_id' => '123456789',
-            'phone_number_id' => '987654321',
-            'access_token' => 'test-access-token',
-            'app_id' => 'app-id-123',
-            'app_secret' => 'test-app-secret',
-            'webhook_verify_token' => 'verify-token-abc',
-            'enabled' => true,
-        ])
+        ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload())
         ->assertRedirect()
         ->assertSessionHas('success');
 
@@ -106,15 +115,10 @@ test('whatsapp secrets are kept when update omits them', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('application.whatsapp.update'), [
-            'business_account_id' => '123456789',
-            'phone_number_id' => '987654321',
+        ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload([
             'access_token' => '',
-            'app_id' => 'app-id-123',
             'app_secret' => '',
-            'webhook_verify_token' => 'verify-token-abc',
-            'enabled' => true,
-        ])
+        ]))
         ->assertRedirect();
 
     $settings = WhatsAppSetting::current();
@@ -261,15 +265,7 @@ test('users without permission cannot update whatsapp settings', function () {
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
 
     $this->actingAs($user)
-        ->put(route('application.whatsapp.update'), [
-            'business_account_id' => '123456789',
-            'phone_number_id' => '987654321',
-            'access_token' => 'test-access-token',
-            'app_id' => 'app-id-123',
-            'app_secret' => 'test-app-secret',
-            'webhook_verify_token' => 'verify-token-abc',
-            'enabled' => true,
-        ])
+        ->put(route('application.whatsapp.update'), whatsappSettingsUpdatePayload())
         ->assertForbidden();
 });
 
@@ -418,5 +414,51 @@ test('whatsapp test template sends hello_world successfully', function () {
         return ($body['to'] ?? null) === '971563769023'
             && ($body['type'] ?? null) === 'template'
             && ($body['template']['name'] ?? null) === 'hello_world';
+    });
+});
+
+test('whatsapp test document delivery template sends using library template', function () {
+    Http::fake([
+        'graph.facebook.com/*' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.test-delivery-id']],
+        ], 200),
+    ]);
+
+    WhatsAppSetting::current()->update([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'valid-token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'secret',
+        'webhook_verify_token' => 'verify-token-abc',
+        'enabled' => true,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.whatsapp.view',
+        'settings.integrations.whatsapp.update',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('application.whatsapp.send-test-document-template'), [
+            'phone' => '+971501234567',
+            'sample_name' => 'Test Employee',
+            'file' => UploadedFile::fake()->createWithContent('sample.pdf', '%PDF-1.4 test content'),
+        ])
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'message_id' => 'wamid.test-delivery-id',
+        ]);
+
+    Http::assertSent(function ($request) {
+        $body = $request->data();
+
+        return ($body['type'] ?? null) === 'template'
+            && ($body['template']['name'] ?? null) === 'document_delivery'
+            && ($body['template']['language']['code'] ?? null) === 'en'
+            && ($body['template']['components'][1]['parameters'][0]['text'] ?? null) === 'Test Employee';
     });
 });

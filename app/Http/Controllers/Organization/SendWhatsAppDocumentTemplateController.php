@@ -7,6 +7,7 @@ use App\Http\Requests\Organization\EmployeeDocument\SendWhatsAppDocumentTemplate
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\WhatsAppSetting;
+use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentShareLinkService;
@@ -35,6 +36,7 @@ class SendWhatsAppDocumentTemplateController extends Controller
         }
 
         $phone = trim($request->validated('whatsapp_number'));
+        $template = WhatsAppTemplate::resolveBySlug($request->validated('template_slug'));
 
         $fileName = $shareLinks->displayName($document);
         $documentUrl = $this->publicHttpsUrl($shareLinks->shareUrl($document));
@@ -45,6 +47,7 @@ class SendWhatsAppDocumentTemplateController extends Controller
                 employeeName: (string) $employee->name,
                 documentUrl: $documentUrl,
                 fileName: $fileName,
+                templateOrSlug: $template,
             );
         } catch (RuntimeException $exception) {
             return response()->json([

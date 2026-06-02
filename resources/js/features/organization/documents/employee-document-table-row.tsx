@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { BrowseDocumentActions } from '@/features/organization/documents/shared/document-actions/browse-actions';
+import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
 import { DocumentExpiryDisplay, DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
@@ -26,6 +27,7 @@ export function EmployeeDocumentTableRow({
     onPreview,
     canDownload = false,
     canSendWhatsAppTemplate = false,
+    whatsappTemplates = [],
     selected = false,
     onSelectedChange,
     selectionMode = false,
@@ -36,6 +38,7 @@ export function EmployeeDocumentTableRow({
     onPreview: (doc: DocumentBrowseItem) => void;
     canDownload?: boolean;
     canSendWhatsAppTemplate?: boolean;
+    whatsappTemplates?: WhatsAppTemplateOption[];
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
@@ -107,6 +110,7 @@ export function EmployeeDocumentTableRow({
                     onPreview={onPreview}
                     canDownload={canDownload}
                     canSendWhatsAppTemplate={canSendWhatsAppTemplate}
+                    whatsappTemplates={whatsappTemplates}
                 />
             </TableCell>
         </TableRow>

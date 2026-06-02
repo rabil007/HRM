@@ -45,6 +45,10 @@ import {
     fetchDocumentShareLinks,
 } from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
+import {
+    resolveDefaultWhatsAppTemplate,
+    type WhatsAppTemplateOption,
+} from '@/features/organization/documents/whatsapp-template/types';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
@@ -59,6 +63,7 @@ type Props = {
         share: boolean;
         delete: boolean;
         whatsapp_template: boolean;
+        whatsapp_templates: WhatsAppTemplateOption[];
     };
 };
 
@@ -81,6 +86,8 @@ export default function EmployeeDocumentsBrowse({
     const canDownloadDocuments = can.download;
     const canShareDocuments = can.share;
     const canSendWhatsAppTemplate = can.whatsapp_template;
+    const whatsappTemplates = can.whatsapp_templates ?? [];
+    const defaultWhatsappTemplate = resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [fileSearch, setFileSearch] = useState('');
@@ -377,7 +384,7 @@ export default function EmployeeDocumentsBrowse({
                                 title={
                                     selectedDocumentCount !== 1
                                         ? 'Select exactly one file to send via WhatsApp'
-                                        : 'Send PDF using the document_delivery template'
+                                        : `Send PDF using the ${defaultWhatsappTemplate?.label ?? 'document delivery'} template`
                                 }
                             >
                                 <Send className="mr-2 h-4 w-4" />
@@ -459,6 +466,7 @@ export default function EmployeeDocumentsBrowse({
                                 onPreview={setPreviewDoc}
                                 canDownload={canDownloadDocuments}
                                 canSendWhatsAppTemplate={canSendWhatsAppTemplate}
+                                whatsappTemplates={whatsappTemplates}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}
@@ -506,6 +514,7 @@ export default function EmployeeDocumentsBrowse({
                 employeePhone={employee.phone}
                 documentId={whatsappTemplateDocument?.id ?? 0}
                 documentName={whatsappTemplateDocument?.name ?? ''}
+                templates={whatsappTemplates}
                 onSendComplete={clearDocumentSelection}
             />
 
