@@ -183,7 +183,9 @@ test('whatsapp webhook verify returns challenge when token matches', function ()
 });
 
 test('whatsapp webhook verify supports meta dotted query parameters', function () {
-    config(['whatsapp.verify_token' => 'HERD_OMS_WHATSAPP_VERIFY_TOKEN']);
+    WhatsAppSetting::current()->update([
+        'webhook_verify_token' => 'HERD_OMS_WHATSAPP_VERIFY_TOKEN',
+    ]);
 
     $this->get('/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=HERD_OMS_WHATSAPP_VERIFY_TOKEN&hub.challenge=123456')
         ->assertOk()

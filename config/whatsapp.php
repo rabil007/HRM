@@ -5,5 +5,4 @@ return [
     'graph_base_url' => env('WHATSAPP_GRAPH_BASE_URL', 'https://graph.facebook.com'),
     'timeout' => (int) env('WHATSAPP_HTTP_TIMEOUT', 30),
     'webhook_route_name' => 'whatsapp.webhook',
-    'verify_token' => env('WHATSAPP_VERIFY_TOKEN'),
 ];

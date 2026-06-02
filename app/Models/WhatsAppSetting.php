@@ -34,7 +34,10 @@ class WhatsAppSetting extends Model
     {
         return self::query()->firstOrCreate(
             ['id' => 1],
-            ['enabled' => false],
+            [
+                'enabled' => false,
+                'webhook_verify_token' => 'HERD_OMS_WHATSAPP_VERIFY_TOKEN',
+            ],
         );
     }
 
