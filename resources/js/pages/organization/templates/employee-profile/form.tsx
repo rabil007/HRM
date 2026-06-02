@@ -211,7 +211,6 @@ export default function EmployeeProfileTemplateForm({
             <Head title={isEdit ? 'Edit profile template' : 'Create profile template'} />
             <Main>
                 <PageHeader
-                    kicker="Organization"
                     title={isEdit ? 'Edit profile template' : 'Create profile template'}
                     description="Configure which profile tabs and fields are visible or required."
                     right={
