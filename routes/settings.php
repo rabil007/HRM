@@ -80,6 +80,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.integrations.whatsapp.update')
         ->name('integrations.whatsapp.send-test-document');
 
+    Route::post('settings/integrations/whatsapp/send-test-template', [WhatsAppIntegrationController::class, 'sendTestTemplate'])
+        ->middleware('can:settings.integrations.whatsapp.update')
+        ->name('integrations.whatsapp.send-test-template');
+
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])
             ->middleware('can:settings.master-data.countries.view')

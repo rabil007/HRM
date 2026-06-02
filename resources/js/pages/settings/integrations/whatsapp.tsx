@@ -3,6 +3,7 @@ import {
     CheckCircle2,
     Copy,
     FileUp,
+    Info,
     Link2,
     Lock,
     MessageCircle,
@@ -13,6 +14,7 @@ import {
 import { useRef, useState } from 'react';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,7 +24,9 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import {
     sendWhatsAppTestDocument,
+    sendWhatsAppTestTemplate,
     sendWhatsAppTestText,
+    type WhatsAppApiExchange,
     type WhatsAppTestSendResult,
 } from '@/features/settings/send-whatsapp-test-message';
 import { testWhatsAppConnection } from '@/features/settings/test-whatsapp-connection';
@@ -88,6 +92,7 @@ export default function WhatsAppIntegration({
     const [testFile, setTestFile] = useState<File | null>(null);
     const [sendingText, setSendingText] = useState(false);
     const [sendingDocument, setSendingDocument] = useState(false);
+    const [sendingTemplate, setSendingTemplate] = useState(false);
     const [testResult, setTestResult] = useState<WhatsAppTestSendResult | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -262,6 +267,39 @@ export default function WhatsAppIntegration({
         }
     };
 
+    const handleSendTestTemplate = async () => {
+        if (!can.update || !canSendTests) {
+            return;
+        }
+
+        const phone = testPhone.trim();
+
+        if (!phone) {
+            toast.error('Enter a WhatsApp number with country code.');
+            return;
+        }
+
+        setSendingTemplate(true);
+        setTestResult(null);
+
+        try {
+            const result = await sendWhatsAppTestTemplate(phone);
+            setTestResult(result);
+
+            if (result.success) {
+                toast.success(result.message);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Failed to send WhatsApp test template.';
+            toast.error(message);
+        } finally {
+            setSendingTemplate(false);
+        }
+    };
+
     return (
         <>
             <Head title="WhatsApp integration" />
@@ -338,10 +376,32 @@ export default function WhatsAppIntegration({
                                 <div>
                                     <h2 className="text-base font-bold tracking-tight">Test messages</h2>
                                     <p className="text-xs text-muted-foreground mt-0.5">
-                                        Send a text message or upload a file to verify delivery.
+                                        Templates work anytime. Text and files only deliver inside
+                                        the 24-hour customer service window.
                                     </p>
                                 </div>
                             </div>
+
+                            <Alert className="border-amber-500/20 bg-amber-500/5 text-amber-700 dark:text-amber-400">
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>Why templates arrive but text does not</AlertTitle>
+                                <AlertDescription>
+                                    <p>
+                                        Meta accepts text and file messages with HTTP 200 even when
+                                        they will not be delivered. Session messages require the
+                                        recipient to message your business WhatsApp number first
+                                        (within 24 hours), or to be on your Meta app test recipient
+                                        list.
+                                    </p>
+                                    <p className="mt-2">
+                                        Use &quot;Send hello_world template&quot; to verify delivery
+                                        outside the session window. For UAE numbers, use{' '}
+                                        <span className="font-mono">+971563769023</span> — not{' '}
+                                        <span className="font-mono">+9710563769023</span> (extra
+                                        zero after country code).
+                                    </p>
+                                </AlertDescription>
+                            </Alert>
 
                             <div className="grid gap-5 lg:grid-cols-2">
                                 <div className="space-y-1.5">
@@ -356,8 +416,9 @@ export default function WhatsAppIntegration({
                                         disabled={!canSendTests}
                                     />
                                     <p className="text-xs text-muted-foreground">
-                                        Include country code. Recipient must be on your Meta test list
-                                        or have an open messaging window.
+                                        Include country code (e.g. +971563769023). Recipient must be
+                                        on your Meta test list or have messaged your business number
+                                        within 24 hours for text/files.
                                     </p>
                                 </div>
 
@@ -414,7 +475,27 @@ export default function WhatsAppIntegration({
                                     type="button"
                                     variant="outline"
                                     className="rounded-xl"
-                                    disabled={!canSendTests || sendingText || sendingDocument}
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate
+                                    }
+                                    onClick={handleSendTestTemplate}
+                                >
+                                    {sendingTemplate ? <Spinner className="mr-2" /> : null}
+                                    Send hello_world template
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate
+                                    }
                                     onClick={handleSendTestText}
                                 >
                                     {sendingText ? <Spinner className="mr-2" /> : null}
@@ -424,7 +505,13 @@ export default function WhatsAppIntegration({
                                     type="button"
                                     variant="outline"
                                     className="rounded-xl"
-                                    disabled={!canSendTests || sendingText || sendingDocument || !testFile}
+                                    disabled={
+                                        !canSendTests ||
+                                        sendingText ||
+                                        sendingDocument ||
+                                        sendingTemplate ||
+                                        !testFile
+                                    }
                                     onClick={handleSendTestDocument}
                                 >
                                     {sendingDocument ? <Spinner className="mr-2" /> : null}
@@ -441,29 +528,7 @@ export default function WhatsAppIntegration({
                             ) : null}
 
                             {testResult ? (
-                                <div
-                                    className={cn(
-                                        'rounded-xl border px-4 py-3 text-sm space-y-2',
-                                        testResult.success
-                                            ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600'
-                                            : 'border-destructive/20 bg-destructive/5 text-destructive',
-                                    )}
-                                >
-                                    <p className="font-medium">{testResult.message}</p>
-                                    {testResult.message_id ? (
-                                        <p className="font-mono text-xs break-all">
-                                            Message ID: {testResult.message_id}
-                                        </p>
-                                    ) : null}
-                                    {testResult.media_id ? (
-                                        <p className="font-mono text-xs break-all">
-                                            Media ID: {testResult.media_id}
-                                        </p>
-                                    ) : null}
-                                    {testResult.http_status ? (
-                                        <p className="text-xs">HTTP {testResult.http_status}</p>
-                                    ) : null}
-                                </div>
+                                <WhatsAppTestResultPanel result={testResult} />
                             ) : null}
                         </CardContent>
                     </Card>
@@ -679,6 +744,88 @@ function StatusItem({
                 {label}
             </p>
             {children}
+        </div>
+    );
+}
+
+function WhatsAppTestResultPanel({ result }: { result: WhatsAppTestSendResult }) {
+    return (
+        <div
+            className={cn(
+                'rounded-xl border px-4 py-4 text-sm space-y-4',
+                result.success
+                    ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600'
+                    : 'border-destructive/20 bg-destructive/5 text-destructive',
+            )}
+        >
+            <div className="space-y-2">
+                <p className="font-medium">{result.message}</p>
+                {result.normalized_phone ? (
+                    <p className="font-mono text-xs break-all">
+                        Sent to: {result.normalized_phone}
+                    </p>
+                ) : null}
+                {result.delivery_note ? (
+                    <p className="text-xs text-current/80">{result.delivery_note}</p>
+                ) : null}
+                {result.message_id ? (
+                    <p className="font-mono text-xs break-all">
+                        Message ID: {result.message_id}
+                    </p>
+                ) : null}
+                {result.media_id ? (
+                    <p className="font-mono text-xs break-all">Media ID: {result.media_id}</p>
+                ) : null}
+                {result.http_status ? <p className="text-xs">HTTP {result.http_status}</p> : null}
+            </div>
+
+            {result.media_api ? (
+                <WhatsAppApiExchangePanel title="Step 1 — Media upload" exchange={result.media_api} />
+            ) : null}
+
+            {result.api ? (
+                <WhatsAppApiExchangePanel
+                    title={result.media_api ? 'Step 2 — Send message' : 'Meta Graph API'}
+                    exchange={result.api}
+                />
+            ) : null}
+        </div>
+    );
+}
+
+function WhatsAppApiExchangePanel({
+    title,
+    exchange,
+}: {
+    title: string;
+    exchange: WhatsAppApiExchange;
+}) {
+    return (
+        <div className="space-y-3 rounded-lg border border-current/15 bg-black/10 p-3 text-foreground">
+            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                {title}
+            </p>
+
+            <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Request
+                </p>
+                <p className="font-mono text-xs break-all text-emerald-700 dark:text-emerald-400">
+                    {exchange.request.method} {exchange.request.url}
+                </p>
+                <pre className="max-h-64 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                    {JSON.stringify(exchange.request.payload, null, 2)}
+                </pre>
+            </div>
+
+            <div className="space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    Response — HTTP {exchange.response.http_status}
+                </p>
+                <pre className="max-h-64 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                    {JSON.stringify(exchange.response.body, null, 2)}
+                </pre>
+            </div>
         </div>
     );
 }

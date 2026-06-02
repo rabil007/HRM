@@ -47,20 +47,29 @@ class WhatsAppService
     {
         $credentials = $this->resolveCredentials();
 
-        $response = $this->client($credentials['access_token'])
-            ->post("/{$credentials['phone_number_id']}/messages", [
-                'messaging_product' => 'whatsapp',
-                'to' => $this->normalizePhone($phone),
-                'type' => 'text',
-                'text' => [
-                    'body' => $text,
-                ],
-            ]);
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $this->normalizePhone($phone),
+            'type' => 'text',
+            'text' => [
+                'body' => $text,
+            ],
+        ];
 
-        return $this->parseMessageResponse($response);
+        $response = $this->client($credentials['access_token'])
+            ->post($this->messagesPath($credentials['phone_number_id']), $payload);
+
+        $result = $this->parseMessageResponse($response, 'POST', $credentials['phone_number_id'], $payload);
+        $result['normalized_phone'] = $this->normalizePhone($phone);
+        $result['delivery_note'] = 'Text messages only appear if the recipient messaged your business number within the last 24 hours, or is on your Meta test recipient list.';
+
+        return $result;
     }
 
-    public function uploadDocument(string $filePath, ?string $mime = null): string
+    /**
+     * @return array{media_id: string, api: array<string, mixed>}
+     */
+    private function uploadDocumentWithMeta(string $filePath, ?string $mime = null): array
     {
         if (! is_readable($filePath)) {
             throw new InvalidArgumentException("File is not readable: {$filePath}");
@@ -68,13 +77,19 @@ class WhatsAppService
 
         $credentials = $this->resolveCredentials();
         $mime ??= mime_content_type($filePath) ?: 'application/octet-stream';
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'type' => $mime,
+        ];
 
         $response = $this->client($credentials['access_token'])
             ->attach('file', file_get_contents($filePath), basename($filePath))
-            ->post("/{$credentials['phone_number_id']}/media", [
-                'messaging_product' => 'whatsapp',
-                'type' => $mime,
-            ]);
+            ->post($this->mediaPath($credentials['phone_number_id']), $payload);
+
+        $api = $this->buildApiExchange('POST', $credentials['phone_number_id'], $this->mediaPath($credentials['phone_number_id']), [
+            ...$payload,
+            'file' => basename($filePath),
+        ], $response);
 
         if (! $response->successful()) {
             throw new RuntimeException($this->parseMetaError($response));
@@ -86,7 +101,15 @@ class WhatsAppService
             throw new RuntimeException('WhatsApp media upload did not return a media ID.');
         }
 
-        return $mediaId;
+        return [
+            'media_id' => $mediaId,
+            'api' => $api,
+        ];
+    }
+
+    public function uploadDocument(string $filePath, ?string $mime = null): string
+    {
+        return $this->uploadDocumentWithMeta($filePath, $mime)['media_id'];
     }
 
     /**
@@ -94,11 +117,11 @@ class WhatsAppService
      */
     public function sendDocument(string $phone, string $filePath, string $fileName, ?string $caption = null): array
     {
-        $mediaId = $this->uploadDocument($filePath);
+        $upload = $this->uploadDocumentWithMeta($filePath);
         $credentials = $this->resolveCredentials();
 
         $document = [
-            'id' => $mediaId,
+            'id' => $upload['media_id'],
             'filename' => $fileName,
         ];
 
@@ -106,18 +129,31 @@ class WhatsAppService
             $document['caption'] = $caption;
         }
 
-        $response = $this->client($credentials['access_token'])
-            ->post("/{$credentials['phone_number_id']}/messages", [
-                'messaging_product' => 'whatsapp',
-                'to' => $this->normalizePhone($phone),
-                'type' => 'document',
-                'document' => $document,
-            ]);
+        $payload = [
+            'messaging_product' => 'whatsapp',
+            'to' => $this->normalizePhone($phone),
+            'type' => 'document',
+            'document' => $document,
+        ];
 
-        $result = $this->parseMessageResponse($response);
-        $result['media_id'] = $mediaId;
+        $response = $this->client($credentials['access_token'])
+            ->post($this->messagesPath($credentials['phone_number_id']), $payload);
+
+        $result = $this->parseMessageResponse($response, 'POST', $credentials['phone_number_id'], $payload);
+        $result['media_id'] = $upload['media_id'];
+        $result['media_api'] = $upload['api'];
+        $result['normalized_phone'] = $this->normalizePhone($phone);
+        $result['delivery_note'] = 'Documents only appear if the recipient messaged your business number within the last 24 hours, or is on your Meta test recipient list.';
 
         return $result;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function sendTemplateMessage(string $phone): array
+    {
+        return $this->sendTemplate($phone, 'hello_world', 'en_US');
     }
 
     /**
@@ -149,9 +185,13 @@ class WhatsAppService
         }
 
         $response = $this->client($credentials['access_token'])
-            ->post("/{$credentials['phone_number_id']}/messages", $payload);
+            ->post($this->messagesPath($credentials['phone_number_id']), $payload);
 
-        return $this->parseMessageResponse($response);
+        $result = $this->parseMessageResponse($response, 'POST', $credentials['phone_number_id'], $payload);
+        $result['normalized_phone'] = $this->normalizePhone($phone);
+        $result['delivery_note'] = 'Template messages can be delivered outside the 24-hour session window.';
+
+        return $result;
     }
 
     /**
@@ -198,7 +238,68 @@ class WhatsAppService
 
     public function normalizePhone(string $phone): string
     {
-        return preg_replace('/\D+/', '', $phone) ?? '';
+        $digits = preg_replace('/\D+/', '', $phone) ?? '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        // UAE local numbers are often entered as +9710XXXXXXXX — drop the trunk zero.
+        if (str_starts_with($digits, '9710') && strlen($digits) >= 13) {
+            $digits = '971'.substr($digits, 4);
+        }
+
+        // Generic international format with leading zero after country code (e.g. 97105...).
+        if (preg_match('/^(\d{1,3})0(\d{6,})$/', $digits, $matches) === 1) {
+            $digits = $matches[1].$matches[2];
+        }
+
+        return $digits;
+    }
+
+    private function messagesPath(string $phoneNumberId): string
+    {
+        return "/{$phoneNumberId}/messages";
+    }
+
+    private function mediaPath(string $phoneNumberId): string
+    {
+        return "/{$phoneNumberId}/media";
+    }
+
+    private function graphUrl(string $phoneNumberId, string $path): string
+    {
+        $version = config('whatsapp.graph_api_version');
+        $baseUrl = rtrim((string) config('whatsapp.graph_base_url'), '/');
+
+        return "{$baseUrl}/{$version}{$path}";
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    private function buildApiExchange(
+        string $method,
+        string $phoneNumberId,
+        string $path,
+        array $payload,
+        Response $response,
+    ): array {
+        $body = $response->json();
+        $parsedBody = is_array($body) ? $body : ['raw' => $response->body()];
+
+        return [
+            'request' => [
+                'method' => $method,
+                'url' => $this->graphUrl($phoneNumberId, $path),
+                'payload' => $payload,
+            ],
+            'response' => [
+                'http_status' => $response->status(),
+                'body' => $parsedBody,
+            ],
+        ];
     }
 
     private function parseMetaError(Response $response): string
@@ -213,20 +314,27 @@ class WhatsAppService
     }
 
     /**
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
-    private function parseMessageResponse(Response $response): array
-    {
+    private function parseMessageResponse(
+        Response $response,
+        string $method,
+        string $phoneNumberId,
+        array $payload,
+    ): array {
         $data = $response->json();
         $messageId = is_array($data) ? ($data['messages'][0]['id'] ?? null) : null;
+        $api = $this->buildApiExchange($method, $phoneNumberId, $this->messagesPath($phoneNumberId), $payload, $response);
 
         if ($response->successful()) {
             return [
                 'success' => true,
-                'message' => 'Message sent successfully.',
+                'message' => 'Message accepted by Meta.',
                 'message_id' => is_string($messageId) ? $messageId : null,
                 'http_status' => $response->status(),
                 'data' => is_array($data) ? $data : null,
+                'api' => $api,
             ];
         }
 
@@ -236,6 +344,7 @@ class WhatsAppService
             'message_id' => null,
             'http_status' => $response->status(),
             'data' => is_array($data) ? $data : null,
+            'api' => $api,
         ];
     }
 }

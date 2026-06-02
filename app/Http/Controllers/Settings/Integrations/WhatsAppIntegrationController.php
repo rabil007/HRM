@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Settings\Integrations;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\SendWhatsAppTestDocumentRequest;
+use App\Http\Requests\Settings\SendWhatsAppTestTemplateRequest;
 use App\Http\Requests\Settings\SendWhatsAppTestTextRequest;
 use App\Http\Requests\Settings\TestWhatsAppConnectionRequest;
 use App\Http\Requests\Settings\UpdateWhatsAppIntegrationRequest;
@@ -89,6 +90,13 @@ class WhatsAppIntegrationController extends Controller
                 $file->getClientOriginalName(),
                 $request->validated('caption'),
             ),
+        );
+    }
+
+    public function sendTestTemplate(SendWhatsAppTestTemplateRequest $request): JsonResponse
+    {
+        return $this->messageTestResponse(
+            fn () => $this->whatsapp->sendTemplateMessage($request->validated('phone')),
         );
     }
 

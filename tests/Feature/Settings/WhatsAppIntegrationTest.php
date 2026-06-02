@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\WhatsAppSetting;
+use App\Services\WhatsAppService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 
@@ -283,6 +284,12 @@ test('whatsapp test text message sends successfully using stored credentials', f
         ->assertJson([
             'success' => true,
             'message_id' => 'wamid.test-text-id',
+        ])
+        ->assertJsonStructure([
+            'api' => [
+                'request' => ['method', 'url', 'payload'],
+                'response' => ['http_status', 'body'],
+            ],
         ]);
 });
 
@@ -323,4 +330,62 @@ test('whatsapp test document upload sends file successfully', function () {
             'message_id' => 'wamid.test-doc-id',
             'media_id' => 'media-test-123',
         ]);
+});
+
+test('whatsapp normalizes uae numbers with trunk zero after country code', function () {
+    $service = app(WhatsAppService::class);
+
+    expect($service->normalizePhone('+9710563769023'))->toBe('971563769023')
+        ->and($service->normalizePhone('+971563769023'))->toBe('971563769023')
+        ->and($service->normalizePhone('+971501234567'))->toBe('971501234567');
+});
+
+test('whatsapp test template sends hello_world successfully', function () {
+    Http::fake([
+        'graph.facebook.com/*' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.test-template-id']],
+        ], 200),
+    ]);
+
+    WhatsAppSetting::current()->storeFromValidated([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'valid-token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'secret',
+        'webhook_verify_token' => 'verify-token-abc',
+        'enabled' => true,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.whatsapp.view',
+        'settings.integrations.whatsapp.update',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('integrations.whatsapp.send-test-template'), [
+            'phone' => '+9710563769023',
+        ])
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'message_id' => 'wamid.test-template-id',
+            'normalized_phone' => '971563769023',
+        ])
+        ->assertJsonStructure([
+            'api' => [
+                'request' => ['method', 'url', 'payload'],
+                'response' => ['http_status', 'body'],
+            ],
+        ]);
+
+    Http::assertSent(function ($request) {
+        $body = $request->data();
+
+        return ($body['to'] ?? null) === '971563769023'
+            && ($body['type'] ?? null) === 'template'
+            && ($body['template']['name'] ?? null) === 'hello_world';
+    });
 });
