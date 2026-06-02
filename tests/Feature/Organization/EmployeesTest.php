@@ -2065,6 +2065,86 @@ test('employee directory index can be filtered by approval location and sssa opt
         ->toEqual(collect([$dp2->id, $supply->id])->sort()->values()->all());
 });
 
+test('employee directory index can be filtered by multiple approval locations and sssa options', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'WAF2',
+        'name' => 'Work Assignment Filterland 2',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'WAF2',
+        'name' => 'Work Assignment Currency 2',
+        'symbol' => 'W$2',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Work Assignment Filter Co 2',
+        'slug' => 'work-assignment-filter-co-2',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $lzField = ApprovalLocation::query()->create(['name' => 'LZ Field 2', 'is_active' => true]);
+    $dasIsland = ApprovalLocation::query()->create(['name' => 'Das Island 2', 'is_active' => true]);
+    $supply = SssaOption::query()->create(['name' => 'Supply 2', 'is_active' => true]);
+    $dp2 = SssaOption::query()->create(['name' => 'DP2 2', 'is_active' => true]);
+
+    $matched = Employee::factory()->forCompany($company)->create(['employee_no' => 'WAF2001']);
+    $matched->approvalLocations()->sync([$lzField->id]);
+    $matched->sssaOptions()->sync([$supply->id]);
+
+    $matched2 = Employee::factory()->forCompany($company)->create(['employee_no' => 'WAF2002']);
+    $matched2->approvalLocations()->sync([$dasIsland->id]);
+    $matched2->sssaOptions()->sync([$dp2->id]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $expectedIds = collect([$matched->id, $matched2->id])->sort()->values()->all();
+
+    $byLocations = $this->get('/organization/employees?approval_location_id='.$lzField->id.','.$dasIsland->id)
+        ->assertOk();
+
+    $locationIds = collect($byLocations->viewData('page')['props']['employees'])
+        ->pluck('id')
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($locationIds)->toBe($expectedIds);
+
+    $bySssa = $this->get('/organization/employees?sssa_option_id='.$supply->id.','.$dp2->id)
+        ->assertOk();
+
+    $sssaIds = collect($bySssa->viewData('page')['props']['employees'])
+        ->pluck('id')
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($sssaIds)->toBe($expectedIds);
+
+    $byBoth = $this->get('/organization/employees?approval_location_id='.$lzField->id.','.$dasIsland->id.'&sssa_option_id='.$supply->id.','.$dp2->id)
+        ->assertOk();
+
+    $bothIds = collect($byBoth->viewData('page')['props']['employees'])
+        ->pluck('id')
+        ->sort()
+        ->values()
+        ->all();
+
+    expect($bothIds)->toBe($expectedIds);
+});
+
 test('employee without profile template can assign one', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -21,9 +21,9 @@ import {
     CalendarCheck2,
     PiggyBank,
 } from 'lucide-react';
+import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
 import { documents } from '@/routes/organization';
-import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import type { SidebarData } from '../types';
 
 const placeholder = (key: string) =>

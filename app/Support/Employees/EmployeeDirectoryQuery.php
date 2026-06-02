@@ -52,14 +52,38 @@ final class EmployeeDirectoryQuery
             ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))
             ->when($filters->companyVisaTypeId, fn (Builder $q) => $q->where('company_visa_type_id', $filters->companyVisaTypeId))
             ->when($filters->rankId, fn (Builder $q) => $q->where('rank_id', $filters->rankId))
-            ->when($filters->approvalLocationId, fn (Builder $q) => $q->whereHas(
-                'approvalLocations',
-                fn (Builder $rel) => $rel->where('approval_locations.id', $filters->approvalLocationId),
-            ))
-            ->when($filters->sssaOptionId, fn (Builder $q) => $q->whereHas(
-                'sssaOptions',
-                fn (Builder $rel) => $rel->where('sssa_options.id', $filters->sssaOptionId),
-            ))
+            ->when($filters->approvalLocationId, function (Builder $q) use ($filters): void {
+                $ids = collect(explode(',', $filters->approvalLocationId))
+                    ->map(fn (string $id): int => (int) trim($id))
+                    ->filter(fn (int $id): bool => $id > 0)
+                    ->values()
+                    ->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                $q->whereHas(
+                    'approvalLocations',
+                    fn (Builder $rel) => $rel->whereIn('approval_locations.id', $ids),
+                );
+            })
+            ->when($filters->sssaOptionId, function (Builder $q) use ($filters): void {
+                $ids = collect(explode(',', $filters->sssaOptionId))
+                    ->map(fn (string $id): int => (int) trim($id))
+                    ->filter(fn (int $id): bool => $id > 0)
+                    ->values()
+                    ->all();
+
+                if ($ids === []) {
+                    return;
+                }
+
+                $q->whereHas(
+                    'sssaOptions',
+                    fn (Builder $rel) => $rel->whereIn('sssa_options.id', $ids),
+                );
+            })
             ->when($filters->search, function (Builder $q) use ($filters): void {
                 $search = $filters->search;
 

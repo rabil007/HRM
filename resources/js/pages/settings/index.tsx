@@ -5,9 +5,10 @@ import { Card } from '@/components/ui/card';
 import {
     filterSettingsNavItems,
     SETTINGS_MASTER_DATA_ITEMS,
-    SETTINGS_SYSTEM_ITEMS,
-    type SettingsNavItem,
+    SETTINGS_SYSTEM_ITEMS
+    
 } from '@/lib/settings-nav';
+import type {SettingsNavItem} from '@/lib/settings-nav';
 import { cn } from '@/lib/utils';
 
 const SETTINGS_GROUPS = [

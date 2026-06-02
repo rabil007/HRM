@@ -1,6 +1,8 @@
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { FiltersSheet } from '@/components/filters-sheet';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type {
     BranchOption,
     CompanyVisaTypeOption,
@@ -44,6 +46,28 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     sssa_option_id: '',
 };
 
+function csvIdSet(csv: string): Set<string> {
+    return new Set(
+        csv
+            .split(',')
+            .map((v) => v.trim())
+            .filter((v) => v !== ''),
+    );
+}
+
+function toggleCsvId(csv: string, id: string, checked: boolean): string {
+    const ids = csv
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v !== '');
+
+    if (checked) {
+        return ids.includes(id) ? ids.join(',') : [...ids, id].join(',');
+    }
+
+    return ids.filter((value) => value !== id).join(',');
+}
+
 export function EmployeeFiltersSheet({
     open,
     onOpenChange,
@@ -77,6 +101,9 @@ export function EmployeeFiltersSheet({
     sssaOptions: SssaOption[];
     ranks: RankOption[];
 }) {
+    const selectedApprovalLocationIds = csvIdSet(value.approval_location_id);
+    const selectedSssaOptionIds = csvIdSet(value.sssa_option_id);
+
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -236,38 +263,90 @@ export function EmployeeFiltersSheet({
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Approval location
                     </Label>
-                    <AppSelect
-                        value={value.approval_location_id}
-                        onValueChange={(v) => onChange({ ...value, approval_location_id: v })}
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {approvalLocations.map((location) => (
-                            <AppSelectItem key={location.id} value={String(location.id)}>
-                                {location.name}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
+                    <div className="grid grid-cols-2 gap-2">
+                        {approvalLocations.map((location) => {
+                            const id = String(location.id);
+                            const checked = selectedApprovalLocationIds.has(id);
+
+                            return (
+                                <label
+                                    key={location.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(v) =>
+                                            onChange({
+                                                ...value,
+                                                approval_location_id: toggleCsvId(
+                                                    value.approval_location_id,
+                                                    id,
+                                                    v === true,
+                                                ),
+                                            })
+                                        }
+                                    />
+                                    <span className="min-w-0 text-sm text-foreground">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="block cursor-help truncate">
+                                                    {location.name}
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="start">
+                                                {location.name}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         SSSA
                     </Label>
-                    <AppSelect
-                        value={value.sssa_option_id}
-                        onValueChange={(v) => onChange({ ...value, sssa_option_id: v })}
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {sssaOptions.map((option) => (
-                            <AppSelectItem key={option.id} value={String(option.id)}>
-                                {option.name}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
+                    <div className="grid grid-cols-2 gap-2">
+                        {sssaOptions.map((option) => {
+                            const id = String(option.id);
+                            const checked = selectedSssaOptionIds.has(id);
+
+                            return (
+                                <label
+                                    key={option.id}
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                                >
+                                    <Checkbox
+                                        checked={checked}
+                                        onCheckedChange={(v) =>
+                                            onChange({
+                                                ...value,
+                                                sssa_option_id: toggleCsvId(
+                                                    value.sssa_option_id,
+                                                    id,
+                                                    v === true,
+                                                ),
+                                            })
+                                        }
+                                    />
+                                    <span className="min-w-0 text-sm text-foreground">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <span className="block cursor-help truncate">
+                                                    {option.name}
+                                                </span>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="top" align="start">
+                                                {option.name}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </span>
+                                </label>
+                            );
+                        })}
+                    </div>
                 </div>
 
                 <div className="space-y-2 sm:col-span-2">
