@@ -734,6 +734,7 @@ function EmployeeDetailsPage({
                                         ) : (
                                             <EmployeeTrainingTab
                                                 employeeId={effectiveEmployeeId}
+                                                employeeName={employee.name}
                                                 trainings={trainings ?? []}
                                                 courses={courses ?? []}
                                                 countries={countries}
