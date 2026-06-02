@@ -8,11 +8,18 @@ export type DepartmentOption = {
     name: string | null;
 };
 
+export type DepartmentTreePositionNode = {
+    id: number;
+    name: string;
+    count: number;
+};
+
 export type DepartmentTreeNode = {
     id: number | null;
     name: string;
     count: number;
     children: DepartmentTreeNode[];
+    positions: DepartmentTreePositionNode[];
 };
 
 export type PositionOption = {

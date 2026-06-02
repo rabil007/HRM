@@ -4,13 +4,20 @@ namespace App\Support\Employees;
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 final class BuildDepartmentEmployeeTree
 {
     /**
-     * @return list<array{id: int|null, name: string, count: int, children: list<mixed>}>
+     * @return list<array{
+     *     id: int|null,
+     *     name: string,
+     *     count: int,
+     *     children: list<mixed>,
+     *     positions: list<array{id: int, name: string, count: int}>
+     * }>
      */
     public static function for(int $companyId, EmployeeDirectoryFilters $filters): array
     {
@@ -28,11 +35,19 @@ final class BuildDepartmentEmployeeTree
                     'name' => 'All',
                     'count' => $total,
                     'children' => [],
+                    'positions' => [],
                 ],
             ];
         }
 
         $countsByDepartment = self::directCountsByDepartment($companyId, $filters);
+        $countsByDepartmentAndPosition = self::directCountsByDepartmentAndPosition($companyId, $filters);
+        $positionsByDepartment = Position::query()
+            ->where('company_id', $companyId)
+            ->orderBy('title')
+            ->get(['id', 'department_id', 'title'])
+            ->groupBy('department_id');
+
         $departmentIds = $departments->pluck('id')->all();
         $departmentIdSet = array_fill_keys($departmentIds, true);
 
@@ -74,6 +89,8 @@ final class BuildDepartmentEmployeeTree
             $departments,
             $childrenByParent,
             &$computeSubtreeCount,
+            $positionsByDepartment,
+            $countsByDepartmentAndPosition,
         ): array {
             $department = $departments->firstWhere('id', $departmentId);
 
@@ -90,11 +107,23 @@ final class BuildDepartmentEmployeeTree
                 $childIds,
             );
 
+            $positions = ($positionsByDepartment->get($departmentId) ?? collect())
+                ->map(function (Position $position) use ($departmentId, $countsByDepartmentAndPosition): array {
+                    return [
+                        'id' => $position->id,
+                        'name' => (string) $position->title,
+                        'count' => $countsByDepartmentAndPosition[$departmentId][$position->id] ?? 0,
+                    ];
+                })
+                ->values()
+                ->all();
+
             return [
                 'id' => $departmentId,
                 'name' => (string) ($department?->name ?? ''),
                 'count' => $computeSubtreeCount($departmentId),
                 'children' => $children,
+                'positions' => $positions,
             ];
         };
 
@@ -125,6 +154,7 @@ final class BuildDepartmentEmployeeTree
                 'name' => 'All',
                 'count' => self::countEmployees($companyId, $filters),
                 'children' => [],
+                'positions' => [],
             ],
             ...$treeRoots,
         ];
@@ -139,7 +169,7 @@ final class BuildDepartmentEmployeeTree
             ->where('company_id', $companyId)
             ->whereNotNull('department_id');
 
-        self::applyFiltersExceptDepartment($query, $companyId, $filters);
+        self::applyTreeCountFilters($query, $companyId, $filters);
 
         $rows = $query
             ->select('department_id', DB::raw('count(*) as aggregate'))
@@ -155,20 +185,54 @@ final class BuildDepartmentEmployeeTree
         return $counts;
     }
 
+    /**
+     * @return array<int, array<int, int>>
+     */
+    private static function directCountsByDepartmentAndPosition(int $companyId, EmployeeDirectoryFilters $filters): array
+    {
+        $query = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('department_id')
+            ->whereNotNull('position_id');
+
+        self::applyTreeCountFilters($query, $companyId, $filters);
+
+        $rows = $query
+            ->select('department_id', 'position_id', DB::raw('count(*) as aggregate'))
+            ->groupBy('department_id', 'position_id')
+            ->get();
+
+        $counts = [];
+
+        foreach ($rows as $row) {
+            $departmentId = (int) $row->department_id;
+            $positionId = (int) $row->position_id;
+            $counts[$departmentId][$positionId] = (int) $row->aggregate;
+        }
+
+        return $counts;
+    }
+
     private static function countEmployees(int $companyId, EmployeeDirectoryFilters $filters): int
     {
         $query = Employee::query()->where('company_id', $companyId);
 
-        self::applyFiltersExceptDepartment($query, $companyId, $filters);
+        self::applyTreeCountFilters($query, $companyId, $filters);
 
         return $query->count();
     }
 
-    private static function applyFiltersExceptDepartment(
+    private static function applyTreeCountFilters(
         Builder $query,
         int $companyId,
         EmployeeDirectoryFilters $filters,
     ): void {
-        EmployeeDirectoryQuery::applyAttributeFilters($query, $companyId, $filters, exceptDepartment: true);
+        EmployeeDirectoryQuery::applyAttributeFilters(
+            $query,
+            $companyId,
+            $filters,
+            exceptDepartment: true,
+            exceptPosition: true,
+        );
     }
 }

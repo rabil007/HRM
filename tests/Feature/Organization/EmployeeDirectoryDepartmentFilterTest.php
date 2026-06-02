@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Models\Position;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -152,6 +153,72 @@ test('employees index department tree rolls up employee counts', function () {
                 return $allNode['count'] === 5
                     && $parentNode['count'] === 5
                     && $childNode['count'] === 3;
+            })
+        );
+});
+
+test('employees index department tree includes positions under departments', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'DTP',
+        'name' => 'Positionland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'DTP',
+        'name' => 'Position Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Position Co',
+        'slug' => 'position-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Engineering',
+        'parent_id' => null,
+    ]);
+
+    $position = Position::query()->create([
+        'company_id' => $company->id,
+        'department_id' => $department->id,
+        'title' => 'Software Engineer',
+        'grade' => 'G5',
+        'status' => 'active',
+    ]);
+
+    Employee::factory()->forCompany($company)->count(2)->create([
+        'department_id' => $department->id,
+        'position_id' => $position->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('department_tree')
+            ->where('department_tree', function ($tree) use ($department, $position) {
+                $departmentNode = collect($tree)->firstWhere('id', $department->id);
+                $positionNode = collect($departmentNode['positions'] ?? [])->firstWhere('id', $position->id);
+
+                return $positionNode !== null
+                    && $positionNode['name'] === 'Software Engineer'
+                    && $positionNode['count'] === 2;
             })
         );
 });

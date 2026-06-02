@@ -62,6 +62,7 @@ export function EmployeesContent({
     filters: initialFilters,
     department_tree,
     department_tree_selected_id,
+    department_tree_selected_position_id,
     branches,
     positions,
     managers,
@@ -82,6 +83,7 @@ export function EmployeesContent({
     filters: EmployeeFilters;
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
+    department_tree_selected_position_id: number | null;
     branches: BranchOption[];
     positions: PositionOption[];
     managers: ManagerOption[];
@@ -150,10 +152,24 @@ export function EmployeesContent({
         handleFiltersChange({
             ...filters,
             department_id: id !== null ? String(id) : '',
+            position_id: '',
         });
         setIsDepartmentsOpen(false);
         setIsDepartmentsPopoverOpen(false);
     };
+
+    const handlePositionSelect = (positionId: number, departmentId: number) => {
+        handleFiltersChange({
+            ...filters,
+            department_id: String(departmentId),
+            position_id: String(positionId),
+        });
+        setIsDepartmentsOpen(false);
+        setIsDepartmentsPopoverOpen(false);
+    };
+
+    const departmentTreeSelectionCount =
+        initialFilters.department_id || initialFilters.position_id ? 1 : 0;
 
     const handleAdd = () => {
         router.visit('/organization/employees/create');
@@ -254,21 +270,23 @@ params.set('search', initialSearch);
                                 >
                                     <FolderTree className="mr-2 h-4 w-4" />
                                     Departments
-                                    {initialFilters.department_id ? (
+                                    {departmentTreeSelectionCount ? (
                                         <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                            1
+                                            {departmentTreeSelectionCount}
                                         </span>
                                     ) : null}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent
                                 align="start"
-                                className="glass-card w-64 border-white/6 p-3"
+                                className="glass-card w-72 border-white/6 p-3"
                             >
                                 <DepartmentEmployeeTree
                                     nodes={department_tree}
-                                    selectedId={department_tree_selected_id}
-                                    onSelect={(id) => handleDepartmentSelect(id)}
+                                    selectedDepartmentId={department_tree_selected_id}
+                                    selectedPositionId={department_tree_selected_position_id}
+                                    onSelectDepartment={handleDepartmentSelect}
+                                    onSelectPosition={handlePositionSelect}
                                 />
                             </PopoverContent>
                         </Popover>
@@ -280,9 +298,9 @@ params.set('search', initialSearch);
                         >
                             <FolderTree className="mr-2 h-4 w-4" />
                             Departments
-                            {initialFilters.department_id ? (
+                            {departmentTreeSelectionCount ? (
                                 <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    1
+                                    {departmentTreeSelectionCount}
                                 </span>
                             ) : null}
                         </Button>
@@ -439,8 +457,10 @@ params.set('search', initialSearch);
                     <div className="overflow-y-auto p-4">
                         <DepartmentEmployeeTree
                             nodes={department_tree}
-                            selectedId={department_tree_selected_id}
-                            onSelect={handleDepartmentSelect}
+                            selectedDepartmentId={department_tree_selected_id}
+                            selectedPositionId={department_tree_selected_position_id}
+                            onSelectDepartment={handleDepartmentSelect}
+                            onSelectPosition={handlePositionSelect}
                         />
                     </div>
                 </SheetContent>

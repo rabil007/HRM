@@ -91,6 +91,7 @@ class EmployeeController extends Controller
             'banks' => $formOptions['banks'],
             'department_tree' => BuildDepartmentEmployeeTree::for($companyId, $directoryFilters),
             'department_tree_selected_id' => $directoryFilters->departmentId !== '' ? (int) $directoryFilters->departmentId : null,
+            'department_tree_selected_position_id' => $directoryFilters->positionId !== '' ? (int) $directoryFilters->positionId : null,
         ]);
     }
 

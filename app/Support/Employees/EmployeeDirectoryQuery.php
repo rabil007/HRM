@@ -25,6 +25,7 @@ final class EmployeeDirectoryQuery
         int $companyId,
         EmployeeDirectoryFilters $filters,
         bool $exceptDepartment = false,
+        bool $exceptPosition = false,
     ): void {
         $query
             ->where('company_id', $companyId)
@@ -44,7 +45,7 @@ final class EmployeeDirectoryQuery
 
                 $q->whereIn('department_id', $departmentIds);
             })
-            ->when($filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
+            ->when(! $exceptPosition && $filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
             ->when($filters->status, fn (Builder $q) => $q->where('status', $filters->status))
             ->when($filters->managerId, fn (Builder $q) => $q->where('manager_id', $filters->managerId))
             ->when($filters->genderId, fn (Builder $q) => $q->where('gender_id', $filters->genderId))

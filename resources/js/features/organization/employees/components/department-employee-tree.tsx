@@ -1,12 +1,12 @@
-import { ChevronRight, Users } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Briefcase, ChevronRight, Users } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     Collapsible,
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import type { DepartmentTreeNode } from '../types';
+import type { DepartmentTreeNode, DepartmentTreePositionNode } from '../types';
 
 function findAncestorIds(
     nodes: DepartmentTreeNode[],
@@ -18,7 +18,7 @@ function findAncestorIds(
             return ancestors;
         }
 
-        if (node.id !== null && node.children.length > 0) {
+        if (node.id !== null) {
             const found = findAncestorIds(node.children, targetId, [...ancestors, node.id]);
 
             if (found !== null) {
@@ -30,30 +30,93 @@ function findAncestorIds(
     return null;
 }
 
+function findDepartmentIdForPosition(
+    nodes: DepartmentTreeNode[],
+    positionId: number,
+): number | null {
+    for (const node of nodes) {
+        if (node.id !== null) {
+            if (node.positions.some((position) => position.id === positionId)) {
+                return node.id;
+            }
+
+            const found = findDepartmentIdForPosition(node.children, positionId);
+
+            if (found !== null) {
+                return found;
+            }
+        }
+    }
+
+    return null;
+}
+
+function PositionTreeNodeRow({
+    position,
+    depth,
+    selectedPositionId,
+    onSelectPosition,
+}: {
+    position: DepartmentTreePositionNode;
+    depth: number;
+    selectedPositionId: number | null;
+    onSelectPosition: (positionId: number) => void;
+}) {
+    const isSelected = selectedPositionId === position.id;
+
+    return (
+        <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
+            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center">
+                <Briefcase className="h-3 w-3 text-zinc-500" />
+            </span>
+            <button
+                type="button"
+                onClick={() => onSelectPosition(position.id)}
+                className={cn(
+                    'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
+                    isSelected
+                        ? 'bg-white/10 text-white'
+                        : 'text-zinc-300 hover:bg-white/[0.06] hover:text-white',
+                )}
+            >
+                <span className="min-w-0 flex-1 truncate">{position.name}</span>
+                <span className="shrink-0 text-xs tabular-nums text-zinc-500">{position.count}</span>
+            </button>
+        </div>
+    );
+}
+
 function DepartmentTreeNodeRow({
     node,
     depth,
-    selectedId,
+    selectedDepartmentId,
+    selectedPositionId,
     expandedIds,
     onToggleExpand,
-    onSelect,
+    onSelectDepartment,
+    onSelectPosition,
 }: {
     node: DepartmentTreeNode;
     depth: number;
-    selectedId: number | null;
+    selectedDepartmentId: number | null;
+    selectedPositionId: number | null;
     expandedIds: Set<number>;
     onToggleExpand: (id: number, open: boolean) => void;
-    onSelect: (id: number | null) => void;
+    onSelectDepartment: (id: number | null) => void;
+    onSelectPosition: (positionId: number, departmentId: number) => void;
 }) {
-    const hasChildren = node.children.length > 0;
+    const hasChildDepartments = node.children.length > 0;
+    const hasPositions = node.positions.length > 0;
+    const hasExpandableContent = hasChildDepartments || hasPositions;
     const isAllNode = node.id === null;
-    const isSelected = isAllNode ? selectedId === null : selectedId === node.id;
+    const isSelected =
+        isAllNode ? selectedDepartmentId === null && selectedPositionId === null : selectedDepartmentId === node.id && selectedPositionId === null;
     const isExpanded = node.id !== null && expandedIds.has(node.id);
 
     const rowButton = (
         <button
             type="button"
-            onClick={() => onSelect(node.id)}
+            onClick={() => onSelectDepartment(node.id)}
             className={cn(
                 'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
                 isSelected
@@ -66,7 +129,7 @@ function DepartmentTreeNodeRow({
         </button>
     );
 
-    if (!hasChildren || node.id === null) {
+    if (!hasExpandableContent || node.id === null) {
         return (
             <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
                 <span className="inline-flex h-6 w-6 shrink-0" />
@@ -100,13 +163,26 @@ function DepartmentTreeNodeRow({
             <CollapsibleContent>
                 {node.children.map((child) => (
                     <DepartmentTreeNodeRow
-                        key={child.id ?? `child-${child.name}`}
+                        key={child.id}
                         node={child}
                         depth={depth + 1}
-                        selectedId={selectedId}
+                        selectedDepartmentId={selectedDepartmentId}
+                        selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={onToggleExpand}
-                        onSelect={onSelect}
+                        onSelectDepartment={onSelectDepartment}
+                        onSelectPosition={onSelectPosition}
+                    />
+                ))}
+                {node.positions.map((position) => (
+                    <PositionTreeNodeRow
+                        key={position.id}
+                        position={position}
+                        depth={depth + 1}
+                        selectedPositionId={selectedPositionId}
+                        onSelectPosition={(positionId) =>
+                            onSelectPosition(positionId, node.id as number)
+                        }
                     />
                 ))}
             </CollapsibleContent>
@@ -116,13 +192,17 @@ function DepartmentTreeNodeRow({
 
 export function DepartmentEmployeeTree({
     nodes,
-    selectedId,
-    onSelect,
+    selectedDepartmentId,
+    selectedPositionId,
+    onSelectDepartment,
+    onSelectPosition,
     className,
 }: {
     nodes: DepartmentTreeNode[];
-    selectedId: number | null;
-    onSelect: (id: number | null) => void;
+    selectedDepartmentId: number | null;
+    selectedPositionId: number | null;
+    onSelectDepartment: (id: number | null) => void;
+    onSelectPosition: (positionId: number, departmentId: number) => void;
     className?: string;
 }) {
     const departmentRoots = useMemo(
@@ -133,16 +213,34 @@ export function DepartmentEmployeeTree({
     const allNode = useMemo(() => nodes.find((node) => node.id === null) ?? null, [nodes]);
 
     const initialExpandedIds = useMemo(() => {
-        if (selectedId === null) {
-            return new Set<number>();
+        const expanded = new Set<number>();
+
+        if (selectedDepartmentId !== null) {
+            const ancestors = findAncestorIds(departmentRoots, selectedDepartmentId) ?? [];
+
+            ancestors.forEach((id) => expanded.add(id));
+            expanded.add(selectedDepartmentId);
         }
 
-        const ancestors = findAncestorIds(departmentRoots, selectedId) ?? [];
+        if (selectedPositionId !== null) {
+            const departmentId = findDepartmentIdForPosition(departmentRoots, selectedPositionId);
 
-        return new Set(ancestors);
-    }, [departmentRoots, selectedId]);
+            if (departmentId !== null) {
+                const ancestors = findAncestorIds(departmentRoots, departmentId) ?? [];
+
+                ancestors.forEach((id) => expanded.add(id));
+                expanded.add(departmentId);
+            }
+        }
+
+        return expanded;
+    }, [departmentRoots, selectedDepartmentId, selectedPositionId]);
 
     const [expandedIds, setExpandedIds] = useState<Set<number>>(() => initialExpandedIds);
+
+    useEffect(() => {
+        setExpandedIds(initialExpandedIds);
+    }, [initialExpandedIds]);
 
     const handleToggleExpand = (id: number, open: boolean) => {
         setExpandedIds((current) => {
@@ -170,10 +268,12 @@ export function DepartmentEmployeeTree({
                     <DepartmentTreeNodeRow
                         node={allNode}
                         depth={0}
-                        selectedId={selectedId}
+                        selectedDepartmentId={selectedDepartmentId}
+                        selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={handleToggleExpand}
-                        onSelect={onSelect}
+                        onSelectDepartment={onSelectDepartment}
+                        onSelectPosition={onSelectPosition}
                     />
                 ) : null}
 
@@ -182,10 +282,12 @@ export function DepartmentEmployeeTree({
                         key={node.id}
                         node={node}
                         depth={0}
-                        selectedId={selectedId}
+                        selectedDepartmentId={selectedDepartmentId}
+                        selectedPositionId={selectedPositionId}
                         expandedIds={expandedIds}
                         onToggleExpand={handleToggleExpand}
-                        onSelect={onSelect}
+                        onSelectDepartment={onSelectDepartment}
+                        onSelectPosition={onSelectPosition}
                     />
                 ))}
             </div>
