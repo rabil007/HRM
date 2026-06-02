@@ -45,6 +45,9 @@ Route::get('organization/documents/share/{document}', DocumentShareController::c
     ->middleware('signed')
     ->name('organization.documents.share');
 
+Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::class)
+    ->name('whatsapp.webhook');
+
 Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::class)
     ->name('webhooks.whatsapp');
 

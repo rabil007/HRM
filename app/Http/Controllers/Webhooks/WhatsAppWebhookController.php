@@ -26,15 +26,28 @@ class WhatsAppWebhookController extends Controller
         $challenge = (string) $request->query('hub_challenge', $request->query('hub.challenge', ''));
 
         if ($mode !== 'subscribe' || $challenge === '') {
-            abort(403);
+            return response('Forbidden', 403);
         }
 
-        $storedToken = WhatsAppSetting::current()->webhook_verify_token;
+        $storedToken = $this->resolveVerifyToken();
 
-        if (! filled($storedToken) || ! hash_equals((string) $storedToken, $token)) {
-            abort(403);
+        if (! filled($storedToken) || ! hash_equals($storedToken, $token)) {
+            return response('Forbidden', 403);
         }
 
         return response($challenge, 200)->header('Content-Type', 'text/plain');
+    }
+
+    private function resolveVerifyToken(): ?string
+    {
+        $settingsToken = WhatsAppSetting::current()->webhook_verify_token;
+
+        if (filled($settingsToken)) {
+            return (string) $settingsToken;
+        }
+
+        $envToken = config('whatsapp.verify_token');
+
+        return filled($envToken) ? (string) $envToken : null;
     }
 }

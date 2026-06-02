@@ -173,6 +173,34 @@ test('whatsapp webhook verify returns challenge when token matches', function ()
         'enabled' => true,
     ]);
 
+    $this->get(route('whatsapp.webhook', [
+        'hub_mode' => 'subscribe',
+        'hub_verify_token' => 'my-verify-token',
+        'hub_challenge' => 'challenge-string-123',
+    ]))
+        ->assertOk()
+        ->assertSee('challenge-string-123');
+});
+
+test('whatsapp webhook verify supports meta dotted query parameters', function () {
+    config(['whatsapp.verify_token' => 'HERD_OMS_WHATSAPP_VERIFY_TOKEN']);
+
+    $this->get('/whatsapp/webhook?hub.mode=subscribe&hub.verify_token=HERD_OMS_WHATSAPP_VERIFY_TOKEN&hub.challenge=123456')
+        ->assertOk()
+        ->assertSee('123456');
+});
+
+test('whatsapp webhook legacy route remains available', function () {
+    WhatsAppSetting::current()->storeFromValidated([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'secret',
+        'webhook_verify_token' => 'my-verify-token',
+        'enabled' => true,
+    ]);
+
     $this->get(route('webhooks.whatsapp', [
         'hub_mode' => 'subscribe',
         'hub_verify_token' => 'my-verify-token',
