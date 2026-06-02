@@ -92,23 +92,32 @@ class WhatsAppService
     /**
      * @return array<string, mixed>
      */
-    public function sendDocument(string $phone, string $filePath, string $fileName): array
+    public function sendDocument(string $phone, string $filePath, string $fileName, ?string $caption = null): array
     {
         $mediaId = $this->uploadDocument($filePath);
         $credentials = $this->resolveCredentials();
+
+        $document = [
+            'id' => $mediaId,
+            'filename' => $fileName,
+        ];
+
+        if (filled($caption)) {
+            $document['caption'] = $caption;
+        }
 
         $response = $this->client($credentials['access_token'])
             ->post("/{$credentials['phone_number_id']}/messages", [
                 'messaging_product' => 'whatsapp',
                 'to' => $this->normalizePhone($phone),
                 'type' => 'document',
-                'document' => [
-                    'id' => $mediaId,
-                    'filename' => $fileName,
-                ],
+                'document' => $document,
             ]);
 
-        return $this->parseMessageResponse($response);
+        $result = $this->parseMessageResponse($response);
+        $result['media_id'] = $mediaId;
+
+        return $result;
     }
 
     /**
@@ -208,18 +217,25 @@ class WhatsAppService
      */
     private function parseMessageResponse(Response $response): array
     {
+        $data = $response->json();
+        $messageId = is_array($data) ? ($data['messages'][0]['id'] ?? null) : null;
+
         if ($response->successful()) {
             return [
                 'success' => true,
                 'message' => 'Message sent successfully.',
-                'data' => $response->json(),
+                'message_id' => is_string($messageId) ? $messageId : null,
+                'http_status' => $response->status(),
+                'data' => is_array($data) ? $data : null,
             ];
         }
 
         return [
             'success' => false,
             'message' => $this->parseMetaError($response),
-            'data' => $response->json(),
+            'message_id' => null,
+            'http_status' => $response->status(),
+            'data' => is_array($data) ? $data : null,
         ];
     }
 }

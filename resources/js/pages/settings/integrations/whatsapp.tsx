@@ -2,13 +2,15 @@ import { Head, useForm } from '@inertiajs/react';
 import {
     CheckCircle2,
     Copy,
+    FileUp,
     Link2,
     Lock,
     MessageCircle,
     PlugZap,
+    Send,
     XCircle,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import Heading from '@/components/heading';
 import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
@@ -17,6 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
+import { Textarea } from '@/components/ui/textarea';
+import {
+    sendWhatsAppTestDocument,
+    sendWhatsAppTestText,
+    type WhatsAppTestSendResult,
+} from '@/features/settings/send-whatsapp-test-message';
 import { testWhatsAppConnection } from '@/features/settings/test-whatsapp-connection';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -36,6 +44,7 @@ type Props = {
         webhook_status: 'configured' | 'not_configured';
     };
     callback_url: string;
+    default_test_message: string;
     can: {
         update: boolean;
     };
@@ -64,10 +73,23 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
     );
 }
 
-export default function WhatsAppIntegration({ settings, callback_url, can }: Props) {
+export default function WhatsAppIntegration({
+    settings,
+    callback_url,
+    default_test_message,
+    can,
+}: Props) {
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
     const [testing, setTesting] = useState(false);
+    const [testPhone, setTestPhone] = useState('');
+    const [testMessage, setTestMessage] = useState(default_test_message);
+    const [testCaption, setTestCaption] = useState('');
+    const [testFile, setTestFile] = useState<File | null>(null);
+    const [sendingText, setSendingText] = useState(false);
+    const [sendingDocument, setSendingDocument] = useState(false);
+    const [testResult, setTestResult] = useState<WhatsAppTestSendResult | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const form = useForm({
         business_account_id: settings.business_account_id ?? '',
@@ -161,6 +183,85 @@ export default function WhatsAppIntegration({ settings, callback_url, can }: Pro
     const webhookStatusLabel =
         settings.webhook_status === 'configured' ? 'Verify token set' : 'Not configured';
 
+    const canSendTests = settings.is_configured;
+
+    const handleSendTestText = async () => {
+        if (!can.update || !canSendTests) {
+            return;
+        }
+
+        const phone = testPhone.trim();
+        const message = testMessage.trim();
+
+        if (!phone) {
+            toast.error('Enter a WhatsApp number with country code.');
+            return;
+        }
+
+        if (!message) {
+            toast.error('Enter a test message.');
+            return;
+        }
+
+        setSendingText(true);
+        setTestResult(null);
+
+        try {
+            const result = await sendWhatsAppTestText(phone, message);
+            setTestResult(result);
+
+            if (result.success) {
+                toast.success(result.message);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Failed to send WhatsApp test message.';
+            toast.error(message);
+        } finally {
+            setSendingText(false);
+        }
+    };
+
+    const handleSendTestDocument = async () => {
+        if (!can.update || !canSendTests) {
+            return;
+        }
+
+        const phone = testPhone.trim();
+
+        if (!phone) {
+            toast.error('Enter a WhatsApp number with country code.');
+            return;
+        }
+
+        if (!testFile) {
+            toast.error('Choose a file to send.');
+            return;
+        }
+
+        setSendingDocument(true);
+        setTestResult(null);
+
+        try {
+            const result = await sendWhatsAppTestDocument(phone, testFile, testCaption);
+            setTestResult(result);
+
+            if (result.success) {
+                toast.success(result.message);
+            } else {
+                toast.error(result.message);
+            }
+        } catch (error) {
+            const message =
+                error instanceof Error ? error.message : 'Failed to send WhatsApp test document.';
+            toast.error(message);
+        } finally {
+            setSendingDocument(false);
+        }
+    };
+
     return (
         <>
             <Head title="WhatsApp integration" />
@@ -226,6 +327,147 @@ export default function WhatsAppIntegration({ settings, callback_url, can }: Pro
                         ) : null}
                     </CardContent>
                 </Card>
+
+                {can.update ? (
+                    <Card className="border-white/5 bg-white/5">
+                        <CardContent className="p-6 space-y-5">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
+                                    <Send className="w-5 h-5 text-green-600" />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-bold tracking-tight">Test messages</h2>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        Send a text message or upload a file to verify delivery.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="grid gap-5 lg:grid-cols-2">
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="test_phone">WhatsApp number</FieldLabel>
+                                    <FieldInput
+                                        id="test_phone"
+                                        type="tel"
+                                        value={testPhone}
+                                        onChange={(e) => setTestPhone(e.target.value)}
+                                        placeholder="+971501234567"
+                                        autoComplete="tel"
+                                        disabled={!canSendTests}
+                                    />
+                                    <p className="text-xs text-muted-foreground">
+                                        Include country code. Recipient must be on your Meta test list
+                                        or have an open messaging window.
+                                    </p>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                    <FieldLabel htmlFor="test_message">Text message</FieldLabel>
+                                    <Textarea
+                                        id="test_message"
+                                        value={testMessage}
+                                        onChange={(e) => setTestMessage(e.target.value)}
+                                        rows={4}
+                                        disabled={!canSendTests}
+                                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40"
+                                    />
+                                </div>
+
+                                <div className="space-y-1.5 lg:col-span-2">
+                                    <FieldLabel htmlFor="test_file">Test file</FieldLabel>
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                                        <input
+                                            ref={fileInputRef}
+                                            id="test_file"
+                                            type="file"
+                                            accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx,.xls,.xlsx"
+                                            disabled={!canSendTests}
+                                            onChange={(event) => {
+                                                setTestFile(event.target.files?.[0] ?? null);
+                                            }}
+                                            className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-white/15"
+                                        />
+                                        {testFile ? (
+                                            <span className="text-xs text-muted-foreground">
+                                                {testFile.name} ({Math.round(testFile.size / 1024)} KB)
+                                            </span>
+                                        ) : null}
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1.5 lg:col-span-2">
+                                    <FieldLabel htmlFor="test_caption">
+                                        Document caption (optional)
+                                    </FieldLabel>
+                                    <FieldInput
+                                        id="test_caption"
+                                        value={testCaption}
+                                        onChange={(e) => setTestCaption(e.target.value)}
+                                        placeholder="Test document from Herd OMS"
+                                        disabled={!canSendTests}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={!canSendTests || sendingText || sendingDocument}
+                                    onClick={handleSendTestText}
+                                >
+                                    {sendingText ? <Spinner className="mr-2" /> : null}
+                                    Send text message
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    disabled={!canSendTests || sendingText || sendingDocument || !testFile}
+                                    onClick={handleSendTestDocument}
+                                >
+                                    {sendingDocument ? <Spinner className="mr-2" /> : null}
+                                    <FileUp className="mr-2 h-4 w-4" />
+                                    Send file
+                                </Button>
+                            </div>
+
+                            {!canSendTests ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Save and enable WhatsApp settings with all credentials before
+                                    sending test messages.
+                                </p>
+                            ) : null}
+
+                            {testResult ? (
+                                <div
+                                    className={cn(
+                                        'rounded-xl border px-4 py-3 text-sm space-y-2',
+                                        testResult.success
+                                            ? 'border-emerald-500/20 bg-emerald-500/5 text-emerald-600'
+                                            : 'border-destructive/20 bg-destructive/5 text-destructive',
+                                    )}
+                                >
+                                    <p className="font-medium">{testResult.message}</p>
+                                    {testResult.message_id ? (
+                                        <p className="font-mono text-xs break-all">
+                                            Message ID: {testResult.message_id}
+                                        </p>
+                                    ) : null}
+                                    {testResult.media_id ? (
+                                        <p className="font-mono text-xs break-all">
+                                            Media ID: {testResult.media_id}
+                                        </p>
+                                    ) : null}
+                                    {testResult.http_status ? (
+                                        <p className="text-xs">HTTP {testResult.http_status}</p>
+                                    ) : null}
+                                </div>
+                            ) : null}
+                        </CardContent>
+                    </Card>
+                ) : null}
 
                 <form onSubmit={submit} className="space-y-6">
                     <Card className="border-white/5 bg-white/5">

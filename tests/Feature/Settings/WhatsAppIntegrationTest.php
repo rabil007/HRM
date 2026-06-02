@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Models\WhatsAppSetting;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 
 test('owner can view whatsapp integration settings page', function () {
@@ -246,4 +247,80 @@ test('users without permission cannot update whatsapp settings', function () {
             'enabled' => true,
         ])
         ->assertForbidden();
+});
+
+test('whatsapp test text message sends successfully using stored credentials', function () {
+    Http::fake([
+        'graph.facebook.com/*' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'contacts' => [['input' => '971501234567', 'wa_id' => '971501234567']],
+            'messages' => [['id' => 'wamid.test-text-id']],
+        ], 200),
+    ]);
+
+    WhatsAppSetting::current()->storeFromValidated([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'valid-token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'secret',
+        'webhook_verify_token' => 'verify-token-abc',
+        'enabled' => true,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.whatsapp.view',
+        'settings.integrations.whatsapp.update',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('integrations.whatsapp.send-test-text'), [
+            'phone' => '+971501234567',
+            'message' => 'Hello from the test panel.',
+        ])
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'message_id' => 'wamid.test-text-id',
+        ]);
+});
+
+test('whatsapp test document upload sends file successfully', function () {
+    Http::fake([
+        'graph.facebook.com/*/media' => Http::response(['id' => 'media-test-123'], 200),
+        'graph.facebook.com/*/messages' => Http::response([
+            'messaging_product' => 'whatsapp',
+            'messages' => [['id' => 'wamid.test-doc-id']],
+        ], 200),
+    ]);
+
+    WhatsAppSetting::current()->storeFromValidated([
+        'business_account_id' => '123456789',
+        'phone_number_id' => '987654321',
+        'access_token' => 'valid-token',
+        'app_id' => 'app-id-123',
+        'app_secret' => 'secret',
+        'webhook_verify_token' => 'verify-token-abc',
+        'enabled' => true,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.whatsapp.view',
+        'settings.integrations.whatsapp.update',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('integrations.whatsapp.send-test-document'), [
+            'phone' => '+971501234567',
+            'caption' => 'Test PDF from settings',
+            'file' => UploadedFile::fake()->createWithContent('sample.pdf', '%PDF-1.4 test content'),
+        ])
+        ->assertOk()
+        ->assertJson([
+            'success' => true,
+            'message_id' => 'wamid.test-doc-id',
+            'media_id' => 'media-test-123',
+        ]);
 });
