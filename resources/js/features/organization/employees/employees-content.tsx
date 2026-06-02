@@ -45,10 +45,12 @@ import type {
     DepartmentTreeNode,
     Employee,
     GenderOption,
+    ApprovalLocationOption,
     ManagerOption,
     PositionOption,
     RankOption,
     ReligionOption,
+    SssaOption,
     UserOption,
     VisaTypeOption,
 } from './types';
@@ -69,6 +71,8 @@ export function EmployeesContent({
     genders,
     visa_types,
     company_visa_types,
+    approval_locations,
+    sssa_options,
     ranks,
     banks: _banks,
 }: {
@@ -87,6 +91,8 @@ export function EmployeesContent({
     genders: GenderOption[];
     visa_types: VisaTypeOption[];
     company_visa_types: CompanyVisaTypeOption[];
+    approval_locations: ApprovalLocationOption[];
+    sssa_options: SssaOption[];
     ranks: RankOption[];
     banks: BankOption[];
 }) {
@@ -118,6 +124,8 @@ export function EmployeesContent({
         visa_type_id: initialFilters.visa_type_id ?? '',
         company_visa_type_id: initialFilters.company_visa_type_id ?? '',
         rank_id: initialFilters.rank_id ?? '',
+        approval_location_id: initialFilters.approval_location_id ?? '',
+        sssa_option_id: initialFilters.sssa_option_id ?? '',
     };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
@@ -451,6 +459,8 @@ params.set('search', initialSearch);
                 countries={countries}
                 visaTypes={visa_types}
                 companyVisaTypes={company_visa_types}
+                approvalLocations={approval_locations}
+                sssaOptions={sssa_options}
                 ranks={ranks}
             />
 

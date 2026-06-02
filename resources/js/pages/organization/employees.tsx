@@ -8,10 +8,12 @@ import type {
     DepartmentTreeNode,
     Employee,
     GenderOption,
+    ApprovalLocationOption,
     ManagerOption,
     PositionOption,
     RankOption,
     ReligionOption,
+    SssaOption,
     UserOption,
     VisaTypeOption,
 } from '@/features/organization/employees/types';
@@ -33,6 +35,8 @@ export default function Employees({
     genders,
     visa_types,
     company_visa_types,
+    approval_locations,
+    sssa_options,
     ranks,
     banks,
 }: {
@@ -50,6 +54,8 @@ export default function Employees({
         visa_type_id: string;
         company_visa_type_id: string;
         rank_id: string;
+        approval_location_id: string;
+        sssa_option_id: string;
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
@@ -62,6 +68,8 @@ export default function Employees({
     genders: GenderOption[];
     visa_types: VisaTypeOption[];
     company_visa_types: CompanyVisaTypeOption[];
+    approval_locations: ApprovalLocationOption[];
+    sssa_options: SssaOption[];
     ranks: RankOption[];
     banks: BankOption[];
 }) {
@@ -84,6 +92,8 @@ export default function Employees({
                 genders={genders}
                 visa_types={visa_types}
                 company_visa_types={company_visa_types}
+                approval_locations={approval_locations}
+                sssa_options={sssa_options}
                 ranks={ranks}
                 banks={banks}
             />

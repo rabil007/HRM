@@ -103,6 +103,8 @@ function EmployeeDetailsPage({
     genders,
     visa_types,
     company_visa_types,
+    approval_locations,
+    sssa_options,
     banks,
     ranks,
     vessel_types,
@@ -574,6 +576,9 @@ function EmployeeDetailsPage({
                                         <EmployeePersonalTab
                                             employee={localEmployee}
                                             countries={countries}
+                                            approvalLocations={approval_locations}
+                                            sssaOptions={sssa_options}
+                                            canUpdate={canUpdate}
                                             form={form}
                                             activeField={activeField}
                                             setActiveField={setActiveField}

@@ -12,6 +12,7 @@ import {
 } from '@/features/organization/employees/profile/marital-status-options';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { EmployeeSectionCard } from '@/pages/organization/_components/employee-section-card';
+import { EmployeeWorkAssignmentsSection } from '@/pages/organization/_components/employee-work-assignments-section';
 import type { EmployeeDetails } from '@/pages/organization/employee-page.types';
 
 export type EmployeePersonalFormSlice = {
@@ -33,10 +34,23 @@ export type EmployeePersonalFormSlice = {
     setData: (key: string, value: unknown) => void;
 };
 
+type WorkAssignmentOption = {
+    id: number;
+    name: string;
+};
+
 export type EmployeePersonalTabProps = {
     employee: EmployeeDetails;
     countries: CountryOption[];
-    form: EmployeePersonalFormSlice;
+    approvalLocations: WorkAssignmentOption[];
+    sssaOptions: WorkAssignmentOption[];
+    canUpdate: boolean;
+    form: EmployeePersonalFormSlice & {
+        data: EmployeePersonalFormSlice['data'] & {
+            approval_location_ids?: number[];
+            sssa_option_ids?: number[];
+        };
+    };
     activeField: string | null;
     setActiveField: (v: string | null) => void;
     beginEdit: (field: string) => void;
@@ -48,6 +62,9 @@ export type EmployeePersonalTabProps = {
 export function EmployeePersonalTab({
     employee,
     countries,
+    approvalLocations,
+    sssaOptions,
+    canUpdate,
     form,
     activeField,
     setActiveField,
@@ -83,9 +100,31 @@ export function EmployeePersonalTab({
         showField('passport_number') ||
         showField('emirates_id') ||
         showField('labor_card_number');
+    const showWorkAssignments =
+        showField('approval_location_ids') || showField('sssa_option_ids');
 
     return (
         <TabsContent value="personal" className="mt-6 space-y-6">
+            {showWorkAssignments ? (
+                <EmployeeWorkAssignmentsSection
+                    approvalLocations={approvalLocations}
+                    sssaOptions={sssaOptions}
+                    approvalLocationIds={form.data.approval_location_ids ?? []}
+                    sssaOptionIds={form.data.sssa_option_ids ?? []}
+                    canUpdate={canUpdate}
+                    showApprovalLocations={showField('approval_location_ids')}
+                    showSssaOptions={showField('sssa_option_ids')}
+                    highlightMissingApprovalLocations={isMissingRequired(
+                        'approval_location_ids',
+                    )}
+                    highlightMissingSssaOptions={isMissingRequired('sssa_option_ids')}
+                    onApprovalLocationIdsChange={(ids) =>
+                        form.setData('approval_location_ids', ids)
+                    }
+                    onSssaOptionIdsChange={(ids) => form.setData('sssa_option_ids', ids)}
+                />
+            ) : null}
+
             <div className="grid items-stretch gap-4 lg:grid-cols-3">
                 {showPrivateContact ? (
                 <EmployeeSectionCard

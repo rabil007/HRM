@@ -2,6 +2,7 @@
 
 use App\Models\Branch;
 use App\Models\Company;
+use App\Models\ApprovalLocation;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
 use App\Models\Currency;
@@ -14,6 +15,7 @@ use App\Models\EmployeeProfileTemplate;
 use App\Models\Position;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\SssaOption;
 use App\Models\VisaType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Illuminate\Http\UploadedFile;
@@ -1871,6 +1873,73 @@ test('employee directory index can be filtered by manager and gender', function 
     $ids = collect($response->viewData('page')['props']['employees'])->pluck('id')->all();
 
     expect($ids)->toBe([$matchedEmployee->id]);
+});
+
+test('employee directory index can be filtered by approval location and sssa option', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'WAF',
+        'name' => 'Work Assignment Filterland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'WAF',
+        'name' => 'Work Assignment Currency',
+        'symbol' => 'W$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Work Assignment Filter Co',
+        'slug' => 'work-assignment-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $lzField = ApprovalLocation::query()->create(['name' => 'LZ Field', 'is_active' => true]);
+    $dasIsland = ApprovalLocation::query()->create(['name' => 'Das Island', 'is_active' => true]);
+    $supply = SssaOption::query()->create(['name' => 'Supply', 'is_active' => true]);
+    $dp2 = SssaOption::query()->create(['name' => 'DP2', 'is_active' => true]);
+
+    $matched = Employee::factory()->forCompany($company)->create(['employee_no' => 'WAF001']);
+    $matched->approvalLocations()->sync([$lzField->id]);
+    $matched->sssaOptions()->sync([$supply->id]);
+
+    $otherLocation = Employee::factory()->forCompany($company)->create(['employee_no' => 'WAF002']);
+    $otherLocation->approvalLocations()->sync([$dasIsland->id]);
+
+    $otherSssa = Employee::factory()->forCompany($company)->create(['employee_no' => 'WAF003']);
+    $otherSssa->sssaOptions()->sync([$dp2->id]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $byLocation = $this->get('/organization/employees?approval_location_id='.$lzField->id)->assertOk();
+    expect(collect($byLocation->viewData('page')['props']['employees'])->pluck('id')->all())
+        ->toBe([$matched->id]);
+
+    $bySssa = $this->get('/organization/employees?sssa_option_id='.$supply->id)->assertOk();
+    expect(collect($bySssa->viewData('page')['props']['employees'])->pluck('id')->all())
+        ->toBe([$matched->id]);
+
+    $this->put("/organization/employees/{$matched->id}", [
+        'employee_no' => 'WAF001',
+        'name' => $matched->name,
+        'approval_location_ids' => [$dasIsland->id],
+        'sssa_option_ids' => [$supply->id, $dp2->id],
+    ])->assertRedirect(route('organization.employees.show', $matched));
+
+    $matched->load(['approvalLocations', 'sssaOptions']);
+    expect($matched->approvalLocations->pluck('id')->all())->toBe([$dasIsland->id])
+        ->and(collect($matched->sssaOptions->pluck('id'))->sort()->values()->all())
+        ->toEqual(collect([$dp2->id, $supply->id])->sort()->values()->all());
 });
 
 test('employee without profile template can assign one', function () {

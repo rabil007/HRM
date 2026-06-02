@@ -6,9 +6,11 @@ import type {
     CompanyVisaTypeOption,
     CountryOption,
     GenderOption,
+    ApprovalLocationOption,
     ManagerOption,
     PositionOption,
     RankOption,
+    SssaOption,
     VisaTypeOption,
 } from '../types';
 
@@ -23,6 +25,8 @@ export type EmployeeFilters = {
     visa_type_id: string;
     company_visa_type_id: string;
     rank_id: string;
+    approval_location_id: string;
+    sssa_option_id: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
@@ -36,6 +40,8 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     visa_type_id: '',
     company_visa_type_id: '',
     rank_id: '',
+    approval_location_id: '',
+    sssa_option_id: '',
 };
 
 export function EmployeeFiltersSheet({
@@ -51,6 +57,8 @@ export function EmployeeFiltersSheet({
     countries,
     visaTypes,
     companyVisaTypes,
+    approvalLocations,
+    sssaOptions,
     ranks,
 }: {
     open: boolean;
@@ -65,6 +73,8 @@ export function EmployeeFiltersSheet({
     countries: CountryOption[];
     visaTypes: VisaTypeOption[];
     companyVisaTypes: CompanyVisaTypeOption[];
+    approvalLocations: ApprovalLocationOption[];
+    sssaOptions: SssaOption[];
     ranks: RankOption[];
 }) {
     return (
@@ -217,6 +227,44 @@ export function EmployeeFiltersSheet({
                         {companyVisaTypes.map((v) => (
                             <AppSelectItem key={v.id} value={String(v.id)}>
                                 {v.name}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Approval location
+                    </Label>
+                    <AppSelect
+                        value={value.approval_location_id}
+                        onValueChange={(v) => onChange({ ...value, approval_location_id: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {approvalLocations.map((location) => (
+                            <AppSelectItem key={location.id} value={String(location.id)}>
+                                {location.name}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        SSSA
+                    </Label>
+                    <AppSelect
+                        value={value.sssa_option_id}
+                        onValueChange={(v) => onChange({ ...value, sssa_option_id: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {sssaOptions.map((option) => (
+                            <AppSelectItem key={option.id} value={String(option.id)}>
+                                {option.name}
                             </AppSelectItem>
                         ))}
                     </AppSelect>

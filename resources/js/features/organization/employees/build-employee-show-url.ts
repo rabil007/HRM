@@ -12,6 +12,8 @@ export type EmployeeListQuery = {
     visa_type_id?: string;
     company_visa_type_id?: string;
     rank_id?: string;
+    approval_location_id?: string;
+    sssa_option_id?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -62,6 +64,14 @@ export function buildEmployeeListQuery(
 
     if (filters.rank_id) {
         query.rank_id = filters.rank_id;
+    }
+
+    if (filters.approval_location_id) {
+        query.approval_location_id = filters.approval_location_id;
+    }
+
+    if (filters.sssa_option_id) {
+        query.sssa_option_id = filters.sssa_option_id;
     }
 
     return query;
