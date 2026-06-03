@@ -334,7 +334,7 @@ params.set('search', initialSearch);
                     ))}
                 </div>
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1800px]">
+                <OrganizationDataTable minWidth="min-w-[1640px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">Employee</DataTableHead>
@@ -343,7 +343,6 @@ params.set('search', initialSearch);
                             <DataTableHead>Phones</DataTableHead>
                             <DataTableHead>Personal</DataTableHead>
                             <DataTableHead>Emergency</DataTableHead>
-                            <DataTableHead>Documents</DataTableHead>
                             <DataTableHead>Family</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead className="text-right">Actions</DataTableHead>
@@ -399,15 +398,6 @@ params.set('search', initialSearch);
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.emergency_contact ?? '—'}</div>
                                                 <div className="text-xs text-muted-foreground/70">{employee.emergency_phone ?? '—'}</div>
-                                            </TableCell>
-                                            <TableCell className={dataTableCellClass()}>
-                                                <div className="text-xs text-muted-foreground/70">
-                                                    {employee.passport_number ?? '—'}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground/70">
-                                                    {employee.emirates_id ? ` • EID ${employee.emirates_id}` : ''}
-                                                </div>
-                                                <div className="text-xs text-muted-foreground/70">{employee.labor_contract_id ?? '—'}</div>
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm">{employee.spouse_name ?? '—'}</div>
