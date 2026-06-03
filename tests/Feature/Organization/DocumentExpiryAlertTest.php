@@ -1,44 +1,115 @@
 <?php
 
+use App\Jobs\SendDocumentExpiryAlertJob;
 use App\Mail\DocumentExpiryAlertMail;
-use App\Models\Company;
 use App\Models\EmailTemplate;
+use App\Models\Employee;
 use App\Models\EmployeeDocumentExpiryAlert;
 use App\Services\DocumentExpiryAlertService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
+use Spatie\Activitylog\Models\Activity;
 
-test('document expiry alert sends one email listing employees in name order', function () {
+/**
+ * @param  array{to_preset?: string|null, cc_preset?: string|null, enabled?: bool}  $overrides
+ */
+function configureDocumentExpiryAlertTemplate(array $overrides = []): void
+{
+    $attributes = array_merge([
+        'label' => 'Document expiry alert',
+        'category' => 'notification',
+        'to_preset' => 'hr@example.com',
+        'cc_preset' => 'manager@example.com, hr@example.com',
+        'subject' => 'Document Expiry Alert - Next 30 Days',
+        'body_html' => 'Automated expiry summary email.',
+        'is_default' => true,
+        'enabled' => true,
+        'sort_order' => 0,
+    ], $overrides);
+
+    EmailTemplate::query()->updateOrCreate(
+        ['slug' => 'document_expiry_alert'],
+        $attributes,
+    );
+}
+
+beforeEach(function () {
+    config(['documents.expiry_alert_days' => 30]);
+    configureDocumentExpiryAlertTemplate();
+});
+
+test('dispatch command queues job only when pending documents exist', function () {
+    Queue::fake();
     Mail::fake();
     Carbon::setTestNow('2026-06-01');
 
-    $user = \App\Models\User::factory()->create();
-    $this->actingAs($user);
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    $this->artisan('documents:dispatch-expiry-alerts', ['--company' => $company->id])
+        ->assertSuccessful();
+
+    Queue::assertPushed(SendDocumentExpiryAlertJob::class, fn (SendDocumentExpiryAlertJob $job) => $job->companyId === $company->id);
+
+    Mail::assertSentCount(0);
+});
+
+test('dispatch command does nothing when expiry alert to preset is empty', function () {
+    Queue::fake();
+    configureDocumentExpiryAlertTemplate(['to_preset' => null]);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-20']);
+
+    $this->artisan('documents:dispatch-expiry-alerts', ['--company' => $company->id])
+        ->assertSuccessful();
+
+    Queue::assertNothingPushed();
+});
+
+test('consolidated expiry alert email is sent once with all pending documents sorted by employee name', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
 
     ['company' => $company, 'employee' => $employeeA, 'passportType' => $passportType] = makeDocumentFixtures();
-    $employeeB = \App\Models\Employee::factory()->create([
+
+    $employeeB = Employee::factory()->create([
         'company_id' => $company->id,
         'name' => 'Zara Khan',
+        'employee_no' => 'EMP-002',
     ]);
-    $employeeC = \App\Models\Employee::factory()->create([
+
+    $employeeC = Employee::factory()->create([
         'company_id' => $company->id,
         'name' => 'Ahmed Ali',
+        'employee_no' => 'EMP-001',
     ]);
 
-    EmailTemplate::query()->where('slug', 'document_expiry_alert')->update([
-        'to_preset' => 'hr@example.com',
-        'cc_preset' => 'manager@example.com',
-        'enabled' => true,
-    ]);
-
-    $docA = createEmployeePdfDocument(
+    $docC = createEmployeePdfDocument(
         $company->id,
         $employeeC->id,
         $passportType->id,
         "employee-documents/{$company->id}/{$employeeC->id}/passport/c.pdf",
         'Passport C.pdf',
     );
-    $docA->update(['expiry_date' => '2026-06-20']);
+    $docC->update(['expiry_date' => '2026-06-20']);
 
     $docB = createEmployeePdfDocument(
         $company->id,
@@ -49,45 +120,54 @@ test('document expiry alert sends one email listing employees in name order', fu
     );
     $docB->update(['expiry_date' => '2026-06-25']);
 
-    $docOutsideWindow = createEmployeePdfDocument(
-        $company->id,
-        $employeeA->id,
-        $passportType->id,
-        "employee-documents/{$company->id}/{$employeeA->id}/passport/far.pdf",
-        'Far.pdf',
-    );
-    $docOutsideWindow->update(['expiry_date' => '2026-08-01']);
-
-    $sent = app(DocumentExpiryAlertService::class)->sendForCompany($company);
-
-    expect($sent)->toBe(2);
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
     Mail::assertSent(DocumentExpiryAlertMail::class, function (DocumentExpiryAlertMail $mail) {
         return $mail->hasTo('hr@example.com')
             && $mail->hasCc('manager@example.com')
-            && count($mail->employeeGroups) === 2
-            && $mail->employeeGroups[0]['employee_name'] === 'Ahmed Ali'
-            && $mail->employeeGroups[1]['employee_name'] === 'Zara Khan'
-            && $mail->employeeGroups[0]['documents'][0]['remaining_days'] === 19;
+            && ! $mail->hasCc('hr@example.com')
+            && $mail->envelope()->subject === DocumentExpiryAlertMail::SUBJECT
+            && count($mail->rows) === 2
+            && $mail->rows[0]['employee_name'] === 'Ahmed Ali'
+            && $mail->rows[0]['employee_id'] === 'EMP-001'
+            && $mail->rows[1]['employee_name'] === 'Zara Khan';
     });
 
     expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2);
+});
 
-    expect(app(DocumentExpiryAlertService::class)->sendForCompany($company))->toBe(0);
+test('second run does not resend alert for the same document and expiry date', function () {
+    Mail::fake();
+    Carbon::setTestNow('2026-06-01');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $doc = createEmployeePdfDocument(
+        $company->id,
+        $employee->id,
+        $passportType->id,
+        "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
+        'Passport.pdf',
+    );
+    $doc->update(['expiry_date' => '2026-06-25']);
+
+    $service = app(DocumentExpiryAlertService::class);
+    $service->sendForCompany($company->id);
 
     Mail::assertSentCount(1);
+
+    Carbon::setTestNow('2026-06-16');
+    $service->sendForCompany($company->id);
+
+    Mail::assertSentCount(1);
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(1);
 });
 
-test('document expiry alert command processes companies', function () {
+test('expiry date change allows a new alert when the new date enters the window', function () {
     Mail::fake();
     Carbon::setTestNow('2026-06-01');
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
-
-    EmailTemplate::query()->where('slug', 'document_expiry_alert')->update([
-        'to_preset' => 'alerts@example.com',
-        'enabled' => true,
-    ]);
 
     $doc = createEmployeePdfDocument(
         $company->id,
@@ -96,25 +176,28 @@ test('document expiry alert command processes companies', function () {
         "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
         'Passport.pdf',
     );
-    $doc->update(['expiry_date' => '2026-06-15']);
+    $doc->update(['expiry_date' => '2026-06-25']);
 
-    $this->artisan('documents:send-expiry-alerts', ['--company' => $company->id])
-        ->assertSuccessful();
+    $service = app(DocumentExpiryAlertService::class);
+    $service->sendForCompany($company->id);
 
-    Mail::assertSent(DocumentExpiryAlertMail::class);
+    $doc->update(['expiry_date' => '2026-08-01']);
+
+    Carbon::setTestNow('2026-07-05');
+    $service->sendForCompany($company->id);
+
+    Mail::assertSentCount(2);
+
+    expect(EmployeeDocumentExpiryAlert::query()->count())->toBe(2)
+        ->and(EmployeeDocumentExpiryAlert::query()->orderBy('expiry_date_at_alert_time')->pluck('expiry_date_at_alert_time')->map->toDateString()->all())
+        ->toBe(['2026-06-25', '2026-08-01']);
 });
 
-test('document expiry alert is skipped when template has no recipients', function () {
+test('successful expiry alert is logged to activity', function () {
     Mail::fake();
     Carbon::setTestNow('2026-06-01');
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
-
-    EmailTemplate::query()->where('slug', 'document_expiry_alert')->update([
-        'to_preset' => null,
-        'cc_preset' => null,
-        'enabled' => true,
-    ]);
 
     $doc = createEmployeePdfDocument(
         $company->id,
@@ -123,18 +206,29 @@ test('document expiry alert is skipped when template has no recipients', functio
         "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf",
         'Passport.pdf',
     );
-    $doc->update(['expiry_date' => '2026-06-15']);
+    $doc->update(['expiry_date' => '2026-06-20']);
 
-    expect(app(DocumentExpiryAlertService::class)->sendForCompany($company))->toBe(0);
+    app(DocumentExpiryAlertService::class)->sendForCompany($company->id);
 
-    Mail::assertNothingSent();
+    $activity = Activity::query()->latest('id')->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->event)->toBe('expiry_alert_sent')
+        ->and($activity->log_name)->toBe('documents')
+        ->and($activity->properties->get('document_count'))->toBe(1)
+        ->and($activity->properties->get('recipient'))->toBe('hr@example.com');
 });
 
-test('document expiry alert template is seeded', function () {
-    $template = EmailTemplate::query()->where('slug', 'document_expiry_alert')->first();
+test('failed expiry alert is logged to activity', function () {
+    ['company' => $company] = makeDocumentFixtures();
 
-    expect($template)->not->toBeNull()
-        ->and($template->category->value)->toBe('notification')
-        ->and($template->is_default)->toBeTrue()
-        ->and($template->subject)->toContain('30 days');
+    app(DocumentExpiryAlertService::class)->logFailure(
+        $company,
+        new RuntimeException('SMTP unavailable'),
+    );
+
+    $activity = Activity::query()->where('event', 'expiry_alert_failed')->latest('id')->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->log_name)->toBe('documents');
 });

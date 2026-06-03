@@ -1,6 +1,6 @@
 @extends('mail.layout')
 
-@section('title', $subjectLine)
+@section('title', \App\Mail\DocumentExpiryAlertMail::SUBJECT)
 
 @section('content')
     <tr>
@@ -9,41 +9,41 @@
                 {{ $organizationName }}
             </p>
             <h1 style="margin:0;font-size:20px;line-height:1.4;color:#18181b;">
-                Document expiry alert
+                Document Expiry Alert
             </h1>
             <p style="margin:8px 0 0;font-size:13px;color:#71717a;">
-                Documents expiring within {{ $alertWindowDays }} days
+                Documents expiring within the next {{ $alertWindowDays }} days
             </p>
         </td>
     </tr>
     <tr>
         <td style="padding:24px 32px;">
-            @if ($introMessage !== '')
-                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3f3f46;white-space:pre-wrap;">{{ $introMessage }}</p>
-            @endif
+            <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3f3f46;">
+                The following employee documents require attention before they expire.
+            </p>
 
-            @foreach ($employeeGroups as $group)
-                <div style="margin-bottom:24px;">
-                    <p style="margin:0 0 10px;font-size:15px;font-weight:600;color:#18181b;">
-                        {{ $group['employee_name'] }}
-                    </p>
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7;border-radius:8px;overflow:hidden;">
-                        @foreach ($group['documents'] as $document)
-                            <tr>
-                                <td style="padding:12px 16px;border-bottom:1px solid #f4f4f5;font-size:14px;color:#3f3f46;">
-                                    <span style="font-weight:500;color:#18181b;">{{ $document['document_type'] }}</span>
-                                    — {{ $document['document_name'] }}
-                                    <br>
-                                    <span style="font-size:13px;color:#71717a;">
-                                        Expires {{ $document['expiry_date'] }}
-                                        ({{ $document['remaining_days'] }} {{ $document['remaining_days'] === 1 ? 'day' : 'days' }} remaining)
-                                    </span>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </table>
-                </div>
-            @endforeach
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #e4e4e7;border-radius:8px;overflow:hidden;border-collapse:collapse;">
+                <thead>
+                    <tr style="background-color:#f4f4f5;">
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Employee Name</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Employee ID</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Document Name</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Expiry Date</th>
+                        <th align="left" style="padding:12px 16px;font-size:12px;font-weight:600;color:#18181b;border-bottom:1px solid #e4e4e7;">Days Remaining</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($rows as $row)
+                        <tr>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['employee_name'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['employee_id'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['document_name'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['expiry_date'] }}</td>
+                            <td style="padding:12px 16px;font-size:14px;color:#3f3f46;border-bottom:1px solid #f4f4f5;">{{ $row['days_remaining'] }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
         </td>
     </tr>
 @endsection

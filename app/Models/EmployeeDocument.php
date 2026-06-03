@@ -74,6 +74,11 @@ class EmployeeDocument extends Model
         return $this->hasMany(EmployeeDocumentVersion::class)->latest('version');
     }
 
+    public function expiryAlerts(): HasMany
+    {
+        return $this->hasMany(EmployeeDocumentExpiryAlert::class);
+    }
+
     public function scopeForCompany(Builder $query, int $companyId): Builder
     {
         return $query->where('company_id', $companyId);

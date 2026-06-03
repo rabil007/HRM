@@ -10,7 +10,8 @@ class EmployeeDocumentExpiryAlert extends Model
     protected $fillable = [
         'company_id',
         'employee_document_id',
-        'sent_at',
+        'expiry_date_at_alert_time',
+        'alerted_at',
     ];
 
     /**
@@ -19,7 +20,8 @@ class EmployeeDocumentExpiryAlert extends Model
     protected function casts(): array
     {
         return [
-            'sent_at' => 'datetime',
+            'expiry_date_at_alert_time' => 'date:Y-m-d',
+            'alerted_at' => 'datetime',
         ];
     }
 

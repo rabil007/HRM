@@ -8,7 +8,7 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
-Schedule::command('documents:send-expiry-alerts')
+Schedule::command('documents:dispatch-expiry-alerts')
     ->dailyAt('08:00')
     ->withoutOverlapping()
     ->onOneServer();

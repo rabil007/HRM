@@ -7,9 +7,12 @@ return [
     | Document expiry email alerts
     |--------------------------------------------------------------------------
     |
-    | Scheduled command documents:send-expiry-alerts emails stakeholders when
-    | employee documents enter the alert window (default: 30 days before expiry).
-    | Configure recipients in Settings → Email templates → Document expiry alert.
+    | Daily scheduler dispatches queued jobs per company. Each job sends one
+    | consolidated email for documents not yet alerted for their current expiry
+    | date (within the configured day window).
+    |
+    | Configure To/CC recipients in Settings → Email templates →
+    | Document expiry alert (slug: document_expiry_alert).
     |
     */
 

@@ -12,21 +12,21 @@ class DocumentExpiryAlertMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public const SUBJECT = 'Document Expiry Alert - Next 30 Days';
+
     /**
-     * @param  list<array{employee_name: string, documents: list<array{document_name: string, document_type: string, expiry_date: string, remaining_days: int}>}>  $employeeGroups
+     * @param  list<array{employee_name: string, employee_id: string, document_name: string, expiry_date: string, days_remaining: int}>  $rows
      */
     public function __construct(
         public string $organizationName,
-        public string $subjectLine,
-        public string $introMessage,
-        public array $employeeGroups,
+        public array $rows,
         public int $alertWindowDays,
     ) {}
 
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: $this->subjectLine,
+            subject: self::SUBJECT,
         );
     }
 

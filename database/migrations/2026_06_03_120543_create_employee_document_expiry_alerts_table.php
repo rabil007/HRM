@@ -12,11 +12,15 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('employee_document_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('sent_at');
+            $table->date('expiry_date_at_alert_time');
+            $table->timestamp('alerted_at');
             $table->timestamps();
 
-            $table->unique('employee_document_id');
-            $table->index(['company_id', 'sent_at']);
+            $table->unique(
+                ['employee_document_id', 'expiry_date_at_alert_time'],
+                'employee_document_expiry_alerts_document_expiry_unique',
+            );
+            $table->index(['company_id', 'alerted_at']);
         });
     }
 
