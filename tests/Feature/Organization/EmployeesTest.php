@@ -643,6 +643,68 @@ test('employee update rejects visa_type_id when hidden in profile template', fun
         ->assertSessionHasErrors('visa_type_id');
 });
 
+test('employee photo upload succeeds when template requires linked user but user_id is not sent', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    Storage::fake('public');
+
+    $country = Country::query()->create([
+        'code' => 'LNK',
+        'name' => 'Linkland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'LNK',
+        'name' => 'Link Currency',
+        'symbol' => 'L$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Link Co',
+        'slug' => 'link-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = employeeProfileTemplateWithVisibleEmployeeFields([
+        'employee_no',
+        'name',
+        'image',
+        'user_id',
+    ]);
+    $configuration['fields']['employees']['user_id']['required'] = true;
+
+    $template = createEmployeeProfileTemplate($company, 'With linked user', $configuration);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_profile_template_id' => $template->id,
+            'employee_no' => 'EMP-LINK',
+            'name' => 'Mohammed Rabil',
+            'user_id' => null,
+            'status' => 'active',
+            'image' => null,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-LINK',
+        'name' => 'Mohammed Rabil',
+        'image' => UploadedFile::fake()->image('profile.jpg', 320, 320),
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->image)->not->toBeNull();
+});
+
 test('employee profile includes image and can be updated with a photo', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

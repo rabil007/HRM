@@ -90,7 +90,26 @@ class UpdateEmployeeRequest extends FormRequest
         $employee = $this->route('employee');
 
         if ($employee instanceof Employee) {
-            return EmployeeProfileTemplateRequestRules::applyToRules($employee, 'employees', $rules);
+            $rules = EmployeeProfileTemplateRequestRules::applyToRules($employee, 'employees', $rules);
+        }
+
+        return $this->onlyValidatePresentFields($rules);
+    }
+
+    /**
+     * Profile saves and photo uploads only send fields edited on the form.
+     * Template-required keys such as user_id (linked via Create User) must not
+     * fail validation when they are omitted from the request.
+     *
+     * @param  array<string, mixed>  $rules
+     * @return array<string, mixed>
+     */
+    protected function onlyValidatePresentFields(array $rules): array
+    {
+        foreach (array_keys($rules) as $attribute) {
+            if (! $this->has($attribute) && ! $this->hasFile($attribute)) {
+                unset($rules[$attribute]);
+            }
         }
 
         return $rules;
