@@ -126,14 +126,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
-        Route::post('organization/documents/employees/{employee}/files/whatsapp', DocumentBulkWhatsAppController::class)->name('organization.documents.employee.files.whatsapp');
-        Route::post('organization/documents/employees/{employee}/files/{document}/whatsapp-template', SendWhatsAppDocumentTemplateController::class)
-            ->name('organization.documents.employee.files.whatsapp-template');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });
-    Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
-        ->middleware('can:documents.share')
-        ->name('organization.documents.employee.files.share-links');
+    Route::middleware('can:documents.share')->group(function () {
+        Route::post('organization/documents/employees/{employee}/files/share-links', DocumentBulkShareLinksController::class)
+            ->name('organization.documents.employee.files.share-links');
+        Route::post('organization/documents/employees/{employee}/files/whatsapp', DocumentBulkWhatsAppController::class)
+            ->name('organization.documents.employee.files.whatsapp');
+        Route::post('organization/documents/employees/{employee}/files/{document}/whatsapp-template', SendWhatsAppDocumentTemplateController::class)
+            ->name('organization.documents.employee.files.whatsapp-template');
+    });
     Route::middleware('can:documents.download')->group(function () {
         Route::get('organization/documents/employees/{employee}/download', DocumentFolderDownloadController::class)->name('organization.documents.employee.download');
         Route::post('organization/documents/folders/bulk-download', DocumentBulkFolderDownloadController::class)->name('organization.documents.folders.bulk-download');

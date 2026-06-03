@@ -8,7 +8,7 @@ class BulkWhatsAppDocumentsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return (bool) $this->user()?->can('documents.share');
     }
 
     /** @return array<string, mixed> */

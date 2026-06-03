@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
@@ -37,6 +38,8 @@ type ClientRow = {
 };
 
 export default function Clients({ clients }: { clients: ClientRow[] }) {
+    const can = useSettingsMasterDataCan('clients');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -247,7 +250,7 @@ export default function Clients({ clients }: { clients: ClientRow[] }) {
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        <Button onClick={openCreate}>Add client</Button>
+                        {can.create ? <Button onClick={openCreate}>Add client</Button> : null}
                     </div>
                 </div>
 
@@ -264,15 +267,13 @@ export default function Clients({ clients }: { clients: ClientRow[] }) {
                                 <div key={v.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
                                     <div className="col-span-7 text-sm truncate">{v.name}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
                                     </div>
                                     <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(v)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}
@@ -490,7 +491,7 @@ export default function Clients({ clients }: { clients: ClientRow[] }) {
                                 <div className="text-sm font-semibold text-foreground">Active</div>
                                 <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
                             </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
                     </div>
 

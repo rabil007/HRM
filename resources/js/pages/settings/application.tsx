@@ -220,6 +220,8 @@ export default function ApplicationSettings({
     const permissions =
         (usePage().props.auth as { permissions?: string[] } | undefined)?.permissions ?? [];
 
+    const canUpdateApplication = permissions.includes('settings.application.update');
+
     const navItems = useMemo(
         () => ALL_NAV_ITEMS.filter((item) => permissions.includes(item.permission)),
         [permissions],
@@ -281,11 +283,19 @@ export default function ApplicationSettings({
 
     function submitGeneral(e: React.FormEvent) {
         e.preventDefault();
+        if (!canUpdateApplication) {
+            return;
+        }
+
         generalForm.put('/settings/application/general', { preserveScroll: true });
     }
 
     function submitBranding(e: React.FormEvent) {
         e.preventDefault();
+        if (!canUpdateApplication) {
+            return;
+        }
+
         brandingForm.post('/settings/application/branding', {
             preserveScroll: true,
             forceFormData: true,
@@ -294,11 +304,19 @@ export default function ApplicationSettings({
 
     function submitPreferences(e: React.FormEvent) {
         e.preventDefault();
+        if (!canUpdateApplication) {
+            return;
+        }
+
         preferencesForm.post('/settings/application/branding', { preserveScroll: true });
     }
 
     function submitSmtp(e: React.FormEvent) {
         e.preventDefault();
+        if (!canUpdateApplication) {
+            return;
+        }
+
         smtpForm.post('/settings/application/smtp', {
             preserveScroll: true,
             forceFormData: true,
@@ -306,6 +324,10 @@ export default function ApplicationSettings({
     }
 
     async function handleSendTestEmail() {
+        if (!canUpdateApplication) {
+            return;
+        }
+
         const recipient = testRecipient.trim();
 
         if (recipient === '') {
@@ -585,7 +607,7 @@ export default function ApplicationSettings({
                                 <Button
                                     type="submit"
                                     className="rounded-xl h-11 px-6"
-                                    disabled={generalForm.processing}
+                                    disabled={!canUpdateApplication || generalForm.processing}
                                 >
                                     {generalForm.processing ? <Spinner /> : null}
                                     Save general settings
@@ -650,7 +672,7 @@ export default function ApplicationSettings({
                                 <Button
                                     type="submit"
                                     className="rounded-xl h-11 px-6"
-                                    disabled={brandingForm.processing}
+                                    disabled={!canUpdateApplication || brandingForm.processing}
                                 >
                                     {brandingForm.processing ? <Spinner /> : null}
                                     Save branding
@@ -894,7 +916,7 @@ export default function ApplicationSettings({
                                     <Button
                                         type="submit"
                                         className="rounded-xl h-11 px-6"
-                                        disabled={smtpForm.processing}
+                                        disabled={!canUpdateApplication || smtpForm.processing}
                                     >
                                         {smtpForm.processing ? <Spinner /> : null}
                                         Save email settings
@@ -1110,7 +1132,7 @@ export default function ApplicationSettings({
                                 <Button
                                     type="submit"
                                     className="rounded-xl h-11 px-6"
-                                    disabled={preferencesForm.processing}
+                                    disabled={!canUpdateApplication || preferencesForm.processing}
                                 >
                                     {preferencesForm.processing ? <Spinner /> : null}
                                     Save preferences

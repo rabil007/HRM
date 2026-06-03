@@ -22,15 +22,17 @@ Grant roles in **Organization → Roles & permissions** (`/organization/roles`).
 |------------|-------------|
 | `documents.view` | Documents index, employee browse, preview |
 | `documents.download` | Single download, folder ZIP, bulk ZIP, PDF merge |
-| `documents.share` | Share link + WhatsApp bulk share |
+| `documents.share` | Share links, bulk WhatsApp send, and per-document WhatsApp templates |
 | `documents.upload` | Upload, replace, update metadata on profile |
 | `documents.delete` | Delete documents (browse bulk + profile) |
 
 Frontend `can` object on document pages comes from `DocumentPagePermissions::for($user)`:
 
 ```php
-['download' => bool, 'share' => bool, 'delete' => bool]
+['download' => bool, 'share' => bool, 'delete' => bool, 'whatsapp_template' => bool, 'whatsapp_templates' => array]
 ```
+
+`whatsapp_template` requires `documents.share` plus configured WhatsApp integration and at least one enabled document template.
 
 Upload is enforced on routes (`documents.upload`), not always repeated in that array—check route middleware in `routes/web.php`.
 

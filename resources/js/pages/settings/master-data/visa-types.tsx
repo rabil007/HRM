@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -29,6 +30,8 @@ type VisaType = {
 };
 
 export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
+    const can = useSettingsMasterDataCan('visa-types');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -133,7 +136,7 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                             className={masterDataInputClass}
                         />
                     </div>
-                    <Button onClick={openCreate}>Add visa type</Button>
+                    {can.create ? <Button onClick={openCreate}>Add visa type</Button> : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
@@ -152,15 +155,13 @@ export default function VisaTypes({ visa_types }: { visa_types: VisaType[] }) {
                                 >
                                     <div className="col-span-7 truncate text-sm">{v.name}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
                                     </div>
                                     <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(v)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}

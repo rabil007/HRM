@@ -37,6 +37,7 @@ import {
     type WhatsAppTestSendResult,
 } from '@/features/settings/send-whatsapp-test-message';
 import { testWhatsAppConnection } from '@/features/settings/test-whatsapp-connection';
+import { useHasPermission } from '@/hooks/use-has-permission';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -101,6 +102,9 @@ export function WhatsAppSettingsPanel({
     document_templates,
     can,
 }: WhatsAppSettingsPanelProps) {
+    const canViewTemplateLibrary = useHasPermission(
+        'settings.integrations.whatsapp-templates.view',
+    );
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
     const [testing, setTesting] = useState(false);
@@ -665,11 +669,13 @@ export function WhatsAppSettingsPanel({
                         Document and payroll message templates are managed separately from API
                         credentials.
                     </p>
-                    <Button asChild variant="outline" size="sm" className="rounded-xl">
-                        <Link href="/settings/application/whatsapp-templates">
-                            Open template library
-                        </Link>
-                    </Button>
+                    {canViewTemplateLibrary ? (
+                        <Button asChild variant="outline" size="sm" className="rounded-xl">
+                            <Link href="/settings/application/whatsapp-templates">
+                                Open template library
+                            </Link>
+                        </Button>
+                    ) : null}
                 </AlertDescription>
             </Alert>
 

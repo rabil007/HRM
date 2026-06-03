@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -32,6 +33,8 @@ type Country = {
 };
 
 export default function Countries({ countries }: { countries: Country[] }) {
+    const can = useSettingsMasterDataCan('countries');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -155,7 +158,7 @@ export default function Countries({ countries }: { countries: Country[] }) {
                             placeholder="Search by code, name, dial code..."
                         />
                     </div>
-                    <Button onClick={openCreate}>Add country</Button>
+                    {can.create ? <Button onClick={openCreate}>Add country</Button> : null}
                 </div>
 
                 <div className="rounded-xl border border-border/60 overflow-hidden">
@@ -174,15 +177,13 @@ export default function Countries({ countries }: { countries: Country[] }) {
                             <div className="col-span-4 text-sm truncate">{c.name}</div>
                             <div className="col-span-2 text-sm text-muted-foreground">{c.dial_code ?? '—'}</div>
                             <div className="col-span-1 flex items-center">
-                                <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+                                <Switch disabled={!can.update} checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
                             </div>
                             <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
-                                    Edit
-                                </Button>
-                                <Button variant="destructive" size="sm" onClick={() => requestDelete(c)}>
+                                {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(c)}>
                                     Delete
-                                </Button>
+                                </Button> : null}
                             </div>
                         </div>
                     ))}

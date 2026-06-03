@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -29,6 +30,8 @@ type SssaOption = {
 };
 
 export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption[] }) {
+    const can = useSettingsMasterDataCan('sssa-options');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -137,7 +140,7 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
                             className={masterDataInputClass}
                         />
                     </div>
-                    <Button onClick={openCreate}>Add SSSA option</Button>
+                    {can.create ? <Button onClick={openCreate}>Add SSSA option</Button> : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
@@ -156,15 +159,13 @@ export default function SssaOptions({ sssa_options }: { sssa_options: SssaOption
                                 >
                                     <div className="col-span-7 truncate text-sm">{v.name}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
+                                        <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
                                     </div>
                                     <div className="col-span-3 flex flex-nowrap justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(v)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}

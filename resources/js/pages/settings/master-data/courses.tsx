@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
 import { useMemo, useRef, useState } from 'react';
 import type { DragEvent, KeyboardEvent } from 'react';
@@ -37,6 +38,8 @@ type Course = {
 };
 
 export default function Courses({ courses }: { courses: Course[] }) {
+    const can = useSettingsMasterDataCan('courses');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -251,7 +254,7 @@ export default function Courses({ courses }: { courses: Course[] }) {
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        <Button onClick={openCreate}>Add course</Button>
+                        {can.create ? <Button onClick={openCreate}>Add course</Button> : null}
                     </div>
                 </div>
 
@@ -271,15 +274,13 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                 >
                                     <div className="col-span-7 text-sm truncate">{c.name}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
+                                        <Switch disabled={!can.update} checked={c.is_active} onCheckedChange={() => toggleActive(c)} />
                                     </div>
                                     <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(c)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(c)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(c)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}
@@ -510,7 +511,7 @@ export default function Courses({ courses }: { courses: Course[] }) {
                                 <div className="text-sm font-semibold text-foreground">Active</div>
                                 <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
                             </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
                     </div>
 

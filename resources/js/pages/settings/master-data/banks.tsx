@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import Heading from '@/components/heading';
@@ -34,6 +35,8 @@ type CountryOption = {
 };
 
 export default function Banks({ banks, countries }: { banks: Bank[]; countries: CountryOption[] }) {
+    const can = useSettingsMasterDataCan('banks');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -156,7 +159,7 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
                     <div className="flex-1">
                         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search banks..." />
                     </div>
-                    <Button onClick={openCreate}>Add bank</Button>
+                    {can.create ? <Button onClick={openCreate}>Add bank</Button> : null}
                 </div>
 
                 <div className="rounded-xl border border-border/60 overflow-hidden">
@@ -176,15 +179,13 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
                                     <div className="col-span-2 font-mono text-sm text-muted-foreground">{b.uae_routing_code_agent_id ?? '—'}</div>
                                     <div className="col-span-4 text-sm text-muted-foreground truncate">{b.country?.name ?? '—'}</div>
                                     <div className="col-span-1 flex items-center">
-                                        <Switch checked={b.is_active} onCheckedChange={() => toggleActive(b)} />
+                                        <Switch disabled={!can.update} checked={b.is_active} onCheckedChange={() => toggleActive(b)} />
                                     </div>
                                     <div className="col-span-1 flex justify-end gap-2">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(b)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(b)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(b)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}
@@ -257,7 +258,7 @@ export default function Banks({ banks, countries }: { banks: Bank[]; countries: 
                                 <div className="text-sm font-semibold text-foreground">Active</div>
                                 <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
                             </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
                     </div>
 

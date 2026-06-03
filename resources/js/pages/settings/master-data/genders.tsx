@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -24,6 +25,8 @@ type Gender = {
 };
 
 export default function Genders({ genders }: { genders: Gender[] }) {
+    const can = useSettingsMasterDataCan('genders');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -123,7 +126,7 @@ export default function Genders({ genders }: { genders: Gender[] }) {
                     <div className="flex-1">
                         <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search genders..." />
                     </div>
-                    <Button onClick={openCreate}>Add gender</Button>
+                    {can.create ? <Button onClick={openCreate}>Add gender</Button> : null}
                 </div>
 
                 <div className="rounded-xl border border-border/60 overflow-hidden">
@@ -139,15 +142,13 @@ export default function Genders({ genders }: { genders: Gender[] }) {
                                 <div key={g.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
                                     <div className="col-span-7 text-sm truncate">{g.name}</div>
                                     <div className="col-span-2 flex items-center">
-                                        <Switch checked={g.is_active} onCheckedChange={() => toggleActive(g)} />
+                                        <Switch disabled={!can.update} checked={g.is_active} onCheckedChange={() => toggleActive(g)} />
                                     </div>
                                     <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(g)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(g)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(g)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}
@@ -187,7 +188,7 @@ export default function Genders({ genders }: { genders: Gender[] }) {
                                 <div className="text-sm font-semibold text-foreground">Active</div>
                                 <div className="text-xs text-muted-foreground/80">Disable to hide from selections.</div>
                             </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
                     </div>
 

@@ -28,7 +28,7 @@ test('users can send selected employee documents via whatsapp api', function () 
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -79,7 +79,7 @@ test('whatsapp direct send can include hello_world template first', function () 
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -117,7 +117,7 @@ test('whatsapp direct send fails when integration is not configured', function (
 
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
     $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');

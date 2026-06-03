@@ -13,7 +13,7 @@ test('guests cannot send whatsapp document templates', function () {
     ]))->assertUnauthorized();
 });
 
-test('whatsapp document template requires whatsapp number', function () {
+test('whatsapp document template requires documents share permission', function () {
     Storage::fake('public');
 
     $user = User::factory()->create();
@@ -22,6 +22,28 @@ test('whatsapp document template requires whatsapp number', function () {
     ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
 
     grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');
+
+    $this->postJson(route('organization.documents.employee.files.whatsapp-template', [
+        'employee' => $employee,
+        'document' => $doc,
+    ]), [
+        'whatsapp_number' => '+971501234567',
+        'template_slug' => 'document_delivery',
+    ])->assertForbidden();
+});
+
+test('whatsapp document template requires whatsapp number', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -60,7 +82,7 @@ test('whatsapp document template sends successfully', function () {
 
     $employee->update(['phone' => '+971501234567']);
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -125,7 +147,7 @@ test('whatsapp document template returns error when meta api fails', function ()
 
     $employee->update(['phone' => '+971501234567']);
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',
@@ -162,7 +184,7 @@ test('users cannot send whatsapp document template for another employees documen
 
     $employee->update(['phone' => '+971501234567']);
 
-    grantCompanyPermissions($user, $company, ['documents.view']);
+    grantCompanyPermissions($user, $company, ['documents.view', 'documents.share']);
 
     WhatsAppSetting::current()->storeFromValidated([
         'business_account_id' => '123456789',

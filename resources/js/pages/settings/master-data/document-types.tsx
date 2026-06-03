@@ -1,4 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { AlertCircle, Download, FileSpreadsheet, Info, Loader2, Upload } from 'lucide-react';
 import { useMemo, useRef, useState   } from 'react';
 import type {DragEvent, KeyboardEvent} from 'react';
@@ -37,6 +38,8 @@ type DocumentType = {
 };
 
 export default function DocumentTypes({ document_types }: { document_types: DocumentType[] }) {
+    const can = useSettingsMasterDataCan('document-types');
+
     const [query, setQuery] = useState('');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
@@ -257,7 +260,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                             <Upload className="mr-2 h-4 w-4" />
                             Import CSV
                         </Button>
-                        <Button onClick={openCreate}>Add document type</Button>
+                        {can.create ? <Button onClick={openCreate}>Add document type</Button> : null}
                     </div>
                 </div>
 
@@ -274,15 +277,13 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                 <div key={d.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
                                     <div className="col-span-8 text-sm font-medium truncate">{d.title}</div>
                                     <div className="col-span-1 flex items-center">
-                                        <Switch checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
+                                        <Switch disabled={!can.update} checked={d.is_active} onCheckedChange={() => toggleActive(d)} />
                                     </div>
                                     <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        <Button variant="outline" size="sm" onClick={() => openEdit(d)}>
-                                            Edit
-                                        </Button>
-                                        <Button variant="destructive" size="sm" onClick={() => requestDelete(d)}>
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                        {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(d)}>
                                             Delete
-                                        </Button>
+                                        </Button> : null}
                                     </div>
                                 </div>
                             ))}
@@ -518,7 +519,7 @@ export default function DocumentTypes({ document_types }: { document_types: Docu
                                 <div className="text-sm font-semibold">Active</div>
                                 <div className="text-xs text-muted-foreground">Visible in dropdowns and templates.</div>
                             </div>
-                            <Switch checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
+                            <Switch disabled={!can.update} checked={form.data.is_active} onCheckedChange={(v) => form.setData('is_active', v)} />
                         </div>
 
                         <div className="pt-2 flex items-center justify-end gap-2">

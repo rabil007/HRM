@@ -47,7 +47,10 @@ class DocumentPagePermissions
             'download' => $user?->can('documents.download') ?? false,
             'share' => $user?->can('documents.share') ?? false,
             'delete' => $user?->can('documents.delete') ?? false,
-            'whatsapp_template' => $canView && $whatsappConfigured && $templates !== [],
+            'whatsapp_template' => ($user?->can('documents.share') ?? false)
+                && $canView
+                && $whatsappConfigured
+                && $templates !== [],
             'whatsapp_templates' => $templates,
         ];
     }
