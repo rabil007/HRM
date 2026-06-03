@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
+use App\Support\Employees\EmployeeFormOptions;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -24,6 +25,7 @@ class EmployeeDocumentsBrowseController extends Controller
             'employee' => $result['employee'],
             'documents' => $result['documents'],
             'summary' => $browse->expirySummary($companyId, $employee->id),
+            'countries' => EmployeeFormOptions::for($companyId, $employee)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
         ]);
     }

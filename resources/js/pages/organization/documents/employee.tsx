@@ -51,6 +51,7 @@ import {
     
 } from '@/features/organization/documents/whatsapp-template/types';
 import type {WhatsAppTemplateOption} from '@/features/organization/documents/whatsapp-template/types';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { shareLinks } from '@/routes/organization/documents/employee/files';
@@ -60,6 +61,7 @@ type Props = {
     employee: EmployeeSummary;
     documents: DocumentBrowseItem[];
     summary: DocumentExpirySummary;
+    countries: PhoneCountryOption[];
     can: {
         download: boolean;
         share: boolean;
@@ -73,6 +75,7 @@ export default function EmployeeDocumentsBrowse({
     employee,
     documents: allDocuments,
     summary,
+    countries,
     can,
 }: Props) {
     const { company_switcher_companies, current_company_id } = usePage().props as unknown as {
@@ -105,6 +108,7 @@ export default function EmployeeDocumentsBrowse({
     const [whatsappTemplateDocument, setWhatsappTemplateDocument] = useState<{
         id: number;
         name: string;
+        document_type: string;
     } | null>(null);
 
     const filteredDocuments = useMemo(() => {
@@ -219,6 +223,7 @@ export default function EmployeeDocumentsBrowse({
         setWhatsappTemplateDocument({
             id: selectedDoc.id,
             name: selectedDoc.document_name,
+            document_type: selectedDoc.document_type,
         });
     };
 
@@ -464,11 +469,13 @@ export default function EmployeeDocumentsBrowse({
                                 key={doc.id}
                                 doc={doc}
                                 employeeId={employee.id}
+                                employeeName={employee.name}
                                 employeePhone={employee.phone}
                                 onPreview={setPreviewDoc}
                                 canDownload={canDownloadDocuments}
                                 canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                                 whatsappTemplates={whatsappTemplates}
+                                countries={countries}
                                 selectionMode
                                 selected={isDocumentSelected(doc.id)}
                                 onSelectedChange={() => toggleDocument(doc.id)}
@@ -513,10 +520,13 @@ export default function EmployeeDocumentsBrowse({
                     }
                 }}
                 employeeId={employee.id}
+                employeeName={employee.name}
                 employeePhone={employee.phone}
                 documentId={whatsappTemplateDocument?.id ?? 0}
                 documentName={whatsappTemplateDocument?.name ?? ''}
+                documentTypeLabel={whatsappTemplateDocument?.document_type}
                 templates={whatsappTemplates}
+                countries={countries}
                 onSendComplete={clearDocumentSelection}
             />
 

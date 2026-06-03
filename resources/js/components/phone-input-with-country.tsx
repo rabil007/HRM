@@ -32,6 +32,7 @@ export type PhoneInputWithCountryProps = {
     autoFocus?: boolean;
     disabled?: boolean;
     id?: string;
+    nationalPlaceholder?: string;
 };
 
 export function PhoneInputWithCountry({
@@ -47,6 +48,7 @@ export function PhoneInputWithCountry({
     autoFocus = false,
     disabled = false,
     id,
+    nationalPlaceholder = 'Phone number',
 }: PhoneInputWithCountryProps): ReactElement {
     const countryPickerOpenRef = useRef(false);
     const [countryOpen, setCountryOpen] = useState(false);
@@ -181,7 +183,7 @@ export function PhoneInputWithCountry({
                 inputMode="tel"
                 autoFocus={autoFocus}
                 disabled={disabled}
-                placeholder="Phone number"
+                placeholder={nationalPlaceholder}
                 className={cn(
                     'h-10 min-w-0 flex-1 rounded-xl border-white/5 bg-white/5',
                     inputClassName,

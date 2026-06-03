@@ -13,6 +13,7 @@ import { DocumentFileIcon } from '@/features/organization/documents/shared/docum
 import { DocumentUploadedDisplay } from '@/features/organization/documents/shared/document-uploaded-display';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { formatDisplayDate } from '@/lib/format-date';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { cn, formatBytes } from '@/lib/utils';
 import type { DocumentBrowseItem } from './types';
 
@@ -23,22 +24,26 @@ function formatOptionalDate(value: string | null): string {
 export function EmployeeDocumentTableRow({
     doc,
     employeeId,
+    employeeName,
     employeePhone,
     onPreview,
     canDownload = false,
     canSendWhatsAppTemplate = false,
     whatsappTemplates = [],
+    countries,
     selected = false,
     onSelectedChange,
     selectionMode = false,
 }: {
     doc: DocumentBrowseItem;
     employeeId: number;
+    employeeName: string;
     employeePhone?: string | null;
     onPreview: (doc: DocumentBrowseItem) => void;
     canDownload?: boolean;
     canSendWhatsAppTemplate?: boolean;
     whatsappTemplates?: WhatsAppTemplateOption[];
+    countries: PhoneCountryOption[];
     selected?: boolean;
     onSelectedChange?: (selected: boolean) => void;
     selectionMode?: boolean;
@@ -106,11 +111,13 @@ export function EmployeeDocumentTableRow({
                 <BrowseDocumentActions
                     doc={doc}
                     employeeId={employeeId}
+                    employeeName={employeeName}
                     employeePhone={employeePhone}
                     onPreview={onPreview}
                     canDownload={canDownload}
                     canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                     whatsappTemplates={whatsappTemplates}
+                    countries={countries}
                 />
             </TableCell>
         </TableRow>

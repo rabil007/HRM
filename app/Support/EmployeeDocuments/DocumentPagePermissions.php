@@ -37,6 +37,10 @@ class DocumentPagePermissions
                     'slug' => $template->slug,
                     'label' => $template->label,
                     'meta_name' => $template->meta_name,
+                    'meta_language' => $template->meta_language,
+                    'category' => $template->category->value,
+                    'category_label' => $template->category->label(),
+                    'body_preview' => $template->body_preview,
                     'is_default' => $template->is_default,
                 ])
                 ->values()

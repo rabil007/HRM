@@ -5,24 +5,29 @@ import { TableRowActions } from '@/components/table-row-actions';
 import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
+import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { documents } from '@/routes/organization';
 
 export function BrowseDocumentActions({
     doc,
     employeeId,
+    employeeName,
     employeePhone,
     onPreview,
     canDownload = false,
     canSendWhatsAppTemplate = false,
     whatsappTemplates = [],
+    countries,
 }: {
     doc: DocumentBrowseItem;
     employeeId: number;
+    employeeName: string;
     employeePhone?: string | null;
     onPreview: (doc: DocumentBrowseItem) => void;
     canDownload?: boolean;
     canSendWhatsAppTemplate?: boolean;
     whatsappTemplates?: WhatsAppTemplateOption[];
+    countries: PhoneCountryOption[];
 }) {
     const [whatsappDialogOpen, setWhatsappDialogOpen] = useState(false);
 
@@ -62,10 +67,13 @@ export function BrowseDocumentActions({
                 open={whatsappDialogOpen}
                 onOpenChange={setWhatsappDialogOpen}
                 employeeId={employeeId}
+                employeeName={employeeName}
                 employeePhone={employeePhone}
                 documentId={doc.id}
                 documentName={doc.document_name}
+                documentTypeLabel={doc.document_type}
                 templates={whatsappTemplates}
+                countries={countries}
             />
         </>
     );
