@@ -46,6 +46,7 @@ import {
     getTemplateRequiredFieldKeys,
     isEmptyTemplateFieldValue,
     isTemplateFieldRequired,
+    omitHiddenTemplateRecordFields,
 } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     EmployeeContractDetails,
@@ -381,30 +382,35 @@ export function EmployeeContractTab({
 
         setMissingRequiredFields(new Set());
         contractForm.clearErrors();
-        contractForm.transform((data) => ({
-            contract_type: data.contract_type,
-            start_date: data.start_date,
-            end_date: data.end_date === '' ? null : data.end_date,
-            labor_contract_id:
-                data.labor_contract_id.trim() === ''
-                    ? null
-                    : data.labor_contract_id.trim(),
-            status: data.status,
-            basic_salary: data.basic_salary === '' ? null : data.basic_salary,
-            housing_allowance:
-                data.housing_allowance === '' ? null : data.housing_allowance,
-            transport_allowance:
-                data.transport_allowance === '' ? null : data.transport_allowance,
-            other_allowances:
-                data.other_allowances === '' ? null : data.other_allowances,
-            supplementary_allowance:
-                data.supplementary_allowance === ''
-                    ? null
-                    : data.supplementary_allowance,
-            site_allowance:
-                data.site_allowance === '' ? null : data.site_allowance,
-            note: data.note.trim() === '' ? null : data.note.trim(),
-        }));
+        contractForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    contract_type: data.contract_type,
+                    start_date: data.start_date,
+                    end_date: data.end_date === '' ? null : data.end_date,
+                    labor_contract_id:
+                        data.labor_contract_id.trim() === ''
+                            ? null
+                            : data.labor_contract_id.trim(),
+                    status: data.status,
+                    basic_salary: data.basic_salary === '' ? null : data.basic_salary,
+                    housing_allowance:
+                        data.housing_allowance === '' ? null : data.housing_allowance,
+                    transport_allowance:
+                        data.transport_allowance === '' ? null : data.transport_allowance,
+                    other_allowances:
+                        data.other_allowances === '' ? null : data.other_allowances,
+                    supplementary_allowance:
+                        data.supplementary_allowance === ''
+                            ? null
+                            : data.supplementary_allowance,
+                    site_allowance:
+                        data.site_allowance === '' ? null : data.site_allowance,
+                    note: data.note.trim() === '' ? null : data.note.trim(),
+                },
+                templateContractFields,
+            ),
+        );
 
         const url = editingContract
             ? updateContract.url({

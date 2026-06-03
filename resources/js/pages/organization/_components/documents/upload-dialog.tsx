@@ -50,6 +50,7 @@ import {
 import {
     getTemplateRequiredFieldKeys,
     isEmptyTemplateFieldValue,
+    omitHiddenTemplateRecordFields,
 } from '@/pages/organization/_lib/template-field-visibility';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
@@ -353,15 +354,20 @@ export function UploadDocumentDialog({
         router.post(
             EmployeeDocumentController.bulkStore.url({ employee: resolvedEmployeeId }),
             {
-                documents: drafts.map((draft) => ({
-                    document_type_id: Number(draft.document_type_id),
-                    title: draft.title.trim() || draft.file.name,
-                    file: draft.file,
-                    document_number: draft.document_number || null,
-                    issue_date: draft.issue_date || null,
-                    expiry_date: draft.expiry_date || null,
-                    notes: draft.notes || null,
-                })),
+                documents: drafts.map((draft) =>
+                    omitHiddenTemplateRecordFields(
+                        {
+                            document_type_id: Number(draft.document_type_id),
+                            title: draft.title.trim() || draft.file.name,
+                            file: draft.file,
+                            document_number: draft.document_number || null,
+                            issue_date: draft.issue_date || null,
+                            expiry_date: draft.expiry_date || null,
+                            notes: draft.notes || null,
+                        },
+                        templateFields,
+                    ),
+                ),
             },
             {
                 forceFormData: true,
@@ -395,7 +401,7 @@ export function UploadDocumentDialog({
                 },
             },
         );
-    }, [drafts, employeeId, ensureEmployee, isUploading, onOpenChange, resetUploadDialog, validateRequired]);
+    }, [drafts, employeeId, ensureEmployee, isUploading, onOpenChange, resetUploadDialog, templateFields, validateRequired]);
 
     return (
         <Dialog

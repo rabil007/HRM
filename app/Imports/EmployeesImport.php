@@ -14,6 +14,7 @@ use App\Models\Gender;
 use App\Models\Position;
 use App\Models\Religion;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -522,7 +523,16 @@ class EmployeesImport
         $created = 0;
         $failed = [];
 
-        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, &$created, &$failed) {
+        $importTemplate = $onboardingTemplateId !== null
+            ? EmployeeProfileTemplate::query()->find($onboardingTemplateId)
+            : null;
+        $importTabs = $importTemplate !== null
+            ? EmployeeProfileTemplateResolver::resolve($importTemplate)['tabs']
+            : null;
+        $contractTabVisible = $importTabs === null || (bool) ($importTabs['contract']['visible'] ?? true);
+        $bankTabVisible = $importTabs === null || (bool) ($importTabs['bank']['visible'] ?? true);
+
+        DB::transaction(function () use ($rows, $existingNos, $onboardingTemplateId, $contractTabVisible, $bankTabVisible, &$created, &$failed) {
             foreach ($rows as $index => $row) {
                 $rowNumber = $index + 2;
                 $no = (string) ($row['employee_no'] ?? '');
@@ -569,42 +579,44 @@ class EmployeesImport
                         'status' => $row['status'] ?: 'active',
                     ]);
 
-                    $contractType = $row['contract_type'] ?? null;
-                    if (! is_string($contractType) || ! in_array($contractType, ['limited', 'unlimited', 'part_time', 'contract'], true)) {
-                        $contractType = 'unlimited';
-                    }
+                    if ($contractTabVisible) {
+                        $contractType = $row['contract_type'] ?? null;
+                        if (! is_string($contractType) || ! in_array($contractType, ['limited', 'unlimited', 'part_time', 'contract'], true)) {
+                            $contractType = 'unlimited';
+                        }
 
-                    $startDate = $row['start_date'] ?? null;
-                    if (! is_string($startDate) || $startDate === '') {
-                        $startDate = Carbon::today()->format('Y-m-d');
-                    }
+                        $startDate = $row['start_date'] ?? null;
+                        if (! is_string($startDate) || $startDate === '') {
+                            $startDate = Carbon::today()->format('Y-m-d');
+                        }
 
-                    EmployeeContract::query()->create([
-                        'company_id' => $this->companyId,
-                        'employee_id' => $employee->id,
-                        'contract_type' => $contractType,
-                        'start_date' => $startDate,
-                        'end_date' => $row['end_date'] ?? null,
-                        'labor_contract_id' => $row['labor_contract_id'] ?? null,
-                        'basic_salary' => $row['basic_salary'] !== '' ? $row['basic_salary'] : null,
-                        'housing_allowance' => $row['housing_allowance'] !== '' ? $row['housing_allowance'] : null,
-                        'transport_allowance' => $row['transport_allowance'] !== '' ? $row['transport_allowance'] : null,
-                        'other_allowances' => $row['other_allowances'] !== '' ? $row['other_allowances'] : null,
-                        'supplementary_allowance' => $row['supplementary_allowance'] !== ''
-                            ? $row['supplementary_allowance']
-                            : null,
-                        'site_allowance' => $row['site_allowance'] !== '' ? $row['site_allowance'] : null,
-                        'note' => isset($row['note']) && trim((string) $row['note']) !== ''
-                            ? trim((string) $row['note'])
-                            : null,
-                        'status' => 'active',
-                    ]);
+                        EmployeeContract::query()->create([
+                            'company_id' => $this->companyId,
+                            'employee_id' => $employee->id,
+                            'contract_type' => $contractType,
+                            'start_date' => $startDate,
+                            'end_date' => $row['end_date'] ?? null,
+                            'labor_contract_id' => $row['labor_contract_id'] ?? null,
+                            'basic_salary' => $row['basic_salary'] !== '' ? $row['basic_salary'] : null,
+                            'housing_allowance' => $row['housing_allowance'] !== '' ? $row['housing_allowance'] : null,
+                            'transport_allowance' => $row['transport_allowance'] !== '' ? $row['transport_allowance'] : null,
+                            'other_allowances' => $row['other_allowances'] !== '' ? $row['other_allowances'] : null,
+                            'supplementary_allowance' => $row['supplementary_allowance'] !== ''
+                                ? $row['supplementary_allowance']
+                                : null,
+                            'site_allowance' => $row['site_allowance'] !== '' ? $row['site_allowance'] : null,
+                            'note' => isset($row['note']) && trim((string) $row['note']) !== ''
+                                ? trim((string) $row['note'])
+                                : null,
+                            'status' => 'active',
+                        ]);
+                    }
 
                     $bankId = $resolved['bank_id'] ?? null;
                     $iban = $row['iban'] ?? null;
                     $accountName = $row['account_name'] ?? null;
 
-                    if ($bankId || $iban || $accountName) {
+                    if ($bankTabVisible && ($bankId || $iban || $accountName)) {
                         EmployeeBankAccount::query()->create([
                             'company_id' => $this->companyId,
                             'employee_id' => $employee->id,

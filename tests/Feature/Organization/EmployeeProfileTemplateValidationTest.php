@@ -7,6 +7,7 @@ use App\Models\Course;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeTraining;
 use App\Models\User;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
@@ -441,6 +442,77 @@ test('training store rejects empty record when template fields are optional', fu
         ->assertSessionHasErrors('_');
 
     expect(EmployeeTraining::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('education store succeeds when template hides optional fields', function () {
+    $user = User::factory()->create();
+
+    $country = Country::query()->create([
+        'code' => 'EDO',
+        'name' => 'Education Optional Land',
+        'dial_code' => '+1',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'EDO',
+        'name' => 'Education Optional Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Education Optional Co',
+        'slug' => 'education-optional-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'UTC',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['fields']['employee_education_qualifications']['certificate']['visible'] = true;
+    $configuration['fields']['employee_education_qualifications']['certificate']['required'] = false;
+    $configuration['fields']['employee_education_qualifications']['issue_date']['visible'] = false;
+    $configuration['fields']['employee_education_qualifications']['university']['visible'] = false;
+
+    $template = createEmployeeProfileTemplate($company, 'Education optional', $configuration);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-EDO-1',
+            'name' => 'Education Optional Employee',
+            'status' => 'active',
+            'employee_profile_template_id' => $template->id,
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.education.manage',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.employees.education.store', $employee), [
+            'certificate' => 'BSc Marine Engineering',
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeEducationQualification::query()->where('employee_id', $employee->id)->first())
+        ->not->toBeNull()
+        ->certificate->toBe('BSc Marine Engineering');
 });
 
 test('training store rejects hidden field values from template', function () {

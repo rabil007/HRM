@@ -26,8 +26,12 @@ class EmployeeBankAccountController extends Controller
             'is_primary' => ['sometimes', 'boolean'],
         ]);
 
-        $normalizedIban = $validated['iban'] ?? null;
-        $normalizedAccountName = $validated['account_name'] ?? null;
+        $normalizedIban = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'iban')
+            ? ($validated['iban'] ?? null)
+            : null;
+        $normalizedAccountName = EmployeeProfileTemplateRequestRules::hasValidated($validated, 'account_name')
+            ? ($validated['account_name'] ?? null)
+            : null;
 
         if ($normalizedIban !== null && trim($normalizedIban) === '') {
             $normalizedIban = null;
@@ -59,9 +63,16 @@ class EmployeeBankAccountController extends Controller
             EmployeeBankAccount::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
-                'bank_id' => $validated['bank_id'] ?? null,
-                'iban' => $normalizedIban,
-                'account_name' => $normalizedAccountName,
+                'bank_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                    $validated,
+                    'bank_id',
+                    null,
+                    asInteger: true,
+                ),
+                'iban' => $normalizedIban !== null && trim($normalizedIban) === '' ? null : $normalizedIban,
+                'account_name' => $normalizedAccountName !== null && trim($normalizedAccountName) === ''
+                    ? null
+                    : $normalizedAccountName,
                 'is_primary' => $isPrimary,
             ]);
 

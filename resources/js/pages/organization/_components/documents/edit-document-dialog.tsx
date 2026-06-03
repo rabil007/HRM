@@ -27,6 +27,7 @@ import {
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
 
 export function EditDocumentDialog({
@@ -329,6 +330,21 @@ export function EditDocumentDialog({
                             ) {
                                 return;
                             }
+
+                            editForm.clearErrors();
+                            editForm.transform((data) =>
+                                omitHiddenTemplateRecordFields(
+                                    {
+                                        title: data.title.trim() || null,
+                                        document_number:
+                                            data.document_number.trim() || null,
+                                        issue_date: data.issue_date || null,
+                                        expiry_date: data.expiry_date || null,
+                                        notes: data.notes.trim() || null,
+                                    },
+                                    templateFields,
+                                ),
+                            );
 
                             editForm.put(
                                 EmployeeDocumentController.update.url({

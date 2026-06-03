@@ -48,6 +48,7 @@ import {
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     TemplateFieldConfig,
     WorkExperienceItem,
@@ -159,14 +160,21 @@ export function EmployeeWorkExperienceTab({
         }
 
         workExperienceForm.clearErrors();
-        workExperienceForm.transform((data) => ({
-            company_name: data.company_name.trim(),
-            job_title: data.job_title.trim(),
-            date_from: data.date_from,
-            date_to: data.date_to === '' ? null : data.date_to,
-            responsibility:
-                data.responsibility.trim() === '' ? null : data.responsibility.trim(),
-        }));
+        workExperienceForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    company_name: data.company_name.trim(),
+                    job_title: data.job_title.trim(),
+                    date_from: data.date_from,
+                    date_to: data.date_to === '' ? null : data.date_to,
+                    responsibility:
+                        data.responsibility.trim() === ''
+                            ? null
+                            : data.responsibility.trim(),
+                },
+                templateFields,
+            ),
+        );
 
         const url = editingWorkExperience
             ? updateWorkExperience.url({

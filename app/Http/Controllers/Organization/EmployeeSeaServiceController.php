@@ -33,6 +33,14 @@ class EmployeeSeaServiceController extends Controller
             $this->seaServiceRules(),
         );
 
+        $attributes = $this->seaServiceAttributes($validated, null);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['vessel_type_id', 'vessel_name', 'rank_id', 'start_date', 'end_date', 'grt', 'bhp', 'client_id'],
+            'Enter at least one sea service field before saving.',
+        );
+
         $maxSort = EmployeeSeaService::query()
             ->where('employee_id', $employee->id)
             ->where('company_id', $companyId)
@@ -42,7 +50,7 @@ class EmployeeSeaServiceController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            ...$this->seaServiceAttributes($validated, null),
+            ...$attributes,
         ]);
 
         return back()->with('success', 'Sea service record added.');
@@ -66,7 +74,15 @@ class EmployeeSeaServiceController extends Controller
             $this->seaServiceRules(),
         );
 
-        $seaService->update($this->seaServiceAttributes($validated, $seaService));
+        $attributes = $this->seaServiceAttributes($validated, $seaService);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['vessel_type_id', 'vessel_name', 'rank_id', 'start_date', 'end_date', 'grt', 'bhp', 'client_id'],
+            'Enter at least one sea service field before saving.',
+        );
+
+        $seaService->update($attributes);
 
         return back()->with('success', 'Sea service record updated.');
     }
@@ -513,37 +529,46 @@ class EmployeeSeaServiceController extends Controller
      */
     private function seaServiceAttributes(array $validated, ?EmployeeSeaService $existing = null): array
     {
-        $startDate = EmployeeProfileTemplateRequestRules::persistedValue(
+        $startDate = EmployeeProfileTemplateRequestRules::persistedNullableValue(
             $validated,
             'start_date',
             $existing?->start_date,
         );
-        $endDate = EmployeeProfileTemplateRequestRules::persistedValue(
+        $endDate = EmployeeProfileTemplateRequestRules::persistedNullableValue(
             $validated,
             'end_date',
             $existing?->end_date,
         );
 
-        $duration = SeaServiceDuration::fromDates(
-            (string) $startDate,
-            (string) $endDate,
-        );
+        if ($startDate !== null && $endDate !== null) {
+            $duration = SeaServiceDuration::fromDates(
+                (string) $startDate,
+                (string) $endDate,
+            );
+        } else {
+            $duration = [
+                'months' => (int) ($existing?->total_months ?? 0),
+                'days' => (int) ($existing?->total_days ?? 0),
+            ];
+        }
 
         return [
-            'vessel_type_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
+            'vessel_type_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'vessel_type_id',
-                $existing?->vessel_type_id ?? 0,
+                $existing?->vessel_type_id,
+                asInteger: true,
             ),
-            'vessel_name' => EmployeeProfileTemplateRequestRules::persistedValue(
+            'vessel_name' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'vessel_name',
                 $existing?->vessel_name,
             ),
-            'rank_id' => (int) EmployeeProfileTemplateRequestRules::persistedValue(
+            'rank_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'rank_id',
-                $existing?->rank_id ?? 0,
+                $existing?->rank_id,
+                asInteger: true,
             ),
             'start_date' => $startDate,
             'end_date' => $endDate,

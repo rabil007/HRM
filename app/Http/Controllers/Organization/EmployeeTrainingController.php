@@ -101,6 +101,13 @@ class EmployeeTrainingController extends Controller
         );
 
         $attributes = $this->trainingAttributes($validated, $training);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['course_id', 'issue_date', 'expiry_date', 'institute_center', 'country_id'],
+            'Enter at least one training detail or upload a certificate.',
+        );
+
         $certificatePath = $training->certificate_path;
 
         if ($request->boolean('remove_certificate')) {
@@ -398,17 +405,12 @@ class EmployeeTrainingController extends Controller
         ?EmployeeTraining $existing,
         bool $asInteger = false,
     ): mixed {
-        if (! EmployeeProfileTemplateRequestRules::hasValidated($validated, $key)) {
-            return $existing?->{$key};
-        }
-
-        $value = $validated[$key] ?? null;
-
-        if ($value === null || $value === '') {
-            return null;
-        }
-
-        return $asInteger ? (int) $value : $value;
+        return EmployeeProfileTemplateRequestRules::persistedNullableValue(
+            $validated,
+            $key,
+            $existing?->{$key},
+            $asInteger,
+        );
     }
 
     /**

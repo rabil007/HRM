@@ -46,6 +46,7 @@ import {
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     EducationQualificationItem,
     TemplateFieldConfig,
@@ -144,12 +145,18 @@ export function EmployeeEducationTab({
         }
 
         educationForm.clearErrors();
-        educationForm.transform((data) => ({
-            certificate: data.certificate.trim(),
-            issue_date: data.issue_date === '' ? null : data.issue_date,
-            university: data.university.trim() === '' ? null : data.university.trim(),
-            country_id: data.country_id === '' ? null : Number(data.country_id),
-        }));
+        educationForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    certificate: data.certificate.trim(),
+                    issue_date: data.issue_date === '' ? null : data.issue_date,
+                    university:
+                        data.university.trim() === '' ? null : data.university.trim(),
+                    country_id: data.country_id === '' ? null : Number(data.country_id),
+                },
+                templateFields,
+            ),
+        );
 
         const url = editingEducation
             ? update.url({

@@ -22,21 +22,21 @@ class EmployeeEducationQualificationController extends Controller
             $request,
             $employee,
             'employee_education_qualifications',
-            [
-                'certificate' => ['required', 'string', 'max:200'],
-                'issue_date' => ['nullable', 'date'],
-                'university' => ['nullable', 'string', 'max:255'],
-                'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-            ],
+            $this->educationRules(),
+        );
+
+        $attributes = $this->educationAttributes($validated, null);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['certificate', 'issue_date', 'university', 'country_id'],
+            'Enter at least one education field before saving.',
         );
 
         EmployeeEducationQualification::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
-            'certificate' => $validated['certificate'],
-            'issue_date' => $validated['issue_date'] ?? null,
-            'university' => $validated['university'] ?? null,
-            'country_id' => $validated['country_id'] ?? null,
+            ...$attributes,
         ]);
 
         return back()->with('success', 'Education qualification added.');
@@ -57,30 +57,18 @@ class EmployeeEducationQualificationController extends Controller
             $request,
             $employee,
             'employee_education_qualifications',
-            [
-                'certificate' => ['required', 'string', 'max:200'],
-                'issue_date' => ['nullable', 'date'],
-                'university' => ['nullable', 'string', 'max:255'],
-                'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-            ],
+            $this->educationRules(),
         );
 
-        $qualification->update([
-            'certificate' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'certificate',
-                $qualification->certificate,
-            ),
-            'issue_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'issue_date')
-                ? ($validated['issue_date'] ?? null)
-                : $qualification->issue_date,
-            'university' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'university')
-                ? ($validated['university'] ?? null)
-                : $qualification->university,
-            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
-                ? ($validated['country_id'] ?? null)
-                : $qualification->country_id,
-        ]);
+        $attributes = $this->educationAttributes($validated, $qualification);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['certificate', 'issue_date', 'university', 'country_id'],
+            'Enter at least one education field before saving.',
+        );
+
+        $qualification->update($attributes);
 
         return back()->with('success', 'Education qualification updated.');
     }
@@ -99,5 +87,49 @@ class EmployeeEducationQualificationController extends Controller
         $qualification->delete();
 
         return back()->with('success', 'Education qualification removed.');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function educationRules(): array
+    {
+        return [
+            'certificate' => ['required', 'string', 'max:200'],
+            'issue_date' => ['nullable', 'date'],
+            'university' => ['nullable', 'string', 'max:255'],
+            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function educationAttributes(array $validated, ?EmployeeEducationQualification $existing = null): array
+    {
+        return [
+            'certificate' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'certificate',
+                $existing?->certificate,
+            ),
+            'issue_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'issue_date',
+                $existing?->issue_date,
+            ),
+            'university' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'university',
+                $existing?->university,
+            ),
+            'country_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'country_id',
+                $existing?->country_id,
+                asInteger: true,
+            ),
+        ];
     }
 }

@@ -50,6 +50,7 @@ import {
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     EmployeeBankAccountItem,
     TemplateFieldConfig,
@@ -158,12 +159,17 @@ export function EmployeeBankTab({
         }
 
         bankForm.clearErrors();
-        bankForm.transform((data) => ({
-            bank_id: data.bank_id ? Number(data.bank_id) : null,
-            iban: data.iban?.trim() || null,
-            account_name: data.account_name?.trim() || null,
-            is_primary: !!data.is_primary,
-        }));
+        bankForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    bank_id: data.bank_id ? Number(data.bank_id) : null,
+                    iban: data.iban?.trim() || null,
+                    account_name: data.account_name?.trim() || null,
+                    is_primary: !!data.is_primary,
+                },
+                templateFields,
+            ),
+        );
 
         const url = editingRow
             ? updateBankAccount.url({

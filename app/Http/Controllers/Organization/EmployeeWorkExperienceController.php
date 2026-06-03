@@ -6,27 +6,45 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\ImportEmployeeWorkExperienceRequest;
 use App\Models\Employee;
 use App\Models\EmployeeWorkExperience;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateCsvImport;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeWorkExperienceController extends Controller
 {
+    /** @var array<string, string> */
+    private const CSV_FIELD_MAP = [
+        'company_name' => 'company_name',
+        'job_title' => 'job_title',
+        'date_from' => 'date_from',
+        'date_to' => 'date_to',
+        'responsibility' => 'responsibility',
+    ];
+
     public function store(Request $request, Employee $employee): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_work_experiences', [
-            'company_name' => ['required', 'string', 'max:255'],
-            'job_title' => ['required', 'string', 'max:255'],
-            'date_from' => ['required', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-            'responsibility' => ['nullable', 'string', 'max:65535'],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_work_experiences',
+            $this->workExperienceRules(),
+        );
+
+        $attributes = $this->workExperienceAttributes($validated, null);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['company_name', 'job_title', 'date_from', 'date_to', 'responsibility'],
+            'Enter at least one work experience field before saving.',
+        );
 
         $maxSort = EmployeeWorkExperience::query()
             ->where('employee_id', $employee->id)
@@ -37,13 +55,7 @@ class EmployeeWorkExperienceController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            'company_name' => $validated['company_name'],
-            'job_title' => $validated['job_title'],
-            'date_from' => $validated['date_from'],
-            'date_to' => $validated['date_to'] ?? null,
-            'responsibility' => isset($validated['responsibility']) && $validated['responsibility'] !== ''
-                ? $validated['responsibility']
-                : null,
+            ...$attributes,
         ]);
 
         return back()->with('success', 'Work experience added.');
@@ -60,39 +72,22 @@ class EmployeeWorkExperienceController extends Controller
             403,
         );
 
-        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_work_experiences', [
-            'company_name' => ['required', 'string', 'max:255'],
-            'job_title' => ['required', 'string', 'max:255'],
-            'date_from' => ['required', 'date'],
-            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
-            'responsibility' => ['nullable', 'string', 'max:65535'],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_work_experiences',
+            $this->workExperienceRules(),
+        );
 
-        $workExperience->update([
-            'company_name' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'company_name',
-                $workExperience->company_name,
-            ),
-            'job_title' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'job_title',
-                $workExperience->job_title,
-            ),
-            'date_from' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'date_from',
-                $workExperience->date_from,
-            ),
-            'date_to' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'date_to')
-                ? ($validated['date_to'] ?? null)
-                : $workExperience->date_to,
-            'responsibility' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'responsibility')
-                ? (isset($validated['responsibility']) && $validated['responsibility'] !== ''
-                    ? $validated['responsibility']
-                    : null)
-                : $workExperience->responsibility,
-        ]);
+        $attributes = $this->workExperienceAttributes($validated, $workExperience);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['company_name', 'job_title', 'date_from', 'date_to', 'responsibility'],
+            'Enter at least one work experience field before saving.',
+        );
+
+        $workExperience->update($attributes);
 
         return back()->with('success', 'Work experience updated.');
     }
@@ -119,8 +114,20 @@ class EmployeeWorkExperienceController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $csv = "company_name,job_title,date_from,date_to,responsibility\n";
-        $csv .= "Example Corp,Lifting Engineer,2020-01-01,2023-06-01,Offshore operations\n";
+        EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_work_experiences');
+
+        $csv = EmployeeProfileTemplateCsvImport::buildTemplateCsv(
+            $employee,
+            'employee_work_experiences',
+            self::CSV_FIELD_MAP,
+            [
+                'company_name' => 'Example Corp',
+                'job_title' => 'Lifting Engineer',
+                'date_from' => '2020-01-01',
+                'date_to' => '2023-06-01',
+                'responsibility' => 'Offshore operations',
+            ],
+        );
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -133,6 +140,22 @@ class EmployeeWorkExperienceController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+
+        try {
+            EmployeeProfileTemplateCsvImport::assertImportAvailable(
+                $employee,
+                'employee_work_experiences',
+                self::CSV_FIELD_MAP,
+            );
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        $requiredCsvColumns = EmployeeProfileTemplateCsvImport::requiredColumns(
+            $employee,
+            'employee_work_experiences',
+            self::CSV_FIELD_MAP,
+        );
 
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -151,11 +174,16 @@ class EmployeeWorkExperienceController extends Controller
 
         $map = $this->resolveWorkExperienceCsvHeaderMap($header);
 
-        if (! isset($map['company_name'], $map['job_title'], $map['date_from'])) {
+        $missingRequiredColumns = array_values(array_filter(
+            $requiredCsvColumns,
+            fn (string $column): bool => ! array_key_exists($column, $map),
+        ));
+
+        if ($missingRequiredColumns !== []) {
             fclose($handle);
 
             return back()->withErrors([
-                'file' => 'The CSV must include company_name, job_title, and date_from columns.',
+                'file' => 'The CSV must include '.implode(', ', $missingRequiredColumns).' columns.',
             ]);
         }
 
@@ -177,57 +205,70 @@ class EmployeeWorkExperienceController extends Controller
                 continue;
             }
 
-            $companyName = trim((string) ($row[$map['company_name']] ?? ''));
-            $jobTitle = trim((string) ($row[$map['job_title']] ?? ''));
-            $dateFromRaw = trim((string) ($row[$map['date_from']] ?? ''));
+            $rowValues = EmployeeProfileTemplateCsvImport::extractRowValues(
+                $employee,
+                'employee_work_experiences',
+                self::CSV_FIELD_MAP,
+                $row,
+                $map,
+            );
 
-            if ($companyName === '' && $jobTitle === '' && $dateFromRaw === '') {
+            if (EmployeeProfileTemplateCsvImport::rowIsEmpty($rowValues)) {
                 $skipped['empty_rows']++;
 
                 continue;
             }
 
-            if ($companyName === '' || $jobTitle === '' || $dateFromRaw === '') {
-                $skipped['missing_required_fields']++;
+            foreach ($requiredCsvColumns as $requiredColumn) {
+                $fieldKey = array_search($requiredColumn, self::CSV_FIELD_MAP, true);
+                $value = $fieldKey !== false ? ($rowValues[$fieldKey] ?? null) : null;
 
-                continue;
+                if ($value === null || $value === '') {
+                    $skipped['missing_required_fields']++;
+
+                    continue 2;
+                }
             }
 
-            $parsedFrom = $this->parseWorkExperienceCsvDate($dateFromRaw);
-            if ($parsedFrom === null) {
-                $skipped['invalid_date_from']++;
+            $parsedFrom = null;
+            if (($rowValues['date_from'] ?? '') !== '') {
+                $parsedFrom = $this->parseWorkExperienceCsvDate((string) $rowValues['date_from']);
 
-                continue;
+                if ($parsedFrom === null) {
+                    $skipped['invalid_date_from']++;
+
+                    continue;
+                }
             }
 
             $dateTo = null;
-            if (isset($map['date_to'])) {
-                $dateToRaw = trim((string) ($row[$map['date_to']] ?? ''));
-                if ($dateToRaw !== '') {
-                    $dateTo = $this->parseWorkExperienceCsvDate($dateToRaw);
-                    if ($dateTo === null || $dateTo->lt($parsedFrom)) {
-                        $dateTo = null;
-                    }
+            if (($rowValues['date_to'] ?? '') !== '' && $parsedFrom !== null) {
+                $dateTo = $this->parseWorkExperienceCsvDate((string) $rowValues['date_to']);
+
+                if ($dateTo === null || $dateTo->lt($parsedFrom)) {
+                    $dateTo = null;
                 }
             }
 
-            $responsibility = null;
-            if (isset($map['responsibility'])) {
-                $r = trim((string) ($row[$map['responsibility']] ?? ''));
-                if ($r !== '') {
-                    $responsibility = $r;
-                }
+            $attributes = [
+                'company_name' => $rowValues['company_name'] ?? null,
+                'job_title' => $rowValues['job_title'] ?? null,
+                'date_from' => $parsedFrom?->toDateString(),
+                'date_to' => $dateTo?->toDateString(),
+                'responsibility' => $rowValues['responsibility'] ?? null,
+            ];
+
+            if (! EmployeeProfileTemplateCsvImport::hasMeaningfulContent($attributes, array_keys(self::CSV_FIELD_MAP))) {
+                $skipped['empty_rows']++;
+
+                continue;
             }
 
             EmployeeWorkExperience::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
                 'sort_order' => $nextSort,
-                'company_name' => $companyName,
-                'job_title' => $jobTitle,
-                'date_from' => $parsedFrom->toDateString(),
-                'date_to' => $dateTo?->toDateString(),
-                'responsibility' => $responsibility,
+                ...$attributes,
             ]);
 
             $nextSort++;
@@ -257,7 +298,7 @@ class EmployeeWorkExperienceController extends Controller
         $details = [];
 
         if ($skipped['missing_required_fields'] > 0) {
-            $details[] = "missing company_name, job_title, or date_from ({$skipped['missing_required_fields']} row(s))";
+            $details[] = "missing required work experience fields ({$skipped['missing_required_fields']} row(s))";
         }
 
         if ($skipped['invalid_date_from'] > 0) {
@@ -310,5 +351,54 @@ class EmployeeWorkExperienceController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function workExperienceRules(): array
+    {
+        return [
+            'company_name' => ['required', 'string', 'max:255'],
+            'job_title' => ['required', 'string', 'max:255'],
+            'date_from' => ['required', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'responsibility' => ['nullable', 'string', 'max:65535'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function workExperienceAttributes(array $validated, ?EmployeeWorkExperience $existing = null): array
+    {
+        return [
+            'company_name' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'company_name',
+                $existing?->company_name,
+            ),
+            'job_title' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'job_title',
+                $existing?->job_title,
+            ),
+            'date_from' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'date_from',
+                $existing?->date_from,
+            ),
+            'date_to' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'date_to',
+                $existing?->date_to,
+            ),
+            'responsibility' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'responsibility',
+                $existing?->responsibility,
+            ),
+        ];
     }
 }

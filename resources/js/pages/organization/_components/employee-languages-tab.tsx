@@ -45,6 +45,7 @@ import {
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type { LanguageItem, TemplateFieldConfig } from '@/pages/organization/employee-page.types';
 
 const LANGUAGES_RELOAD = {
@@ -155,13 +156,18 @@ export function EmployeeLanguagesTab({
         }
 
         languageForm.clearErrors();
-        languageForm.transform((data) => ({
-            language_name: data.language_name.trim(),
-            is_spoken: !!data.is_spoken,
-            is_written: !!data.is_written,
-            is_understood: !!data.is_understood,
-            is_mother_tongue: !!data.is_mother_tongue,
-        }));
+        languageForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    language_name: data.language_name.trim(),
+                    is_spoken: !!data.is_spoken,
+                    is_written: !!data.is_written,
+                    is_understood: !!data.is_understood,
+                    is_mother_tongue: !!data.is_mother_tongue,
+                },
+                templateFields,
+            ),
+        );
 
         const url = editingLanguage
             ? updateLanguage.url({

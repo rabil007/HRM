@@ -55,6 +55,7 @@ import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     ClientOption,
     SeaServiceItem,
@@ -67,34 +68,44 @@ const SEA_SERVICE_RELOAD = {
     only: ['sea_services'],
 } as const;
 
-function buildSeaServicePayload(data: {
-    vessel_type_id: string;
-    vessel_name: string;
-    rank_id: string;
-    start_date: string;
-    end_date: string;
-    grt: string;
-    bhp: string;
-    client_id: string;
-    is_offshore: boolean;
-}) {
-    return {
-        vessel_type_id: Number.parseInt(data.vessel_type_id, 10),
-        vessel_name: data.vessel_name.trim(),
-        rank_id: Number.parseInt(data.rank_id, 10),
-        start_date: data.start_date,
-        end_date: data.end_date,
-        grt: data.grt.trim() === '' ? null : Number(data.grt),
-        bhp:
-            data.bhp.trim() === ''
-                ? null
-                : Math.max(0, Number.parseInt(data.bhp, 10) || 0),
-        client_id:
-            data.client_id.trim() === ''
-                ? null
-                : Number.parseInt(data.client_id, 10),
-        is_offshore: !!data.is_offshore,
-    };
+function buildSeaServicePayload(
+    data: {
+        vessel_type_id: string;
+        vessel_name: string;
+        rank_id: string;
+        start_date: string;
+        end_date: string;
+        grt: string;
+        bhp: string;
+        client_id: string;
+        is_offshore: boolean;
+    },
+    templateFields: Record<string, TemplateFieldConfig> | null | undefined,
+) {
+    return omitHiddenTemplateRecordFields(
+        {
+            vessel_type_id:
+                data.vessel_type_id === ''
+                    ? null
+                    : Number.parseInt(data.vessel_type_id, 10),
+            vessel_name: data.vessel_name.trim(),
+            rank_id:
+                data.rank_id === '' ? null : Number.parseInt(data.rank_id, 10),
+            start_date: data.start_date,
+            end_date: data.end_date,
+            grt: data.grt.trim() === '' ? null : Number(data.grt),
+            bhp:
+                data.bhp.trim() === ''
+                    ? null
+                    : Math.max(0, Number.parseInt(data.bhp, 10) || 0),
+            client_id:
+                data.client_id.trim() === ''
+                    ? null
+                    : Number.parseInt(data.client_id, 10),
+            is_offshore: !!data.is_offshore,
+        },
+        templateFields,
+    );
 }
 
 function resolveDisplayedDuration(
@@ -895,6 +906,7 @@ export function EmployeeSeaServiceTab({
 
                                 const payload = buildSeaServicePayload(
                                     employeeForm.data,
+                                    templateFields,
                                 );
                                 const url = editingRow
                                     ? updateSeaService.url({

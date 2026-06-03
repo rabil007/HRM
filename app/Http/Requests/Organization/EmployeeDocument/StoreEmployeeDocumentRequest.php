@@ -19,7 +19,7 @@ class StoreEmployeeDocumentRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rules = $this->applyEmployeeDocumentTemplateRules([
+        return $this->applyEmployeeDocumentTemplateRules([
             'document_type_id' => $this->requiredDocumentTypeIdRules(),
             'title' => ['nullable', 'string', 'max:200'],
             'file' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'mimetypes:application/pdf,image/jpeg,image/png'],
@@ -28,9 +28,5 @@ class StoreEmployeeDocumentRequest extends FormRequest
             'document_number' => ['nullable', 'string', 'max:120'],
             'notes' => ['nullable', 'string', 'max:1000'],
         ]);
-
-        $rules['document_type_id'] = $this->requiredDocumentTypeIdRules();
-
-        return $rules;
     }
 }

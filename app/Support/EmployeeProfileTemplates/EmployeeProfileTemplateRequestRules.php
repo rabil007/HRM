@@ -254,6 +254,46 @@ final class EmployeeProfileTemplateRequestRules
 
     /**
      * @param  array<string, mixed>  $validated
+     */
+    public static function persistedNullableValue(
+        array $validated,
+        string $key,
+        mixed $fallback,
+        bool $asInteger = false,
+    ): mixed {
+        if (! self::hasValidated($validated, $key)) {
+            return $fallback;
+        }
+
+        $value = $validated[$key] ?? null;
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $asInteger ? (int) $value : $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  list<string>  $keys
+     */
+    public static function assertRecordHasMeaningfulContent(
+        array $attributes,
+        array $keys,
+        string $message = 'Enter at least one field before saving.',
+    ): void {
+        if (EmployeeProfileTemplateCsvImport::hasMeaningfulContent($attributes, $keys)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            '_' => $message,
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
     public static function onlyVisibleAttributes(Employee $employee, string $table, array $validated): array

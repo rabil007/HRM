@@ -19,7 +19,7 @@ class BulkStoreEmployeeDocumentRequest extends FormRequest
      */
     public function rules(): array
     {
-        $rules = $this->applyEmployeeDocumentTemplateRules([
+        return $this->applyEmployeeDocumentTemplateRules([
             'documents' => ['required', 'array', 'min:1', 'max:20'],
             'documents.*.document_type_id' => $this->requiredDocumentTypeIdRules(),
             'documents.*.title' => ['nullable', 'string', 'max:200'],
@@ -29,9 +29,5 @@ class BulkStoreEmployeeDocumentRequest extends FormRequest
             'documents.*.document_number' => ['nullable', 'string', 'max:120'],
             'documents.*.notes' => ['nullable', 'string', 'max:1000'],
         ], wildcard: true);
-
-        $rules['documents.*.document_type_id'] = $this->requiredDocumentTypeIdRules();
-
-        return $rules;
     }
 }

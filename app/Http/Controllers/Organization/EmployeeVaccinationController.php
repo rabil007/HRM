@@ -7,28 +7,46 @@ use App\Http\Requests\Organization\Employee\ImportEmployeeVaccinationRequest;
 use App\Models\Country;
 use App\Models\Employee;
 use App\Models\EmployeeVaccination;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateCsvImport;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeVaccinationController extends Controller
 {
+    /** @var array<string, string> */
+    private const CSV_FIELD_MAP = [
+        'vaccination_name' => 'vaccination_name',
+        'country_id' => 'country',
+        'first_dose_date' => 'first_dose',
+        'second_dose_date' => 'second_dose',
+        'booster_dose_date' => 'booster_dose',
+    ];
+
     public function store(Request $request, Employee $employee): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_vaccinations', [
-            'vaccination_name' => ['required', 'string', 'max:255'],
-            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-            'first_dose_date' => ['nullable', 'date'],
-            'second_dose_date' => ['nullable', 'date'],
-            'booster_dose_date' => ['nullable', 'date'],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_vaccinations',
+            $this->vaccinationRules(),
+        );
+
+        $attributes = $this->vaccinationAttributes($validated, null);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['vaccination_name', 'country_id', 'first_dose_date', 'second_dose_date', 'booster_dose_date'],
+            'Enter at least one vaccination field before saving.',
+        );
 
         $maxSort = EmployeeVaccination::query()
             ->where('employee_id', $employee->id)
@@ -39,11 +57,7 @@ class EmployeeVaccinationController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            'vaccination_name' => $validated['vaccination_name'],
-            'country_id' => $validated['country_id'] ?? null,
-            'first_dose_date' => $validated['first_dose_date'] ?? null,
-            'second_dose_date' => $validated['second_dose_date'] ?? null,
-            'booster_dose_date' => $validated['booster_dose_date'] ?? null,
+            ...$attributes,
         ]);
 
         return back()->with('success', 'Vaccination record added.');
@@ -60,33 +74,22 @@ class EmployeeVaccinationController extends Controller
             403,
         );
 
-        $validated = EmployeeProfileTemplateRequestRules::validate($request, $employee, 'employee_vaccinations', [
-            'vaccination_name' => ['required', 'string', 'max:255'],
-            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
-            'first_dose_date' => ['nullable', 'date'],
-            'second_dose_date' => ['nullable', 'date'],
-            'booster_dose_date' => ['nullable', 'date'],
-        ]);
+        $validated = EmployeeProfileTemplateRequestRules::validate(
+            $request,
+            $employee,
+            'employee_vaccinations',
+            $this->vaccinationRules(),
+        );
 
-        $vaccination->update([
-            'vaccination_name' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'vaccination_name',
-                $vaccination->vaccination_name,
-            ),
-            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
-                ? ($validated['country_id'] ?? null)
-                : $vaccination->country_id,
-            'first_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'first_dose_date')
-                ? ($validated['first_dose_date'] ?? null)
-                : $vaccination->first_dose_date,
-            'second_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'second_dose_date')
-                ? ($validated['second_dose_date'] ?? null)
-                : $vaccination->second_dose_date,
-            'booster_dose_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'booster_dose_date')
-                ? ($validated['booster_dose_date'] ?? null)
-                : $vaccination->booster_dose_date,
-        ]);
+        $attributes = $this->vaccinationAttributes($validated, $vaccination);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['vaccination_name', 'country_id', 'first_dose_date', 'second_dose_date', 'booster_dose_date'],
+            'Enter at least one vaccination field before saving.',
+        );
+
+        $vaccination->update($attributes);
 
         return back()->with('success', 'Vaccination record updated.');
     }
@@ -113,8 +116,20 @@ class EmployeeVaccinationController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $csv = "vaccination_name,country,first_dose,second_dose,booster_dose\n";
-        $csv .= "COVID-19,United Arab Emirates,2021-03-01,2021-06-01,2022-01-10\n";
+        EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_vaccinations');
+
+        $csv = EmployeeProfileTemplateCsvImport::buildTemplateCsv(
+            $employee,
+            'employee_vaccinations',
+            self::CSV_FIELD_MAP,
+            [
+                'vaccination_name' => 'COVID-19',
+                'country' => 'United Arab Emirates',
+                'first_dose' => '2021-03-01',
+                'second_dose' => '2021-06-01',
+                'booster_dose' => '2022-01-10',
+            ],
+        );
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -127,6 +142,22 @@ class EmployeeVaccinationController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+
+        try {
+            EmployeeProfileTemplateCsvImport::assertImportAvailable(
+                $employee,
+                'employee_vaccinations',
+                self::CSV_FIELD_MAP,
+            );
+        } catch (ValidationException $exception) {
+            return back()->withErrors($exception->errors());
+        }
+
+        $requiredCsvColumns = EmployeeProfileTemplateCsvImport::requiredColumns(
+            $employee,
+            'employee_vaccinations',
+            self::CSV_FIELD_MAP,
+        );
 
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -145,11 +176,16 @@ class EmployeeVaccinationController extends Controller
 
         $map = $this->resolveVaccinationCsvHeaderMap($header);
 
-        if (! isset($map['vaccination_name'])) {
+        $missingRequiredColumns = array_values(array_filter(
+            $requiredCsvColumns,
+            fn (string $column): bool => ! array_key_exists($column, $map),
+        ));
+
+        if ($missingRequiredColumns !== []) {
             fclose($handle);
 
             return back()->withErrors([
-                'file' => 'The CSV must include a vaccination column (e.g. vaccination_name or Vaccination).',
+                'file' => 'The CSV must include '.implode(', ', $missingRequiredColumns).' columns.',
             ]);
         }
 
@@ -176,38 +212,65 @@ class EmployeeVaccinationController extends Controller
                 continue;
             }
 
-            $name = trim((string) ($row[$map['vaccination_name']] ?? ''));
-            if ($name === '') {
-                if ($this->vaccinationCsvRowHasData($row)) {
-                    $skipped['missing_vaccination_name']++;
-                } else {
-                    $skipped['empty_rows']++;
-                }
+            $rowValues = EmployeeProfileTemplateCsvImport::extractRowValues(
+                $employee,
+                'employee_vaccinations',
+                self::CSV_FIELD_MAP,
+                $row,
+                $map,
+            );
+
+            if (EmployeeProfileTemplateCsvImport::rowIsEmpty($rowValues)) {
+                $skipped['empty_rows']++;
 
                 continue;
             }
 
-            $countryId = null;
-            if (isset($map['country'])) {
-                $countryLabel = trim((string) ($row[$map['country']] ?? ''));
-                if ($countryLabel !== '') {
-                    $countryId = $countryByLower[mb_strtolower($countryLabel)] ?? null;
+            foreach ($requiredCsvColumns as $requiredColumn) {
+                $fieldKey = array_search($requiredColumn, self::CSV_FIELD_MAP, true);
+                $value = $fieldKey !== false ? ($rowValues[$fieldKey] ?? null) : null;
+
+                if ($value === null || $value === '') {
+                    $skipped['missing_vaccination_name']++;
+
+                    continue 2;
                 }
             }
 
-            $first = isset($map['first_dose']) ? $this->parseVaccinationCsvDate(trim((string) ($row[$map['first_dose']] ?? ''))) : null;
-            $second = isset($map['second_dose']) ? $this->parseVaccinationCsvDate(trim((string) ($row[$map['second_dose']] ?? ''))) : null;
-            $booster = isset($map['booster_dose']) ? $this->parseVaccinationCsvDate(trim((string) ($row[$map['booster_dose']] ?? ''))) : null;
+            $countryId = null;
+            if (($rowValues['country_id'] ?? '') !== '') {
+                $countryId = $countryByLower[mb_strtolower((string) $rowValues['country_id'])] ?? null;
+            }
+
+            $first = ($rowValues['first_dose_date'] ?? '') !== ''
+                ? $this->parseVaccinationCsvDate((string) $rowValues['first_dose_date'])
+                : null;
+            $second = ($rowValues['second_dose_date'] ?? '') !== ''
+                ? $this->parseVaccinationCsvDate((string) $rowValues['second_dose_date'])
+                : null;
+            $booster = ($rowValues['booster_dose_date'] ?? '') !== ''
+                ? $this->parseVaccinationCsvDate((string) $rowValues['booster_dose_date'])
+                : null;
+
+            $attributes = [
+                'vaccination_name' => $rowValues['vaccination_name'] ?? null,
+                'country_id' => $countryId,
+                'first_dose_date' => $first?->toDateString(),
+                'second_dose_date' => $second?->toDateString(),
+                'booster_dose_date' => $booster?->toDateString(),
+            ];
+
+            if (! EmployeeProfileTemplateCsvImport::hasMeaningfulContent($attributes, array_keys(self::CSV_FIELD_MAP))) {
+                $skipped['empty_rows']++;
+
+                continue;
+            }
 
             EmployeeVaccination::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
                 'sort_order' => $nextSort,
-                'vaccination_name' => $name,
-                'country_id' => $countryId,
-                'first_dose_date' => $first?->toDateString(),
-                'second_dose_date' => $second?->toDateString(),
-                'booster_dose_date' => $booster?->toDateString(),
+                ...$attributes,
             ]);
 
             $nextSort++;
@@ -308,5 +371,55 @@ class EmployeeVaccinationController extends Controller
         } catch (\Throwable) {
             return null;
         }
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function vaccinationRules(): array
+    {
+        return [
+            'vaccination_name' => ['required', 'string', 'max:255'],
+            'country_id' => ['nullable', 'integer', Rule::exists('countries', 'id')->where('is_active', true)],
+            'first_dose_date' => ['nullable', 'date'],
+            'second_dose_date' => ['nullable', 'date'],
+            'booster_dose_date' => ['nullable', 'date'],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array<string, mixed>
+     */
+    private function vaccinationAttributes(array $validated, ?EmployeeVaccination $existing = null): array
+    {
+        return [
+            'vaccination_name' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'vaccination_name',
+                $existing?->vaccination_name,
+            ),
+            'country_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'country_id',
+                $existing?->country_id,
+                asInteger: true,
+            ),
+            'first_dose_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'first_dose_date',
+                $existing?->first_dose_date,
+            ),
+            'second_dose_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'second_dose_date',
+                $existing?->second_dose_date,
+            ),
+            'booster_dose_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'booster_dose_date',
+                $existing?->booster_dose_date,
+            ),
+        ];
     }
 }

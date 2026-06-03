@@ -19,14 +19,22 @@ class EmployeeContractController extends Controller
 
         $validated = $this->validateContract($request, $employee);
 
-        if (($validated['status'] ?? 'active') === 'active') {
+        $attributes = $this->contractAttributes($validated, null);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            'Enter at least one contract field before saving.',
+        );
+
+        if (($attributes['status'] ?? 'active') === 'active') {
             $this->deactivateOtherContracts($companyId, $employee->id);
         }
 
         EmployeeContract::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
-            ...$this->contractAttributes($validated, null),
+            ...$attributes,
         ]);
 
         return back()->with('success', 'Contract added.');
@@ -45,11 +53,19 @@ class EmployeeContractController extends Controller
 
         $validated = $this->validateContract($request, $employee);
 
-        if (($validated['status'] ?? $employeeContract->status) === 'active') {
+        $attributes = $this->contractAttributes($validated, $employeeContract);
+
+        EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
+            $attributes,
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            'Enter at least one contract field before saving.',
+        );
+
+        if (($attributes['status'] ?? $employeeContract->status) === 'active') {
             $this->deactivateOtherContracts($companyId, $employee->id, $employeeContract->id);
         }
 
-        $employeeContract->update($this->contractAttributes($validated, $employeeContract));
+        $employeeContract->update($attributes);
 
         return back()->with('success', 'Contract updated.');
     }
@@ -102,12 +118,12 @@ class EmployeeContractController extends Controller
     private function contractAttributes(array $validated, ?EmployeeContract $existing): array
     {
         return [
-            'contract_type' => EmployeeProfileTemplateRequestRules::persistedValue(
+            'contract_type' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'contract_type',
                 $existing?->contract_type ?? 'unlimited',
             ),
-            'start_date' => EmployeeProfileTemplateRequestRules::persistedValue(
+            'start_date' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'start_date',
                 $existing?->start_date,
@@ -120,7 +136,7 @@ class EmployeeContractController extends Controller
                     ? $validated['labor_contract_id']
                     : null)
                 : $existing?->labor_contract_id,
-            'status' => EmployeeProfileTemplateRequestRules::persistedValue(
+            'status' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'status',
                 $existing?->status ?? 'active',

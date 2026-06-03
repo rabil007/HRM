@@ -50,6 +50,7 @@ import {
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
+import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
 import type {
     TemplateFieldConfig,
     VaccinationItem,
@@ -161,15 +162,21 @@ export function EmployeeVaccinationTab({
         }
 
         vaccinationForm.clearErrors();
-        vaccinationForm.transform((data) => ({
-            vaccination_name: data.vaccination_name.trim(),
-            country_id: data.country_id === '' ? null : Number(data.country_id),
-            first_dose_date: data.first_dose_date === '' ? null : data.first_dose_date,
-            second_dose_date:
-                data.second_dose_date === '' ? null : data.second_dose_date,
-            booster_dose_date:
-                data.booster_dose_date === '' ? null : data.booster_dose_date,
-        }));
+        vaccinationForm.transform((data) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    vaccination_name: data.vaccination_name.trim(),
+                    country_id: data.country_id === '' ? null : Number(data.country_id),
+                    first_dose_date:
+                        data.first_dose_date === '' ? null : data.first_dose_date,
+                    second_dose_date:
+                        data.second_dose_date === '' ? null : data.second_dose_date,
+                    booster_dose_date:
+                        data.booster_dose_date === '' ? null : data.booster_dose_date,
+                },
+                templateFields,
+            ),
+        );
 
         const url = editingVaccination
             ? updateVaccination.url({
