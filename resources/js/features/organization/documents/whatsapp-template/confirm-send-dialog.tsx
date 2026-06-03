@@ -22,9 +22,10 @@ import {
 } from '@/components/ui/select';
 import { sendWhatsAppDocumentTemplate } from '@/features/organization/documents/whatsapp-template/send-whatsapp-document-template';
 import {
-    resolveDefaultWhatsAppTemplate,
-    type WhatsAppTemplateOption,
+    resolveDefaultWhatsAppTemplate
+    
 } from '@/features/organization/documents/whatsapp-template/types';
+import type {WhatsAppTemplateOption} from '@/features/organization/documents/whatsapp-template/types';
 import { toast } from '@/lib/toast';
 import { whatsappTemplate } from '@/routes/organization/documents/employee/files';
 

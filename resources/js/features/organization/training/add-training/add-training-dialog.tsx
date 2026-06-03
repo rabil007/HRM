@@ -14,6 +14,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingCertificateListItem } from '@/features/organization/training/add-training/add-training-certificate-list-item';
 import {
@@ -29,12 +30,12 @@ import {
     MAX_TRAINING_CERTIFICATE_FILES,
     SUPPORTED_UPLOAD_MIME_TYPES,
     trainingDraftToFormData,
-    trainingMetadataFromItem,
-    type TrainingDraft,
-    type TrainingDraftFieldErrors,
-    type TrainingDraftMetadata,
+    trainingMetadataFromItem
+    
+    
+    
 } from '@/features/organization/training/add-training/training-draft';
-import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
+import type {TrainingDraft, TrainingDraftFieldErrors, TrainingDraftMetadata} from '@/features/organization/training/add-training/training-draft';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';

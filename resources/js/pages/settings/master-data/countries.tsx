@@ -1,5 +1,4 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 import { useMemo, useState } from 'react';
 import Heading from '@/components/heading';
 import {
@@ -23,6 +22,7 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
+import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
 
 type Country = {
     id: number;

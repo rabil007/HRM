@@ -1,7 +1,7 @@
 import { Link } from '@inertiajs/react';
 import { Briefcase, Building2, Camera, ClipboardList, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
@@ -87,29 +87,27 @@ export function EmployeeHeaderCard({
         !templateProfileFields || templateProfileFields.includes(key);
 
     const photoInputRef = useRef<HTMLInputElement>(null);
-    const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
     const pendingImage = form.data.image instanceof File ? form.data.image : null;
     const removeImage = Boolean(form.data.remove_image);
 
-    useEffect(() => {
+    const pendingPhotoPreview = useMemo(() => {
         if (!pendingImage) {
-            if (photoPreview?.startsWith('blob:')) {
-                URL.revokeObjectURL(photoPreview);
-            }
+            return null;
+        }
 
-            setPhotoPreview(null);
+        return URL.createObjectURL(pendingImage);
+    }, [pendingImage]);
 
+    useEffect(() => {
+        if (!pendingPhotoPreview) {
             return;
         }
 
-        const url = URL.createObjectURL(pendingImage);
-        setPhotoPreview(url);
-
         return () => {
-            URL.revokeObjectURL(url);
+            URL.revokeObjectURL(pendingPhotoPreview);
         };
-    }, [pendingImage]);
+    }, [pendingPhotoPreview]);
 
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
@@ -117,7 +115,7 @@ export function EmployeeHeaderCard({
 
     const imageSrc = resolveEmployeeImageUrl(employee.image);
     const displayImageSrc = pendingImage
-        ? photoPreview
+        ? pendingPhotoPreview
         : removeImage
           ? undefined
           : imageSrc;

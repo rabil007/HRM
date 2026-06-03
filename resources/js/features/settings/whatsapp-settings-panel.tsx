@@ -32,10 +32,11 @@ import {
     sendWhatsAppTestDocument,
     sendWhatsAppTestDocumentTemplate,
     sendWhatsAppTestTemplate,
-    sendWhatsAppTestText,
-    type WhatsAppApiExchange,
-    type WhatsAppTestSendResult,
+    sendWhatsAppTestText
+    
+    
 } from '@/features/settings/send-whatsapp-test-message';
+import type {WhatsAppApiExchange, WhatsAppTestSendResult} from '@/features/settings/send-whatsapp-test-message';
 import { testWhatsAppConnection } from '@/features/settings/test-whatsapp-connection';
 import { useHasPermission } from '@/hooks/use-has-permission';
 import { toast } from '@/lib/toast';
@@ -233,11 +234,13 @@ export function WhatsAppSettingsPanel({
 
         if (!phone) {
             toast.error('Enter a WhatsApp number with country code.');
+
             return;
         }
 
         if (!message) {
             toast.error('Enter a test message.');
+
             return;
         }
 
@@ -271,11 +274,13 @@ export function WhatsAppSettingsPanel({
 
         if (!phone) {
             toast.error('Enter a WhatsApp number with country code.');
+
             return;
         }
 
         if (!testFile) {
             toast.error('Choose a file to send.');
+
             return;
         }
 
@@ -309,6 +314,7 @@ export function WhatsAppSettingsPanel({
 
         if (!phone) {
             toast.error('Enter a WhatsApp number with country code.');
+
             return;
         }
 
@@ -342,11 +348,13 @@ export function WhatsAppSettingsPanel({
 
         if (!phone) {
             toast.error('Enter a WhatsApp number with country code.');
+
             return;
         }
 
         if (!testFile) {
             toast.error('Choose a file to send with the document template.');
+
             return;
         }
 

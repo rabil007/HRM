@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 import { destroy as destroyTraining } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
@@ -11,7 +12,6 @@ import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingDialog } from '@/features/organization/training/add-training/add-training-dialog';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import {
     EmployeeRecordsActionsHeader,
     EmployeeRecordsPanel,

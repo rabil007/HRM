@@ -16,9 +16,10 @@ import { DocumentsBreadcrumbs } from '@/features/organization/documents/document
 import { DocumentsEmptyState } from '@/features/organization/documents/documents-empty-state';
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import {
-    EmailDocumentsModal,
-    type EmailDocumentItem,
+    EmailDocumentsModal
+    
 } from '@/features/organization/documents/email-send';
+import type {EmailDocumentItem} from '@/features/organization/documents/email-send';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
@@ -46,9 +47,10 @@ import {
 } from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import {
-    resolveDefaultWhatsAppTemplate,
-    type WhatsAppTemplateOption,
+    resolveDefaultWhatsAppTemplate
+    
 } from '@/features/organization/documents/whatsapp-template/types';
+import type {WhatsAppTemplateOption} from '@/features/organization/documents/whatsapp-template/types';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';
 import { shareLinks } from '@/routes/organization/documents/employee/files';

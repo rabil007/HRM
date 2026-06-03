@@ -2,10 +2,10 @@ import { Download, ExternalLink, Eye, Send } from 'lucide-react';
 import { useState } from 'react';
 
 import { TableRowActions } from '@/components/table-row-actions';
+import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { documents } from '@/routes/organization';
-import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 
 export function BrowseDocumentActions({
     doc,

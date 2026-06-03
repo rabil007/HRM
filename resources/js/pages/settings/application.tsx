@@ -29,9 +29,10 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import {
-    WhatsAppSettingsPanel,
-    type WhatsAppSettingsPanelProps,
+    WhatsAppSettingsPanel
+    
 } from '@/features/settings/whatsapp-settings-panel';
+import type {WhatsAppSettingsPanelProps} from '@/features/settings/whatsapp-settings-panel';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -216,9 +217,12 @@ export default function ApplicationSettings({
     smtp,
     whatsapp,
 }: Props) {
-    const authUser = usePage().props.auth?.user as { email?: string } | undefined;
-    const permissions =
-        (usePage().props.auth as { permissions?: string[] } | undefined)?.permissions ?? [];
+    const auth = usePage().props.auth;
+    const authUser = auth?.user as { email?: string } | undefined;
+    const permissions = useMemo(
+        () => (auth as { permissions?: string[] } | undefined)?.permissions ?? [],
+        [auth],
+    );
 
     const canUpdateApplication = permissions.includes('settings.application.update');
 
@@ -283,6 +287,7 @@ export default function ApplicationSettings({
 
     function submitGeneral(e: React.FormEvent) {
         e.preventDefault();
+
         if (!canUpdateApplication) {
             return;
         }
@@ -292,6 +297,7 @@ export default function ApplicationSettings({
 
     function submitBranding(e: React.FormEvent) {
         e.preventDefault();
+
         if (!canUpdateApplication) {
             return;
         }
@@ -304,6 +310,7 @@ export default function ApplicationSettings({
 
     function submitPreferences(e: React.FormEvent) {
         e.preventDefault();
+
         if (!canUpdateApplication) {
             return;
         }
@@ -313,6 +320,7 @@ export default function ApplicationSettings({
 
     function submitSmtp(e: React.FormEvent) {
         e.preventDefault();
+
         if (!canUpdateApplication) {
             return;
         }
