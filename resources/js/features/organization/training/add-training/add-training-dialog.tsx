@@ -22,20 +22,23 @@ import {
     CERTIFICATE_TEMPLATE_FIELD,
 } from '@/features/organization/training/add-training/add-training-draft-form';
 import {
+    buildTrainingSubmitPayload,
     copyTrainingMetadataFromSource,
     createTrainingDraftFromFile,
     createUploadDraftId,
     fileMatchesExistingDraft,
     formatUploadFileSize,
+    hasVisibleTrainingContent,
     MAX_TRAINING_CERTIFICATE_FILES,
     SUPPORTED_UPLOAD_MIME_TYPES,
     trainingDraftToFormData,
-    trainingMetadataFromItem
-    
-    
-    
+    trainingMetadataFromItem,
 } from '@/features/organization/training/add-training/training-draft';
-import type {TrainingDraft, TrainingDraftFieldErrors, TrainingDraftMetadata} from '@/features/organization/training/add-training/training-draft';
+import type {
+    TrainingDraft,
+    TrainingDraftFieldErrors,
+    TrainingDraftMetadata,
+} from '@/features/organization/training/add-training/training-draft';
 import { actions } from '@/lib/design-system';
 import { toast } from '@/lib/toast';
 import { EmployeeMissingRequiredFieldsAlert } from '@/pages/organization/_components/employee-missing-required-fields-alert';
@@ -321,14 +324,34 @@ export function AddTrainingDialog({
         [drafts],
     );
 
+    const draftHasVisibleContent = useCallback(
+        (metadata: TrainingDraftMetadata, certificate: File | null): boolean =>
+            hasVisibleTrainingContent(metadata, {
+                templateFields,
+                certificate,
+                existingCertificate:
+                    isEdit && !removeCertificate
+                        ? (editingTraining?.certificate_url ?? null)
+                        : null,
+            }),
+        [editingTraining?.certificate_url, isEdit, removeCertificate, templateFields],
+    );
+
     const canSaveCreate =
         !isSaving &&
         (drafts.length > 0
-            ? drafts.every((draft) => draftMeetsRequired(draft, draft.file))
-            : draftMeetsRequired(standaloneMetadata, null));
+            ? drafts.every(
+                  (draft) =>
+                      draftMeetsRequired(draft, draft.file) &&
+                      draftHasVisibleContent(draft, draft.file),
+              )
+            : draftMeetsRequired(standaloneMetadata, null) &&
+              draftHasVisibleContent(standaloneMetadata, null));
 
     const canSaveEdit =
-        !isSaving && draftMeetsRequired(standaloneMetadata, selectedDraft?.file ?? null);
+        !isSaving &&
+        draftMeetsRequired(standaloneMetadata, selectedDraft?.file ?? null) &&
+        draftHasVisibleContent(standaloneMetadata, selectedDraft?.file ?? null);
 
     const submitCreate = useCallback(async () => {
         if (isSaving) {
@@ -386,14 +409,10 @@ export function AddTrainingDialog({
 
             router.post(
                 storeTraining.url({ employee: resolvedEmployeeId }),
-                {
-                    course_id: entry.course_id,
-                    issue_date: entry.issue_date,
-                    expiry_date: entry.expiry_date === '' ? null : entry.expiry_date,
-                    institute_center: entry.institute_center.trim(),
-                    country_id: entry.country_id === '' ? null : entry.country_id,
+                buildTrainingSubmitPayload(entry, {
+                    templateFields,
                     certificate: hasFile ? entry.file : null,
-                },
+                }),
                 {
                     forceFormData: true,
                     ...TRAINING_RELOAD,
@@ -426,6 +445,7 @@ export function AddTrainingDialog({
         onOpenChange,
         resetDialog,
         standaloneMetadata,
+        templateFields,
         validateRequired,
     ]);
 
@@ -462,21 +482,11 @@ export function AddTrainingDialog({
                 employee: resolvedEmployeeId,
                 training: editingTraining.id,
             }),
-            {
-                course_id: standaloneMetadata.course_id,
-                issue_date: standaloneMetadata.issue_date,
-                expiry_date:
-                    standaloneMetadata.expiry_date === ''
-                        ? null
-                        : standaloneMetadata.expiry_date,
-                institute_center: standaloneMetadata.institute_center.trim(),
-                country_id:
-                    standaloneMetadata.country_id === ''
-                        ? null
-                        : standaloneMetadata.country_id,
+            buildTrainingSubmitPayload(standaloneMetadata, {
+                templateFields,
                 certificate: selectedDraft?.file ?? null,
-                remove_certificate: removeCertificate,
-            },
+                removeCertificate,
+            }),
             {
                 forceFormData: true,
                 ...TRAINING_RELOAD,
@@ -500,6 +510,7 @@ export function AddTrainingDialog({
         resetDialog,
         selectedDraft?.file,
         standaloneMetadata,
+        templateFields,
         validateRequired,
     ]);
 

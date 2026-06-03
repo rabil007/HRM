@@ -201,11 +201,11 @@ export type CourseOption = {
 
 export type TrainingItem = {
     id: number;
-    course_id: number;
+    course_id: number | null;
     course_name: string | null;
-    issue_date: string;
+    issue_date: string | null;
     expiry_date: string | null;
-    institute_center: string;
+    institute_center: string | null;
     country_id: number | null;
     country_name: string | null;
     certificate_url: string | null;

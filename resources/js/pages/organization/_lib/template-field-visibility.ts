@@ -60,3 +60,37 @@ export function isEmptyTemplateFieldValue(value: unknown): boolean {
 
     return String(value ?? '').trim() === '';
 }
+
+/**
+ * Drop record payload keys hidden by the assigned template. Request keys may
+ * differ from template registry keys (e.g. certificate vs certificate_path).
+ */
+export function omitHiddenTemplateRecordFields(
+    payload: Record<string, unknown>,
+    templateFields: Record<string, TemplateFieldConfig> | null | undefined,
+    requestFieldAliases: Record<string, string> = {},
+): Record<string, unknown> {
+    if (!templateFields) {
+        return payload;
+    }
+
+    const result = { ...payload };
+
+    for (const [templateFieldKey, config] of Object.entries(templateFields)) {
+        if (config.visible) {
+            continue;
+        }
+
+        delete result[templateFieldKey];
+
+        for (const [requestKey, mappedTemplateKey] of Object.entries(
+            requestFieldAliases,
+        )) {
+            if (mappedTemplateKey === templateFieldKey) {
+                delete result[requestKey];
+            }
+        }
+    }
+
+    return result;
+}

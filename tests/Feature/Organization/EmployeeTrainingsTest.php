@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -405,4 +406,96 @@ test('cannot manage training for employee in another company', function () {
         'issue_date' => '2024-01-01',
         'institute_center' => 'MTC',
     ])->assertForbidden();
+});
+
+test('training csv import respects template visible fields', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRI',
+        'name' => 'Training Import Land',
+        'dial_code' => '+991',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRI',
+        'name' => 'Training Import Currency',
+        'symbol' => 'T$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Import Co',
+        'slug' => 'training-import-template-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+
+    foreach (['issue_date', 'expiry_date', 'institute_center', 'country_id', 'certificate_path'] as $field) {
+        $configuration['fields']['employee_trainings'][$field]['visible'] = false;
+        $configuration['fields']['employee_trainings'][$field]['required'] = false;
+    }
+
+    $configuration['fields']['employee_trainings']['course_id']['visible'] = true;
+    $configuration['fields']['employee_trainings']['course_id']['required'] = true;
+
+    $template = createEmployeeProfileTemplate($company, 'Course-only import', $configuration);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9006',
+            'name' => 'Import Template Trainee',
+            'status' => 'active',
+            'employee_profile_template_id' => $template->id,
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    Course::query()->create([
+        'name' => 'Radar / ARPA',
+        'is_active' => true,
+    ]);
+
+    $templateResponse = $this->get(route('organization.employees.training.import.template', $employee))
+        ->assertOk()
+        ->assertDownload();
+
+    expect($templateResponse->getContent())->toBe("course\nSTCW Basic Safety\n");
+
+    $csv = "course\nRadar / ARPA\n";
+
+    $this->post(route('organization.employees.training.import', $employee), [
+        'file' => UploadedFile::fake()->createWithContent('training.csv', $csv),
+    ])->assertRedirect();
+
+    $row = EmployeeTraining::query()
+        ->where('employee_id', $employee->id)
+        ->whereHas('course', fn ($q) => $q->where('name', 'Radar / ARPA'))
+        ->first();
+
+    expect($row)->not->toBeNull()
+        ->and($row->issue_date)->toBeNull()
+        ->and($row->institute_center)->toBeNull();
 });

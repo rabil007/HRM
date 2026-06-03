@@ -16,12 +16,22 @@ use Illuminate\Http\Response;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeTrainingController extends Controller
 {
     /** @var array<string, string> */
     private const TRAINING_REQUEST_FIELD_ALIASES = [
         'certificate' => 'certificate_path',
+    ];
+
+    /** @var array<string, string> */
+    private const TRAINING_CSV_TEMPLATE_FIELD_MAP = [
+        'course_id' => 'course',
+        'issue_date' => 'issue_date',
+        'expiry_date' => 'expiry_date',
+        'institute_center' => 'institute_center',
+        'country_id' => 'country',
     ];
 
     public function store(Request $request, Employee $employee): RedirectResponse
@@ -46,6 +56,10 @@ class EmployeeTrainingController extends Controller
             'certificate',
         );
 
+        $attributes = $this->trainingAttributes($validated, null);
+
+        $this->assertTrainingHasContent($attributes, $request->hasFile('certificate'));
+
         $maxSort = EmployeeTraining::query()
             ->where('employee_id', $employee->id)
             ->where('company_id', $companyId)
@@ -55,7 +69,7 @@ class EmployeeTrainingController extends Controller
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
-            ...$this->trainingAttributes($validated, null),
+            ...$attributes,
         ]);
 
         if ($request->hasFile('certificate')) {
@@ -137,8 +151,9 @@ class EmployeeTrainingController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $csv = "course,issue_date,expiry_date,institute_center,country\n";
-        $csv .= "STCW Basic Safety,2024-11-26,2029-11-26,BINA SENA MTC,United Arab Emirates\n";
+        EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_trainings');
+
+        $csv = $this->buildTrainingImportTemplateCsv($employee);
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -151,6 +166,18 @@ class EmployeeTrainingController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($employee->company_id === $companyId, 403);
+
+        EmployeeProfileTemplateRequestRules::assertTabForTable($employee, 'employee_trainings');
+
+        $visibleCsvColumns = $this->trainingCsvColumnsForEmployee($employee);
+
+        if ($visibleCsvColumns === []) {
+            return back()->withErrors([
+                'file' => 'Training import is not available for this employee profile template.',
+            ]);
+        }
+
+        $requiredCsvColumns = $this->trainingImportRequiredCsvKeys($employee);
 
         $uploaded = $request->file('file');
         $path = $uploaded->getRealPath() ?: $uploaded->path();
@@ -169,11 +196,16 @@ class EmployeeTrainingController extends Controller
 
         $map = $this->resolveTrainingCsvHeaderMap($header);
 
-        if (! isset($map['course'], $map['issue_date'], $map['institute_center'])) {
+        $missingRequiredColumns = array_values(array_filter(
+            $requiredCsvColumns,
+            fn (string $column): bool => ! array_key_exists($column, $map),
+        ));
+
+        if ($missingRequiredColumns !== []) {
             fclose($handle);
 
             return back()->withErrors([
-                'file' => 'The CSV must include course, issue_date, and institute_center columns.',
+                'file' => 'The CSV must include '.implode(', ', $missingRequiredColumns).' columns.',
             ]);
         }
 
@@ -208,64 +240,99 @@ class EmployeeTrainingController extends Controller
                 continue;
             }
 
-            $courseLabel = trim((string) ($row[$map['course']] ?? ''));
-            $issueDateRaw = trim((string) ($row[$map['issue_date']] ?? ''));
-            $instituteCenter = trim((string) ($row[$map['institute_center']] ?? ''));
+            $rowValues = $this->extractTrainingCsvRowValues($employee, $row, $map);
 
-            if ($courseLabel === '' && $issueDateRaw === '' && $instituteCenter === '') {
+            if ($this->trainingCsvRowIsEmpty($rowValues)) {
                 $skipped['empty_rows']++;
 
                 continue;
             }
 
-            if ($courseLabel === '' || $issueDateRaw === '' || $instituteCenter === '') {
-                $skipped['missing_required_fields']++;
+            foreach ($requiredCsvColumns as $requiredColumn) {
+                $fieldKey = array_search($requiredColumn, self::TRAINING_CSV_TEMPLATE_FIELD_MAP, true);
+                $value = $fieldKey !== false ? ($rowValues[$fieldKey] ?? null) : null;
 
-                continue;
+                if ($value === null || $value === '') {
+                    $skipped['missing_required_fields']++;
+
+                    continue 2;
+                }
             }
 
-            $courseId = $courseByLower[mb_strtolower($courseLabel)] ?? null;
-            if ($courseId === null) {
-                $skipped['unknown_course']++;
+            $courseId = null;
+            if (
+                EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', 'course_id')
+                && ($rowValues['course_id'] ?? '') !== ''
+            ) {
+                $courseId = $courseByLower[mb_strtolower((string) $rowValues['course_id'])] ?? null;
 
-                continue;
+                if ($courseId === null) {
+                    $skipped['unknown_course']++;
+
+                    continue;
+                }
             }
 
-            $issueDate = $this->parseTrainingCsvDate($issueDateRaw);
-            if ($issueDate === null) {
-                $skipped['invalid_issue_date']++;
+            $issueDate = null;
+            if (
+                EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', 'issue_date')
+                && ($rowValues['issue_date'] ?? '') !== ''
+            ) {
+                $parsedIssueDate = $this->parseTrainingCsvDate((string) $rowValues['issue_date']);
 
-                continue;
+                if ($parsedIssueDate === null) {
+                    $skipped['invalid_issue_date']++;
+
+                    continue;
+                }
+
+                $issueDate = $parsedIssueDate->toDateString();
             }
 
             $expiryDate = null;
-            if (isset($map['expiry_date'])) {
-                $expiryRaw = trim((string) ($row[$map['expiry_date']] ?? ''));
-                if ($expiryRaw !== '') {
-                    $parsedExpiry = $this->parseTrainingCsvDate($expiryRaw);
-                    if ($parsedExpiry !== null && $parsedExpiry->gte($issueDate)) {
-                        $expiryDate = $parsedExpiry->toDateString();
-                    }
+            if (
+                EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', 'expiry_date')
+                && ($rowValues['expiry_date'] ?? '') !== ''
+                && $issueDate !== null
+            ) {
+                $parsedExpiry = $this->parseTrainingCsvDate((string) $rowValues['expiry_date']);
+
+                if ($parsedExpiry !== null && $parsedExpiry->gte(CarbonImmutable::parse($issueDate))) {
+                    $expiryDate = $parsedExpiry->toDateString();
                 }
             }
 
+            $instituteCenter = EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', 'institute_center')
+                ? (($rowValues['institute_center'] ?? '') !== '' ? (string) $rowValues['institute_center'] : null)
+                : null;
+
             $countryId = null;
-            if (isset($map['country'])) {
-                $countryLabel = trim((string) ($row[$map['country']] ?? ''));
-                if ($countryLabel !== '') {
-                    $countryId = $countryByLower[mb_strtolower($countryLabel)] ?? null;
-                }
+            if (
+                EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', 'country_id')
+                && ($rowValues['country_id'] ?? '') !== ''
+            ) {
+                $countryId = $countryByLower[mb_strtolower((string) $rowValues['country_id'])] ?? null;
+            }
+
+            $attributes = [
+                'course_id' => $courseId,
+                'issue_date' => $issueDate,
+                'expiry_date' => $expiryDate,
+                'institute_center' => $instituteCenter,
+                'country_id' => $countryId,
+            ];
+
+            if (! $this->trainingHasMeaningfulContent($attributes)) {
+                $skipped['empty_rows']++;
+
+                continue;
             }
 
             EmployeeTraining::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
                 'sort_order' => $nextSort,
-                'course_id' => $courseId,
-                'issue_date' => $issueDate->toDateString(),
-                'expiry_date' => $expiryDate,
-                'institute_center' => $instituteCenter,
-                'country_id' => $countryId,
+                ...$attributes,
             ]);
 
             $nextSort++;
@@ -311,37 +378,164 @@ class EmployeeTrainingController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
     private function trainingAttributes(array $validated, ?EmployeeTraining $existing = null): array
     {
         return [
-            'course_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'course_id')
-                ? ((isset($validated['course_id']) && $validated['course_id'] !== '') ? (int) $validated['course_id'] : null)
-                : ($existing?->course_id ?? null),
-            'issue_date' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'issue_date',
-                $existing?->issue_date,
-            ),
-            'expiry_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'expiry_date')
-                ? (isset($validated['expiry_date']) && $validated['expiry_date'] !== ''
-                    ? $validated['expiry_date']
-                    : null)
-                : $existing?->expiry_date,
-            'institute_center' => EmployeeProfileTemplateRequestRules::persistedValue(
-                $validated,
-                'institute_center',
-                $existing?->institute_center,
-            ),
-            'country_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'country_id')
-                ? (isset($validated['country_id']) && $validated['country_id'] !== ''
-                    ? (int) $validated['country_id']
-                    : null)
-                : $existing?->country_id,
+            'course_id' => $this->nullableTrainingAttribute($validated, 'course_id', $existing, asInteger: true),
+            'issue_date' => $this->nullableTrainingAttribute($validated, 'issue_date', $existing),
+            'expiry_date' => $this->nullableTrainingAttribute($validated, 'expiry_date', $existing),
+            'institute_center' => $this->nullableTrainingAttribute($validated, 'institute_center', $existing),
+            'country_id' => $this->nullableTrainingAttribute($validated, 'country_id', $existing, asInteger: true),
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     */
+    private function nullableTrainingAttribute(
+        array $validated,
+        string $key,
+        ?EmployeeTraining $existing,
+        bool $asInteger = false,
+    ): mixed {
+        if (! EmployeeProfileTemplateRequestRules::hasValidated($validated, $key)) {
+            return $existing?->{$key};
+        }
+
+        $value = $validated[$key] ?? null;
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        return $asInteger ? (int) $value : $value;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function assertTrainingHasContent(array $attributes, bool $hasCertificate): void
+    {
+        if ($hasCertificate || $this->trainingHasMeaningfulContent($attributes)) {
+            return;
+        }
+
+        throw ValidationException::withMessages([
+            '_' => 'Enter at least one training detail or upload a certificate.',
+        ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function trainingHasMeaningfulContent(array $attributes): bool
+    {
+        foreach (['course_id', 'issue_date', 'expiry_date', 'institute_center', 'country_id'] as $key) {
+            $value = $attributes[$key] ?? null;
+
+            if ($value !== null && $value !== '') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function trainingCsvColumnsForEmployee(Employee $employee): array
+    {
+        $columns = [];
+
+        foreach (self::TRAINING_CSV_TEMPLATE_FIELD_MAP as $fieldKey => $column) {
+            if (EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', $fieldKey)) {
+                $columns[] = $column;
+            }
+        }
+
+        return $columns;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function trainingImportRequiredCsvKeys(Employee $employee): array
+    {
+        $columns = [];
+
+        foreach (self::TRAINING_CSV_TEMPLATE_FIELD_MAP as $fieldKey => $column) {
+            if (
+                EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', $fieldKey)
+                && EmployeeProfileTemplateRequestRules::isFieldRequired($employee, 'employee_trainings', $fieldKey)
+            ) {
+                $columns[] = $column;
+            }
+        }
+
+        return $columns;
+    }
+
+    private function buildTrainingImportTemplateCsv(Employee $employee): string
+    {
+        $columns = $this->trainingCsvColumnsForEmployee($employee);
+        $sampleValues = [
+            'course' => 'STCW Basic Safety',
+            'issue_date' => '2024-11-26',
+            'expiry_date' => '2029-11-26',
+            'institute_center' => 'BINA SENA MTC',
+            'country' => 'United Arab Emirates',
+        ];
+
+        $header = implode(',', $columns);
+        $row = implode(',', array_map(
+            fn (string $column): string => $sampleValues[$column] ?? '',
+            $columns,
+        ));
+
+        return $header."\n".$row."\n";
+    }
+
+    /**
+     * @param  array<int, string|null>  $row
+     * @param  array<string, int>  $map
+     * @return array<string, string|null>
+     */
+    private function extractTrainingCsvRowValues(Employee $employee, array $row, array $map): array
+    {
+        $values = [];
+
+        foreach (self::TRAINING_CSV_TEMPLATE_FIELD_MAP as $fieldKey => $column) {
+            if (! EmployeeProfileTemplateRequestRules::isFieldVisible($employee, 'employee_trainings', $fieldKey)) {
+                continue;
+            }
+
+            if (! array_key_exists($column, $map)) {
+                $values[$fieldKey] = null;
+
+                continue;
+            }
+
+            $raw = trim((string) ($row[$map[$column]] ?? ''));
+
+            $values[$fieldKey] = $raw === '' ? null : $raw;
+        }
+
+        return $values;
+    }
+
+    /**
+     * @param  array<string, string|null>  $rowValues
+     */
+    private function trainingCsvRowIsEmpty(array $rowValues): bool
+    {
+        foreach ($rowValues as $value) {
+            if ($value !== null && $value !== '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private function storeCertificate(UploadedFile $file, int $companyId): string
@@ -369,7 +563,7 @@ class EmployeeTrainingController extends Controller
         $details = [];
 
         if ($skipped['missing_required_fields'] > 0) {
-            $details[] = "missing course, issue_date, or institute_center ({$skipped['missing_required_fields']} row(s))";
+            $details[] = "missing required training fields ({$skipped['missing_required_fields']} row(s))";
         }
 
         if ($skipped['unknown_course'] > 0) {
