@@ -54,8 +54,8 @@ import {
 import { calculateSeaServiceDuration } from '@/pages/organization/_lib/calculate-sea-service-duration';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { formatSeaServiceTotalsYmd } from '@/pages/organization/_lib/sum-sea-service-experience';
-import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type {
     ClientOption,
     SeaServiceItem,

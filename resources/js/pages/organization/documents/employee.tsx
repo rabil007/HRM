@@ -17,9 +17,9 @@ import { DocumentsEmptyState } from '@/features/organization/documents/documents
 import { DocumentsSummaryCards } from '@/features/organization/documents/documents-summary-cards';
 import {
     EmailDocumentsModal
-    
 } from '@/features/organization/documents/email-send';
-import type {EmailDocumentItem} from '@/features/organization/documents/email-send';
+import type { EmailDocumentItem } from '@/features/organization/documents/email-send';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import { EmployeeDocumentTableRow } from '@/features/organization/documents/employee-document-table-row';
 import { filterDocuments } from '@/features/organization/documents/filter-documents';
 import { filterDocumentsByExpiry } from '@/features/organization/documents/filter-documents-by-expiry';
@@ -48,10 +48,8 @@ import {
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import {
     resolveDefaultWhatsAppTemplate
-    
 } from '@/features/organization/documents/whatsapp-template/types';
-import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
-import type {WhatsAppTemplateOption} from '@/features/organization/documents/whatsapp-template/types';
+import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
 import { documents } from '@/routes/organization';

@@ -26,8 +26,8 @@ import {
     useClearMissingOnFormChange,
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
-import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type { TemplateFieldConfig } from '@/pages/organization/employee-page.types';
 
 export function EditDocumentDialog({

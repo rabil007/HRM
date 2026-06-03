@@ -49,8 +49,8 @@ import {
     useTemplateRecordFields,
 } from '@/pages/organization/_hooks/use-template-record-fields';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
-import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import { omitHiddenTemplateRecordFields } from '@/pages/organization/_lib/template-field-visibility';
+import { TEMPLATE_RECORD_DEFAULT_REQUIRED } from '@/pages/organization/_lib/template-record-defaults';
 import type {
     TemplateFieldConfig,
     VaccinationItem,
