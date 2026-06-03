@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\User\UpdateUserStatusRequest;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
@@ -24,7 +25,6 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -196,32 +196,7 @@ class UserController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $recentActivity = [];
         $request = request();
-        if ($request->user()?->can('audit.view')) {
-            $recentActivity = Activity::query()
-                ->where('company_id', $companyId)
-                ->where('subject_type', User::class)
-                ->where('subject_id', $user->id)
-                ->with(['causer:id,name,email'])
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (Activity $log) => [
-                    'id' => $log->id,
-                    'event' => $log->event,
-                    'description' => $log->description,
-                    'causer' => $log->causer ? [
-                        'id' => $log->causer->id,
-                        'name' => $log->causer->name,
-                        'email' => $log->causer->email,
-                    ] : null,
-                    'old_values' => $log->attribute_changes?->get('old'),
-                    'new_values' => $log->attribute_changes?->get('attributes'),
-                    'created_at' => $log->created_at,
-                ])
-                ->all();
-        }
 
         $linkedEmployee = Employee::query()
             ->where('company_id', $companyId)
@@ -248,7 +223,13 @@ class UserController extends Controller
                 'linked_employee' => $this->linkedEmployeePayload($linkedEmployee),
             ],
             'roles' => $roles,
-            'recent_activity' => $recentActivity,
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                User::class,
+                $user->id,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
             'employees_for_linking' => $this->employeesForLinking($companyId),
         ]);
     }

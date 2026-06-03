@@ -126,11 +126,13 @@ export default function UserDetails({
     roles,
     recent_activity,
     employees_for_linking,
+    can_view_audit,
 }: {
     user: User & { updated_at?: string };
     roles: { id: number; name: string }[];
     recent_activity: ActivityItem[];
     employees_for_linking: EmployeeForLinking[];
+    can_view_audit: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
@@ -338,6 +340,7 @@ export default function UserDetails({
                 </div>
 
                 {/* ── Activity log ── */}
+                {can_view_audit ? (
                 <Card className="border-white/5 bg-white/[0.03]">
                     <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -478,6 +481,7 @@ export default function UserDetails({
                         )}
                     </CardContent>
                 </Card>
+                ) : null}
 
                 <UserFormSheet
                     open={open}

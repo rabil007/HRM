@@ -53,11 +53,13 @@ export default function PositionDetails({
     companies,
     departments,
     recent_activity,
+    can_view_audit,
 }: {
     position: Position & { updated_at?: string };
     companies: Company[];
     departments: DepartmentOption[];
     recent_activity: ActivityItem[];
+    can_view_audit: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
@@ -126,6 +128,7 @@ export default function PositionDetails({
                     </Card>
                 </div>
 
+                {can_view_audit ? (
                 <Card className="border-white/5 bg-white/5 mt-8">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -227,6 +230,7 @@ export default function PositionDetails({
                         )}
                     </CardContent>
                 </Card>
+                ) : null}
 
                 <PositionFormSheet
                     open={open}

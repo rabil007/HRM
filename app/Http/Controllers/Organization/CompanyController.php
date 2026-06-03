@@ -11,6 +11,7 @@ use App\Http\Requests\Organization\Company\UpdateCompanyStatusRequest;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Filesystem\FilesystemAdapter;
@@ -20,7 +21,6 @@ use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role as SpatieRole;
 use Spatie\Permission\PermissionRegistrar;
@@ -142,28 +142,7 @@ class CompanyController extends Controller
 
         $companyId = (int) request()->attributes->get('current_company_id');
 
-        $recentActivity = Activity::query()
-            ->where('company_id', $companyId)
-            ->where('subject_type', Company::class)
-            ->where('subject_id', $company->id)
-            ->with(['causer:id,name,email'])
-            ->latest('id')
-            ->limit(5)
-            ->get()
-            ->map(fn (Activity $log) => [
-                'id' => $log->id,
-                'event' => $log->event,
-                'description' => $log->description,
-                'causer' => $log->causer ? [
-                    'id' => $log->causer->id,
-                    'name' => $log->causer->name,
-                    'email' => $log->causer->email,
-                ] : null,
-                'old_values' => $log->attribute_changes?->get('old'),
-                'new_values' => $log->attribute_changes?->get('attributes'),
-                'created_at' => $log->created_at,
-            ])
-            ->all();
+        $request = request();
 
         return Inertia::render('organization/company', [
             'company' => [
@@ -201,7 +180,13 @@ class CompanyController extends Controller
                 'created_at' => $company->created_at,
                 'updated_at' => $company->updated_at,
             ],
-            'recent_activity' => $recentActivity,
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                Company::class,
+                $company->id,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
             'branches' => $company->branches
                 ->sortByDesc('id')
                 ->values()

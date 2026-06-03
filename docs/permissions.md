@@ -74,7 +74,13 @@ See [README.md](../README.md#permissions-cheatsheet) for companies, branches, de
 
 ## Audit
 
-- `audit.view` — activity log and “recent activity” blocks on detail pages
+- `audit.view` — **Activity logs** page (`/organization/activity-logs`) and **Recent activity** cards on company, branch, department, position, and user detail pages
+
+### Activity logging (Spatie)
+
+Models that record changes today: `Company`, `Branch`, `Department`, `Position`, `User`, `Employee`, `EmployeeDocument`. Entries are scoped by `company_id` and appear on the global activity log when the user has `audit.view`.
+
+Not logged yet: master data, employee sub-records (contracts, bank accounts, etc.), roles, settings changes. Employee changes are logged but there is no per-employee “Recent activity” card yet—use **Activity logs** and filter by subject.
 
 ## Settings
 

@@ -121,11 +121,13 @@ export default function CompanyDetails({
     recent_activity,
     countries,
     currencies,
+    can_view_audit,
 }: {
     company: Company;
     recent_activity: ActivityItem[];
     countries: Country[];
     currencies: Currency[];
+    can_view_audit: boolean;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
@@ -319,6 +321,7 @@ export default function CompanyDetails({
                     </Card>
                 </div>
 
+                {can_view_audit ? (
                 <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -420,6 +423,7 @@ export default function CompanyDetails({
                         )}
                     </CardContent>
                 </Card>
+                ) : null}
 
                 <CompanyFormSheet
                     open={editOpen}

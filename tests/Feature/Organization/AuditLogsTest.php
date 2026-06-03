@@ -11,6 +11,79 @@ test('guests cannot access activity logs page', function () {
     $this->get('/organization/activity-logs')->assertRedirect(route('login'));
 });
 
+test('users without audit permission cannot access activity logs page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'AUD',
+        'name' => 'Auditland',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'AUD',
+        'name' => 'Audit Currency',
+        'symbol' => 'A$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Audit Co',
+        'slug' => 'audit-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.view']);
+
+    $this->get('/organization/activity-logs')->assertForbidden();
+});
+
+test('company detail does not expose recent activity without audit permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CMP',
+        'name' => 'CompanyLand',
+        'dial_code' => '+999',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CMP',
+        'name' => 'Company Currency',
+        'symbol' => 'C$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Acme',
+        'slug' => 'acme',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['companies.view']);
+
+    $this->get(route('organization.companies.show', $company))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', []),
+        );
+});
+
 test('activity log is recorded for branch creation', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

@@ -80,12 +80,14 @@ export default function BranchDetails({
     countries,
     recent_activity,
     companies_count,
+    can_view_audit,
 }: {
     branch: Branch;
     companies: Company[];
     countries: Country[];
     recent_activity: ActivityItem[];
     companies_count: number;
+    can_view_audit: boolean;
 }) {
     const location = [branch.city, branch.country].filter(Boolean).join(', ') || '—';
     const [editOpen, setEditOpen] = useState(false);
@@ -241,6 +243,7 @@ export default function BranchDetails({
                     </Card>
                 </div>
 
+                {can_view_audit ? (
                 <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -342,6 +345,7 @@ export default function BranchDetails({
                         )}
                     </CardContent>
                 </Card>
+                ) : null}
 
                 <BranchFormSheet
                     open={editOpen}

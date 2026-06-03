@@ -86,6 +86,7 @@ export default function DepartmentDetails({
     parents,
     managers,
     recent_activity,
+    can_view_audit,
 }: {
     department: Department;
     companies: Company[];
@@ -93,6 +94,7 @@ export default function DepartmentDetails({
     parents: DepartmentParentOption[];
     managers: Manager[];
     recent_activity: ActivityItem[];
+    can_view_audit: boolean;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [expandedActivity, setExpandedActivity] = useState<Record<number, boolean>>({});
@@ -223,6 +225,7 @@ export default function DepartmentDetails({
                 </Card>
             </div>
 
+            {can_view_audit ? (
             <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">
                 <CardHeader className="flex flex-row items-center justify-between">
                     <div className="flex items-center gap-2">
@@ -324,6 +327,7 @@ export default function DepartmentDetails({
                     )}
                 </CardContent>
             </Card>
+            ) : null}
 
             <DepartmentFormSheet
                 open={editOpen}

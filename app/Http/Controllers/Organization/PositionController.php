@@ -10,6 +10,7 @@ use App\Http\Requests\Organization\Position\UpdatePositionRequest;
 use App\Http\Requests\Organization\Position\UpdatePositionStatusRequest;
 use App\Models\Department;
 use App\Models\Position;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +19,6 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 
 class PositionController extends Controller
 {
@@ -102,32 +102,7 @@ class PositionController extends Controller
             'department:id,name',
         ]);
 
-        $recentActivity = [];
         $request = request();
-        if ($request->user()?->can('audit.view')) {
-            $recentActivity = Activity::query()
-                ->where('company_id', $companyId)
-                ->where('subject_type', Position::class)
-                ->where('subject_id', $position->id)
-                ->with(['causer:id,name,email'])
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (Activity $log) => [
-                    'id' => $log->id,
-                    'event' => $log->event,
-                    'description' => $log->description,
-                    'causer' => $log->causer ? [
-                        'id' => $log->causer->id,
-                        'name' => $log->causer->name,
-                        'email' => $log->causer->email,
-                    ] : null,
-                    'old_values' => $log->attribute_changes?->get('old'),
-                    'new_values' => $log->attribute_changes?->get('attributes'),
-                    'created_at' => $log->created_at,
-                ])
-                ->all();
-        }
 
         return Inertia::render('organization/position', [
             'position' => [
@@ -150,7 +125,13 @@ class PositionController extends Controller
                 'updated_at' => $position->updated_at,
             ],
             'departments' => $departments,
-            'recent_activity' => $recentActivity,
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                Position::class,
+                $position->id,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
         ]);
     }
 

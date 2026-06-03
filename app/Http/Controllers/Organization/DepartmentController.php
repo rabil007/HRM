@@ -12,6 +12,7 @@ use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Position;
 use App\Models\User;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -21,7 +22,6 @@ use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Activitylog\Models\Activity;
 
 class DepartmentController extends Controller
 {
@@ -151,32 +151,7 @@ class DepartmentController extends Controller
             'manager:id,name',
         ]);
 
-        $recentActivity = [];
         $request = request();
-        if ($request->user()?->can('audit.view')) {
-            $recentActivity = Activity::query()
-                ->where('company_id', $companyId)
-                ->where('subject_type', Department::class)
-                ->where('subject_id', $department->id)
-                ->with(['causer:id,name,email'])
-                ->latest('id')
-                ->limit(5)
-                ->get()
-                ->map(fn (Activity $log) => [
-                    'id' => $log->id,
-                    'event' => $log->event,
-                    'description' => $log->description,
-                    'causer' => $log->causer ? [
-                        'id' => $log->causer->id,
-                        'name' => $log->causer->name,
-                        'email' => $log->causer->email,
-                    ] : null,
-                    'old_values' => $log->attribute_changes?->get('old'),
-                    'new_values' => $log->attribute_changes?->get('attributes'),
-                    'created_at' => $log->created_at,
-                ])
-                ->all();
-        }
 
         return Inertia::render('organization/department', [
             'department' => [
@@ -210,7 +185,13 @@ class DepartmentController extends Controller
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
-            'recent_activity' => $recentActivity,
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                Department::class,
+                $department->id,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
         ]);
     }
 
