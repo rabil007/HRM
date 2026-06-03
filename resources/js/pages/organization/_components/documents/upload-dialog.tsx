@@ -16,6 +16,12 @@ import {
     isSupportedUploadFile,
     prepareUploadFiles,
 } from '@/features/organization/documents/upload/compress-upload-file';
+import {
+    DocumentUploadProgressOverlay,
+    resolveDocumentUploadPhase
+    
+} from '@/features/organization/documents/upload/document-upload-progress';
+import type {DocumentUploadProgressState} from '@/features/organization/documents/upload/document-upload-progress';
 import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
 import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
@@ -134,6 +140,15 @@ export function UploadDocumentDialog({
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
     const [isCompressingFiles, setIsCompressingFiles] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgressState>(null);
+
+    const uploadProgressPhase = resolveDocumentUploadPhase({
+        isPreparing: isCompressingFiles,
+        isUploading,
+        progress: uploadProgress,
+    });
+
+    const isBusy = uploadProgressPhase !== null;
 
     const selectedDraft = useMemo(
         () => drafts.find((draft) => draft.id === selectedDraftId) ?? null,
@@ -159,6 +174,7 @@ export function UploadDocumentDialog({
         setIsDraggingFiles(false);
         setIsCompressingFiles(false);
         setIsUploading(false);
+        setUploadProgress(null);
         clearMissingRequired();
     }, [clearMissingRequired]);
 
@@ -331,6 +347,7 @@ export function UploadDocumentDialog({
         }
 
         setIsUploading(true);
+        setUploadProgress({ percentage: 0 });
         setFieldErrorsByIndex(new Map());
 
         router.post(
@@ -349,6 +366,13 @@ export function UploadDocumentDialog({
             {
                 forceFormData: true,
                 ...DOCUMENTS_RELOAD,
+                onProgress: (event) => {
+                    setUploadProgress({
+                        percentage: event?.percentage ?? 0,
+                        loaded: event?.loaded,
+                        total: event?.total,
+                    });
+                },
                 onSuccess: () => {
                     onOpenChange(false);
                     resetUploadDialog();
@@ -365,7 +389,10 @@ export function UploadDocumentDialog({
                         setSelectedDraftId(drafts[firstInvalid].id);
                     }
                 },
-                onFinish: () => setIsUploading(false),
+                onFinish: () => {
+                    setIsUploading(false);
+                    setUploadProgress(null);
+                },
             },
         );
     }, [drafts, employeeId, ensureEmployee, isUploading, onOpenChange, resetUploadDialog, validateRequired]);
@@ -374,6 +401,10 @@ export function UploadDocumentDialog({
         <Dialog
             open={open}
             onOpenChange={(nextOpen) => {
+                if (!nextOpen && isBusy) {
+                    return;
+                }
+
                 onOpenChange(nextOpen);
 
                 if (!nextOpen) {
@@ -382,6 +413,19 @@ export function UploadDocumentDialog({
             }}
         >
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                <div className="relative">
+                    <DocumentUploadProgressOverlay
+                        open={isBusy}
+                        phase={uploadProgressPhase ?? 'uploading'}
+                        progress={uploadProgress}
+                        fileLabel={
+                            drafts.length === 1
+                                ? drafts[0]?.file.name
+                                : drafts.length > 1
+                                  ? `${drafts.length} files · ${formatUploadFileSize(uploadFileSize)}`
+                                  : null
+                        }
+                    />
                 <DialogHeader>
                     <DialogTitle>Upload Employee Documents</DialogTitle>
                     <p className="text-sm text-muted-foreground">
@@ -427,7 +471,7 @@ export function UploadDocumentDialog({
                                         the server.
                                     </div>
                                 </div>
-                                {isCompressingFiles ? (
+                                {isCompressingFiles && !isUploading ? (
                                     <p className="text-xs text-muted-foreground">
                                         Optimizing images…
                                     </p>
@@ -438,7 +482,7 @@ export function UploadDocumentDialog({
                                         type="file"
                                         accept=".pdf,.jpg,.jpeg,.png"
                                         multiple
-                                        disabled={isCompressingFiles || isUploading}
+                                        disabled={isBusy}
                                         className="sr-only"
                                         onChange={(event) => {
                                             void addUploadFiles(Array.from(event.target.files ?? []));
@@ -540,6 +584,7 @@ export function UploadDocumentDialog({
                             variant="outline"
                             size="sm"
                             className={actions.dialogSecondary}
+                            disabled={isBusy}
                             onClick={() => onOpenChange(false)}
                         >
                             Cancel
@@ -547,15 +592,20 @@ export function UploadDocumentDialog({
                         <Button
                             size="sm"
                             className={actions.dialogPrimary}
-                            disabled={!canUpload}
+                            disabled={!canUpload || isBusy}
                             onClick={submitUpload}
                         >
                             {isUploading
-                                ? 'Uploading…'
-                                : `Upload ${drafts.length || ''}`.trim()}
+                                ? uploadProgress?.percentage
+                                    ? `Uploading ${uploadProgress.percentage}%…`
+                                    : 'Uploading…'
+                                : isCompressingFiles
+                                  ? 'Preparing…'
+                                  : `Upload ${drafts.length || ''}`.trim()}
                         </Button>
                     </div>
                 </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );

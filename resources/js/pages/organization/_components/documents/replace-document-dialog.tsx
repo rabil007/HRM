@@ -13,6 +13,10 @@ import {
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
 import { compressUploadFile } from '@/features/organization/documents/upload/compress-upload-file';
 import {
+    DocumentUploadProgressOverlay,
+    resolveDocumentUploadPhase,
+} from '@/features/organization/documents/upload/document-upload-progress';
+import {
     formatUploadFileSize,
 } from '@/features/organization/documents/upload/upload-draft';
 import { actions } from '@/lib/design-system';
@@ -31,6 +35,30 @@ export function ReplaceDocumentDialog({
         file: null as File | null,
     });
     const [isPreparingFile, setIsPreparingFile] = useState(false);
+
+    const uploadProgress = replaceForm.progress
+        ? {
+              percentage: replaceForm.progress.percentage ?? 0,
+              loaded: replaceForm.progress.loaded,
+              total: replaceForm.progress.total,
+          }
+        : null;
+
+    const uploadProgressPhase = resolveDocumentUploadPhase({
+        isPreparing: isPreparingFile,
+        isUploading: replaceForm.processing,
+        progress: uploadProgress,
+    });
+
+    const isBusy = uploadProgressPhase !== null;
+
+    const handleOpenChange = (open: boolean): void => {
+        if (!open && isBusy) {
+            return;
+        }
+
+        onOpenChange(open);
+    };
 
     const handleFileChange = async (file: File | null) => {
         if (!file) {
@@ -53,8 +81,15 @@ export function ReplaceDocumentDialog({
     };
 
     return (
-        <Dialog open={!!document} onOpenChange={onOpenChange}>
+        <Dialog open={!!document} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md">
+                <div className="relative">
+                    <DocumentUploadProgressOverlay
+                        open={isBusy}
+                        phase={uploadProgressPhase ?? 'uploading'}
+                        progress={uploadProgress}
+                        fileLabel={replaceForm.data.file?.name ?? null}
+                    />
                 <DialogHeader>
                     <DialogTitle>Replace Document File</DialogTitle>
                 </DialogHeader>
@@ -67,14 +102,14 @@ export function ReplaceDocumentDialog({
                     <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        disabled={isPreparingFile || replaceForm.processing}
+                        disabled={isBusy}
                         onChange={(event) => {
                             void handleFileChange(event.target.files?.[0] ?? null);
                             event.currentTarget.value = '';
                         }}
                         className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
                     />
-                    {isPreparingFile ? (
+                    {isPreparingFile && !replaceForm.processing ? (
                         <p className="text-xs text-muted-foreground">Optimizing image…</p>
                     ) : null}
                     {replaceForm.data.file ? (
@@ -92,14 +127,15 @@ export function ReplaceDocumentDialog({
                         variant="outline"
                         size="sm"
                         className={actions.dialogSecondary}
-                        onClick={() => onOpenChange(false)}
+                        disabled={isBusy}
+                        onClick={() => handleOpenChange(false)}
                     >
                         Cancel
                     </Button>
                     <Button
                         size="sm"
                         className={actions.dialogPrimary}
-                        disabled={replaceForm.processing || isPreparingFile || !replaceForm.data.file}
+                        disabled={isBusy || !replaceForm.data.file}
                         onClick={() => {
                             if (!document) {
                                 return;
@@ -122,9 +158,16 @@ export function ReplaceDocumentDialog({
                             );
                         }}
                     >
-                        {replaceForm.processing ? 'Replacing…' : 'Replace'}
+                        {replaceForm.processing
+                            ? uploadProgress?.percentage
+                                ? `Replacing ${uploadProgress.percentage}%…`
+                                : 'Replacing…'
+                            : isPreparingFile
+                              ? 'Preparing…'
+                              : 'Replace'}
                     </Button>
                 </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );
