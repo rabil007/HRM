@@ -175,7 +175,7 @@ test('authenticated users can create, update, and delete a department', function
     expect($activity)->not->toBeNull();
 
     $this->delete("/organization/departments/{$departmentId}")->assertRedirect('/organization/departments');
-    $this->assertDatabaseMissing('departments', ['id' => $departmentId]);
+    $this->assertSoftDeleted('departments', ['id' => $departmentId]);
 });
 
 test('authenticated users can export departments as csv, excel, and pdf', function () {

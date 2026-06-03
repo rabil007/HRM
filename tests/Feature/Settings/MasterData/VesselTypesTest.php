@@ -74,7 +74,7 @@ test('authorized users can view, create, update, and delete vessel types', funct
     $this->delete("/settings/master-data/vessel-types/{$id}")
         ->assertRedirect(route('settings.master-data.vessel-types.index'));
 
-    $this->assertDatabaseMissing('vessel_types', ['id' => $id]);
+    $this->assertSoftDeleted('vessel_types', ['id' => $id]);
 });
 
 test('authorized users can download template and import vessel types from csv', function () {

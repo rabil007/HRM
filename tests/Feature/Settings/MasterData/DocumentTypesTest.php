@@ -74,7 +74,7 @@ test('authorized users can manage document types', function () {
     $this->delete("/settings/master-data/document-types/{$docId}")
         ->assertRedirect('/settings/master-data/document-types');
 
-    $this->assertDatabaseMissing('document_types', ['id' => $docId]);
+    $this->assertSoftDeleted('document_types', ['id' => $docId]);
 });
 
 test('authorized users can download csv template and import document types', function () {

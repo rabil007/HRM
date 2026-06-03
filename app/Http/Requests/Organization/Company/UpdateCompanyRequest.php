@@ -27,7 +27,9 @@ class UpdateCompanyRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:200',
-                Rule::unique('companies', 'slug')->ignore($companyId),
+                Rule::unique('companies', 'slug')
+                    ->ignore($companyId)
+                    ->whereNull('deleted_at'),
             ],
             'industry' => ['nullable', 'string', 'max:100'],
             'company_size' => ['nullable', 'string', 'max:50'],

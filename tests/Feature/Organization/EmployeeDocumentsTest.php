@@ -233,7 +233,7 @@ test('users with permission can delete a document', function () {
     $this->delete("/organization/employees/{$employee->id}/documents/{$doc->id}")
         ->assertRedirect();
 
-    $this->assertDatabaseMissing('employee_documents', ['id' => $doc->id]);
+    $this->assertSoftDeleted('employee_documents', ['id' => $doc->id]);
 });
 
 test('users with permission can replace a document file and keep version history', function () {

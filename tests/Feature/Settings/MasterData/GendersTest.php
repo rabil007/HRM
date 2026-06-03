@@ -70,5 +70,5 @@ test('authorized users can view, create, update, and delete genders', function (
     $this->delete("/settings/master-data/genders/{$id}")
         ->assertRedirect(route('settings.master-data.genders.index'));
 
-    $this->assertDatabaseMissing('genders', ['id' => $id]);
+    $this->assertSoftDeleted('genders', ['id' => $id]);
 });

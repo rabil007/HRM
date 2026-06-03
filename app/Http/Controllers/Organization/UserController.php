@@ -267,7 +267,8 @@ class UserController extends Controller
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->where(fn ($q) => $q->where('company_id', $companyId)),
+                Rule::unique('users', 'email')
+                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
         ])->validate();
 
@@ -316,7 +317,7 @@ class UserController extends Controller
                 'max:255',
                 Rule::unique('users', 'email')
                     ->ignore($user->id)
-                    ->where(fn ($q) => $q->where('company_id', $companyId)),
+                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
         ])->validate();
 

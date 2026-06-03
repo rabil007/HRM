@@ -70,5 +70,5 @@ test('authorized users can view, create, update, and delete approval locations',
     $this->delete("/settings/master-data/approval-locations/{$id}")
         ->assertRedirect(route('settings.master-data.approval-locations.index'));
 
-    $this->assertDatabaseMissing('approval_locations', ['id' => $id]);
+    $this->assertSoftDeleted('approval_locations', ['id' => $id]);
 });

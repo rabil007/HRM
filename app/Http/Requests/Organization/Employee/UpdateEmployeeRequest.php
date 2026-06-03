@@ -54,7 +54,7 @@ class UpdateEmployeeRequest extends FormRequest
                 'max:50',
                 Rule::unique('employees', 'employee_no')
                     ->ignore($employeeId)
-                    ->where(fn ($q) => $q->where('company_id', $companyId)),
+                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],

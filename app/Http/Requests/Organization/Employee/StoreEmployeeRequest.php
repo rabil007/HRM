@@ -47,7 +47,8 @@ class StoreEmployeeRequest extends FormRequest
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('employees', 'employee_no')->where(fn ($q) => $q->where('company_id', $companyId)),
+                Rule::unique('employees', 'employee_no')
+                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],

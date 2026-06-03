@@ -31,7 +31,8 @@ class StoreEmployeeUserRequest extends FormRequest
                 'required',
                 'email',
                 'max:255',
-                Rule::unique('users', 'email')->where(fn ($q) => $q->where('company_id', $companyId)),
+                Rule::unique('users', 'email')
+                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
             'name' => ['required', 'string', 'max:255'],
             'password' => ['required', 'string', Password::min(8), 'confirmed'],

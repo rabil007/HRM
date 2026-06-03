@@ -869,7 +869,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
     ]);
 
     $this->delete("/organization/employees/{$employeeId}")->assertRedirect('/organization/employees');
-    $this->assertDatabaseMissing('employees', ['id' => $employeeId]);
+    $this->assertSoftDeleted('employees', ['id' => $employeeId]);
 });
 
 test('authenticated users can export employees as csv, excel, and pdf', function () {

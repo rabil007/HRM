@@ -70,5 +70,5 @@ test('authorized users can view, create, update, and delete company visa types',
     $this->delete("/settings/master-data/company-visa-types/{$id}")
         ->assertRedirect(route('settings.master-data.company-visa-types.index'));
 
-    $this->assertDatabaseMissing('company_visa_types', ['id' => $id]);
+    $this->assertSoftDeleted('company_visa_types', ['id' => $id]);
 });

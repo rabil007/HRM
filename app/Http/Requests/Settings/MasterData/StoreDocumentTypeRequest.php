@@ -24,7 +24,12 @@ class StoreDocumentTypeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'title' => ['required', 'string', 'max:200', Rule::unique('document_types', 'title')],
+            'title' => [
+                'required',
+                'string',
+                'max:200',
+                Rule::unique('document_types', 'title')->whereNull('deleted_at'),
+            ],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }

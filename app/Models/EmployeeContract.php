@@ -6,11 +6,14 @@ use Database\Factories\EmployeeContractFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeContract extends Model
 {
     /** @use HasFactory<EmployeeContractFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     protected $guarded = [];
 

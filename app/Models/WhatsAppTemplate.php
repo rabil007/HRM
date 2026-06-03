@@ -6,11 +6,14 @@ use App\Enums\WhatsAppTemplateCategory;
 use App\Enums\WhatsAppTemplateHeaderType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use InvalidArgumentException;
 use RuntimeException;
 
 class WhatsAppTemplate extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'whatsapp_templates';
 
     protected $fillable = [

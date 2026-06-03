@@ -214,7 +214,7 @@ test('users with permission can add update and delete contracts', function () {
     $this->delete(route('organization.employees.contracts.destroy', [$employee, $active]))
         ->assertRedirect();
 
-    $this->assertDatabaseMissing('employee_contracts', ['id' => $active->id]);
+    $this->assertSoftDeleted('employee_contracts', ['id' => $active->id]);
 });
 
 test('activating a contract ends other active contracts for the employee', function () {

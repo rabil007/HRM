@@ -70,7 +70,7 @@ test('authorized users can view, create, update, and delete ranks', function () 
     $this->delete("/settings/master-data/ranks/{$id}")
         ->assertRedirect(route('settings.master-data.ranks.index'));
 
-    $this->assertDatabaseMissing('ranks', ['id' => $id]);
+    $this->assertSoftDeleted('ranks', ['id' => $id]);
 });
 
 test('authorized users can download template and import ranks from csv', function () {

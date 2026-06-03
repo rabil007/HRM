@@ -25,7 +25,9 @@ class UpdateCurrencyRequest extends FormRequest
                 'required',
                 'string',
                 'size:3',
-                Rule::unique('currencies', 'code')->ignore($this->route('currency')?->id),
+                Rule::unique('currencies', 'code')
+                    ->ignore($this->route('currency')?->id)
+                    ->whereNull('deleted_at'),
             ],
             'name' => ['required', 'string', 'max:60'],
             'symbol' => ['nullable', 'string', 'max:10'],

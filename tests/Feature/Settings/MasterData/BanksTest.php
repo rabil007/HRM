@@ -75,5 +75,5 @@ test('authorized users can view, create, update, and delete banks', function () 
     $this->delete("/settings/master-data/banks/{$id}")
         ->assertRedirect(route('settings.master-data.banks.index'));
 
-    $this->assertDatabaseMissing('banks', ['id' => $id]);
+    $this->assertSoftDeleted('banks', ['id' => $id]);
 });

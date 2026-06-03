@@ -218,7 +218,7 @@ test('authenticated users can create, update, and delete a branch', function () 
     expect($activity)->not->toBeNull();
 
     $this->delete("/organization/branches/{$branchId}")->assertRedirect('/organization/branches');
-    $this->assertDatabaseMissing('branches', ['id' => $branchId]);
+    $this->assertSoftDeleted('branches', ['id' => $branchId]);
 });
 
 test('authenticated users can toggle branch status', function () {

@@ -6,11 +6,14 @@ use Database\Factories\EmployeeLanguageFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeLanguage extends Model
 {
     /** @use HasFactory<EmployeeLanguageFactory> */
     use HasFactory;
+
+    use SoftDeletes;
 
     protected $guarded = [];
 

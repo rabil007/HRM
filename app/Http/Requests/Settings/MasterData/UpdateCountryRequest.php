@@ -25,7 +25,9 @@ class UpdateCountryRequest extends FormRequest
                 'required',
                 'string',
                 'size:3',
-                Rule::unique('countries', 'code')->ignore($this->route('country')?->id),
+                Rule::unique('countries', 'code')
+                    ->ignore($this->route('country')?->id)
+                    ->whereNull('deleted_at'),
             ],
             'name' => ['required', 'string', 'max:100'],
             'dial_code' => ['nullable', 'string', 'max:10'],

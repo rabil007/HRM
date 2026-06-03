@@ -215,5 +215,5 @@ test('users with permission can add update and delete languages', function () {
 
     $this->delete(route('organization.employees.languages.destroy', [$employee, $row]))->assertRedirect();
 
-    $this->assertDatabaseMissing('employee_languages', ['id' => $row->id]);
+    $this->assertSoftDeleted('employee_languages', ['id' => $row->id]);
 });

@@ -6,6 +6,7 @@ use App\Models\Concerns\LogsActivityWithCompany;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
 class Branch extends Model
@@ -14,6 +15,7 @@ class Branch extends Model
     use HasFactory;
 
     use LogsActivityWithCompany;
+    use SoftDeletes;
 
     protected $guarded = [];
 

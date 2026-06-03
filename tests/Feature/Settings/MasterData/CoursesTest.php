@@ -71,7 +71,7 @@ test('authorized users can view, create, update, and delete courses', function (
     $this->delete("/settings/master-data/courses/{$id}")
         ->assertRedirect(route('settings.master-data.courses.index'));
 
-    $this->assertDatabaseMissing('courses', ['id' => $id]);
+    $this->assertSoftDeleted('courses', ['id' => $id]);
 });
 
 test('authorized users can download template and import courses from csv', function () {

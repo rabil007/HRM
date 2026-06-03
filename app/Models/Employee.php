@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
 class Employee extends Model
@@ -18,6 +19,7 @@ class Employee extends Model
     use HasFactory;
 
     use LogsActivityWithCompany;
+    use SoftDeletes;
 
     protected $guarded = [];
 

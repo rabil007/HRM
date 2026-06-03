@@ -70,7 +70,7 @@ test('authorized users can view, create, update, and delete clients', function (
     $this->delete("/settings/master-data/clients/{$id}")
         ->assertRedirect(route('settings.master-data.clients.index'));
 
-    $this->assertDatabaseMissing('clients', ['id' => $id]);
+    $this->assertSoftDeleted('clients', ['id' => $id]);
 });
 
 test('authorized users can download template and import clients from csv', function () {

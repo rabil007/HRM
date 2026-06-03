@@ -23,7 +23,9 @@ abstract class WhatsAppTemplateRequest extends FormRequest
                 'string',
                 'max:64',
                 'regex:/^[a-z0-9_]+$/',
-                Rule::unique('whatsapp_templates', 'slug')->ignore($ignoreId),
+                Rule::unique('whatsapp_templates', 'slug')
+                    ->ignore($ignoreId)
+                    ->whereNull('deleted_at'),
             ],
             'label' => ['required', 'string', 'max:255'],
             'category' => ['required', Rule::enum(WhatsAppTemplateCategory::class)],

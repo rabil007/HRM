@@ -251,7 +251,7 @@ test('users with permission can add update and delete bank accounts', function (
 
     $this->delete(route('organization.employees.bank-accounts.destroy', [$employee, $secondary]))->assertRedirect();
 
-    $this->assertDatabaseMissing('employee_bank_accounts', ['id' => $secondary->id]);
+    $this->assertSoftDeleted('employee_bank_accounts', ['id' => $secondary->id]);
 
     expect($row->fresh()->is_primary)->toBeTrue();
 });

@@ -70,5 +70,5 @@ test('authorized users can view, create, update, and delete religions', function
     $this->delete("/settings/master-data/religions/{$id}")
         ->assertRedirect(route('settings.master-data.religions.index'));
 
-    $this->assertDatabaseMissing('religions', ['id' => $id]);
+    $this->assertSoftDeleted('religions', ['id' => $id]);
 });

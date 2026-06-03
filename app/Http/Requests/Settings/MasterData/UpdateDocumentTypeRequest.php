@@ -28,7 +28,9 @@ class UpdateDocumentTypeRequest extends FormRequest
                 'required',
                 'string',
                 'max:200',
-                Rule::unique('document_types', 'title')->ignore($this->route('document_type')),
+                Rule::unique('document_types', 'title')
+                    ->ignore($this->route('document_type'))
+                    ->whereNull('deleted_at'),
             ],
             'is_active' => ['sometimes', 'boolean'],
         ];

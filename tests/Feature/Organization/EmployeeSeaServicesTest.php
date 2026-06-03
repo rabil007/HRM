@@ -312,7 +312,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $this->delete(route('organization.employees.sea-services.destroy', [$employee, $row->fresh()]))
         ->assertRedirect();
 
-    $this->assertDatabaseMissing('employee_sea_services', ['id' => $row->id]);
+    $this->assertSoftDeleted('employee_sea_services', ['id' => $row->id]);
 
     $this->delete(route('organization.employees.sea-services.destroy', [$employee, $second]))->assertRedirect();
 });

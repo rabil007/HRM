@@ -70,5 +70,5 @@ test('authorized users can view, create, update, and delete sssa options', funct
     $this->delete("/settings/master-data/sssa-options/{$id}")
         ->assertRedirect(route('settings.master-data.sssa-options.index'));
 
-    $this->assertDatabaseMissing('sssa_options', ['id' => $id]);
+    $this->assertSoftDeleted('sssa_options', ['id' => $id]);
 });
