@@ -20,11 +20,6 @@ class UpdateEmployeeRequest extends FormRequest
         $employeeId = (int) $this->route('employee')?->id;
 
         $rules = [
-            'user_id' => [
-                'nullable',
-                'integer',
-                Rule::exists('users', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
-            ],
             'branch_id' => [
                 'nullable',
                 'integer',
@@ -99,8 +94,8 @@ class UpdateEmployeeRequest extends FormRequest
 
     /**
      * Profile saves and photo uploads only send fields edited on the form.
-     * Template-required keys such as user_id (linked via Create User) must not
-     * fail validation when they are omitted from the request.
+     * Template-required keys omitted from partial profile saves must not fail
+     * validation when they are not present in the request.
      *
      * @param  array<string, mixed>  $rules
      * @return array<string, mixed>

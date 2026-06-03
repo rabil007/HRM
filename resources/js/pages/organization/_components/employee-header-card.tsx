@@ -1,8 +1,6 @@
-import { Link } from '@inertiajs/react';
 import { Briefcase, Building2, Camera, ClipboardList, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
@@ -14,7 +12,6 @@ import {
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
-import { useInitials } from '@/hooks/use-initials';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -52,7 +49,6 @@ export function EmployeeHeaderCard({
     requiredDot,
     onPhotoSelect,
     onPhotoRemove,
-    linkedUser = null,
     templateProfileFields = null,
     isMissingRequired = () => false,
     canAssignProfileTemplate = false,
@@ -76,20 +72,12 @@ export function EmployeeHeaderCard({
     requiredDot: (field: string) => ReactNode;
     onPhotoSelect?: (file: File) => void;
     onPhotoRemove?: () => void;
-    linkedUser?: {
-        id: number;
-        name: string | null;
-        email?: string | null;
-        avatar?: string | null;
-    } | null;
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
     isMissingRequired?: (field: string) => boolean;
     canAssignProfileTemplate?: boolean;
     profileTemplates?: ProfileTemplateOption[];
 }) {
-    const getInitials = useInitials();
-
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
 
@@ -119,8 +107,6 @@ export function EmployeeHeaderCard({
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
-
-    const accountUser = linkedUser ?? employee.user ?? null;
 
     const imageSrc = resolveEmployeeImageUrl(employee.image);
     const displayImageSrc = pendingImage
@@ -298,30 +284,6 @@ export function EmployeeHeaderCard({
                                         <Building2 className="h-3.5 w-3.5" />
                                         {employee.department.name}
                                     </Badge>
-                                ) : null}
-                                {accountUser ? (
-                                    <Link
-                                        href={`/organization/users/${accountUser.id}`}
-                                        className="mx-auto flex w-fit md:mx-0"
-                                        prefetch="click"
-                                    >
-                                        <Badge className="flex h-auto items-center gap-2 rounded-full border-emerald-500/30 bg-emerald-500/10 py-1 pe-3 ps-1 text-xs font-semibold text-emerald-600 transition-colors hover:bg-emerald-500/15 dark:text-emerald-400">
-                                            <Avatar className="size-6 rounded-full">
-                                                {accountUser.avatar ? (
-                                                    <AvatarImage
-                                                        src={accountUser.avatar}
-                                                        alt={accountUser.name ?? 'User'}
-                                                    />
-                                                ) : null}
-                                                <AvatarFallback className="rounded-full text-[10px]">
-                                                    {getInitials(accountUser.name ?? 'User')}
-                                                </AvatarFallback>
-                                            </Avatar>
-                                            <span className="max-w-[12rem] truncate">
-                                                {accountUser.name ?? 'User account'}
-                                            </span>
-                                        </Badge>
-                                    </Link>
                                 ) : null}
                             </div>
 

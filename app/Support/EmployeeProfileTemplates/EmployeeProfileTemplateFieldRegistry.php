@@ -66,7 +66,6 @@ final class EmployeeProfileTemplateFieldRegistry
                 'employee_no' => 'Employee number',
                 'name' => 'Name',
                 'image' => 'Photo',
-                'user_id' => 'Linked user',
                 'branch_id' => 'Branch',
                 'department_id' => 'Department',
                 'position_id' => 'Position',

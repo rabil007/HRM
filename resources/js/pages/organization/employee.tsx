@@ -559,7 +559,6 @@ function EmployeeDetailsPage({
                             canAssignProfileTemplate={can?.assign_profile_template ?? false}
                             profileTemplates={profile_templates}
                             employee={localEmployee}
-                            linkedUser={linkedUser}
                             departments={departments}
                             positions={positions}
                             ranks={ranks}

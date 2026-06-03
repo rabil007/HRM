@@ -2,7 +2,6 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     employee_no: 'Employee number',
     name: 'Name',
     image: 'Photo',
-    user_id: 'Linked user',
     branch_id: 'Branch',
     department_id: 'Department',
     position_id: 'Position',
