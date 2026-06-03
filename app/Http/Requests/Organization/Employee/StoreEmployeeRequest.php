@@ -102,7 +102,7 @@ class StoreEmployeeRequest extends FormRequest
             'documents' => ['nullable', 'array'],
             'documents.*.type' => ['required_with:documents', 'string', 'max:200'],
             'documents.*.files' => ['required_with:documents.*.type', 'array', 'min:1'],
-            'documents.*.files.*' => ['file', 'max:20480'],
+            'documents.*.files.*' => ['file'],
             'documents.*.issue_date' => ['nullable', 'date'],
             'documents.*.expiry_date' => ['nullable', 'date'],
             'documents.*.document_number' => ['nullable', 'string', 'max:120'],

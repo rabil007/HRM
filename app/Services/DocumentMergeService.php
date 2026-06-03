@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Pdf\Ghostscript;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
@@ -53,7 +54,7 @@ class DocumentMergeService
         try {
             return $this->mergeWithFpdi($documents, $sourcePaths);
         } catch (CrossReferenceException|PdfParserException|FpdiException $exception) {
-            if ($this->ghostscriptAvailable()) {
+            if (Ghostscript::available()) {
                 return $this->mergeWithGhostscript($sourcePaths);
             }
 
@@ -113,7 +114,7 @@ class DocumentMergeService
 
         abort_if($tempPath === false, 500, 'Could not prepare merged PDF.');
 
-        $binary = (string) config('services.pdf.ghostscript_binary', 'gs');
+        $binary = Ghostscript::binary();
 
         $result = Process::timeout(120)->run([
             $binary,
@@ -153,17 +154,6 @@ class DocumentMergeService
         }
 
         return $paths;
-    }
-
-    private function ghostscriptAvailable(): bool
-    {
-        $binary = (string) config('services.pdf.ghostscript_binary', 'gs');
-
-        try {
-            return Process::run([$binary, '--version'])->successful();
-        } catch (Throwable) {
-            return false;
-        }
     }
 
     private function unsupportedPdfMessage(Throwable $exception): string

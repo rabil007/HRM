@@ -4,9 +4,22 @@ namespace App\Http\Requests\Organization\EmployeeDocument\Concerns;
 
 use App\Models\Employee;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use Illuminate\Validation\Rule;
 
 trait AppliesEmployeeDocumentTemplateRules
 {
+    /**
+     * @return list<mixed>
+     */
+    protected function requiredDocumentTypeIdRules(): array
+    {
+        return [
+            'required',
+            'integer',
+            Rule::exists('document_types', 'id')->where('is_active', true),
+        ];
+    }
+
     /**
      * @param  array<string, mixed>  $baseRules
      * @return array<string, mixed>

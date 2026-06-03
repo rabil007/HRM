@@ -15,14 +15,18 @@ import type { DocumentTypeOption } from '@/features/organization/documents/share
 import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
 import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
+    isSupportedUploadFile,
+    prepareUploadFiles,
+} from '@/features/organization/documents/upload/compress-upload-file';
+import {
     copyMetadataFromSource,
     createUploadDraftFromFile,
     fileMatchesExistingDraft,
     firstInvalidDraftIndex,
     formatUploadFileSize,
     MAX_UPLOAD_FILES,
+    PDF_COMPRESS_THRESHOLD_LABEL,
     parseBulkDocumentErrors,
-    SUPPORTED_UPLOAD_MIME_TYPES,
 } from '@/features/organization/documents/upload/upload-draft';
 import type {
     UploadDraft,
@@ -101,6 +105,10 @@ export function UploadDocumentDialog({
 
     const draftMeetsRequired = useCallback(
         (draft: UploadDraft): boolean => {
+            if (draft.document_type_id.trim() === '') {
+                return false;
+            }
+
             const data = uploadDraftToFormData(draft);
 
             for (const field of requiredFields) {
@@ -124,6 +132,7 @@ export function UploadDocumentDialog({
         Map<number, UploadDraftFieldErrors>
     >(new Map());
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+    const [isCompressingFiles, setIsCompressingFiles] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
     const selectedDraft = useMemo(
@@ -148,24 +157,39 @@ export function UploadDocumentDialog({
         setSelectedDraftId(null);
         setFieldErrorsByIndex(new Map());
         setIsDraggingFiles(false);
+        setIsCompressingFiles(false);
         setIsUploading(false);
         clearMissingRequired();
     }, [clearMissingRequired]);
 
-    const addUploadFiles = useCallback((files: File[]) => {
-        const supportedFiles = files.filter((file) =>
-            (SUPPORTED_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type),
-        );
+    const addUploadFiles = useCallback(async (files: File[]) => {
+        const supportedFiles = files.filter((file) => isSupportedUploadFile(file));
 
         if (supportedFiles.length !== files.length) {
             toast.error('Only PDF, JPG, JPEG, and PNG files are supported.');
+        }
+
+        if (supportedFiles.length === 0) {
+            return;
+        }
+
+        setIsCompressingFiles(true);
+
+        let preparedFiles = supportedFiles;
+
+        try {
+            preparedFiles = await prepareUploadFiles(supportedFiles);
+        } catch {
+            toast.error('Could not prepare one or more files for upload.');
+        } finally {
+            setIsCompressingFiles(false);
         }
 
         setDrafts((current) => {
             const next = [...current];
             let addedId: string | null = null;
 
-            for (const file of supportedFiles) {
+            for (const file of preparedFiles) {
                 if (next.length >= MAX_UPLOAD_FILES) {
                     toast.error(`You can upload up to ${MAX_UPLOAD_FILES} files at once.`);
 
@@ -313,7 +337,7 @@ export function UploadDocumentDialog({
             EmployeeDocumentController.bulkStore.url({ employee: resolvedEmployeeId }),
             {
                 documents: drafts.map((draft) => ({
-                    document_type_id: draft.document_type_id,
+                    document_type_id: Number(draft.document_type_id),
                     title: draft.title.trim() || draft.file.name,
                     file: draft.file,
                     document_number: draft.document_number || null,
@@ -382,7 +406,7 @@ export function UploadDocumentDialog({
                             onDrop={(event) => {
                                 event.preventDefault();
                                 setIsDraggingFiles(false);
-                                addUploadFiles(Array.from(event.dataTransfer.files));
+                                void addUploadFiles(Array.from(event.dataTransfer.files));
                             }}
                             className={`rounded-2xl border border-dashed p-6 transition-colors ${
                                 isDraggingFiles
@@ -398,18 +422,26 @@ export function UploadDocumentDialog({
                                     <div className="text-sm font-semibold">Drag and drop files here</div>
                                     <div className="mt-1 text-xs text-muted-foreground">
                                         Upload up to {MAX_UPLOAD_FILES} files. Supported formats: PDF,
-                                        JPG, JPEG, PNG. Max 20 MB each.
+                                        JPG, JPEG, PNG. Images are compressed in your browser. PDFs
+                                        larger than {PDF_COMPRESS_THRESHOLD_LABEL} are optimized on
+                                        the server.
                                     </div>
                                 </div>
+                                {isCompressingFiles ? (
+                                    <p className="text-xs text-muted-foreground">
+                                        Optimizing images…
+                                    </p>
+                                ) : null}
                                 <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
                                     Browse files
                                     <input
                                         type="file"
                                         accept=".pdf,.jpg,.jpeg,.png"
                                         multiple
+                                        disabled={isCompressingFiles || isUploading}
                                         className="sr-only"
                                         onChange={(event) => {
-                                            addUploadFiles(Array.from(event.target.files ?? []));
+                                            void addUploadFiles(Array.from(event.target.files ?? []));
                                             event.currentTarget.value = '';
                                         }}
                                     />

@@ -1,4 +1,5 @@
 import { useForm } from '@inertiajs/react';
+import { useState } from 'react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { Button } from '@/components/ui/button';
@@ -9,8 +10,14 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import { compressUploadFile } from '@/features/organization/documents/upload/compress-upload-file';
+import {
+    formatUploadFileSize,
+} from '@/features/organization/documents/upload/upload-draft';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
+import { toast } from '@/lib/toast';
 import { actions } from '@/lib/design-system';
+
 export function ReplaceDocumentDialog({
     document,
     employeeId,
@@ -23,6 +30,27 @@ export function ReplaceDocumentDialog({
     const replaceForm = useForm({
         file: null as File | null,
     });
+    const [isPreparingFile, setIsPreparingFile] = useState(false);
+
+    const handleFileChange = async (file: File | null) => {
+        if (!file) {
+            replaceForm.setData('file', null);
+
+            return;
+        }
+
+        setIsPreparingFile(true);
+
+        try {
+            const prepared = await compressUploadFile(file);
+            replaceForm.setData('file', prepared);
+        } catch {
+            toast.error('Could not prepare the selected file.');
+            replaceForm.setData('file', null);
+        } finally {
+            setIsPreparingFile(false);
+        }
+    };
 
     return (
         <Dialog open={!!document} onOpenChange={onOpenChange}>
@@ -32,14 +60,29 @@ export function ReplaceDocumentDialog({
                 </DialogHeader>
                 <div className="space-y-3 py-2">
                     <p className="text-sm text-muted-foreground">
-                        The current file will be kept in version history.
+                        The current file will be kept in version history. Images are compressed in
+                        your browser. PDFs larger than 5 MB are optimized on the server after
+                        upload.
                     </p>
                     <input
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => replaceForm.setData('file', e.target.files?.[0] ?? null)}
+                        disabled={isPreparingFile || replaceForm.processing}
+                        onChange={(event) => {
+                            void handleFileChange(event.target.files?.[0] ?? null);
+                            event.currentTarget.value = '';
+                        }}
                         className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
                     />
+                    {isPreparingFile ? (
+                        <p className="text-xs text-muted-foreground">Optimizing image…</p>
+                    ) : null}
+                    {replaceForm.data.file ? (
+                        <p className="text-xs text-muted-foreground">
+                            Selected: {replaceForm.data.file.name} (
+                            {formatUploadFileSize(replaceForm.data.file.size)})
+                        </p>
+                    ) : null}
                     {replaceForm.errors.file ? (
                         <p className="text-xs text-destructive">{replaceForm.errors.file}</p>
                     ) : null}
@@ -56,7 +99,7 @@ export function ReplaceDocumentDialog({
                     <Button
                         size="sm"
                         className={actions.dialogPrimary}
-                        disabled={replaceForm.processing}
+                        disabled={replaceForm.processing || isPreparingFile || !replaceForm.data.file}
                         onClick={() => {
                             if (!document) {
                                 return;

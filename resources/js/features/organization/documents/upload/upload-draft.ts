@@ -1,5 +1,13 @@
 export const MAX_UPLOAD_FILES = 20;
 
+export const PDF_COMPRESS_THRESHOLD_LABEL = '5 MB';
+
+export const MIN_IMAGE_COMPRESS_BYTES = 200 * 1024;
+
+export const IMAGE_COMPRESS_MAX_SIZE_MB = 8;
+
+export const IMAGE_COMPRESS_MAX_DIMENSION = 2000;
+
 export const SUPPORTED_UPLOAD_MIME_TYPES = [
     'application/pdf',
     'image/jpeg',
@@ -65,10 +73,6 @@ export function fileMatchesExistingDraft(drafts: UploadDraft[], file: File): boo
             draft.file.size === file.size &&
             draft.file.lastModified === file.lastModified,
     );
-}
-
-export function allDraftsHaveDocumentType(drafts: UploadDraft[]): boolean {
-    return drafts.length > 0 && drafts.every((draft) => draft.document_type_id !== '');
 }
 
 export function copyMetadataFromSource(source: UploadDraftMetadata): UploadDraftMetadata {

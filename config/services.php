@@ -41,6 +41,9 @@ return [
 
     'documents' => [
         'email_max_attachment_bytes' => (int) env('DOCUMENT_EMAIL_MAX_ATTACHMENT_BYTES', 20 * 1024 * 1024),
+        'pdf_compression_enabled' => (bool) env('DOCUMENT_PDF_COMPRESSION_ENABLED', true),
+        'pdf_compress_min_bytes' => (int) env('DOCUMENT_PDF_COMPRESS_MIN_BYTES', 5 * 1024 * 1024),
+        'pdf_compression_setting' => env('DOCUMENT_PDF_COMPRESSION_SETTING', '/ebook'),
     ],
 
 ];

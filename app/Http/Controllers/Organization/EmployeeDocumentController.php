@@ -18,6 +18,7 @@ use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeDocumentController extends Controller
 {
@@ -53,7 +54,13 @@ class EmployeeDocumentController extends Controller
 
         $validated = $request->validated();
 
-        $ids = collect($validated['documents'])->pluck('document_type_id')->unique()->all();
+        $ids = collect($validated['documents'])
+            ->pluck('document_type_id')
+            ->filter(fn ($id) => filled($id))
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values()
+            ->all();
         $types = DocumentType::query()
             ->whereIn('id', $ids)
             ->where('is_active', true)
@@ -61,9 +68,21 @@ class EmployeeDocumentController extends Controller
             ->keyBy('id');
 
         foreach ($validated['documents'] as $index => $documentData) {
-            $documentType = $types->get($documentData['document_type_id']);
+            $documentTypeId = (int) ($documentData['document_type_id'] ?? 0);
 
-            abort_unless($documentType instanceof DocumentType, 422);
+            if ($documentTypeId <= 0) {
+                throw ValidationException::withMessages([
+                    "documents.{$index}.document_type_id" => 'Document type is required.',
+                ]);
+            }
+
+            $documentType = $types->get($documentTypeId);
+
+            if (! $documentType instanceof DocumentType) {
+                throw ValidationException::withMessages([
+                    "documents.{$index}.document_type_id" => 'Selected document type is invalid.',
+                ]);
+            }
 
             $store->create(
                 $employee,
