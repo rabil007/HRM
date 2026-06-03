@@ -4,6 +4,11 @@ namespace App\Http\Requests\Settings;
 
 class UpdateWhatsAppTemplateRequest extends WhatsAppTemplateRequest
 {
+    protected function permission(): string
+    {
+        return 'settings.integrations.whatsapp-templates.update';
+    }
+
     /** @return array<string, mixed> */
     public function rules(): array
     {

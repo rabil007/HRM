@@ -38,7 +38,7 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
     {
         title: 'WhatsApp templates',
         href: '/settings/application/whatsapp-templates',
-        permission: 'settings.integrations.whatsapp.view',
+        permission: 'settings.integrations.whatsapp-templates.view',
         icon: MessageCircle,
         color: 'bg-green-500/10 text-green-600',
     },
@@ -163,6 +163,7 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
 export const SETTINGS_VIEW_PERMISSIONS: string[] = [
     ...SETTINGS_SYSTEM_ITEMS.map((item) => item.permission),
     'settings.integrations.whatsapp.view',
+    'settings.integrations.whatsapp-templates.view',
     ...SETTINGS_MASTER_DATA_ITEMS.map((item) => item.permission),
 ];
 

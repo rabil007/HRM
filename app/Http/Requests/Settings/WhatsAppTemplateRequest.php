@@ -9,9 +9,11 @@ use Illuminate\Validation\Rule;
 
 abstract class WhatsAppTemplateRequest extends FormRequest
 {
+    abstract protected function permission(): string;
+
     public function authorize(): bool
     {
-        return (bool) $this->user()?->can('settings.integrations.whatsapp.update');
+        return (bool) $this->user()?->can($this->permission());
     }
 
     /** @return array<string, mixed> */

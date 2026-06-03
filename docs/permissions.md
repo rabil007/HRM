@@ -84,5 +84,9 @@ Master data and application settings use `settings.*` permissions; SMTP updates 
 |------------|-------------|
 | `settings.integrations.whatsapp.view` | View Settings → Application → WhatsApp tab |
 | `settings.integrations.whatsapp.update` | Save WhatsApp credentials, test connection |
+| `settings.integrations.whatsapp-templates.view` | View Settings → WhatsApp templates library |
+| `settings.integrations.whatsapp-templates.create` | Add WhatsApp templates |
+| `settings.integrations.whatsapp-templates.update` | Edit WhatsApp templates |
+| `settings.integrations.whatsapp-templates.delete` | Delete non-default WhatsApp templates |
 
-Granted to the **Owner** role only on migration; assign manually to other roles if needed.
+Granted to the **Owner** role only on migration; assign manually to other roles if needed. Existing roles with WhatsApp integration permissions receive matching template permissions automatically.

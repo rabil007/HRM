@@ -18,7 +18,7 @@ class WhatsAppTemplateController extends Controller
     {
         $user = request()->user();
 
-        if (! $user?->can('settings.integrations.whatsapp.view')) {
+        if (! $user?->can('settings.integrations.whatsapp-templates.view')) {
             abort(403);
         }
 
@@ -50,7 +50,9 @@ class WhatsAppTemplateController extends Controller
                 ['value' => 'ar', 'label' => 'Arabic (ar)'],
             ],
             'can' => [
-                'update' => $user->can('settings.integrations.whatsapp.update'),
+                'create' => $user->can('settings.integrations.whatsapp-templates.create'),
+                'update' => $user->can('settings.integrations.whatsapp-templates.update'),
+                'delete' => $user->can('settings.integrations.whatsapp-templates.delete'),
             ],
         ]);
     }
@@ -85,6 +87,10 @@ class WhatsAppTemplateController extends Controller
 
     public function destroy(WhatsAppTemplate $whatsappTemplate): RedirectResponse
     {
+        if (! request()->user()?->can('settings.integrations.whatsapp-templates.delete')) {
+            abort(403);
+        }
+
         if ($whatsappTemplate->is_default) {
             return back()->withErrors([
                 'template' => 'Set another default template in this category before deleting this one.',

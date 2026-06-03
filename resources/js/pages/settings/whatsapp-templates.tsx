@@ -59,7 +59,7 @@ type Props = {
     categories: Option[];
     header_types: Option[];
     language_options: Option[];
-    can: { update: boolean };
+    can: { create: boolean; update: boolean; delete: boolean };
 };
 
 type FormState = {
@@ -141,8 +141,10 @@ export default function WhatsAppTemplatesSettings({
         setSheetOpen(true);
     };
 
+    const canMutateForm = editing ? can.update : can.create;
+
     const submit = () => {
-        if (!can.update) {
+        if (!canMutateForm) {
             return;
         }
 
@@ -162,7 +164,7 @@ export default function WhatsAppTemplatesSettings({
     };
 
     const confirmDelete = () => {
-        if (!deleting || !can.update) {
+        if (!deleting || !can.delete) {
             return;
         }
 
@@ -219,7 +221,7 @@ export default function WhatsAppTemplatesSettings({
                                     {group.templates.length === 1 ? 'template' : 'templates'}
                                 </p>
                             </div>
-                            {can.update ? (
+                            {can.create ? (
                                 <Button
                                     type="button"
                                     variant="outline"
@@ -272,26 +274,30 @@ export default function WhatsAppTemplatesSettings({
                                             </span>
                                         </div>
 
-                                        {can.update ? (
+                                        {can.update || can.delete ? (
                                             <div className="flex flex-wrap gap-2">
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="rounded-xl"
-                                                    onClick={() => openEdit(template)}
-                                                >
-                                                    Edit
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    className="rounded-xl"
-                                                    onClick={() => requestDelete(template)}
-                                                >
-                                                    Delete
-                                                </Button>
+                                                {can.update ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        className="rounded-xl"
+                                                        onClick={() => openEdit(template)}
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                ) : null}
+                                                {can.delete ? (
+                                                    <Button
+                                                        type="button"
+                                                        variant="destructive"
+                                                        size="sm"
+                                                        className="rounded-xl"
+                                                        onClick={() => requestDelete(template)}
+                                                    >
+                                                        Delete
+                                                    </Button>
+                                                ) : null}
                                             </div>
                                         ) : null}
                                     </CardContent>
@@ -320,7 +326,7 @@ export default function WhatsAppTemplatesSettings({
                 title={editing ? 'Edit WhatsApp template' : 'New WhatsApp template'}
                 description="Match the exact template name and language approved in Meta WhatsApp Manager."
                 footer={
-                    can.update ? (
+                    canMutateForm ? (
                         <MasterDataFormSheetFooter
                             onCancel={() => setSheetOpen(false)}
                             onSubmit={submit}
@@ -335,7 +341,7 @@ export default function WhatsAppTemplatesSettings({
                         id="label"
                         value={form.data.label}
                         onChange={(e) => form.setData('label', e.target.value)}
-                        disabled={!can.update}
+                        disabled={!canMutateForm}
                         className={masterDataInputClass}
                     />
                 </MasterDataField>
@@ -346,7 +352,7 @@ export default function WhatsAppTemplatesSettings({
                             id="slug"
                             value={form.data.slug}
                             onChange={(e) => form.setData('slug', e.target.value)}
-                            disabled={!can.update || editing !== null}
+                            disabled={!canMutateForm || editing !== null}
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
@@ -355,7 +361,7 @@ export default function WhatsAppTemplatesSettings({
                         <Select
                             value={form.data.category}
                             onValueChange={(value) => form.setData('category', value)}
-                            disabled={!can.update}
+                            disabled={!canMutateForm}
                         >
                             <SelectTrigger id="category" className={masterDataInputClass}>
                                 <SelectValue />
@@ -381,7 +387,7 @@ export default function WhatsAppTemplatesSettings({
                             id="meta_name"
                             value={form.data.meta_name}
                             onChange={(e) => form.setData('meta_name', e.target.value)}
-                            disabled={!can.update}
+                            disabled={!canMutateForm}
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
@@ -394,7 +400,7 @@ export default function WhatsAppTemplatesSettings({
                         <Select
                             value={form.data.meta_language}
                             onValueChange={(value) => form.setData('meta_language', value)}
-                            disabled={!can.update}
+                            disabled={!canMutateForm}
                         >
                             <SelectTrigger id="meta_language" className={masterDataInputClass}>
                                 <SelectValue />
@@ -414,7 +420,7 @@ export default function WhatsAppTemplatesSettings({
                     <Select
                         value={form.data.header_type}
                         onValueChange={(value) => form.setData('header_type', value)}
-                        disabled={!can.update}
+                        disabled={!canMutateForm}
                     >
                         <SelectTrigger id="header_type" className={masterDataInputClass}>
                             <SelectValue />
@@ -439,7 +445,7 @@ export default function WhatsAppTemplatesSettings({
                         value={form.data.body_preview}
                         onChange={(e) => form.setData('body_preview', e.target.value)}
                         rows={4}
-                        disabled={!can.update}
+                        disabled={!canMutateForm}
                         className="min-h-[100px] rounded-xl border-border bg-card px-4 py-3 transition-all focus-visible:ring-primary/40"
                     />
                     <p className="text-xs text-muted-foreground/80">
@@ -476,7 +482,7 @@ export default function WhatsAppTemplatesSettings({
                         onChange={(e) =>
                             form.setData('sort_order', Number(e.target.value) || 0)
                         }
-                        disabled={!can.update}
+                        disabled={!canMutateForm}
                         className={masterDataInputClass}
                     />
                 </MasterDataField>

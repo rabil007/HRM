@@ -5,7 +5,7 @@ use App\Models\WhatsAppTemplate;
 
 test('owner can view whatsapp template library page', function () {
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp-templates.view']);
 
     $this->actingAs($user)
         ->get(route('application.whatsapp-templates.index'))
@@ -14,13 +14,24 @@ test('owner can view whatsapp template library page', function () {
             ->component('settings/whatsapp-templates')
             ->has('templates')
             ->has('categories')
-            ->has('can.update'),
+            ->where('can.create', false)
+            ->where('can.update', false)
+            ->where('can.delete', false),
         );
 });
 
-test('users without whatsapp permission cannot view template library', function () {
+test('users without whatsapp template permission cannot view template library', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.whatsapp-templates.index'))
+        ->assertForbidden();
+});
+
+test('whatsapp integration view alone does not grant template library access', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
 
     $this->actingAs($user)
         ->get(route('application.whatsapp-templates.index'))
@@ -30,8 +41,8 @@ test('users without whatsapp permission cannot view template library', function 
 test('whatsapp templates can be created and customized', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
+        'settings.integrations.whatsapp-templates.view',
+        'settings.integrations.whatsapp-templates.create',
     ]);
 
     $this->actingAs($user)
@@ -61,8 +72,8 @@ test('whatsapp templates can be created and customized', function () {
 test('whatsapp template can be updated', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
+        'settings.integrations.whatsapp-templates.view',
+        'settings.integrations.whatsapp-templates.update',
     ]);
 
     $template = WhatsAppTemplate::query()->where('slug', 'document_delivery')->firstOrFail();
@@ -93,8 +104,8 @@ test('whatsapp template can be updated', function () {
 test('default whatsapp template cannot be deleted', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
-        'settings.integrations.whatsapp.view',
-        'settings.integrations.whatsapp.update',
+        'settings.integrations.whatsapp-templates.view',
+        'settings.integrations.whatsapp-templates.delete',
     ]);
 
     $template = WhatsAppTemplate::query()->where('slug', 'document_delivery')->firstOrFail();
