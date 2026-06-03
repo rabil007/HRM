@@ -50,6 +50,7 @@ import {
     resolveDefaultWhatsAppTemplate
     
 } from '@/features/organization/documents/whatsapp-template/types';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import type {WhatsAppTemplateOption} from '@/features/organization/documents/whatsapp-template/types';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { toast } from '@/lib/toast';
@@ -68,6 +69,7 @@ type Props = {
         delete: boolean;
         whatsapp_template: boolean;
         whatsapp_templates: WhatsAppTemplateOption[];
+        email_templates: EmailTemplateOption[];
     };
 };
 
@@ -92,6 +94,7 @@ export default function EmployeeDocumentsBrowse({
     const canShareDocuments = can.share;
     const canSendWhatsAppTemplate = can.whatsapp_template;
     const whatsappTemplates = can.whatsapp_templates ?? [];
+    const emailTemplates = can.email_templates ?? [];
     const defaultWhatsappTemplate = resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
@@ -509,6 +512,7 @@ export default function EmployeeDocumentsBrowse({
                 employee={employee}
                 organizationName={organizationName}
                 documents={emailDocuments}
+                emailTemplates={emailTemplates}
                 onSendComplete={clearDocumentSelection}
             />
 

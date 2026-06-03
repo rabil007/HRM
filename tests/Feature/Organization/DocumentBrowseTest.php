@@ -189,6 +189,10 @@ test('employee documents browse inertia page returns files with document type la
             ->where('documents.0.expiry_label', 'No Expiry')
             ->where('documents.0.uploaded_by', $user->name)
             ->where('documents.0.uploaded_at', fn ($value) => $value !== null)
+            ->has('can.email_templates', 1)
+            ->where('can.email_templates.0.slug', 'document_share')
+            ->where('can.email_templates.0.to_preset', null)
+            ->where('can.email_templates.0.cc_preset', null)
         );
 });
 

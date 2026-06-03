@@ -17,6 +17,7 @@ final class SettingsHubAccess
             'settings.appearance.view',
             'settings.integrations.whatsapp.view',
             'settings.integrations.whatsapp-templates.view',
+            'settings.integrations.email-templates.view',
             'settings.master-data.countries.view',
             'settings.master-data.currencies.view',
             'settings.master-data.visa-types.view',

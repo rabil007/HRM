@@ -9,6 +9,7 @@ import {
     IdCard,
     LayoutGrid,
     MapPin,
+    Mail,
     MessageCircle,
     Palette,
     PiggyBank,
@@ -41,6 +42,13 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         permission: 'settings.integrations.whatsapp-templates.view',
         icon: MessageCircle,
         color: 'bg-green-500/10 text-green-600',
+    },
+    {
+        title: 'Email templates',
+        href: '/settings/application/email-templates',
+        permission: 'settings.integrations.email-templates.view',
+        icon: Mail,
+        color: 'bg-blue-500/10 text-blue-600',
     },
     {
         title: 'Security',
@@ -164,6 +172,7 @@ export const SETTINGS_VIEW_PERMISSIONS: string[] = [
     ...SETTINGS_SYSTEM_ITEMS.map((item) => item.permission),
     'settings.integrations.whatsapp.view',
     'settings.integrations.whatsapp-templates.view',
+    'settings.integrations.email-templates.view',
     ...SETTINGS_MASTER_DATA_ITEMS.map((item) => item.permission),
 ];
 

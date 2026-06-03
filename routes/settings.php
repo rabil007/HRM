@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
+use App\Http\Controllers\Settings\EmailTemplateController;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Controllers\Settings\MasterData\ApprovalLocationController;
 use App\Http\Controllers\Settings\MasterData\BankController;
@@ -102,6 +103,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('settings/application/whatsapp-templates/{whatsapp_template}', [WhatsAppTemplateController::class, 'destroy'])
         ->middleware('can:settings.integrations.whatsapp-templates.delete')
         ->name('application.whatsapp-templates.destroy');
+
+    Route::get('settings/application/email-templates', [EmailTemplateController::class, 'index'])
+        ->middleware('can:settings.integrations.email-templates.view')
+        ->name('application.email-templates.index');
+
+    Route::post('settings/application/email-templates', [EmailTemplateController::class, 'store'])
+        ->middleware('can:settings.integrations.email-templates.create')
+        ->name('application.email-templates.store');
+
+    Route::put('settings/application/email-templates/{email_template}', [EmailTemplateController::class, 'update'])
+        ->middleware('can:settings.integrations.email-templates.update')
+        ->name('application.email-templates.update');
+
+    Route::delete('settings/application/email-templates/{email_template}', [EmailTemplateController::class, 'destroy'])
+        ->middleware('can:settings.integrations.email-templates.delete')
+        ->name('application.email-templates.destroy');
 
     Route::prefix('settings/master-data')->name('settings.master-data.')->group(function () {
         Route::get('countries', [CountryController::class, 'index'])

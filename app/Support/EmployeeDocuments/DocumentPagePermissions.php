@@ -2,7 +2,9 @@
 
 namespace App\Support\EmployeeDocuments;
 
+use App\Enums\EmailTemplateCategory;
 use App\Enums\WhatsAppTemplateCategory;
+use App\Models\EmailTemplate;
 use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
@@ -15,7 +17,8 @@ class DocumentPagePermissions
      *     share: bool,
      *     delete: bool,
      *     whatsapp_template: bool,
-     *     whatsapp_templates: list<array<string, mixed>>
+     *     whatsapp_templates: list<array<string, mixed>>,
+     *     email_templates: list<array<string, mixed>>
      * }
      */
     public static function for(?User $user): array
@@ -47,6 +50,25 @@ class DocumentPagePermissions
                 ->all()
             : [];
 
+        $emailTemplates = EmailTemplate::query()
+            ->enabled()
+            ->forCategory(EmailTemplateCategory::Document)
+            ->orderByDesc('is_default')
+            ->orderBy('sort_order')
+            ->orderBy('label')
+            ->get()
+            ->map(fn (EmailTemplate $template) => [
+                'slug' => $template->slug,
+                'label' => $template->label,
+                'to_preset' => $template->to_preset,
+                'cc_preset' => $template->cc_preset,
+                'subject' => $template->subject,
+                'body_html' => $template->body_html,
+                'is_default' => $template->is_default,
+            ])
+            ->values()
+            ->all();
+
         return [
             'download' => $user?->can('documents.download') ?? false,
             'share' => $user?->can('documents.share') ?? false,
@@ -56,6 +78,7 @@ class DocumentPagePermissions
                 && $whatsappConfigured
                 && $templates !== [],
             'whatsapp_templates' => $templates,
+            'email_templates' => $emailTemplates,
         ];
     }
 }

@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -11,7 +11,20 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select';
 import { EmailAttachmentList } from '@/features/organization/documents/email-send/attachment-list';
+import {
+    applyEmailTemplateToFields,
+    CUSTOM_EMAIL_TEMPLATE_VALUE,
+    resolveDefaultEmailTemplate,
+} from '@/features/organization/documents/email-send/email-template-types';
+import type { EmailTemplateOption } from '@/features/organization/documents/email-send/email-template-types';
 import {
     buildDefaultEmailSubject,
     isAttachmentSizeExceeded,
@@ -27,6 +40,7 @@ type EmailDocumentsModalProps = {
     employee: { id: number; name: string; email?: string | null };
     organizationName: string;
     documents: EmailDocumentItem[];
+    emailTemplates?: EmailTemplateOption[];
     onSendComplete: () => void;
 };
 
@@ -36,13 +50,48 @@ export function EmailDocumentsModal({
     employee,
     organizationName,
     documents,
+    emailTemplates = [],
     onSendComplete,
 }: EmailDocumentsModalProps) {
     const [recipient, setRecipient] = useState('');
     const [cc, setCc] = useState('');
     const [subject, setSubject] = useState('');
     const [message, setMessage] = useState('');
+    const [templateSlug, setTemplateSlug] = useState('');
     const [isSending, setIsSending] = useState(false);
+
+    const defaultTemplate = useMemo(
+        () => resolveDefaultEmailTemplate(emailTemplates),
+        [emailTemplates],
+    );
+
+    const employeeEmail = employee.email?.trim() ?? '';
+
+    const applyTemplate = useCallback(
+        (slug: string) => {
+            if (slug === CUSTOM_EMAIL_TEMPLATE_VALUE) {
+                setRecipient(employeeEmail);
+                setCc('');
+                setSubject(buildDefaultEmailSubject(employee.name, organizationName));
+                setMessage('');
+
+                return;
+            }
+
+            const template = emailTemplates.find((item) => item.slug === slug);
+
+            if (!template) {
+                return;
+            }
+
+            const fields = applyEmailTemplateToFields(template, employeeEmail);
+            setRecipient(fields.recipient);
+            setCc(fields.cc);
+            setSubject(fields.subject);
+            setMessage(fields.message);
+        },
+        [emailTemplates, employee.name, employeeEmail, organizationName],
+    );
 
     const attachmentSizeExceeded = useMemo(
         () => isAttachmentSizeExceeded(documents),
@@ -50,13 +99,30 @@ export function EmailDocumentsModal({
     );
 
     useEffect(() => {
-        if (open) {
-            setRecipient(employee.email?.trim() ?? '');
+        if (!open) {
+            return;
+        }
+
+        if (defaultTemplate) {
+            setTemplateSlug(defaultTemplate.slug);
+            const fields = applyEmailTemplateToFields(defaultTemplate, employeeEmail);
+            setRecipient(fields.recipient);
+            setCc(fields.cc);
+            setSubject(fields.subject);
+            setMessage(fields.message);
+        } else {
+            setTemplateSlug(CUSTOM_EMAIL_TEMPLATE_VALUE);
+            setRecipient(employeeEmail);
             setCc('');
             setSubject(buildDefaultEmailSubject(employee.name, organizationName));
             setMessage('');
         }
-    }, [employee.email, employee.name, open, organizationName]);
+    }, [defaultTemplate, employeeEmail, employee.name, open, organizationName]);
+
+    const handleTemplateChange = (slug: string) => {
+        setTemplateSlug(slug);
+        applyTemplate(slug);
+    };
 
     const handleSend = async () => {
         if (attachmentSizeExceeded) {
@@ -91,7 +157,7 @@ export function EmailDocumentsModal({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
+            <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
                 <DialogHeader className="border-b border-white/10 px-5 py-4">
                     <DialogTitle>Email documents</DialogTitle>
                 </DialogHeader>
@@ -141,6 +207,39 @@ export function EmailDocumentsModal({
                         />
                     </div>
 
+                    {emailTemplates.length > 0 ? (
+                        <div className="space-y-2">
+                            <Label htmlFor="email-template">Email template</Label>
+                            <Select
+                                value={templateSlug}
+                                onValueChange={handleTemplateChange}
+                                disabled={isSending}
+                            >
+                                <SelectTrigger
+                                    id="email-template"
+                                    className="rounded-lg border-white/10 bg-zinc-950/60"
+                                >
+                                    <SelectValue placeholder="Choose a template" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {emailTemplates.map((template) => (
+                                        <SelectItem key={template.slug} value={template.slug}>
+                                            {template.label}
+                                            {template.is_default ? ' (default)' : ''}
+                                        </SelectItem>
+                                    ))}
+                                    <SelectItem value={CUSTOM_EMAIL_TEMPLATE_VALUE}>
+                                        Custom subject & message
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <p className="text-xs text-muted-foreground">
+                                Loads the saved subject and message from Settings. Edit either field
+                                before sending.
+                            </p>
+                        </div>
+                    ) : null}
+
                     <div className="space-y-2">
                         <Label htmlFor="email-subject">Subject</Label>
                         <Input
@@ -160,9 +259,9 @@ export function EmailDocumentsModal({
                             value={message}
                             onChange={(event) => setMessage(event.target.value)}
                             disabled={isSending}
-                            rows={4}
+                            rows={10}
                             placeholder="Add a message for the recipient…"
-                            className="border-input placeholder:text-muted-foreground flex min-h-[96px] w-full rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                            className="border-input placeholder:text-muted-foreground flex min-h-[220px] w-full resize-y rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-3 text-sm leading-relaxed text-zinc-100 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
                         />
                     </div>
                 </div>

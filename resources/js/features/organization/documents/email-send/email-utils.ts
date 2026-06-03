@@ -18,3 +18,31 @@ export function isAttachmentSizeExceeded(documents: EmailDocumentItem[]): boolea
 export function emailMaxAttachmentLabel(): string {
     return formatBytes(EMAIL_MAX_ATTACHMENT_BYTES);
 }
+
+/** Normalize stored template body (plain text or legacy HTML) for the send modal. */
+export function templateBodyToMessage(body: string): string {
+    const trimmed = body.trim();
+
+    if (trimmed === '') {
+        return '';
+    }
+
+    if (!/<[a-z][\s\S]*>/i.test(trimmed)) {
+        return trimmed;
+    }
+
+    const withBreaks = trimmed
+        .replace(/<\/p>\s*<p[^>]*>/gi, '\n\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/p>/gi, '\n')
+        .replace(/<p[^>]*>/gi, '');
+
+    return withBreaks
+        .replace(/<[^>]+>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+}
