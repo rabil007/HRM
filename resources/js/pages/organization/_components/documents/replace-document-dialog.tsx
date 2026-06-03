@@ -10,13 +10,13 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
 import { compressUploadFile } from '@/features/organization/documents/upload/compress-upload-file';
 import {
     formatUploadFileSize,
 } from '@/features/organization/documents/upload/upload-draft';
-import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
-import { toast } from '@/lib/toast';
 import { actions } from '@/lib/design-system';
+import { toast } from '@/lib/toast';
 
 export function ReplaceDocumentDialog({
     document,

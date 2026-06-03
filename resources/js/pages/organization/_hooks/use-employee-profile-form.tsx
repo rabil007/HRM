@@ -106,14 +106,26 @@ export function useEmployeeProfileForm(
         );
     }, [requiredFields]);
 
+    const activeMissingRequiredFields = useMemo(() => {
+        const active = new Set<string>();
+
+        for (const field of missingRequiredFields) {
+            if (String(form.data[field as keyof typeof form.data] ?? '').trim() === '') {
+                active.add(field);
+            }
+        }
+
+        return active;
+    }, [form, missingRequiredFields]);
+
     const isMissingRequired = useCallback(
-        (field: string) => missingRequiredFields.has(field),
-        [missingRequiredFields],
+        (field: string) => activeMissingRequiredFields.has(field),
+        [activeMissingRequiredFields],
     );
 
     const missingRequiredFieldsList = useMemo(
-        () => Array.from(missingRequiredFields),
-        [missingRequiredFields],
+        () => Array.from(activeMissingRequiredFields),
+        [activeMissingRequiredFields],
     );
 
     const beginEdit = useCallback(
@@ -138,35 +150,6 @@ export function useEmployeeProfileForm(
         },
         [beginEdit],
     );
-
-    const formValuesKey = useMemo(() => {
-        const { image, ...rest } = form.data;
-
-        return JSON.stringify({
-            ...rest,
-            image: image instanceof File ? 'pending-file' : null,
-        });
-    }, [form.data]);
-
-    useEffect(() => {
-        if (missingRequiredFields.size === 0) {
-            return;
-        }
-
-        setMissingRequiredFields((current) => {
-            const next = new Set(current);
-            let changed = false;
-
-            for (const field of current) {
-                if (String(form.data[field as keyof typeof form.data] ?? '').trim() !== '') {
-                    next.delete(field);
-                    changed = true;
-                }
-            }
-
-            return changed ? next : current;
-        });
-    }, [formValuesKey, missingRequiredFields.size]);
 
     useEffect(() => {
         if (!canUpdate || !isDirty) {

@@ -12,12 +12,12 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import type { DocumentTypeOption } from '@/features/organization/documents/shared/types';
-import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
-import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
     isSupportedUploadFile,
     prepareUploadFiles,
 } from '@/features/organization/documents/upload/compress-upload-file';
+import { UploadDocumentDraftForm } from '@/features/organization/documents/upload/upload-document-draft-form';
+import { UploadDocumentDraftListItem } from '@/features/organization/documents/upload/upload-document-draft-list-item';
 import {
     copyMetadataFromSource,
     createUploadDraftFromFile,

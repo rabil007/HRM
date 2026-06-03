@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ExternalLink, FileText, Info, MessageCircle, Plus, SlidersHorizontal } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     MasterDataActiveToggle,
     MasterDataField,
@@ -8,6 +8,7 @@ import {
     MasterDataFormSheetFooter,
     masterDataInputClass,
 } from '@/components/settings/master-data-form-sheet';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import {
     AlertDialog,
     AlertDialogAction,
@@ -18,7 +19,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,9 +36,10 @@ import {
     extractWhatsAppTemplateVariables,
     labelForWhatsAppVariable,
     renderWhatsAppTemplatePreviewBody,
-    type WhatsAppTemplateHeaderType,
-    WhatsAppDocumentTemplatePreview,
+    
+    WhatsAppDocumentTemplatePreview
 } from '@/features/settings/whatsapp-document-template-preview';
+import type {WhatsAppTemplateHeaderType} from '@/features/settings/whatsapp-document-template-preview';
 import { toast } from '@/lib/toast';
 
 export type WhatsAppTemplateItem = {
@@ -123,22 +124,6 @@ export default function WhatsAppTemplatesSettings({
         () => extractWhatsAppTemplateVariables(form.data.body_preview),
         [form.data.body_preview],
     );
-
-    useEffect(() => {
-        setPreviewVariables((previous) => {
-            const next = { ...previous };
-            let changed = false;
-
-            for (const key of detectedVariables) {
-                if (!(key in next) || next[key].trim() === '') {
-                    next[key] = defaultSampleForWhatsAppVariable(key);
-                    changed = true;
-                }
-            }
-
-            return changed ? next : previous;
-        });
-    }, [detectedVariables]);
 
     const effectivePreviewVariables = useMemo(() => {
         const variables: Record<string, string> = {};
@@ -549,7 +534,7 @@ export default function WhatsAppTemplatesSettings({
                                 >
                                     <Input
                                         id={`preview_var_${variableKey}`}
-                                        value={previewVariables[variableKey] ?? ''}
+                                        value={effectivePreviewVariables[variableKey]}
                                         onChange={(event) =>
                                             setPreviewVariables((previous) => ({
                                                 ...previous,

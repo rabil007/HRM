@@ -1,6 +1,5 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useEffect, useRef } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,29 +54,15 @@ export function CreateEmployeeUserDialog({
     onSuccess?: () => void;
 }): ReactElement {
     const form = useForm<CreateEmployeeUserFormData>(buildInitialForm(employee));
-    const wasOpenRef = useRef(false);
 
-    useEffect(() => {
-        if (!open) {
-            wasOpenRef.current = false;
-
-            return;
+    const handleOpenChange = (nextOpen: boolean): void => {
+        if (nextOpen) {
+            form.clearErrors();
+            form.setData(buildInitialForm(employee));
         }
 
-        if (wasOpenRef.current) {
-            return;
-        }
-
-        wasOpenRef.current = true;
-        form.clearErrors();
-        form.setData(buildInitialForm(employee));
-    }, [
-        open,
-        employee.id,
-        employee.name,
-        employee.work_email,
-        employee.personal_email,
-    ]);
+        onOpenChange(nextOpen);
+    };
 
     const submit = (): void => {
         form.post(`/organization/employees/${employee.id}/user`, {
@@ -91,7 +76,7 @@ export function CreateEmployeeUserDialog({
     };
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
+        <Dialog open={open} onOpenChange={handleOpenChange}>
             <DialogContent className="sm:max-w-md">
                 <DialogHeader>
                     <DialogTitle>Create user account</DialogTitle>
