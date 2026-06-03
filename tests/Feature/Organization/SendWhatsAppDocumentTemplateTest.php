@@ -112,8 +112,9 @@ test('whatsapp document template sends successfully', function () {
             'normalized_phone' => '971501234567',
         ]);
 
-    Http::assertSent(function ($request) {
+    Http::assertSent(function ($request) use ($employee) {
         $body = $request->data();
+        $payloadJson = json_encode($body);
 
         return ($body['type'] ?? null) === 'template'
             && ($body['template']['name'] ?? null) === 'document_delivery'
@@ -123,7 +124,9 @@ test('whatsapp document template sends successfully', function () {
                 (string) ($body['template']['components'][0]['parameters'][0]['document']['link'] ?? ''),
                 'http',
             )
-            && ($body['template']['components'][1]['parameters'][0]['text'] ?? null) === 'Test Employee';
+            && ($body['template']['components'][1]['parameters'][0]['text'] ?? null) === $employee->name
+            && ! str_contains($payloadJson, 'body_preview')
+            && ! str_contains($payloadJson, 'Hello {{name}}');
     });
 });
 

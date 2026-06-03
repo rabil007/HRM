@@ -7,6 +7,10 @@ return [
     'webhook_route_name' => 'whatsapp.webhook',
     'test_message' => 'Hello from Herd OMS. WhatsApp test message.',
     'document_caption' => 'Document shared from Herd OMS',
+    'meta_template_manager_url' => env(
+        'WHATSAPP_META_TEMPLATE_MANAGER_URL',
+        'https://business.facebook.com/wa/manage/message-templates/',
+    ),
     'default_document_template' => [
         'slug' => 'document_delivery',
         'label' => 'Document delivery',

@@ -54,6 +54,7 @@ class WhatsAppTemplateController extends Controller
                 'update' => $user->can('settings.integrations.whatsapp-templates.update'),
                 'delete' => $user->can('settings.integrations.whatsapp-templates.delete'),
             ],
+            'meta_template_manager_url' => config('whatsapp.meta_template_manager_url'),
         ]);
     }
 

@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FileText, MessageCircle, Plus, SlidersHorizontal } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { ExternalLink, FileText, Info, MessageCircle, Plus, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
 import {
     MasterDataActiveToggle,
     MasterDataField,
@@ -18,6 +18,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,7 +32,11 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import {
+    defaultSampleForWhatsAppVariable,
+    extractWhatsAppTemplateVariables,
+    labelForWhatsAppVariable,
     renderWhatsAppTemplatePreviewBody,
+    type WhatsAppTemplateHeaderType,
     WhatsAppDocumentTemplatePreview,
 } from '@/features/settings/whatsapp-document-template-preview';
 import { toast } from '@/lib/toast';
@@ -59,6 +64,7 @@ type Props = {
     categories: Option[];
     header_types: Option[];
     language_options: Option[];
+    meta_template_manager_url: string;
     can: { create: boolean; update: boolean; delete: boolean };
 };
 
@@ -93,6 +99,7 @@ export default function WhatsAppTemplatesSettings({
     categories,
     header_types,
     language_options,
+    meta_template_manager_url,
     can,
 }: Props) {
     const grouped = useMemo(() => {
@@ -106,20 +113,58 @@ export default function WhatsAppTemplatesSettings({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editing, setEditing] = useState<WhatsAppTemplateItem | null>(null);
     const [deleting, setDeleting] = useState<WhatsAppTemplateItem | null>(null);
-    const [previewSampleName, setPreviewSampleName] = useState('John Smith');
+    const [previewVariables, setPreviewVariables] = useState<Record<string, string>>({});
+    const [previewHeaderText, setPreviewHeaderText] = useState('Document reminder');
     const [previewFileName, setPreviewFileName] = useState('Employee Document.pdf');
 
     const form = useForm<FormState>(emptyForm());
 
-    const previewBody = useMemo(
-        () => renderWhatsAppTemplatePreviewBody(form.data.body_preview, previewSampleName),
-        [form.data.body_preview, previewSampleName],
+    const detectedVariables = useMemo(
+        () => extractWhatsAppTemplateVariables(form.data.body_preview),
+        [form.data.body_preview],
     );
+
+    useEffect(() => {
+        setPreviewVariables((previous) => {
+            const next = { ...previous };
+            let changed = false;
+
+            for (const key of detectedVariables) {
+                if (!(key in next) || next[key].trim() === '') {
+                    next[key] = defaultSampleForWhatsAppVariable(key);
+                    changed = true;
+                }
+            }
+
+            return changed ? next : previous;
+        });
+    }, [detectedVariables]);
+
+    const effectivePreviewVariables = useMemo(() => {
+        const variables: Record<string, string> = {};
+
+        for (const key of detectedVariables) {
+            variables[key] =
+                previewVariables[key]?.trim() !== ''
+                    ? previewVariables[key]
+                    : defaultSampleForWhatsAppVariable(key);
+        }
+
+        return variables;
+    }, [detectedVariables, previewVariables]);
+
+    const previewBody = useMemo(
+        () => renderWhatsAppTemplatePreviewBody(form.data.body_preview, effectivePreviewVariables),
+        [effectivePreviewVariables, form.data.body_preview],
+    );
+
+    const previewHeaderType = form.data.header_type as WhatsAppTemplateHeaderType;
 
     const openCreate = (category: string) => {
         setEditing(null);
         form.clearErrors();
         form.setData(emptyForm(category));
+        setPreviewVariables({});
         setSheetOpen(true);
     };
 
@@ -138,6 +183,7 @@ export default function WhatsAppTemplatesSettings({
             enabled: template.enabled,
             sort_order: template.sort_order,
         });
+        setPreviewVariables({});
         setSheetOpen(true);
     };
 
@@ -198,18 +244,44 @@ export default function WhatsAppTemplatesSettings({
                         </div>
                         <h1 className="text-4xl font-extrabold tracking-tight">WhatsApp templates</h1>
                         <p className="max-w-2xl text-sm text-muted-foreground">
-                            Manage approved Meta templates by category. Document sends pick from
-                            document templates; future payroll features will use payroll templates.
+                            Link each HRM template to an approved Meta template. WhatsApp sends the
+                            Meta-approved wording; HRM only passes the employee name and document.
                         </p>
                     </div>
 
-                    <Button asChild variant="outline" className="rounded-xl">
-                        <Link href="/settings/application?tab=whatsapp">
-                            <SlidersHorizontal className="mr-2 h-4 w-4" />
-                            WhatsApp credentials
-                        </Link>
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                        <Button asChild variant="outline" className="rounded-xl">
+                            <a
+                                href={meta_template_manager_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                Meta template manager
+                            </a>
+                        </Button>
+                        <Button asChild variant="outline" className="rounded-xl">
+                            <Link href="/settings/application?tab=whatsapp">
+                                <SlidersHorizontal className="mr-2 h-4 w-4" />
+                                WhatsApp credentials
+                            </Link>
+                        </Button>
+                    </div>
                 </div>
+
+                <Alert className="border-primary/20 bg-primary/5">
+                    <Info className="text-primary" />
+                    <AlertTitle>Meta controls the message text</AlertTitle>
+                    <AlertDescription>
+                        <p>
+                            Editing preview text here does not change what employees receive on
+                            WhatsApp. To change the greeting, body, or footer, edit the template in
+                            Meta WhatsApp Manager and submit it for approval. Then update the Meta
+                            template name and language here if needed, and keep the preview text in
+                            sync for reference.
+                        </p>
+                    </AlertDescription>
+                </Alert>
 
                 {grouped.map((group) => (
                     <section key={group.value} className="space-y-4">
@@ -259,10 +331,15 @@ export default function WhatsAppTemplatesSettings({
                                         </div>
 
                                         <p className="line-clamp-3 text-sm text-muted-foreground">
-                                            {renderWhatsAppTemplatePreviewBody(
-                                                template.body_preview,
-                                                'Employee Name',
-                                            )}
+                                            <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                Preview ·{' '}
+                                            </span>
+                                            {renderWhatsAppTemplatePreviewBody(template.body_preview, {
+                                                name: 'Employee Name',
+                                                '1': 'Passport',
+                                                '2': 'Employee Name',
+                                                '3': '04 May 2027',
+                                            })}
                                         </p>
 
                                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
@@ -324,7 +401,7 @@ export default function WhatsAppTemplatesSettings({
                 onOpenChange={setSheetOpen}
                 contentClassName="sm:max-w-lg"
                 title={editing ? 'Edit WhatsApp template' : 'New WhatsApp template'}
-                description="Match the exact template name and language approved in Meta WhatsApp Manager."
+                description="Map this record to the exact template name and language approved in Meta. Preview text is for HRM only."
                 footer={
                     canMutateForm ? (
                         <MasterDataFormSheetFooter
@@ -437,7 +514,7 @@ export default function WhatsAppTemplatesSettings({
 
                 <MasterDataField
                     id="body_preview"
-                    label="Body preview text"
+                    label="Preview text (must match Meta template)"
                     error={form.errors.body_preview}
                 >
                     <Textarea
@@ -449,29 +526,69 @@ export default function WhatsAppTemplatesSettings({
                         className="min-h-[100px] rounded-xl border-border bg-card px-4 py-3 transition-all focus-visible:ring-primary/40"
                     />
                     <p className="text-xs text-muted-foreground/80">
-                        Use {'{{name}}'} for the employee name variable in Meta template {'{{1}}'}.
+                        Copy the approved body from Meta. Use Meta placeholders {'{{1}}'},{' '}
+                        {'{{2}}'}, {'{{3}}'} in the same order as WhatsApp Manager, or friendly
+                        aliases like {'{{document_type}}'}, {'{{employee_name}}'},{' '}
+                        {'{{expiry_date}}'}. Sample values below only affect this preview — at
+                        send time, HRM fills each variable from the relevant feature (e.g. document
+                        type, employee name, expiry date).
                     </p>
                 </MasterDataField>
 
-                <div className="grid gap-5 sm:grid-cols-2">
-                    <MasterDataField id="preview_sample_name" label="Preview sample name">
+                {detectedVariables.length > 0 ? (
+                    <div className="space-y-3 rounded-xl border border-white/10 bg-white/[0.02] p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Preview sample values
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                            {detectedVariables.map((variableKey) => (
+                                <MasterDataField
+                                    key={variableKey}
+                                    id={`preview_var_${variableKey}`}
+                                    label={labelForWhatsAppVariable(variableKey)}
+                                >
+                                    <Input
+                                        id={`preview_var_${variableKey}`}
+                                        value={previewVariables[variableKey] ?? ''}
+                                        onChange={(event) =>
+                                            setPreviewVariables((previous) => ({
+                                                ...previous,
+                                                [variableKey]: event.target.value,
+                                            }))
+                                        }
+                                        className={masterDataInputClass}
+                                    />
+                                </MasterDataField>
+                            ))}
+                        </div>
+                    </div>
+                ) : null}
+
+                {previewHeaderType === 'text' ? (
+                    <MasterDataField id="preview_header_text" label="Preview header text">
                         <Input
-                            id="preview_sample_name"
-                            value={previewSampleName}
-                            onChange={(e) => setPreviewSampleName(e.target.value)}
+                            id="preview_header_text"
+                            value={previewHeaderText}
+                            onChange={(event) => setPreviewHeaderText(event.target.value)}
                             className={masterDataInputClass}
                         />
+                        <p className="text-xs text-muted-foreground/80">
+                            Only shown when Meta template has a text header. Your expire alert
+                            template has no header in Meta — set header type to None.
+                        </p>
                     </MasterDataField>
+                ) : null}
 
+                {previewHeaderType === 'document' ? (
                     <MasterDataField id="preview_file_name" label="Preview file name">
                         <Input
                             id="preview_file_name"
                             value={previewFileName}
-                            onChange={(e) => setPreviewFileName(e.target.value)}
+                            onChange={(event) => setPreviewFileName(event.target.value)}
                             className={masterDataInputClass}
                         />
                     </MasterDataField>
-                </div>
+                ) : null}
 
                 <MasterDataField id="sort_order" label="Sort order" error={form.errors.sort_order}>
                     <Input
@@ -491,6 +608,8 @@ export default function WhatsAppTemplatesSettings({
                     templateName={form.data.meta_name || 'template_name'}
                     templateLanguage={form.data.meta_language || 'en'}
                     bodyText={previewBody}
+                    headerType={previewHeaderType}
+                    headerText={previewHeaderText}
                     sampleFileName={previewFileName}
                 />
 

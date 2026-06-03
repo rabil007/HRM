@@ -14,6 +14,7 @@ test('owner can view whatsapp template library page', function () {
             ->component('settings/whatsapp-templates')
             ->has('templates')
             ->has('categories')
+            ->has('meta_template_manager_url')
             ->where('can.create', false)
             ->where('can.update', false)
             ->where('can.delete', false),

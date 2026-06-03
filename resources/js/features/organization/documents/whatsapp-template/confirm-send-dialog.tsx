@@ -89,10 +89,11 @@ export function ConfirmSendWhatsAppDocumentDialog({
             return '';
         }
 
-        return renderWhatsAppTemplatePreviewBody(
-            selectedTemplate.body_preview,
-            employeeName,
-        );
+        return renderWhatsAppTemplatePreviewBody(selectedTemplate.body_preview, {
+            name: employeeName,
+            '1': employeeName,
+            employee_name: employeeName,
+        });
     }, [employeeName, selectedTemplate]);
 
     const profilePhoneDisplay = useMemo(() => {
@@ -245,6 +246,7 @@ export function ConfirmSendWhatsAppDocumentDialog({
                                             templateName={selectedTemplate.meta_name}
                                             templateLanguage={selectedTemplate.meta_language}
                                             bodyText={previewBody}
+                                            headerType="document"
                                             sampleFileName={documentName}
                                             className="rounded-lg border border-white/10 bg-zinc-950/30 p-3"
                                         />
