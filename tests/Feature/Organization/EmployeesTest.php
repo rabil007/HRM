@@ -767,6 +767,15 @@ test('employee profile includes image and can be updated with a photo', function
         ->assertInertia(fn (Assert $page) => $page
             ->where('employee.image', $path)
         );
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-PHOTO',
+        'name' => 'Photo Employee',
+        'remove_image' => true,
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->image)->toBeNull();
+    Storage::disk('public')->assertMissing($path);
 });
 
 test('authenticated users can create, update, toggle status, and delete an employee', function () {

@@ -185,8 +185,8 @@ function EmployeeDetailsPage({
         missingRequiredFields,
         focusMissingField,
         saveChanges,
-        uploadPhoto,
-        isUploadingPhoto,
+        stagePhoto,
+        removePhoto,
         discardChanges,
     }: UseEmployeeProfileFormResult = useEmployeeProfileForm(
         localEmployee as EmployeeDetails,
@@ -561,8 +561,8 @@ function EmployeeDetailsPage({
                             setActiveField={setActiveField}
                             beginEdit={beginEdit}
                             requiredDot={requiredDot}
-                            onPhotoSelect={uploadPhoto}
-                            isUploadingPhoto={isUploadingPhoto}
+                            onPhotoSelect={stagePhoto}
+                            onPhotoRemove={removePhoto}
                             templateProfileFields={employee_tabs.profile_fields}
                             isMissingRequired={isMissingRequired}
                         />

@@ -196,10 +196,14 @@ class EmployeeController extends Controller
 
         $employee->loadMissing('employeeProfileTemplate');
 
+        $validated = $request->validated();
+        $removeImage = $request->boolean('remove_image');
+        unset($validated['remove_image']);
+
         $data = EmployeeProfileTemplateRequestRules::onlyVisibleAttributes(
             $employee,
             'employees',
-            $request->validated(),
+            $validated,
         );
         $data['company_id'] = $companyId;
 
@@ -212,6 +216,12 @@ class EmployeeController extends Controller
                 "employees/{$companyId}/images",
                 ['disk' => 'public']
             );
+        } elseif ($removeImage) {
+            if ($employee->image) {
+                Storage::disk('public')->delete($employee->image);
+            }
+
+            $data['image'] = null;
         }
 
         if (($data['religion_id'] ?? null) === '') {

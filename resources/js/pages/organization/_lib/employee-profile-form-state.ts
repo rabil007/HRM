@@ -42,6 +42,10 @@ export type EmployeeProfileFormKey = (typeof EMPLOYEE_PROFILE_FORM_KEYS)[number]
 export type EmployeeProfileFormData = Record<EmployeeProfileFormKey, string> & {
     approval_location_ids: number[];
     sssa_option_ids: number[];
+    /** Pending upload; persisted when the user clicks Save. */
+    image: File | null;
+    /** When true, clears the stored employee photo on save. */
+    remove_image: boolean;
 };
 
 function sameIdSet(a: number[], b: number[]): boolean {
@@ -94,6 +98,8 @@ export function buildEmployeeProfileFormInitial(
         labor_card_number: employee.labor_card_number ?? '',
         approval_location_ids: employee.approval_location_ids ?? [],
         sssa_option_ids: employee.sssa_option_ids ?? [],
+        image: null,
+        remove_image: false,
     };
 }
 

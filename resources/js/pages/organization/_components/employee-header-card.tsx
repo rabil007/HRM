@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Briefcase, Building2, Camera, ClipboardList, Loader2, UserRound } from 'lucide-react';
+import { Briefcase, Building2, Camera, ClipboardList, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,7 +51,7 @@ export function EmployeeHeaderCard({
     beginEdit,
     requiredDot,
     onPhotoSelect,
-    isUploadingPhoto = false,
+    onPhotoRemove,
     templateProfileFields = null,
     isMissingRequired = () => false,
     canAssignProfileTemplate = false,
@@ -74,7 +74,7 @@ export function EmployeeHeaderCard({
     beginEdit: (field: string) => void;
     requiredDot: (field: string) => ReactNode;
     onPhotoSelect?: (file: File) => void;
-    isUploadingPhoto?: boolean;
+    onPhotoRemove?: () => void;
     /** null = no template, show all; string[] = only show these field keys */
     templateProfileFields?: string[] | null;
     isMissingRequired?: (field: string) => boolean;
@@ -88,41 +88,44 @@ export function EmployeeHeaderCard({
 
     const photoInputRef = useRef<HTMLInputElement>(null);
     const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-    const [photoPreviewForImage, setPhotoPreviewForImage] = useState<string | null>(
-        null,
-    );
 
-    const serverImageKey = employee.image ?? null;
-
-    const showOptimisticPreview =
-        photoPreview !== null && photoPreviewForImage === serverImageKey;
+    const pendingImage = form.data.image instanceof File ? form.data.image : null;
+    const removeImage = Boolean(form.data.remove_image);
 
     useEffect(() => {
-        if (
-            !photoPreview?.startsWith('blob:') ||
-            photoPreviewForImage === null ||
-            photoPreviewForImage === serverImageKey
-        ) {
-            return;
-        }
-
-        URL.revokeObjectURL(photoPreview);
-    }, [photoPreview, photoPreviewForImage, serverImageKey]);
-
-    useEffect(() => {
-        return () => {
+        if (!pendingImage) {
             if (photoPreview?.startsWith('blob:')) {
                 URL.revokeObjectURL(photoPreview);
             }
+
+            setPhotoPreview(null);
+
+            return;
+        }
+
+        const url = URL.createObjectURL(pendingImage);
+        setPhotoPreview(url);
+
+        return () => {
+            URL.revokeObjectURL(url);
         };
-    }, [photoPreview]);
+    }, [pendingImage]);
 
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
     }, [form.data.name]);
 
     const imageSrc = resolveEmployeeImageUrl(employee.image);
-    const displayImageSrc = showOptimisticPreview ? photoPreview : imageSrc;
+    const displayImageSrc = pendingImage
+        ? photoPreview
+        : removeImage
+          ? undefined
+          : imageSrc;
+
+    const showRemovePhoto =
+        canUpdate &&
+        Boolean(onPhotoRemove) &&
+        (pendingImage !== null || (Boolean(employee.image) && !removeImage));
 
     const handlePhotoChange = (file: File | undefined) => {
         if (!file || !onPhotoSelect) {
@@ -133,12 +136,6 @@ export function EmployeeHeaderCard({
             return;
         }
 
-        if (photoPreview?.startsWith('blob:')) {
-            URL.revokeObjectURL(photoPreview);
-        }
-
-        setPhotoPreview(URL.createObjectURL(file));
-        setPhotoPreviewForImage(serverImageKey);
         onPhotoSelect(file);
     };
 
@@ -200,7 +197,7 @@ export function EmployeeHeaderCard({
                         type="file"
                         accept="image/*"
                         className="sr-only"
-                        disabled={!canUpdate || isUploadingPhoto}
+                        disabled={!canUpdate}
                         onChange={(event) => {
                             const file = event.target.files?.[0];
                             handlePhotoChange(file);
@@ -216,11 +213,11 @@ export function EmployeeHeaderCard({
                             canUpdate ? 'cursor-pointer' : 'cursor-default',
                         )}
                         onClick={() => {
-                            if (canUpdate && !isUploadingPhoto) {
+                            if (canUpdate) {
                                 photoInputRef.current?.click();
                             }
                         }}
-                        disabled={!canUpdate || isUploadingPhoto}
+                        disabled={!canUpdate}
                         aria-label={canUpdate ? 'Change employee photo' : 'Employee photo'}
                     >
                         <EmployeeAvatar
@@ -233,19 +230,26 @@ export function EmployeeHeaderCard({
                         />
                         {canUpdate ? (
                             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/60 opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-visible:opacity-100">
-                                {isUploadingPhoto ? (
-                                    <Loader2 className="h-6 w-6 animate-spin text-white" />
-                                ) : (
-                                    <>
-                                        <Camera className="h-5 w-5 text-white" />
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-white/90">
-                                            {displayImageSrc ? 'Change' : 'Upload'}
-                                        </span>
-                                    </>
-                                )}
+                                <Camera className="h-5 w-5 text-white" />
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-white/90">
+                                    {displayImageSrc ? 'Change' : 'Upload'}
+                                </span>
                             </div>
                         ) : null}
                     </button>
+                    {showRemovePhoto ? (
+                        <button
+                            type="button"
+                            className="absolute -right-1 -top-1 z-10 flex size-6 items-center justify-center rounded-full border border-border/80 bg-card text-muted-foreground shadow-md transition-colors hover:bg-destructive hover:text-destructive-foreground"
+                            aria-label="Remove employee photo"
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onPhotoRemove?.();
+                            }}
+                        >
+                            <X className="size-3.5" />
+                        </button>
+                    ) : null}
                     {/* Live status dot */}
                     <div className={cn(
                         'absolute -bottom-1.5 -right-1.5 h-5 w-5 rounded-full border-[3px] border-card shadow-lg',

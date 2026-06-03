@@ -58,6 +58,7 @@ class UpdateEmployeeRequest extends FormRequest
             ],
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],
+            'remove_image' => ['sometimes', 'boolean'],
             'date_of_birth' => ['nullable', 'date'],
             'place_of_birth' => ['nullable', 'string', 'max:150'],
             'gender_id' => ['nullable', 'integer', Rule::exists('genders', 'id')],

@@ -23,7 +23,6 @@ const DEFAULT_REQUIRED_FIELDS = new Set(['employee_no', 'name']);
 export type UseEmployeeProfileFormResult = {
     form: any;
     isDirty: boolean;
-    isUploadingPhoto: boolean;
     displayName: string;
     activeField: string | null;
     setActiveField: Dispatch<SetStateAction<string | null>>;
@@ -33,7 +32,8 @@ export type UseEmployeeProfileFormResult = {
     missingRequiredFields: string[];
     focusMissingField: (field: string) => void;
     saveChanges: (afterSuccess?: () => void) => void;
-    uploadPhoto: (file: File) => void;
+    stagePhoto: (file: File) => void;
+    removePhoto: () => void;
     discardChanges: () => void;
 };
 
@@ -46,7 +46,6 @@ export function useEmployeeProfileForm(
     },
 ): UseEmployeeProfileFormResult {
     const [activeField, setActiveField] = useState<string | null>(null);
-    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [missingRequiredFields, setMissingRequiredFields] = useState<Set<string>>(
         () => new Set(),
     );
@@ -61,10 +60,17 @@ export function useEmployeeProfileForm(
 
     const form = useForm(initialPersonal);
 
-    const isDirty = useMemo(
-        () => isEmployeeProfileFormDirty(form.data, initialPersonal),
-        [form.data, initialPersonal],
-    );
+    const isDirty = useMemo(() => {
+        if (form.data.image instanceof File) {
+            return true;
+        }
+
+        if (form.data.remove_image && employee.image) {
+            return true;
+        }
+
+        return isEmployeeProfileFormDirty(form.data, initialPersonal);
+    }, [employee.image, form.data, initialPersonal]);
 
     const displayName = useMemo(() => {
         return String(form.data.name ?? '').trim() || 'Employee';
@@ -174,6 +180,17 @@ export function useEmployeeProfileForm(
                 const missing: string[] = [];
 
                 for (const field of requiredFields) {
+                    if (field === 'image') {
+                        if (
+                            form.data.remove_image ||
+                            (!(form.data.image instanceof File) && !employee.image)
+                        ) {
+                            missing.push(field);
+                        }
+
+                        continue;
+                    }
+
                     if (field === 'approval_location_ids') {
                         if ((form.data.approval_location_ids ?? []).length === 0) {
                             missing.push(field);
@@ -224,14 +241,27 @@ export function useEmployeeProfileForm(
                 return;
             }
 
-            form.transform((data) =>
-                transformEmployeeProfileFormData(
+            const hasPendingImage = form.data.image instanceof File;
+
+            form.transform((data) => {
+                const payload = transformEmployeeProfileFormData(
                     data,
                     options?.templateRequiredFields,
-                ),
-            );
+                );
+
+                if (data.image instanceof File) {
+                    payload.image = data.image;
+                }
+
+                if (data.remove_image) {
+                    payload.remove_image = true;
+                }
+
+                return payload;
+            });
 
             form.put(updateEmployee.url({ employee: targetEmployeeId }), {
+                forceFormData: hasPendingImage,
                 preserveScroll: true,
                 onSuccess: () => {
                     setActiveField(null);
@@ -251,6 +281,7 @@ export function useEmployeeProfileForm(
         [
             canUpdate,
             employee.id,
+            employee.image,
             ensureEmployee,
             focusMissingField,
             form,
@@ -259,60 +290,32 @@ export function useEmployeeProfileForm(
         ],
     );
 
-    const uploadPhoto = useCallback(
+    const stagePhoto = useCallback(
         (file: File) => {
             if (!canUpdate) {
                 return;
             }
 
-            if (!String(form.data.employee_no ?? '').trim() || !String(form.data.name ?? '').trim()) {
-                toast.error('Employee number and name are required before uploading a photo.');
-
-                return;
-            }
-
-            setIsUploadingPhoto(true);
-
-            form.transform((data) => ({
-                ...transformEmployeeProfileFormData(
-                    data,
-                    options?.templateRequiredFields,
-                ),
+            form.setData((current) => ({
+                ...current,
                 image: file,
+                remove_image: false,
             }));
-
-            const targetId = employee.id && employee.id > 0 ? employee.id : null;
-
-            if (targetId === null) {
-                toast.error('Save employee details before uploading a photo.');
-
-                return;
-            }
-
-            form.put(updateEmployee.url({ employee: targetId }), {
-                forceFormData: true,
-                preserveScroll: true,
-                onError: (errors) => {
-                    const first = Object.values(errors ?? {})[0];
-                    toast.error(
-                        typeof first === 'string' && first.length
-                            ? first
-                            : 'Failed to upload photo.',
-                    );
-                },
-                onFinish: () => {
-                    setIsUploadingPhoto(false);
-                    form.transform((data) =>
-                        transformEmployeeProfileFormData(
-                            data,
-                            options?.templateRequiredFields,
-                        ),
-                    );
-                },
-            });
         },
-        [canUpdate, employee.id, form, options?.templateRequiredFields],
+        [canUpdate, form],
     );
+
+    const removePhoto = useCallback(() => {
+        if (!canUpdate) {
+            return;
+        }
+
+        form.setData((current) => ({
+            ...current,
+            image: null,
+            remove_image: Boolean(employee.image),
+        }));
+    }, [canUpdate, employee.image, form]);
 
     const discardChanges = useCallback(() => {
         form.setData(initialPersonal);
@@ -324,7 +327,6 @@ export function useEmployeeProfileForm(
     return {
         form: form as any,
         isDirty,
-        isUploadingPhoto,
         displayName,
         activeField,
         setActiveField,
@@ -334,7 +336,8 @@ export function useEmployeeProfileForm(
         missingRequiredFields: missingRequiredFieldsList,
         focusMissingField,
         saveChanges,
-        uploadPhoto,
+        stagePhoto,
+        removePhoto,
         discardChanges,
     };
 }
