@@ -1,6 +1,6 @@
 import { useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import {
@@ -55,15 +55,29 @@ export function CreateEmployeeUserDialog({
     onSuccess?: () => void;
 }): ReactElement {
     const form = useForm<CreateEmployeeUserFormData>(buildInitialForm(employee));
+    const wasOpenRef = useRef(false);
 
     useEffect(() => {
         if (!open) {
+            wasOpenRef.current = false;
+
             return;
         }
 
+        if (wasOpenRef.current) {
+            return;
+        }
+
+        wasOpenRef.current = true;
         form.clearErrors();
         form.setData(buildInitialForm(employee));
-    }, [open, employee, form]);
+    }, [
+        open,
+        employee.id,
+        employee.name,
+        employee.work_email,
+        employee.personal_email,
+    ]);
 
     const submit = (): void => {
         form.post(`/organization/employees/${employee.id}/user`, {

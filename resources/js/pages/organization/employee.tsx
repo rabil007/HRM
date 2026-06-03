@@ -118,6 +118,9 @@ function EmployeeDetailsPage({
     };
 
     const [localEmployee, setLocalEmployee] = useState(employee);
+
+    const linkedUser = employee.user ?? localEmployee.user;
+
     const formDraftRef = useRef({
         name: String(employee.name ?? ''),
         employee_no: String(employee.employee_no ?? ''),
@@ -206,8 +209,11 @@ function EmployeeDetailsPage({
         };
     }, [form.data.name, form.data.employee_no]);
 
+    const canViewLinkedUser = (auth?.permissions ?? []).includes('users.view');
     const canCreateUser =
-        !isCreateMode && (can?.create_user ?? false) && !localEmployee.user;
+        !isCreateMode &&
+        (can?.create_user ?? false) &&
+        linkedUser === null;
 
     const visitEmployeeProfile = useCallback(
         (employeeId: number) => {
@@ -529,6 +535,12 @@ function EmployeeDetailsPage({
                                 })}
                                 showCreateUserButton={canCreateUser}
                                 onCreateUser={() => setCreateUserOpen(true)}
+                                linkedUser={linkedUser}
+                                showLinkedUserButton={
+                                    !isCreateMode &&
+                                    canViewLinkedUser &&
+                                    linkedUser !== null
+                                }
                             />
                         )}
 
@@ -547,6 +559,7 @@ function EmployeeDetailsPage({
                             canAssignProfileTemplate={can?.assign_profile_template ?? false}
                             profileTemplates={profile_templates}
                             employee={localEmployee}
+                            linkedUser={linkedUser}
                             departments={departments}
                             positions={positions}
                             ranks={ranks}

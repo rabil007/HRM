@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, FileText, Printer, UserPlus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Printer, User, UserPlus } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { cn } from '@/lib/utils';
@@ -170,6 +170,8 @@ export function EmployeeProfileActionBar({
     documentsBrowseUrl,
     showCreateUserButton = false,
     onCreateUser,
+    linkedUser = null,
+    showLinkedUserButton = false,
 }: {
     printCvUrl: string;
     employeeNavigation?: EmployeeNavigation | null;
@@ -179,6 +181,12 @@ export function EmployeeProfileActionBar({
     documentsBrowseUrl?: string;
     showCreateUserButton?: boolean;
     onCreateUser?: () => void;
+    linkedUser?: {
+        id: number;
+        name: string | null;
+        email?: string | null;
+    } | null;
+    showLinkedUserButton?: boolean;
 }): ReactElement {
     return (
         <div className="flex items-stretch justify-between gap-0 overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-sm dark:border-white/8 dark:bg-white/4">
@@ -207,6 +215,19 @@ export function EmployeeProfileActionBar({
                             href={documentsBrowseUrl}
                             iconColor="text-sky-500"
                             iconBg="bg-sky-500/10"
+                        />
+                    </>
+                ) : null}
+
+                {showLinkedUserButton && linkedUser ? (
+                    <>
+                        <div className="h-5 w-px bg-border/60" />
+                        <SmartButton
+                            icon={User}
+                            label={linkedUser.name?.trim() || 'User account'}
+                            href={`/organization/users/${linkedUser.id}`}
+                            iconColor="text-emerald-500"
+                            iconBg="bg-emerald-500/10"
                         />
                     </>
                 ) : null}

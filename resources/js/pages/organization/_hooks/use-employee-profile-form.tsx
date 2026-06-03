@@ -139,6 +139,15 @@ export function useEmployeeProfileForm(
         [beginEdit],
     );
 
+    const formValuesKey = useMemo(() => {
+        const { image, ...rest } = form.data;
+
+        return JSON.stringify({
+            ...rest,
+            image: image instanceof File ? 'pending-file' : null,
+        });
+    }, [form.data]);
+
     useEffect(() => {
         if (missingRequiredFields.size === 0) {
             return;
@@ -157,8 +166,7 @@ export function useEmployeeProfileForm(
 
             return changed ? next : current;
         });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- clear highlights when field values change
-    }, [form.data]);
+    }, [formValuesKey, missingRequiredFields.size]);
 
     useEffect(() => {
         if (!canUpdate || !isDirty) {
