@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\StoreEmailTemplateRequest;
 use App\Http\Requests\Settings\UpdateEmailTemplateRequest;
 use App\Models\EmailTemplate;
+use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,6 +42,8 @@ class EmailTemplateController extends Controller
                 'update' => $user->can('settings.integrations.email-templates.update'),
                 'delete' => $user->can('settings.integrations.email-templates.delete'),
             ],
+            'expiry_alert_template_slug' => config('documents.expiry_alert_template_slug'),
+            'scheduler_timezone' => ApplicationTimezone::identifier(),
         ]);
     }
 

@@ -13,10 +13,23 @@ abstract class EmailTemplateRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $slug = (string) $this->input('slug');
+        $expiryAlertSlug = (string) config('documents.expiry_alert_template_slug', 'document_expiry_alert');
+
         $this->merge([
             'to_preset' => $this->nullablePreset($this->input('to_preset')),
             'cc_preset' => $this->nullablePreset($this->input('cc_preset')),
+            'dispatch_at' => $slug === $expiryAlertSlug
+                ? $this->normalizeDispatchAt($this->input('dispatch_at'))
+                : null,
         ]);
+    }
+
+    private function normalizeDispatchAt(mixed $value): ?string
+    {
+        $trimmed = trim((string) $value);
+
+        return $trimmed === '' ? null : $trimmed;
     }
 
     private function nullablePreset(mixed $value): ?string
@@ -48,6 +61,7 @@ abstract class EmailTemplateRequest extends FormRequest
             'category' => ['required', Rule::enum(EmailTemplateCategory::class)],
             'to_preset' => ['nullable', 'string', 'max:1000'],
             'cc_preset' => ['nullable', 'string', 'max:1000'],
+            'dispatch_at' => ['nullable', 'string', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
             'subject' => ['required', 'string', 'max:255'],
             'body_html' => ['required', 'string', 'max:65535'],
             'is_default' => ['required', 'boolean'],
@@ -94,6 +108,7 @@ abstract class EmailTemplateRequest extends FormRequest
     {
         return [
             'slug.regex' => 'Use lowercase letters, numbers, and underscores only.',
+            'dispatch_at.regex' => 'Use 24-hour time in HH:MM format (e.g. 08:00).',
         ];
     }
 }

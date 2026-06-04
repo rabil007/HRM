@@ -16,7 +16,9 @@ test('owner can view email template library page', function () {
             ->has('categories')
             ->where('can.create', false)
             ->where('can.update', false)
-            ->where('can.delete', false),
+            ->where('can.delete', false)
+            ->where('expiry_alert_template_slug', 'document_expiry_alert')
+            ->has('scheduler_timezone'),
         );
 });
 
@@ -128,6 +130,35 @@ test('default email template cannot be deleted', function () {
         ->assertSessionHasErrors('template');
 
     expect(EmailTemplate::query()->whereKey($template->id)->exists())->toBeTrue();
+});
+
+test('document expiry alert template can set daily dispatch time', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.email-templates.view',
+        'settings.integrations.email-templates.update',
+    ]);
+
+    $template = EmailTemplate::query()->where('slug', 'document_expiry_alert')->firstOrFail();
+
+    $this->actingAs($user)
+        ->put(route('application.email-templates.update', $template), [
+            'slug' => 'document_expiry_alert',
+            'label' => $template->label,
+            'category' => 'notification',
+            'to_preset' => 'alerts@example.com',
+            'cc_preset' => '',
+            'dispatch_at' => '10:45',
+            'subject' => $template->subject,
+            'body_html' => $template->body_html,
+            'is_default' => true,
+            'enabled' => true,
+            'sort_order' => 0,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($template->fresh()->dispatch_at)->toBe('10:45');
 });
 
 test('marking template as default clears other defaults in category', function () {

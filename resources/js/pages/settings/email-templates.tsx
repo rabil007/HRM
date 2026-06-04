@@ -40,6 +40,7 @@ export type EmailTemplateItem = {
     category_label: string;
     to_preset: string | null;
     cc_preset: string | null;
+    dispatch_at: string | null;
     subject: string;
     body_html: string;
     is_default: boolean;
@@ -53,6 +54,8 @@ type Props = {
     templates: EmailTemplateItem[];
     categories: Option[];
     can: { create: boolean; update: boolean; delete: boolean };
+    expiry_alert_template_slug: string;
+    scheduler_timezone: string;
 };
 
 type FormState = {
@@ -61,6 +64,7 @@ type FormState = {
     category: string;
     to_preset: string;
     cc_preset: string;
+    dispatch_at: string;
     subject: string;
     body_html: string;
     is_default: boolean;
@@ -74,6 +78,7 @@ const emptyForm = (category = 'document'): FormState => ({
     category,
     to_preset: '',
     cc_preset: '',
+    dispatch_at: '08:00',
     subject: 'Documents from Overseas Marine Services',
     body_html: 'Hello,\n\nPlease find the attached employee documents.\n\nThank you.',
     is_default: false,
@@ -85,6 +90,8 @@ export default function EmailTemplatesSettings({
     templates,
     categories,
     can,
+    expiry_alert_template_slug,
+    scheduler_timezone,
 }: Props) {
     const grouped = useMemo(() => {
         return categories.map((category) => ({
@@ -116,6 +123,7 @@ export default function EmailTemplatesSettings({
             category: template.category,
             to_preset: template.to_preset ?? '',
             cc_preset: template.cc_preset ?? '',
+            dispatch_at: template.dispatch_at ?? '08:00',
             subject: template.subject,
             body_html: template.body_html,
             is_default: template.is_default,
@@ -242,6 +250,16 @@ export default function EmailTemplatesSettings({
                                                 <Mail className="h-5 w-5 text-blue-600" />
                                             </div>
                                         </div>
+
+                                        {template.slug === expiry_alert_template_slug &&
+                                        template.dispatch_at ? (
+                                            <p className="text-xs text-muted-foreground">
+                                                <span className="font-medium text-zinc-300">
+                                                    Daily dispatch:
+                                                </span>{' '}
+                                                {template.dispatch_at} ({scheduler_timezone})
+                                            </p>
+                                        ) : null}
 
                                         {template.to_preset || template.cc_preset ? (
                                             <div className="space-y-1 text-xs text-muted-foreground">
@@ -415,6 +433,29 @@ export default function EmailTemplatesSettings({
                         Comma-separated CC addresses prefilled when this template is chosen.
                     </p>
                 </MasterDataField>
+
+                {form.data.slug === expiry_alert_template_slug ? (
+                    <MasterDataField
+                        id="dispatch_at"
+                        label="Daily dispatch time"
+                        error={form.errors.dispatch_at}
+                    >
+                        <Input
+                            id="dispatch_at"
+                            type="time"
+                            value={form.data.dispatch_at}
+                            onChange={(e) => form.setData('dispatch_at', e.target.value)}
+                            disabled={!canMutateForm}
+                            className={masterDataInputClass}
+                        />
+                        <p className="text-xs text-muted-foreground/80">
+                            Runs once per day at this time using the timezone from Application
+                            settings → Regional defaults ({scheduler_timezone}). Cron must call{' '}
+                            <span className="font-mono text-zinc-400">schedule:run</span> every
+                            minute.
+                        </p>
+                    </MasterDataField>
+                ) : null}
 
                 <MasterDataField id="subject" label="Email subject" error={form.errors.subject}>
                     <Input
