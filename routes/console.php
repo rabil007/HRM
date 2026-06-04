@@ -9,6 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('documents:dispatch-expiry-alerts')
-    ->dailyAt('08:00')
+    ->dailyAt('14:00')
     ->withoutOverlapping()
-    ->onOneServer(); 
+    ->onOneServer();
