@@ -11,4 +11,4 @@ Artisan::command('inspire', function () {
 Schedule::command('documents:dispatch-expiry-alerts')
     ->dailyAt('08:00')
     ->withoutOverlapping()
-    ->onOneServer();
+    ->onOneServer(); 
