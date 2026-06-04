@@ -13,21 +13,26 @@ class DocumentExpiryAlertSchedule
     public static function dispatchAt(): string
     {
         $default = (string) config('documents.expiry_alert_dispatch_at', '08:00');
-        $slug = (string) config('documents.expiry_alert_template_slug', 'document_expiry_alert');
 
-        if (! Schema::hasTable('email_templates')) {
+        try {
+            $slug = (string) config('documents.expiry_alert_template_slug', 'document_expiry_alert');
+
+            if (! Schema::hasTable('email_templates')) {
+                return $default;
+            }
+
+            $value = EmailTemplate::query()
+                ->where('slug', $slug)
+                ->value('dispatch_at');
+
+            if (! is_string($value) || ! self::isValidTime($value)) {
+                return $default;
+            }
+
+            return $value;
+        } catch (\Throwable) {
             return $default;
         }
-
-        $value = EmailTemplate::query()
-            ->where('slug', $slug)
-            ->value('dispatch_at');
-
-        if (! is_string($value) || ! self::isValidTime($value)) {
-            return $default;
-        }
-
-        return $value;
     }
 
     public static function timezone(): string

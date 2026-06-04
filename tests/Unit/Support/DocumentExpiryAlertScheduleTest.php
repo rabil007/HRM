@@ -39,6 +39,14 @@ test('timezone uses application regional settings not only config app timezone',
         ->and(DocumentExpiryAlertSchedule::timezone())->toBe('Asia/Dubai');
 });
 
+test('dispatch at falls back to config when database is unavailable', function () {
+    config(['documents.expiry_alert_dispatch_at' => '09:15']);
+
+    \Illuminate\Support\Facades\DB::shouldReceive('connection')->andThrow(new \RuntimeException('Connection refused'));
+
+    expect(DocumentExpiryAlertSchedule::dispatchAt())->toBe('09:15');
+});
+
 test('should run now uses application timezone and template dispatch time', function () {
     seedDocumentExpiryAlertTemplate(['dispatch_at' => '13:55']);
 
