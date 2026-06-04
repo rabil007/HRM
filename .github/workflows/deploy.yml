@@ -76,6 +76,7 @@ jobs:
       - name: Deploy Backend
         run: |
           ssh -i ~/.ssh/id_ed25519 -p 65002 u769441461@82.198.227.207 << 'EOF'
+            set -e
             cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
 
             git pull origin main
@@ -83,7 +84,7 @@ jobs:
             composer install --no-dev --optimize-autoloader
 
             php artisan migrate --force
-            php artisan db:seed --force
+            php artisan db:seed --class=PermissionsSeeder --force
 
             php artisan config:cache
             php artisan route:cache

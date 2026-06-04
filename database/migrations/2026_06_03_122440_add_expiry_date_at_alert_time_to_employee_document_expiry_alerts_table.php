@@ -17,9 +17,13 @@ return new class extends Migration
             return;
         }
 
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->dropUnique(['employee_document_id']);
-        });
+        $this->dropForeignKeys();
+
+        if ($this->hasIndex('employee_document_expiry_alerts_employee_document_id_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropUnique(['employee_document_id']);
+            });
+        }
 
         Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
             $table->date('expiry_date_at_alert_time')->nullable()->after('employee_document_id');
@@ -68,12 +72,16 @@ return new class extends Migration
                 ->delete();
         }
 
-        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->unique(
-                ['employee_document_id', 'expiry_date_at_alert_time'],
-                'employee_document_expiry_alerts_document_expiry_unique',
-            );
-        });
+        if (! $this->hasIndex('employee_document_expiry_alerts_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->unique(
+                    ['employee_document_id', 'expiry_date_at_alert_time'],
+                    'employee_document_expiry_alerts_document_expiry_unique',
+                );
+            });
+        }
+
+        $this->restoreForeignKeys();
     }
 
     public function down(): void
@@ -82,11 +90,27 @@ return new class extends Migration
             return;
         }
 
+        if (! Schema::hasColumn('employee_document_expiry_alerts', 'expiry_date_at_alert_time')) {
+            return;
+        }
+
+        $this->dropForeignKeys();
+
+        if ($this->hasIndex('employee_document_expiry_alerts_document_expiry_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->dropUnique('employee_document_expiry_alerts_document_expiry_unique');
+            });
+        }
+
         Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
-            $table->dropUnique('employee_document_expiry_alerts_document_expiry_unique');
             $table->dropColumn('expiry_date_at_alert_time');
-            $table->unique('employee_document_id');
         });
+
+        if (! $this->hasIndex('employee_document_expiry_alerts_employee_document_id_unique')) {
+            Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+                $table->unique('employee_document_id');
+            });
+        }
 
         if (Schema::hasColumn('employee_document_expiry_alerts', 'alerted_at')
             && ! Schema::hasColumn('employee_document_expiry_alerts', 'sent_at')) {
@@ -102,5 +126,55 @@ return new class extends Migration
                 $table->dropColumn('alerted_at');
             });
         }
+
+        $this->restoreForeignKeys();
+    }
+
+    private function dropForeignKeys(): void
+    {
+        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+            $table->dropForeign(['employee_document_id']);
+            $table->dropForeign(['company_id']);
+        });
+    }
+
+    private function restoreForeignKeys(): void
+    {
+        Schema::table('employee_document_expiry_alerts', function (Blueprint $table) {
+            $table->foreign('employee_document_id')
+                ->references('id')
+                ->on('employee_documents')
+                ->cascadeOnDelete();
+
+            $table->foreign('company_id')
+                ->references('id')
+                ->on('companies')
+                ->cascadeOnDelete();
+        });
+    }
+
+    private function hasIndex(string $indexName): bool
+    {
+        $driver = Schema::getConnection()->getDriverName();
+
+        if ($driver === 'mysql') {
+            $rows = DB::select(
+                'SHOW INDEX FROM employee_document_expiry_alerts WHERE Key_name = ?',
+                [$indexName],
+            );
+
+            return $rows !== [];
+        }
+
+        if ($driver === 'sqlite') {
+            $rows = DB::select(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'employee_document_expiry_alerts' AND name = ?",
+                [$indexName],
+            );
+
+            return $rows !== [];
+        }
+
+        return false;
     }
 };

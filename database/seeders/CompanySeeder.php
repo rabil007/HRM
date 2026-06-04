@@ -23,9 +23,10 @@ class CompanySeeder extends Seeder
         }
 
         $name = 'Herd OMS';
+        $slug = Str::slug($name);
 
-        Company::query()->updateOrCreate(
-            ['slug' => Str::slug($name)],
+        $company = Company::withTrashed()->updateOrCreate(
+            ['slug' => $slug],
             [
                 'name' => $name,
                 'working_days' => [1, 2, 3, 4, 5],
@@ -34,7 +35,11 @@ class CompanySeeder extends Seeder
                 'timezone' => 'Asia/Dubai',
                 'payroll_cycle' => 'monthly',
                 'status' => 'active',
-            ]
+            ],
         );
+
+        if ($company->trashed()) {
+            $company->restore();
+        }
     }
 }
