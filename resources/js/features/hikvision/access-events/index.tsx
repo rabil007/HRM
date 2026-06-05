@@ -38,7 +38,6 @@ type Props = {
     filters: HikvisionAccessEventFilters;
     attendanceStatusOptions: HikvisionAttendanceStatusOption[];
     deviceOptions: HikvisionAttendanceStatusOption[];
-    attendanceLookbackDays: number;
     isConfigured: boolean;
     lastFetchedAt: string | null;
     fetchStatus: HikvisionEventsFetchStatus;
@@ -119,7 +118,6 @@ export function HikvisionAccessEventsContent({
     filters,
     attendanceStatusOptions,
     deviceOptions,
-    attendanceLookbackDays,
     isConfigured,
     lastFetchedAt,
     fetchStatus,
@@ -267,18 +265,14 @@ export function HikvisionAccessEventsContent({
                     <AlertTitle>How records are fetched</AlertTitle>
                     <AlertDescription className="space-y-2">
                         <p>
-                            <span className="font-medium text-foreground">Device</span> check-ins are
-                            fetched in real time from your door controllers for today.
+                            Fetching loads <span className="font-medium text-foreground">today&apos;s</span>{' '}
+                            records only: door device check-ins and mobile app check-in/out from
+                            Hik-Connect.
                         </p>
                         <p>
-                            <span className="font-medium text-foreground">Mobile App</span>{' '}
-                            check-in/out comes from the Hik-Connect Total Time Card report for the
-                            last {attendanceLookbackDays} days.
-                        </p>
-                        <p>
-                            Today&apos;s mobile attendance is not available immediately. Hik-Connect
-                            processes it after the working day ends, so mobile app records for the
-                            current day usually appear after you fetch again the next day.
+                            Mobile app attendance for the current day is processed by Hik-Connect
+                            after the working day ends. If today&apos;s mobile records are missing,
+                            fetch again later or the next day once Hik-Connect has processed them.
                         </p>
                     </AlertDescription>
                 </Alert>

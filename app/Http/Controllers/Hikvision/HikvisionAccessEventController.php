@@ -84,7 +84,6 @@ class HikvisionAccessEventController extends Controller
                 fn (string $name): array => ['value' => $name, 'label' => $name],
                 $deviceOptions,
             ),
-            'attendance_lookback_days' => max(1, (int) config('hikvision.attendance_lookback_days', 7)),
             'is_configured' => $settings->isConfigured(),
             'last_fetched_at' => $lastFetchedAt instanceof \DateTimeInterface
                 ? $lastFetchedAt->format(\DateTimeInterface::ATOM)

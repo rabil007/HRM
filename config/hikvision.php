@@ -38,17 +38,6 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Attendance report lookback (mobile app check-in/out)
-    |--------------------------------------------------------------------------
-    |
-    | Total Time Card data is processed after the day ends. Use a lookback window
-    | so mobile app records from recent days are included alongside today's device events.
-    |
-    */
-    'attendance_lookback_days' => (int) env('HIKVISION_ATTENDANCE_LOOKBACK_DAYS', 7),
-
-    /*
-    |--------------------------------------------------------------------------
     | ACS event minors to ignore (door/system telemetry, not person access)
     |--------------------------------------------------------------------------
     |

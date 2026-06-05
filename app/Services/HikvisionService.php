@@ -534,11 +534,8 @@ class HikvisionService
         $this->ensureConfigured();
 
         $timezone = (string) config('app.timezone', 'UTC');
-        $deviceStartTime = now($timezone)->startOfDay();
-        $deviceEndTime = now($timezone)->endOfDay();
-        $lookbackDays = max(1, (int) config('hikvision.attendance_lookback_days', 7));
-        $attendanceStartTime = now($timezone)->subDays($lookbackDays - 1)->startOfDay();
-        $attendanceEndTime = $deviceEndTime;
+        $startTime = now($timezone)->startOfDay();
+        $endTime = now($timezone)->endOfDay();
 
         $devices = $this->getCachedAccessControllerDevices();
 
@@ -560,17 +557,17 @@ class HikvisionService
             $fetchedCount += $this->fetchAcsEventsForDevice(
                 $device['id'],
                 $device['name'],
-                $deviceStartTime,
-                $deviceEndTime,
+                $startTime,
+                $endTime,
             );
         }
 
-        $mobileCount = $this->fetchAttendanceMobileEvents($attendanceStartTime, $attendanceEndTime);
+        $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
 
         return [
             'fetched_count' => $totalCount,
-            'message' => "Fetched {$totalCount} access record(s): {$fetchedCount} device today, {$mobileCount} mobile app in the last {$lookbackDays} day(s).",
+            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app).",
         ];
     }
 

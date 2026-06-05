@@ -109,7 +109,6 @@ test('user with permission can view hikvision access events page', function () {
             ->has('filters')
             ->has('attendance_status_options')
             ->has('device_options')
-            ->has('attendance_lookback_days')
             ->has('fetch_status')
             ->has('can'),
         );
@@ -378,7 +377,7 @@ test('background job stores mobile app attendance records from total time card a
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkIn')->exists())->toBeTrue()
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkOut')->exists())->toBeTrue()
         ->and(HikvisionSetting::current()->events_fetch_message)->toContain('mobile app')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('last 7 day');
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('for today');
 
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list');
 });
