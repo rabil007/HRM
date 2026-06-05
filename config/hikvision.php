@@ -18,8 +18,6 @@ return [
 
     'users_path' => '/api/hccgw/platform/v1/users/get',
 
-    'persons_search_path' => '/api/hccgw/vims/v1/person/search',
-
     'devices_path' => '/api/hccgw/resource/v1/devices/get',
 
     'device_detail_path' => '/api/hccgw/resource/v1/devicedetail/get',

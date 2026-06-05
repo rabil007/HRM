@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionDevice;
-use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Models\HikvisionUser;
 use Carbon\CarbonInterface;
@@ -187,86 +186,6 @@ class HikvisionService
         return [
             'synced_count' => $syncedCount,
             'message' => "Synced {$syncedCount} Hikvision user(s).",
-        ];
-    }
-
-    /**
-     * @param  array<string, mixed>  $criteria
-     * @param  array<string, mixed>|null  $override
-     * @return array{total_num: int, page_num: int, page_size: int, persons: list<array<string, mixed>>}
-     */
-    public function searchPersons(int $pageNum = 1, int $pageSize = 50, array $criteria = [], ?array $override = null): array
-    {
-        $searchRequest = array_replace_recursive([
-            'areaId' => '-1',
-            'buildId' => '',
-            'isContainSubArea' => 1,
-            'filter' => [
-                'name' => '',
-                'roomNum' => 0,
-                'email' => '',
-                'phone' => '',
-                'type' => 0,
-                'isExpired' => 0,
-            ],
-        ], $criteria);
-
-        $payload = $this->postWithToken(config('hikvision.persons_search_path'), [
-            'pageNum' => $pageNum,
-            'pageSize' => $pageSize,
-            'searchRequest' => $searchRequest,
-        ], $override);
-
-        $data = $payload['data'] ?? [];
-        $persons = [];
-
-        foreach ($data['personList'] ?? [] as $person) {
-            if (! is_array($person)) {
-                continue;
-            }
-
-            $persons[] = $person;
-        }
-
-        return [
-            'total_num' => (int) ($data['totalNum'] ?? 0),
-            'page_num' => (int) ($data['pageNum'] ?? $pageNum),
-            'page_size' => (int) ($data['pageSize'] ?? $pageSize),
-            'persons' => $persons,
-        ];
-    }
-
-    /**
-     * @return array{synced_count: int, message: string}
-     */
-    public function syncPersons(): array
-    {
-        $this->ensureConfigured();
-
-        $pageNum = 1;
-        $pageSize = 50;
-        $syncedCount = 0;
-        $totalNum = null;
-
-        do {
-            $result = $this->searchPersons($pageNum, $pageSize);
-            $totalNum = $result['total_num'];
-
-            foreach ($result['persons'] as $apiPerson) {
-                HikvisionPerson::upsertFromApi($apiPerson);
-                $syncedCount++;
-            }
-
-            $pageNum++;
-        } while ($syncedCount < $totalNum && count($result['persons']) > 0);
-
-        HikvisionSetting::current()->update([
-            'persons_last_synced_at' => now(),
-        ]);
-
-        return [
-            'synced_count' => $syncedCount,
-            'message' => "Synced {$syncedCount} VIMS resident(s). Access Control persons in the Hik-Connect portal are a separate dataset and are not returned by this API.",
         ];
     }
 

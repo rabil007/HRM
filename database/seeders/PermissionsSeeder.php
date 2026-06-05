@@ -27,8 +27,6 @@ class PermissionsSeeder extends Seeder
             'settings.integrations.hikvision.update',
             'hikvision.users.view',
             'hikvision.users.sync',
-            'hikvision.persons.view',
-            'hikvision.persons.sync',
             'hikvision.devices.view',
             'hikvision.devices.sync',
             'hikvision.events.view',
