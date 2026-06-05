@@ -86,6 +86,40 @@ class HikvisionSetting extends Model
         ]);
     }
 
+    public function resolveStaleEventsFetch(int $timeoutMinutes = 3): void
+    {
+        if (! $this->isEventsFetchProcessing()) {
+            return;
+        }
+
+        if ($this->events_fetch_started_at?->lt(now()->subMinutes($timeoutMinutes))) {
+            $this->markEventsFetchFailed(
+                'Fetch timed out. Confirm the server queue worker (cron) is running.',
+            );
+        }
+    }
+
+    /**
+     * @return array{status: string, message: string|null}
+     */
+    public function acknowledgeFetchResult(): array
+    {
+        $status = (string) ($this->events_fetch_status ?? self::EVENTS_FETCH_IDLE);
+        $message = $this->events_fetch_message;
+
+        if (in_array($status, [self::EVENTS_FETCH_COMPLETED, self::EVENTS_FETCH_FAILED], true)) {
+            $this->update([
+                'events_fetch_status' => self::EVENTS_FETCH_IDLE,
+                'events_fetch_message' => null,
+            ]);
+        }
+
+        return [
+            'status' => $status,
+            'message' => $message,
+        ];
+    }
+
     public static function current(): self
     {
         return self::query()->firstOrCreate(

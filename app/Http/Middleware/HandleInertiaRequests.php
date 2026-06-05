@@ -140,9 +140,9 @@ class HandleInertiaRequests extends Middleware
             'name' => $applicationSettings['app_name'],
             'settings' => $applicationSettings,
             'flash' => [
-                'success' => $request->session()->get('success'),
-                'error' => $request->session()->get('error'),
-                'info' => $request->session()->get('info'),
+                'success' => $request->session()->pull('success'),
+                'error' => $request->session()->pull('error'),
+                'info' => $request->session()->pull('info'),
             ],
             'auth' => [
                 'user' => $this->formatAuthUser($request->user()),

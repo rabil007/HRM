@@ -70,7 +70,7 @@ export function HikvisionAccessEventsContent({
     const previousFetchStatus = useRef(fetchStatus);
 
     const { start, stop } = usePoll(
-        3000,
+        5000,
         {
             only: ['events', 'pagination', 'last_fetched_at', 'fetch_status', 'fetch_message'],
         },
@@ -80,11 +80,17 @@ export function HikvisionAccessEventsContent({
     );
 
     useEffect(() => {
-        if (isProcessing) {
-            start();
-        } else {
+        if (!isProcessing) {
             stop();
+
+            return;
         }
+
+        start();
+
+        return () => {
+            stop();
+        };
     }, [isProcessing, start, stop]);
 
     useEffect(() => {
@@ -111,9 +117,6 @@ export function HikvisionAccessEventsContent({
             {},
             {
                 preserveScroll: true,
-                onSuccess: () => {
-                    toast.success('Fetch started. Records will update automatically when complete.');
-                },
                 onError: (errors) => {
                     const message =
                         typeof errors.fetch === 'string'

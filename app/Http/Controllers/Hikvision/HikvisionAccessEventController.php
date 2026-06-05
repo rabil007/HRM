@@ -27,6 +27,11 @@ class HikvisionAccessEventController extends Controller
             ->withQueryString();
 
         $settings = HikvisionSetting::current();
+        $settings->resolveStaleEventsFetch();
+        $settings->refresh();
+
+        $fetchResult = $settings->acknowledgeFetchResult();
+
         $lastFetchedAt = $settings->events_last_fetched_at
             ?? HikvisionAccessEvent::query()->max('fetched_at');
 
@@ -51,8 +56,8 @@ class HikvisionAccessEventController extends Controller
             'last_fetched_at' => $lastFetchedAt instanceof \DateTimeInterface
                 ? $lastFetchedAt->format(\DateTimeInterface::ATOM)
                 : ($lastFetchedAt ? (string) $lastFetchedAt : null),
-            'fetch_status' => (string) ($settings->events_fetch_status ?? HikvisionSetting::EVENTS_FETCH_IDLE),
-            'fetch_message' => $settings->events_fetch_message,
+            'fetch_status' => $fetchResult['status'],
+            'fetch_message' => $fetchResult['message'],
             'can' => [
                 'fetch' => $request->user()?->can('hikvision.events.fetch') ?? false,
             ],

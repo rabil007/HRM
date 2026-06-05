@@ -270,6 +270,42 @@ test('background job fails when no access controller devices exist', function ()
         ->and(HikvisionSetting::current()->events_fetch_message)->toContain('No access controller devices found');
 });
 
+test('index acknowledges completed fetch and resets status to idle', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    HikvisionSetting::current()->markEventsFetchCompleted('Fetched 5 access record(s) for today.');
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('fetch_status', HikvisionSetting::EVENTS_FETCH_COMPLETED)
+            ->where('fetch_message', 'Fetched 5 access record(s) for today.'),
+        );
+
+    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_IDLE);
+});
+
+test('index marks stale queued fetch as failed', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    $settings = HikvisionSetting::current();
+    $settings->update([
+        'events_fetch_status' => HikvisionSetting::EVENTS_FETCH_QUEUED,
+        'events_fetch_started_at' => now()->subMinutes(5),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('fetch_status', HikvisionSetting::EVENTS_FETCH_FAILED)
+            ->where('fetch_message', 'Fetch timed out. Confirm the server queue worker (cron) is running.'),
+        );
+});
+
 test('user without fetch permission cannot fetch hikvision access events', function () {
     configuredHikvisionSettings();
 
