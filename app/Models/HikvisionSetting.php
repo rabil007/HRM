@@ -8,6 +8,16 @@ class HikvisionSetting extends Model
 {
     protected $table = 'hikvision_settings';
 
+    public const EVENTS_FETCH_IDLE = 'idle';
+
+    public const EVENTS_FETCH_QUEUED = 'queued';
+
+    public const EVENTS_FETCH_RUNNING = 'running';
+
+    public const EVENTS_FETCH_COMPLETED = 'completed';
+
+    public const EVENTS_FETCH_FAILED = 'failed';
+
     protected $fillable = [
         'api_host',
         'api_key',
@@ -16,6 +26,9 @@ class HikvisionSetting extends Model
         'mq_subscribed_at',
         'persons_last_synced_at',
         'events_last_fetched_at',
+        'events_fetch_status',
+        'events_fetch_message',
+        'events_fetch_started_at',
     ];
 
     /**
@@ -30,7 +43,49 @@ class HikvisionSetting extends Model
             'mq_subscribed_at' => 'datetime',
             'persons_last_synced_at' => 'datetime',
             'events_last_fetched_at' => 'datetime',
+            'events_fetch_started_at' => 'datetime',
         ];
+    }
+
+    public function isEventsFetchProcessing(): bool
+    {
+        return in_array($this->events_fetch_status, [
+            self::EVENTS_FETCH_QUEUED,
+            self::EVENTS_FETCH_RUNNING,
+        ], true);
+    }
+
+    public function beginEventsFetch(): void
+    {
+        $this->update([
+            'events_fetch_status' => self::EVENTS_FETCH_QUEUED,
+            'events_fetch_message' => null,
+            'events_fetch_started_at' => now(),
+        ]);
+    }
+
+    public function markEventsFetchRunning(): void
+    {
+        $this->update([
+            'events_fetch_status' => self::EVENTS_FETCH_RUNNING,
+        ]);
+    }
+
+    public function markEventsFetchCompleted(string $message): void
+    {
+        $this->update([
+            'events_fetch_status' => self::EVENTS_FETCH_COMPLETED,
+            'events_fetch_message' => $message,
+            'events_last_fetched_at' => now(),
+        ]);
+    }
+
+    public function markEventsFetchFailed(string $message): void
+    {
+        $this->update([
+            'events_fetch_status' => self::EVENTS_FETCH_FAILED,
+            'events_fetch_message' => $message,
+        ]);
     }
 
     public static function current(): self

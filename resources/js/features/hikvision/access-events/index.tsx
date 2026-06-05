@@ -1,6 +1,6 @@
-import { Link, router } from '@inertiajs/react';
+import { Link, router, usePoll } from '@inertiajs/react';
 import { Download, Info } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef } from 'react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -22,13 +22,15 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
-import type { HikvisionAccessEvent } from './types';
+import type { HikvisionAccessEvent, HikvisionEventsFetchStatus } from './types';
 
 type Props = {
     events: HikvisionAccessEvent[];
     pagination: PaginationMeta;
     isConfigured: boolean;
     lastFetchedAt: string | null;
+    fetchStatus: HikvisionEventsFetchStatus;
+    fetchMessage: string | null;
     can: {
         fetch: boolean;
     };
@@ -45,11 +47,17 @@ function formatVerifyMode(mode: string | null): string {
         .trim();
 }
 
+function isFetchProcessing(status: HikvisionEventsFetchStatus): boolean {
+    return status === 'queued' || status === 'running';
+}
+
 export function HikvisionAccessEventsContent({
     events,
     pagination,
     isConfigured,
     lastFetchedAt,
+    fetchStatus,
+    fetchMessage,
     can,
 }: Props) {
     const list = useServerPaginationFilters({
@@ -58,14 +66,45 @@ export function HikvisionAccessEventsContent({
         filters: {},
         pagination,
     });
-    const [fetching, setFetching] = useState(false);
+    const isProcessing = isFetchProcessing(fetchStatus);
+    const previousFetchStatus = useRef(fetchStatus);
 
-    const handleFetch = () => {
-        if (!can.fetch || !isConfigured || fetching) {
-            return;
+    const { start, stop } = usePoll(
+        3000,
+        {
+            only: ['events', 'pagination', 'last_fetched_at', 'fetch_status', 'fetch_message'],
+        },
+        {
+            autoStart: false,
+        },
+    );
+
+    useEffect(() => {
+        if (isProcessing) {
+            start();
+        } else {
+            stop();
+        }
+    }, [isProcessing, start, stop]);
+
+    useEffect(() => {
+        const previousStatus = previousFetchStatus.current;
+
+        if (isFetchProcessing(previousStatus) && fetchStatus === 'completed' && fetchMessage) {
+            toast.success(fetchMessage);
         }
 
-        setFetching(true);
+        if (isFetchProcessing(previousStatus) && fetchStatus === 'failed' && fetchMessage) {
+            toast.error(fetchMessage);
+        }
+
+        previousFetchStatus.current = fetchStatus;
+    }, [fetchStatus, fetchMessage]);
+
+    const handleFetch = () => {
+        if (!can.fetch || !isConfigured || isProcessing) {
+            return;
+        }
 
         router.post(
             '/hikvision/access-events/fetch',
@@ -73,17 +112,14 @@ export function HikvisionAccessEventsContent({
             {
                 preserveScroll: true,
                 onSuccess: () => {
-                    toast.success('Hikvision access records fetched successfully.');
+                    toast.success('Fetch started. Records will update automatically when complete.');
                 },
                 onError: (errors) => {
                     const message =
                         typeof errors.fetch === 'string'
                             ? errors.fetch
-                            : 'Failed to fetch Hikvision access records.';
+                            : 'Failed to start Hikvision access records fetch.';
                     toast.error(message);
-                },
-                onFinish: () => {
-                    setFetching(false);
                 },
             },
         );
@@ -99,11 +135,11 @@ export function HikvisionAccessEventsContent({
                         <Button
                             type="button"
                             className="rounded-xl"
-                            disabled={!isConfigured || fetching}
+                            disabled={!isConfigured || isProcessing}
                             onClick={handleFetch}
                         >
-                            {fetching ? <Spinner className="mr-2" /> : <Download className="mr-2 h-4 w-4" />}
-                            Fetch today
+                            {isProcessing ? <Spinner className="mr-2" /> : <Download className="mr-2 h-4 w-4" />}
+                            {isProcessing ? 'Fetching…' : 'Fetch today'}
                         </Button>
                     ) : null
                 }
@@ -130,6 +166,9 @@ export function HikvisionAccessEventsContent({
                     <span className="font-medium text-foreground">
                         {lastFetchedAt ? formatDisplayDateTime(lastFetchedAt) : 'Never fetched'}
                     </span>
+                    {isProcessing ? (
+                        <span className="ml-2 text-primary">Fetching in background…</span>
+                    ) : null}
                 </p>
             )}
 

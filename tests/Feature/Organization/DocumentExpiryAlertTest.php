@@ -126,7 +126,7 @@ test('consolidated expiry alert email is sent once with all pending documents so
         return $mail->hasTo('hr@example.com')
             && $mail->hasCc('manager@example.com')
             && ! $mail->hasCc('hr@example.com')
-            && $mail->envelope()->subject === DocumentExpiryAlertMail::SUBJECT
+            && $mail->envelope()->subject === 'Document Expiry Alert - Next 30 Days'
             && count($mail->rows) === 2
             && $mail->rows[0]['employee_name'] === 'Ahmed Ali'
             && $mail->rows[0]['employee_id'] === 'EMP-001'

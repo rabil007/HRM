@@ -4,8 +4,6 @@ namespace App\Support\EmployeeDocuments;
 
 use App\Models\EmailTemplate;
 use App\Support\Settings\ApplicationTimezone;
-use Carbon\Carbon;
-use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Schema;
 
 class DocumentExpiryAlertSchedule
@@ -38,18 +36,6 @@ class DocumentExpiryAlertSchedule
     public static function timezone(): string
     {
         return ApplicationTimezone::identifier();
-    }
-
-    public static function now(): CarbonInterface
-    {
-        return Carbon::now(self::timezone());
-    }
-
-    public static function shouldRunNow(?CarbonInterface $now = null): bool
-    {
-        $now = ($now ?? self::now())->timezone(self::timezone());
-
-        return $now->format('H:i') === self::dispatchAt();
     }
 
     public static function isValidTime(string $value): bool

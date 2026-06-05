@@ -242,9 +242,16 @@ export default function EmailTemplatesSettings({
                                                         <Badge variant="outline">Disabled</Badge>
                                                     ) : null}
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">
-                                                    {template.subject}
-                                                </p>
+                                                {template.slug === expiry_alert_template_slug ? (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        Automated daily summary email with an HTML
+                                                        table of expiring documents.
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {template.subject}
+                                                    </p>
+                                                )}
                                             </div>
                                             <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
                                                 <Mail className="h-5 w-5 text-blue-600" />
@@ -282,9 +289,11 @@ export default function EmailTemplatesSettings({
                                             </div>
                                         ) : null}
 
-                                        <p className="line-clamp-4 whitespace-pre-wrap text-sm text-muted-foreground">
-                                            {template.body_html}
-                                        </p>
+                                        {template.slug !== expiry_alert_template_slug ? (
+                                            <p className="line-clamp-4 whitespace-pre-wrap text-sm text-muted-foreground">
+                                                {template.body_html}
+                                            </p>
+                                        ) : null}
 
                                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
                                             <span className="rounded-md bg-white/5 px-2 py-1">
@@ -305,7 +314,8 @@ export default function EmailTemplatesSettings({
                                                         Edit
                                                     </Button>
                                                 ) : null}
-                                                {can.delete ? (
+                                                {can.delete &&
+                                                template.slug !== expiry_alert_template_slug ? (
                                                     <Button
                                                         type="button"
                                                         variant="destructive"
@@ -457,29 +467,47 @@ export default function EmailTemplatesSettings({
                     </MasterDataField>
                 ) : null}
 
-                <MasterDataField id="subject" label="Email subject" error={form.errors.subject}>
-                    <Input
-                        id="subject"
-                        value={form.data.subject}
-                        onChange={(e) => form.setData('subject', e.target.value)}
-                        disabled={!canMutateForm}
-                        className={masterDataInputClass}
-                    />
-                </MasterDataField>
+                {form.data.slug !== expiry_alert_template_slug ? (
+                    <>
+                        <MasterDataField
+                            id="subject"
+                            label="Email subject"
+                            error={form.errors.subject}
+                        >
+                            <Input
+                                id="subject"
+                                value={form.data.subject}
+                                onChange={(e) => form.setData('subject', e.target.value)}
+                                disabled={!canMutateForm}
+                                className={masterDataInputClass}
+                            />
+                        </MasterDataField>
 
-                <MasterDataField id="body_html" label="Message body" error={form.errors.body_html}>
-                    <Textarea
-                        id="body_html"
-                        value={form.data.body_html}
-                        onChange={(e) => form.setData('body_html', e.target.value)}
-                        rows={10}
-                        disabled={!canMutateForm}
-                        className="min-h-[220px] resize-y rounded-xl border-border bg-card px-4 py-3 text-sm leading-relaxed transition-all focus-visible:ring-primary/40"
-                    />
-                    <p className="text-xs text-muted-foreground/80">
-                        Plain text only. Line breaks are preserved when the message is sent.
+                        <MasterDataField
+                            id="body_html"
+                            label="Message body"
+                            error={form.errors.body_html}
+                        >
+                            <Textarea
+                                id="body_html"
+                                value={form.data.body_html}
+                                onChange={(e) => form.setData('body_html', e.target.value)}
+                                rows={10}
+                                disabled={!canMutateForm}
+                                className="min-h-[220px] resize-y rounded-xl border-border bg-card px-4 py-3 text-sm leading-relaxed transition-all focus-visible:ring-primary/40"
+                            />
+                            <p className="text-xs text-muted-foreground/80">
+                                Plain text only. Line breaks are preserved when the message is sent.
+                            </p>
+                        </MasterDataField>
+                    </>
+                ) : (
+                    <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-muted-foreground">
+                        The automated expiry email uses a fixed HTML table (employee, document,
+                        expiry date, days remaining). Configure recipients and daily dispatch time
+                        below.
                     </p>
-                </MasterDataField>
+                )}
 
                 <MasterDataField id="sort_order" label="Sort order" error={form.errors.sort_order}>
                     <Input

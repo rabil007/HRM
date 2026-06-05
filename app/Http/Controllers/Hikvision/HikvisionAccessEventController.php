@@ -3,21 +3,18 @@
 namespace App\Http\Controllers\Hikvision;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionSetting;
-use App\Services\HikvisionService;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
-use RuntimeException;
 
 class HikvisionAccessEventController extends Controller
 {
     use ResolvesPerPage;
-
-    public function __construct(private HikvisionService $hikvision) {}
 
     public function index(Request $request): Response
     {
@@ -54,6 +51,8 @@ class HikvisionAccessEventController extends Controller
             'last_fetched_at' => $lastFetchedAt instanceof \DateTimeInterface
                 ? $lastFetchedAt->format(\DateTimeInterface::ATOM)
                 : ($lastFetchedAt ? (string) $lastFetchedAt : null),
+            'fetch_status' => (string) ($settings->events_fetch_status ?? HikvisionSetting::EVENTS_FETCH_IDLE),
+            'fetch_message' => $settings->events_fetch_message,
             'can' => [
                 'fetch' => $request->user()?->can('hikvision.events.fetch') ?? false,
             ],
@@ -62,14 +61,21 @@ class HikvisionAccessEventController extends Controller
 
     public function fetch(Request $request): RedirectResponse
     {
-        try {
-            $result = $this->hikvision->fetchAccessEvents();
+        $settings = HikvisionSetting::current();
 
-            return back()->with('success', $result['message']);
-        } catch (RuntimeException $exception) {
+        if (! $settings->isConfigured()) {
             return back()->withErrors([
-                'fetch' => $exception->getMessage(),
+                'fetch' => 'Hikvision integration is not configured. Add credentials in Application settings.',
             ]);
         }
+
+        if ($settings->isEventsFetchProcessing()) {
+            return back()->with('info', 'A fetch is already in progress.');
+        }
+
+        $settings->beginEventsFetch();
+        FetchHikvisionAccessEventsJob::dispatch();
+
+        return back()->with('success', 'Fetch started. Records will update automatically when complete.');
     }
 }

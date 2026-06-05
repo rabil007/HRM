@@ -1,9 +1,12 @@
 <?php
 
+use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionSetting;
 use App\Models\User;
+use App\Services\HikvisionService;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
 
 function postHikvisionAccessEventsFetch(User $user): TestResponse
@@ -13,6 +16,11 @@ function postHikvisionAccessEventsFetch(User $user): TestResponse
     return test()->actingAs($user)->post(route('hikvision.access-events.fetch'), [
         '_token' => csrf_token(),
     ]);
+}
+
+function runHikvisionAccessEventsFetchJob(): void
+{
+    (new FetchHikvisionAccessEventsJob)->handle(app(HikvisionService::class));
 }
 
 function fakeHikvisionAcsEventsFetch(): void
@@ -89,6 +97,7 @@ test('user with permission can view hikvision access events page', function () {
             ->component('hikvision/access-events')
             ->has('events')
             ->has('pagination')
+            ->has('fetch_status')
             ->has('can'),
         );
 });
@@ -100,6 +109,25 @@ test('user without permission cannot view hikvision access events page', functio
     $this->actingAs($user)
         ->get(route('hikvision.access-events.index'))
         ->assertForbidden();
+});
+
+test('fetch dispatches background job instead of running synchronously', function () {
+    Queue::fake();
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.events.view',
+        'hikvision.events.fetch',
+    ]);
+
+    postHikvisionAccessEventsFetch($user)
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
+
+    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
 });
 
 test('fetch ignores door system events without person identity', function () {
@@ -169,45 +197,35 @@ test('fetch ignores door system events without person identity', function () {
     ]);
 
     configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
 
-    $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'hikvision.events.view',
-        'hikvision.events.fetch',
-    ]);
-
-    postHikvisionAccessEventsFetch($user)
-        ->assertRedirect()
-        ->assertSessionHas('success');
+    runHikvisionAccessEventsFetchJob();
 
     expect(HikvisionAccessEvent::query()->count())->toBe(1)
-        ->and(HikvisionAccessEvent::query()->value('person_name'))->toBe('Dil');
+        ->and(HikvisionAccessEvent::query()->value('person_name'))->toBe('Dil')
+        ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 });
 
-test('fetch stores acs access records from isapi proxypass', function () {
+test('background job stores acs access records from isapi proxypass', function () {
     fakeHikvisionAcsEventsFetch();
     configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
 
-    $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'hikvision.events.view',
-        'hikvision.events.fetch',
-    ]);
-
-    postHikvisionAccessEventsFetch($user)
-        ->assertRedirect()
-        ->assertSessionHas('success');
+    runHikvisionAccessEventsFetchJob();
 
     expect(HikvisionAccessEvent::query()->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('attendance_status'))->toBe('checkIn')
         ->and(HikvisionAccessEvent::query()->where('person_name', 'maysa')->value('device_name'))->toBe('OMS-Door')
-        ->and(HikvisionSetting::current()->events_last_fetched_at)->not->toBeNull();
+        ->and(HikvisionSetting::current()->events_last_fetched_at)->not->toBeNull()
+        ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass'
         && ($request['id'] ?? null) === 'device-acs-1');
 });
 
 test('fetch fails when hikvision is not configured', function () {
+    Queue::fake();
+
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
         'hikvision.events.view',
@@ -217,9 +235,11 @@ test('fetch fails when hikvision is not configured', function () {
     postHikvisionAccessEventsFetch($user)
         ->assertRedirect()
         ->assertSessionHasErrors('fetch');
+
+    Queue::assertNothingPushed();
 });
 
-test('fetch fails when no access controller devices exist', function () {
+test('background job fails when no access controller devices exist', function () {
     Http::fake([
         'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
             'data' => [
@@ -242,16 +262,12 @@ test('fetch fails when no access controller devices exist', function () {
     ]);
 
     configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
 
-    $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, [
-        'hikvision.events.view',
-        'hikvision.events.fetch',
-    ]);
+    runHikvisionAccessEventsFetchJob();
 
-    postHikvisionAccessEventsFetch($user)
-        ->assertRedirect()
-        ->assertSessionHasErrors('fetch');
+    expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_FAILED)
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('No access controller devices found');
 });
 
 test('user without fetch permission cannot fetch hikvision access events', function () {

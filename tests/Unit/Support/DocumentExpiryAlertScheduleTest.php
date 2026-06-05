@@ -5,8 +5,8 @@ use App\Services\Settings\SettingService;
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Settings\ApplicationTimezone;
 use App\Support\Settings\SettingKey;
-use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
@@ -32,29 +32,19 @@ test('dispatch at falls back to config when template time is missing', function 
     expect(DocumentExpiryAlertSchedule::dispatchAt())->toBe('08:00');
 });
 
+test('dispatch at falls back to config when database is unavailable', function () {
+    config(['documents.expiry_alert_dispatch_at' => '09:15']);
+
+    DB::shouldReceive('connection')->andThrow(new RuntimeException('Connection refused'));
+
+    expect(DocumentExpiryAlertSchedule::dispatchAt())->toBe('09:15');
+});
+
 test('timezone uses application regional settings not only config app timezone', function () {
     config(['app.timezone' => 'UTC']);
 
     expect(ApplicationTimezone::identifier())->toBe('Asia/Dubai')
         ->and(DocumentExpiryAlertSchedule::timezone())->toBe('Asia/Dubai');
-});
-
-test('dispatch at falls back to config when database is unavailable', function () {
-    config(['documents.expiry_alert_dispatch_at' => '09:15']);
-
-    \Illuminate\Support\Facades\DB::shouldReceive('connection')->andThrow(new \RuntimeException('Connection refused'));
-
-    expect(DocumentExpiryAlertSchedule::dispatchAt())->toBe('09:15');
-});
-
-test('should run now uses application timezone and template dispatch time', function () {
-    seedDocumentExpiryAlertTemplate(['dispatch_at' => '13:55']);
-
-    $atTime = Carbon::parse('2026-06-04 13:55:00', 'Asia/Dubai');
-    $wrongTime = Carbon::parse('2026-06-04 09:00:00', 'Asia/Dubai');
-
-    expect(DocumentExpiryAlertSchedule::shouldRunNow($atTime))->toBeTrue()
-        ->and(DocumentExpiryAlertSchedule::shouldRunNow($wrongTime))->toBeFalse();
 });
 
 /**
@@ -69,7 +59,7 @@ function seedDocumentExpiryAlertTemplate(array $overrides = []): void
             'category' => 'notification',
             'to_preset' => 'hr@example.com',
             'subject' => 'Document Expiry Alert',
-            'body_html' => 'Body',
+            'body_html' => 'Automated expiry summary.',
             'is_default' => true,
             'enabled' => true,
             'sort_order' => 0,

@@ -419,6 +419,25 @@ class HikvisionService
     /**
      * @return list<array{id: string, name: string, serial_no: string}>
      */
+    public function getCachedAccessControllerDevices(): array
+    {
+        return HikvisionDevice::query()
+            ->where('category', 'accessControllerDevice')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (HikvisionDevice $device): array => [
+                'id' => (string) $device->hikvision_id,
+                'name' => (string) $device->name,
+                'serial_no' => (string) $device->serial_no,
+            ])
+            ->filter(fn (array $device): bool => $device['id'] !== '')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: string, name: string, serial_no: string}>
+     */
     public function getAccessControllerDevices(): array
     {
         $devices = [];
@@ -552,10 +571,14 @@ class HikvisionService
         $startTime = now($timezone)->startOfDay();
         $endTime = now($timezone)->endOfDay();
 
-        $devices = $this->getAccessControllerDevices();
+        $devices = $this->getCachedAccessControllerDevices();
 
         if ($devices === []) {
-            throw new RuntimeException('No access controller devices found on Hik-Connect.');
+            $devices = $this->getAccessControllerDevices();
+        }
+
+        if ($devices === []) {
+            throw new RuntimeException('No access controller devices found. Sync devices first or check Hik-Connect.');
         }
 
         $fetchedCount = 0;
@@ -572,10 +595,6 @@ class HikvisionService
                 $endTime,
             );
         }
-
-        HikvisionSetting::current()->update([
-            'events_last_fetched_at' => now(),
-        ]);
 
         return [
             'fetched_count' => $fetchedCount,

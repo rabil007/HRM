@@ -1,6 +1,6 @@
 @extends('mail.layout')
 
-@section('title', \App\Mail\DocumentExpiryAlertMail::SUBJECT)
+@section('title', "Document Expiry Alert - Next {$alertWindowDays} Days")
 
 @section('content')
     <tr>

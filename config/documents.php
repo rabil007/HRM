@@ -7,12 +7,8 @@ return [
     | Document expiry email alerts
     |--------------------------------------------------------------------------
     |
-    | Daily scheduler dispatches queued jobs per company. Each job sends one
-    | consolidated email for documents not yet alerted for their current expiry
-    | date (within the configured day window).
-    |
-    | Configure To/CC and daily dispatch time in Settings → Email templates →
-    | Document expiry alert (slug: document_expiry_alert).
+    | Scheduler: routes/console.php (daily, timezone from Application settings).
+    | Recipients + dispatch time: Settings → Email templates → Document expiry alert.
     |
     */
 
