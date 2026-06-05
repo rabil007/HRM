@@ -20,6 +20,7 @@ import {
     Activity,
     CalendarCheck2,
     PiggyBank,
+    Camera,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -75,6 +76,12 @@ const baseSidebarData: SidebarData = {
             items: [
                 { title: 'Employee', url: '/organization/employees', icon: Users },
                 { title: 'Documents', url: documents.url(), icon: FileText },
+            ],
+        },
+        {
+            title: 'Hikvision',
+            items: [
+                { title: 'Users', url: '/hikvision/users', icon: Camera },
             ],
         },
         {
@@ -182,6 +189,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'employee_profile_templates.view')
                                 ? item
                                 : null;
+                        case '/hikvision/users':
+                            return has(permissions, 'hikvision.users.view') ? item : null;
                         default:
                             return item;
                     }

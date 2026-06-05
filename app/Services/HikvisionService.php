@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\HikvisionSetting;
+use App\Models\HikvisionUser;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -136,6 +137,38 @@ class HikvisionService
             'page_index' => (int) ($data['pageIndex'] ?? $pageIndex),
             'page_size' => (int) ($data['pageSize'] ?? $pageSize),
             'users' => $users,
+        ];
+    }
+
+    /**
+     * @return array{synced_count: int, message: string}
+     */
+    public function syncUsers(): array
+    {
+        if (! HikvisionSetting::current()->isConfigured()) {
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
+        }
+
+        $pageIndex = 1;
+        $pageSize = 50;
+        $syncedCount = 0;
+        $totalCount = null;
+
+        do {
+            $result = $this->getUsers($pageIndex, $pageSize);
+            $totalCount = $result['total_count'];
+
+            foreach ($result['users'] as $apiUser) {
+                HikvisionUser::upsertFromApi($apiUser);
+                $syncedCount++;
+            }
+
+            $pageIndex++;
+        } while ($syncedCount < $totalCount && count($result['users']) > 0);
+
+        return [
+            'synced_count' => $syncedCount,
+            'message' => "Synced {$syncedCount} Hikvision user(s).",
         ];
     }
 }

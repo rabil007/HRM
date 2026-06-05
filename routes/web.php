@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Hikvision\HikvisionUserController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
@@ -216,6 +217,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/templates/employee-profile/{employeeProfileTemplate}', [EmployeeProfileTemplateController::class, 'destroy'])
         ->middleware('can:employee_profile_templates.delete')
         ->name('organization.employee-profile-templates.destroy');
+
+    Route::get('hikvision/users', [HikvisionUserController::class, 'index'])
+        ->middleware('can:hikvision.users.view')
+        ->name('hikvision.users.index');
+
+    Route::post('hikvision/users/sync', [HikvisionUserController::class, 'sync'])
+        ->middleware('can:hikvision.users.sync')
+        ->name('hikvision.users.sync');
 });
 
 require __DIR__.'/settings.php';
