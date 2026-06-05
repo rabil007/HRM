@@ -97,8 +97,52 @@ test('user with permission can view hikvision access events page', function () {
             ->component('hikvision/access-events')
             ->has('events')
             ->has('pagination')
+            ->has('filters')
+            ->has('attendance_status_options')
             ->has('fetch_status')
             ->has('can'),
+        );
+});
+
+test('access events can be filtered by name date and attendance status', function () {
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'test:dil:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-05 08:00:00',
+        'person_name' => 'Dil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkIn',
+        'event_source' => 'acs_isapi',
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'test:maysa:checkout',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-04 17:00:00',
+        'person_name' => 'maysa',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkOut',
+        'event_source' => 'acs_isapi',
+        'fetched_at' => now(),
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index', [
+            'search' => 'Dil',
+            'date_from' => '2026-06-05',
+            'date_to' => '2026-06-05',
+            'attendance_status' => 'checkIn',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.person_name', 'Dil')
+            ->where('filters.search', 'Dil')
+            ->where('filters.attendance_status', 'checkIn'),
         );
 });
 

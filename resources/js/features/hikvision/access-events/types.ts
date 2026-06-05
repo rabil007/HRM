@@ -1,5 +1,17 @@
 export type HikvisionEventsFetchStatus = 'idle' | 'queued' | 'running' | 'completed' | 'failed';
 
+export type HikvisionAccessEventFilters = {
+    search: string;
+    date_from: string;
+    date_to: string;
+    attendance_status: string;
+};
+
+export type HikvisionAttendanceStatusOption = {
+    value: string;
+    label: string;
+};
+
 export type HikvisionAccessEvent = {
     id: number;
     occurrence_time: string | null;

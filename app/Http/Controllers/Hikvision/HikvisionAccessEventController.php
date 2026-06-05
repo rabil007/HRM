@@ -20,8 +20,22 @@ class HikvisionAccessEventController extends Controller
     {
         $perPage = $this->resolvePerPage($request);
 
+        $attendanceStatus = $request->string('attendance_status')->toString();
+
+        if ($attendanceStatus !== '' && ! in_array($attendanceStatus, HikvisionAccessEvent::attendanceStatusOptions(), true)) {
+            $attendanceStatus = '';
+        }
+
+        $filters = [
+            'search' => $request->string('search')->toString(),
+            'date_from' => $request->string('date_from')->toString(),
+            'date_to' => $request->string('date_to')->toString(),
+            'attendance_status' => $attendanceStatus,
+        ];
+
         $paginator = HikvisionAccessEvent::query()
             ->accessRecords()
+            ->filtered($filters)
             ->orderByDesc('occurrence_time')
             ->paginate($perPage)
             ->withQueryString();
@@ -52,6 +66,11 @@ class HikvisionAccessEventController extends Controller
                 ->values()
                 ->all(),
             'pagination' => $this->paginationMeta($paginator),
+            'filters' => $filters,
+            'attendance_status_options' => [
+                ['value' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN, 'label' => 'Check in'],
+                ['value' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, 'label' => 'Check out'],
+            ],
             'is_configured' => $settings->isConfigured(),
             'last_fetched_at' => $lastFetchedAt instanceof \DateTimeInterface
                 ? $lastFetchedAt->format(\DateTimeInterface::ATOM)

@@ -8,6 +8,10 @@ use Illuminate\Database\Eloquent\Model;
 
 class HikvisionAccessEvent extends Model
 {
+    public const ATTENDANCE_CHECK_IN = 'checkIn';
+
+    public const ATTENDANCE_CHECK_OUT = 'checkOut';
+
     protected $fillable = [
         'system_id',
         'msg_type',
@@ -91,6 +95,49 @@ class HikvisionAccessEvent extends Model
         $attendanceStatus = trim((string) ($acsEvent['attendanceStatus'] ?? ''));
 
         return $personName !== '' || $attendanceStatus !== '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function attendanceStatusOptions(): array
+    {
+        return [
+            self::ATTENDANCE_CHECK_IN,
+            self::ATTENDANCE_CHECK_OUT,
+        ];
+    }
+
+    /**
+     * @param  array{search?: string, date_from?: string, date_to?: string, attendance_status?: string}  $filters
+     */
+    public function scopeFiltered(Builder $query, array $filters): Builder
+    {
+        $search = trim((string) ($filters['search'] ?? ''));
+
+        if ($search !== '') {
+            $query->where('person_name', 'like', '%'.$search.'%');
+        }
+
+        $dateFrom = (string) ($filters['date_from'] ?? '');
+
+        if ($dateFrom !== '') {
+            $query->whereDate('occurrence_time', '>=', $dateFrom);
+        }
+
+        $dateTo = (string) ($filters['date_to'] ?? '');
+
+        if ($dateTo !== '') {
+            $query->whereDate('occurrence_time', '<=', $dateTo);
+        }
+
+        $attendanceStatus = (string) ($filters['attendance_status'] ?? '');
+
+        if ($attendanceStatus !== '' && in_array($attendanceStatus, self::attendanceStatusOptions(), true)) {
+            $query->where('attendance_status', $attendanceStatus);
+        }
+
+        return $query;
     }
 
     /**

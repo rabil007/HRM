@@ -2,6 +2,8 @@ import { Head } from '@inertiajs/react';
 import { HikvisionAccessEventsContent } from '@/features/hikvision/access-events';
 import type {
     HikvisionAccessEvent,
+    HikvisionAccessEventFilters,
+    HikvisionAttendanceStatusOption,
     HikvisionEventsFetchStatus,
 } from '@/features/hikvision/access-events/types';
 import type { PaginationMeta } from '@/types/pagination';
@@ -9,6 +11,8 @@ import type { PaginationMeta } from '@/types/pagination';
 type Props = {
     events: HikvisionAccessEvent[];
     pagination: PaginationMeta;
+    filters: HikvisionAccessEventFilters;
+    attendance_status_options: HikvisionAttendanceStatusOption[];
     is_configured: boolean;
     last_fetched_at: string | null;
     fetch_status: HikvisionEventsFetchStatus;
@@ -21,6 +25,8 @@ type Props = {
 export default function HikvisionAccessEvents({
     events,
     pagination,
+    filters,
+    attendance_status_options,
     is_configured,
     last_fetched_at,
     fetch_status,
@@ -33,6 +39,8 @@ export default function HikvisionAccessEvents({
             <HikvisionAccessEventsContent
                 events={events}
                 pagination={pagination}
+                filters={filters}
+                attendanceStatusOptions={attendance_status_options}
                 isConfigured={is_configured}
                 lastFetchedAt={last_fetched_at}
                 fetchStatus={fetch_status}

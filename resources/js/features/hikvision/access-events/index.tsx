@@ -1,6 +1,7 @@
 import { Link, router, usePoll } from '@inertiajs/react';
-import { Download, Info } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { Download, Filter, Info, Search, X } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -16,17 +17,26 @@ import { Pagination } from '@/components/pagination';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
-import type { HikvisionAccessEvent, HikvisionEventsFetchStatus } from './types';
+import type {
+    HikvisionAccessEvent,
+    HikvisionAccessEventFilters,
+    HikvisionAttendanceStatusOption,
+    HikvisionEventsFetchStatus,
+} from './types';
 
 type Props = {
     events: HikvisionAccessEvent[];
     pagination: PaginationMeta;
+    filters: HikvisionAccessEventFilters;
+    attendanceStatusOptions: HikvisionAttendanceStatusOption[];
     isConfigured: boolean;
     lastFetchedAt: string | null;
     fetchStatus: HikvisionEventsFetchStatus;
@@ -47,13 +57,37 @@ function formatVerifyMode(mode: string | null): string {
         .trim();
 }
 
+function formatAttendanceStatus(status: string | null): string {
+    if (!status) {
+        return '—';
+    }
+
+    if (status === 'checkIn') {
+        return 'Check in';
+    }
+
+    if (status === 'checkOut') {
+        return 'Check out';
+    }
+
+    return status;
+}
+
 function isFetchProcessing(status: HikvisionEventsFetchStatus): boolean {
     return status === 'queued' || status === 'running';
+}
+
+function hasActiveFilters(filters: HikvisionAccessEventFilters): boolean {
+    return Boolean(
+        filters.search || filters.date_from || filters.date_to || filters.attendance_status,
+    );
 }
 
 export function HikvisionAccessEventsContent({
     events,
     pagination,
+    filters,
+    attendanceStatusOptions,
     isConfigured,
     lastFetchedAt,
     fetchStatus,
@@ -62,17 +96,33 @@ export function HikvisionAccessEventsContent({
 }: Props) {
     const list = useServerPaginationFilters({
         url: '/hikvision/access-events',
-        search: '',
-        filters: {},
+        search: filters.search,
+        filters: {
+            date_from: filters.date_from,
+            date_to: filters.date_to,
+            attendance_status: filters.attendance_status,
+        },
         pagination,
     });
     const isProcessing = isFetchProcessing(fetchStatus);
     const previousFetchStatus = useRef(fetchStatus);
+    const filtersActive = hasActiveFilters(filters);
+
+    const activeFilterCount = useMemo(
+        () =>
+            [
+                filters.search,
+                filters.date_from,
+                filters.date_to,
+                filters.attendance_status,
+            ].filter(Boolean).length,
+        [filters],
+    );
 
     const { start, stop } = usePoll(
         5000,
         {
-            only: ['events', 'pagination', 'last_fetched_at', 'fetch_status', 'fetch_message'],
+            only: ['events', 'pagination', 'filters', 'last_fetched_at', 'fetch_status', 'fetch_message'],
         },
         {
             autoStart: false,
@@ -107,6 +157,25 @@ export function HikvisionAccessEventsContent({
         previousFetchStatus.current = fetchStatus;
     }, [fetchStatus, fetchMessage]);
 
+    const applyFilters = (next: Partial<HikvisionAccessEventFilters>) => {
+        list.applyFilters({
+            search: next.search ?? filters.search,
+            date_from: next.date_from ?? filters.date_from,
+            date_to: next.date_to ?? filters.date_to,
+            attendance_status: next.attendance_status ?? filters.attendance_status,
+        });
+    };
+
+    const clearFilters = () => {
+        list.visit({
+            search: null,
+            date_from: null,
+            date_to: null,
+            attendance_status: null,
+            page: null,
+        });
+    };
+
     const handleFetch = () => {
         if (!can.fetch || !isConfigured || isProcessing) {
             return;
@@ -132,7 +201,7 @@ export function HikvisionAccessEventsContent({
         <Main>
             <PageHeader
                 title="Hikvision Access Events"
-                description="Successful door check-ins and authentications from access controller devices (today's events)."
+                description="Successful door check-ins and authentications from access controller devices."
                 right={
                     can.fetch ? (
                         <Button
@@ -175,10 +244,113 @@ export function HikvisionAccessEventsContent({
                 </p>
             )}
 
+            <Card className="mb-6 border-white/5 bg-white/3">
+                <CardContent className="p-5">
+                    <div className="mb-4 flex items-center gap-3">
+                        <Filter className="h-4 w-4 text-muted-foreground/50" />
+                        <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground/50">
+                            Filters
+                        </span>
+                        {activeFilterCount > 0 ? (
+                            <Badge className="border-primary/20 bg-primary/10 px-2 text-[10px] font-bold text-primary">
+                                {activeFilterCount} active
+                            </Badge>
+                        ) : null}
+                        {activeFilterCount > 0 ? (
+                            <button
+                                type="button"
+                                onClick={clearFilters}
+                                className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground/50 transition-colors hover:text-foreground"
+                            >
+                                <X className="h-3 w-3" />
+                                Clear all
+                            </button>
+                        ) : null}
+                    </div>
+
+                    <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_11rem]">
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <label
+                                htmlFor="access-events-search"
+                                className="text-[11px] font-medium text-muted-foreground/60"
+                            >
+                                Name
+                            </label>
+                            <div className="relative">
+                                <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
+                                <Input
+                                    id="access-events-search"
+                                    value={list.searchInput}
+                                    onChange={(e) => list.onSearchChange(e.target.value)}
+                                    placeholder="Search by name…"
+                                    className="h-10 rounded-xl border-white/10 bg-white/5 pl-10 focus-visible:ring-primary/40"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <label
+                                htmlFor="access-events-date-from"
+                                className="text-[11px] font-medium text-muted-foreground/60"
+                            >
+                                From
+                            </label>
+                            <Input
+                                id="access-events-date-from"
+                                type="date"
+                                value={filters.date_from}
+                                onChange={(e) => applyFilters({ date_from: e.target.value })}
+                                className="h-10 w-full rounded-xl border-white/10 bg-white/5 px-3 text-sm focus-visible:ring-primary/40"
+                            />
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <label
+                                htmlFor="access-events-date-to"
+                                className="text-[11px] font-medium text-muted-foreground/60"
+                            >
+                                To
+                            </label>
+                            <Input
+                                id="access-events-date-to"
+                                type="date"
+                                value={filters.date_to}
+                                onChange={(e) => applyFilters({ date_to: e.target.value })}
+                                className="h-10 w-full rounded-xl border-white/10 bg-white/5 px-3 text-sm focus-visible:ring-primary/40"
+                            />
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-1.5">
+                            <span className="text-[11px] font-medium text-muted-foreground/60">Status</span>
+                            <AppSelect
+                                value={filters.attendance_status || ''}
+                                onValueChange={(value) =>
+                                    applyFilters({ attendance_status: value })
+                                }
+                                variant="dark"
+                                placeholder="All statuses"
+                                className="h-10"
+                            >
+                                <AppSelectItem value="">All statuses</AppSelectItem>
+                                {attendanceStatusOptions.map((option) => (
+                                    <AppSelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             {events.length === 0 ? (
                 <EmptyState
-                    title="No access records yet"
-                    description="Click Fetch today to pull access control events from your door devices."
+                    title={filtersActive ? 'No matching access records' : 'No access records yet'}
+                    description={
+                        filtersActive
+                            ? 'Try adjusting your filters or fetch today’s records from your door devices.'
+                            : 'Click Fetch today to pull access control events from your door devices.'
+                    }
                 />
             ) : (
                 <>
@@ -219,7 +391,9 @@ export function HikvisionAccessEventsContent({
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {event.attendance_status ? (
-                                            <Badge variant="outline">{event.attendance_status}</Badge>
+                                            <Badge variant="outline">
+                                                {formatAttendanceStatus(event.attendance_status)}
+                                            </Badge>
                                         ) : (
                                             '—'
                                         )}
