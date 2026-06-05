@@ -26,11 +26,19 @@ class HikvisionAccessEventController extends Controller
             $attendanceStatus = '';
         }
 
+        $deviceOptions = HikvisionAccessEvent::deviceNameOptions();
+        $device = $request->string('device')->toString();
+
+        if ($device !== '' && ! in_array($device, $deviceOptions, true)) {
+            $device = '';
+        }
+
         $filters = [
             'search' => $request->string('search')->toString(),
             'date_from' => $request->string('date_from')->toString(),
             'date_to' => $request->string('date_to')->toString(),
             'attendance_status' => $attendanceStatus,
+            'device' => $device,
         ];
 
         $paginator = HikvisionAccessEvent::query()
@@ -61,6 +69,7 @@ class HikvisionAccessEventController extends Controller
                     'card_reader_no' => $event->card_reader_no,
                     'verify_mode' => $event->verify_mode,
                     'attendance_status' => $event->attendance_status,
+                    'transaction_source' => $event->transaction_source,
                     'fetched_at' => $event->fetched_at?->toIso8601String(),
                 ])
                 ->values()
@@ -71,6 +80,11 @@ class HikvisionAccessEventController extends Controller
                 ['value' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN, 'label' => 'Check in'],
                 ['value' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, 'label' => 'Check out'],
             ],
+            'device_options' => array_map(
+                fn (string $name): array => ['value' => $name, 'label' => $name],
+                $deviceOptions,
+            ),
+            'attendance_lookback_days' => max(1, (int) config('hikvision.attendance_lookback_days', 7)),
             'is_configured' => $settings->isConfigured(),
             'last_fetched_at' => $lastFetchedAt instanceof \DateTimeInterface
                 ? $lastFetchedAt->format(\DateTimeInterface::ATOM)

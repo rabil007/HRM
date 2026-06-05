@@ -12,6 +12,20 @@ class HikvisionAccessEvent extends Model
 
     public const ATTENDANCE_CHECK_OUT = 'checkOut';
 
+    public const TRANSACTION_DEVICE = 'device';
+
+    public const TRANSACTION_MOBILE_APP = 'mobile_app';
+
+    public const TRANSACTION_CORRECTION = 'correction';
+
+    public const TRANSACTION_UNKNOWN = 'unknown';
+
+    public const TRANSACTION_NOT_REQUIRED = 'not_required';
+
+    public const EVENT_SOURCE_ACS_ISAPI = 'acs_isapi';
+
+    public const EVENT_SOURCE_ATTENDANCE_API = 'attendance_api';
+
     protected $fillable = [
         'system_id',
         'msg_type',
@@ -27,6 +41,7 @@ class HikvisionAccessEvent extends Model
         'verify_mode',
         'attendance_status',
         'event_source',
+        'transaction_source',
         'raw_payload',
         'fetched_at',
     ];
@@ -109,7 +124,23 @@ class HikvisionAccessEvent extends Model
     }
 
     /**
-     * @param  array{search?: string, date_from?: string, date_to?: string, attendance_status?: string}  $filters
+     * @return list<string>
+     */
+    public static function deviceNameOptions(): array
+    {
+        return self::query()
+            ->accessRecords()
+            ->whereNotNull('device_name')
+            ->where('device_name', '!=', '')
+            ->distinct()
+            ->orderBy('device_name')
+            ->pluck('device_name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  array{search?: string, date_from?: string, date_to?: string, attendance_status?: string, device?: string}  $filters
      */
     public function scopeFiltered(Builder $query, array $filters): Builder
     {
@@ -137,6 +168,12 @@ class HikvisionAccessEvent extends Model
             $query->where('attendance_status', $attendanceStatus);
         }
 
+        $device = trim((string) ($filters['device'] ?? ''));
+
+        if ($device !== '') {
+            $query->where('device_name', $device);
+        }
+
         return $query;
     }
 
@@ -146,7 +183,10 @@ class HikvisionAccessEvent extends Model
     public function scopeAccessRecords(Builder $query): Builder
     {
         return $query
-            ->where('event_source', 'acs_isapi')
+            ->whereIn('event_source', [
+                self::EVENT_SOURCE_ACS_ISAPI,
+                self::EVENT_SOURCE_ATTENDANCE_API,
+            ])
             ->where(function (Builder $query): void {
                 $query->whereNotNull('person_name')
                     ->where('person_name', '!=', '')
@@ -157,6 +197,89 @@ class HikvisionAccessEvent extends Model
                 $query->whereNull('verify_mode')
                     ->orWhere('verify_mode', '!=', 'invalid');
             });
+    }
+
+    public static function mapClockSource(int $source): string
+    {
+        return match ($source) {
+            1 => self::TRANSACTION_DEVICE,
+            2 => self::TRANSACTION_CORRECTION,
+            3 => self::TRANSACTION_MOBILE_APP,
+            4 => self::TRANSACTION_NOT_REQUIRED,
+            default => self::TRANSACTION_UNKNOWN,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function upsertFromTimeCardRow(array $row, string $attendanceStatus): ?self
+    {
+        $isCheckIn = $attendanceStatus === self::ATTENDANCE_CHECK_IN;
+        $clockDate = trim((string) ($isCheckIn ? ($row['clockInDate'] ?? '') : ($row['clockOutDate'] ?? '')));
+        $clockTime = trim((string) ($isCheckIn ? ($row['clockInTime'] ?? '') : ($row['clockOutTime'] ?? '')));
+        $clockSource = (int) ($isCheckIn ? ($row['clockInSource'] ?? 0) : ($row['clockOutSource'] ?? 0));
+        $deviceName = trim((string) ($isCheckIn ? ($row['clockInDevice'] ?? '') : ($row['clockOutDevice'] ?? '')));
+
+        if ($clockDate === '' || $clockTime === '') {
+            return null;
+        }
+
+        $transactionSource = self::mapClockSource($clockSource);
+
+        if ($transactionSource !== self::TRANSACTION_MOBILE_APP) {
+            return null;
+        }
+
+        $personName = trim((string) ($row['fullName'] ?? ''));
+        $personCode = trim((string) ($row['personCode'] ?? ''));
+
+        if ($personName === '' && $personCode === '') {
+            return null;
+        }
+
+        $occurrenceTime = self::parseTimeCardDateTime($clockDate, $clockTime);
+        $identity = $personCode !== '' ? $personCode : $personName;
+
+        $systemId = implode(':', [
+            'attendance',
+            $identity,
+            $occurrenceTime->toIso8601String(),
+            $attendanceStatus,
+        ]);
+
+        return self::query()->updateOrCreate(
+            [
+                'system_id' => $systemId,
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => 'attendance/totaltimecard',
+            ],
+            [
+                'person_name' => $personName !== '' ? $personName : null,
+                'device_name' => $deviceName !== '' ? $deviceName : 'Mobile App',
+                'attendance_status' => $attendanceStatus,
+                'event_source' => self::EVENT_SOURCE_ATTENDANCE_API,
+                'transaction_source' => $transactionSource,
+                'raw_payload' => $row,
+                'fetched_at' => now(),
+            ],
+        );
+    }
+
+    protected static function parseTimeCardDateTime(string $date, string $time): Carbon
+    {
+        $normalizedDate = str_replace('/', '-', $date);
+        $timezone = (string) config('app.timezone', 'UTC');
+
+        try {
+            return Carbon::parse("{$normalizedDate} {$time}", $timezone);
+        } catch (\Throwable) {
+            try {
+                return Carbon::parse("{$normalizedDate} {$time}", $timezone);
+            } catch (\Throwable) {
+                return now($timezone);
+            }
+        }
     }
 
     /**
@@ -203,7 +326,8 @@ class HikvisionAccessEvent extends Model
                 'card_reader_no' => $cardReaderNo,
                 'verify_mode' => $verifyMode !== '' ? $verifyMode : null,
                 'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
-                'event_source' => 'acs_isapi',
+                'event_source' => self::EVENT_SOURCE_ACS_ISAPI,
+                'transaction_source' => self::TRANSACTION_DEVICE,
                 'raw_payload' => $acsEvent,
                 'fetched_at' => now(),
             ],

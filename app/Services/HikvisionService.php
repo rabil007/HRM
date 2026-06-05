@@ -479,6 +479,53 @@ class HikvisionService
         return $storedCount;
     }
 
+    public function fetchAttendanceMobileEvents(
+        CarbonInterface $startTime,
+        CarbonInterface $endTime,
+    ): int {
+        $pageSize = (int) config('hikvision.attendance_page_size', 200);
+        $pageIndex = 1;
+        $storedCount = 0;
+
+        do {
+            $payload = $this->postWithToken(config('hikvision.attendance_totaltimecard_path'), [
+                'pageIndex' => $pageIndex,
+                'pageSize' => $pageSize,
+                'beginTime' => $startTime->format('Y-m-d\TH:i:sP'),
+                'endTime' => $endTime->format('Y-m-d\TH:i:sP'),
+                'dateFormat' => 'yyyy/MM/dd',
+                'timeFormat' => 'HH:mm:ss',
+                'durationFormat' => 'HH:MM',
+            ]);
+
+            $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+            $rows = is_array($data['reportDataList'] ?? null) ? $data['reportDataList'] : [];
+            $moreData = (int) ($data['moreData'] ?? 0);
+
+            foreach ($rows as $row) {
+                if (! is_array($row)) {
+                    continue;
+                }
+
+                $checkIn = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN);
+
+                if ($checkIn !== null) {
+                    $storedCount++;
+                }
+
+                $checkOut = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT);
+
+                if ($checkOut !== null) {
+                    $storedCount++;
+                }
+            }
+
+            $pageIndex++;
+        } while ($moreData === 1 && $rows !== []);
+
+        return $storedCount;
+    }
+
     /**
      * @return array{fetched_count: int, message: string}
      */
@@ -487,8 +534,11 @@ class HikvisionService
         $this->ensureConfigured();
 
         $timezone = (string) config('app.timezone', 'UTC');
-        $startTime = now($timezone)->startOfDay();
-        $endTime = now($timezone)->endOfDay();
+        $deviceStartTime = now($timezone)->startOfDay();
+        $deviceEndTime = now($timezone)->endOfDay();
+        $lookbackDays = max(1, (int) config('hikvision.attendance_lookback_days', 7));
+        $attendanceStartTime = now($timezone)->subDays($lookbackDays - 1)->startOfDay();
+        $attendanceEndTime = $deviceEndTime;
 
         $devices = $this->getCachedAccessControllerDevices();
 
@@ -510,14 +560,17 @@ class HikvisionService
             $fetchedCount += $this->fetchAcsEventsForDevice(
                 $device['id'],
                 $device['name'],
-                $startTime,
-                $endTime,
+                $deviceStartTime,
+                $deviceEndTime,
             );
         }
 
+        $mobileCount = $this->fetchAttendanceMobileEvents($attendanceStartTime, $attendanceEndTime);
+        $totalCount = $fetchedCount + $mobileCount;
+
         return [
-            'fetched_count' => $fetchedCount,
-            'message' => "Fetched {$fetchedCount} access record(s) for today.",
+            'fetched_count' => $totalCount,
+            'message' => "Fetched {$totalCount} access record(s): {$fetchedCount} device today, {$mobileCount} mobile app in the last {$lookbackDays} day(s).",
         ];
     }
 

@@ -13,6 +13,8 @@ type Props = {
     pagination: PaginationMeta;
     filters: HikvisionAccessEventFilters;
     attendance_status_options: HikvisionAttendanceStatusOption[];
+    device_options: HikvisionAttendanceStatusOption[];
+    attendance_lookback_days: number;
     is_configured: boolean;
     last_fetched_at: string | null;
     fetch_status: HikvisionEventsFetchStatus;
@@ -27,6 +29,8 @@ export default function HikvisionAccessEvents({
     pagination,
     filters,
     attendance_status_options,
+    device_options,
+    attendance_lookback_days,
     is_configured,
     last_fetched_at,
     fetch_status,
@@ -41,6 +45,8 @@ export default function HikvisionAccessEvents({
                 pagination={pagination}
                 filters={filters}
                 attendanceStatusOptions={attendance_status_options}
+                deviceOptions={device_options}
+                attendanceLookbackDays={attendance_lookback_days}
                 isConfigured={is_configured}
                 lastFetchedAt={last_fetched_at}
                 fetchStatus={fetch_status}

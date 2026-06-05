@@ -23,7 +23,7 @@ function runHikvisionAccessEventsFetchJob(): void
     (new FetchHikvisionAccessEventsJob)->handle(app(HikvisionService::class));
 }
 
-function fakeHikvisionAcsEventsFetch(): void
+function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
 {
     $acsPayload = json_encode([
         'AcsEvent' => [
@@ -83,6 +83,15 @@ function fakeHikvisionAcsEventsFetch(): void
             'data' => $acsPayload,
             'errorCode' => '0',
         ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list' => Http::response([
+            'data' => [
+                'pageIndex' => 1,
+                'pageSize' => 200,
+                'moreData' => 0,
+                'reportDataList' => $attendanceReportDataList,
+            ],
+            'errorCode' => '0',
+        ], 200),
     ]);
 }
 
@@ -99,8 +108,48 @@ test('user with permission can view hikvision access events page', function () {
             ->has('pagination')
             ->has('filters')
             ->has('attendance_status_options')
+            ->has('device_options')
+            ->has('attendance_lookback_days')
             ->has('fetch_status')
             ->has('can'),
+        );
+});
+
+test('access events can be filtered by device', function () {
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'test:dil:door',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-05 08:00:00',
+        'person_name' => 'Dil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkIn',
+        'event_source' => 'acs_isapi',
+        'transaction_source' => 'device',
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'test:mathew:mobile',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-04 09:11:00',
+        'person_name' => 'Mathew',
+        'device_name' => 'Mobile App',
+        'attendance_status' => 'checkIn',
+        'event_source' => 'attendance_api',
+        'transaction_source' => 'mobile_app',
+        'fetched_at' => now(),
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index', ['device' => 'Mobile App']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.person_name', 'Mathew')
+            ->where('filters.device', 'Mobile App'),
         );
 });
 
@@ -238,6 +287,15 @@ test('fetch ignores door system events without person identity', function () {
             'data' => $acsPayload,
             'errorCode' => '0',
         ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list' => Http::response([
+            'data' => [
+                'pageIndex' => 1,
+                'pageSize' => 200,
+                'moreData' => 0,
+                'reportDataList' => [],
+            ],
+            'errorCode' => '0',
+        ], 200),
     ]);
 
     configuredHikvisionSettings();
@@ -250,6 +308,81 @@ test('fetch ignores door system events without person identity', function () {
         ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);
 });
 
+test('background job stores mobile app attendance records from total time card api', function () {
+    $acsPayload = json_encode([
+        'AcsEvent' => [
+            'searchID' => '1',
+            'totalMatches' => 0,
+            'InfoList' => [],
+        ],
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/resource/v1/devices/get' => Http::response([
+            'data' => [
+                'totalCount' => 1,
+                'pageIndex' => 1,
+                'pageSize' => 50,
+                'device' => [
+                    [
+                        'id' => 'device-acs-1',
+                        'name' => 'OMS-Door',
+                        'serialNo' => 'FZ4480436',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass' => Http::response([
+            'data' => $acsPayload,
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list' => Http::response([
+            'data' => [
+                'pageIndex' => 1,
+                'pageSize' => 200,
+                'moreData' => 0,
+                'reportDataList' => [
+                    [
+                        'fullName' => 'Mathew',
+                        'personCode' => '7',
+                        'clockInDate' => '2026/06/05',
+                        'clockInTime' => '09:11:44',
+                        'clockInSource' => 3,
+                        'clockInDevice' => '',
+                        'clockOutDate' => '2026/06/05',
+                        'clockOutTime' => '17:55:12',
+                        'clockOutSource' => 3,
+                        'clockOutDevice' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob();
+
+    expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
+        ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkIn')->exists())->toBeTrue()
+        ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkOut')->exists())->toBeTrue()
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('mobile app')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('last 7 day');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list');
+});
+
 test('background job stores acs access records from isapi proxypass', function () {
     fakeHikvisionAcsEventsFetch();
     configuredHikvisionSettings();
@@ -257,8 +390,9 @@ test('background job stores acs access records from isapi proxypass', function (
 
     runHikvisionAccessEventsFetchJob();
 
-    expect(HikvisionAccessEvent::query()->count())->toBe(2)
+    expect(HikvisionAccessEvent::query()->where('event_source', 'acs_isapi')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('attendance_status'))->toBe('checkIn')
+        ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('transaction_source'))->toBe('device')
         ->and(HikvisionAccessEvent::query()->where('person_name', 'maysa')->value('device_name'))->toBe('OMS-Door')
         ->and(HikvisionSetting::current()->events_last_fetched_at)->not->toBeNull()
         ->and(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_COMPLETED);

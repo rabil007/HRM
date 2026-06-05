@@ -30,7 +30,22 @@ return [
 
     'isapi_proxypass_path' => '/api/hccgw/video/v1/isapi/proxypass',
 
+    'attendance_totaltimecard_path' => '/api/hccgw/attendance/v1/report/totaltimecard/list',
+
     'acs_event_page_size' => 50,
+
+    'attendance_page_size' => 200,
+
+    /*
+    |--------------------------------------------------------------------------
+    | Attendance report lookback (mobile app check-in/out)
+    |--------------------------------------------------------------------------
+    |
+    | Total Time Card data is processed after the day ends. Use a lookback window
+    | so mobile app records from recent days are included alongside today's device events.
+    |
+    */
+    'attendance_lookback_days' => (int) env('HIKVISION_ATTENDANCE_LOOKBACK_DAYS', 7),
 
     /*
     |--------------------------------------------------------------------------

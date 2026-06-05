@@ -5,6 +5,7 @@ export type HikvisionAccessEventFilters = {
     date_from: string;
     date_to: string;
     attendance_status: string;
+    device: string;
 };
 
 export type HikvisionAttendanceStatusOption = {
@@ -22,5 +23,6 @@ export type HikvisionAccessEvent = {
     card_reader_no: string | null;
     verify_mode: string | null;
     attendance_status: string | null;
+    transaction_source: string | null;
     fetched_at: string | null;
 };

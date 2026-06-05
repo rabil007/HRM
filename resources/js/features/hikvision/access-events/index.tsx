@@ -37,6 +37,8 @@ type Props = {
     pagination: PaginationMeta;
     filters: HikvisionAccessEventFilters;
     attendanceStatusOptions: HikvisionAttendanceStatusOption[];
+    deviceOptions: HikvisionAttendanceStatusOption[];
+    attendanceLookbackDays: number;
     isConfigured: boolean;
     lastFetchedAt: string | null;
     fetchStatus: HikvisionEventsFetchStatus;
@@ -55,6 +57,30 @@ function formatVerifyMode(mode: string | null): string {
         .replace(/([A-Z])/g, ' $1')
         .replace(/^./, (c) => c.toUpperCase())
         .trim();
+}
+
+function formatTransactionSource(source: string | null): string {
+    if (!source) {
+        return '—';
+    }
+
+    if (source === 'device') {
+        return 'Device';
+    }
+
+    if (source === 'mobile_app') {
+        return 'Mobile App';
+    }
+
+    if (source === 'correction') {
+        return 'Correction';
+    }
+
+    if (source === 'not_required') {
+        return 'Not required';
+    }
+
+    return 'Unknown';
 }
 
 function formatAttendanceStatus(status: string | null): string {
@@ -79,7 +105,11 @@ function isFetchProcessing(status: HikvisionEventsFetchStatus): boolean {
 
 function hasActiveFilters(filters: HikvisionAccessEventFilters): boolean {
     return Boolean(
-        filters.search || filters.date_from || filters.date_to || filters.attendance_status,
+        filters.search ||
+            filters.date_from ||
+            filters.date_to ||
+            filters.attendance_status ||
+            filters.device,
     );
 }
 
@@ -88,6 +118,8 @@ export function HikvisionAccessEventsContent({
     pagination,
     filters,
     attendanceStatusOptions,
+    deviceOptions,
+    attendanceLookbackDays,
     isConfigured,
     lastFetchedAt,
     fetchStatus,
@@ -101,6 +133,7 @@ export function HikvisionAccessEventsContent({
             date_from: filters.date_from,
             date_to: filters.date_to,
             attendance_status: filters.attendance_status,
+            device: filters.device,
         },
         pagination,
     });
@@ -115,6 +148,7 @@ export function HikvisionAccessEventsContent({
                 filters.date_from,
                 filters.date_to,
                 filters.attendance_status,
+                filters.device,
             ].filter(Boolean).length,
         [filters],
     );
@@ -122,7 +156,15 @@ export function HikvisionAccessEventsContent({
     const { start, stop } = usePoll(
         5000,
         {
-            only: ['events', 'pagination', 'filters', 'last_fetched_at', 'fetch_status', 'fetch_message'],
+            only: [
+                'events',
+                'pagination',
+                'filters',
+                'device_options',
+                'last_fetched_at',
+                'fetch_status',
+                'fetch_message',
+            ],
         },
         {
             autoStart: false,
@@ -163,6 +205,7 @@ export function HikvisionAccessEventsContent({
             date_from: next.date_from ?? filters.date_from,
             date_to: next.date_to ?? filters.date_to,
             attendance_status: next.attendance_status ?? filters.attendance_status,
+            device: next.device ?? filters.device,
         });
     };
 
@@ -172,6 +215,7 @@ export function HikvisionAccessEventsContent({
             date_from: null,
             date_to: null,
             attendance_status: null,
+            device: null,
             page: null,
         });
     };
@@ -201,7 +245,7 @@ export function HikvisionAccessEventsContent({
         <Main>
             <PageHeader
                 title="Hikvision Access Events"
-                description="Successful door check-ins and authentications from access controller devices."
+                description="Door check-ins and mobile app attendance from Hik-Connect."
                 right={
                     can.fetch ? (
                         <Button
@@ -216,6 +260,29 @@ export function HikvisionAccessEventsContent({
                     ) : null
                 }
             />
+
+            {isConfigured ? (
+                <Alert className="mb-6 border-sky-500/20 bg-sky-500/5">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>How records are fetched</AlertTitle>
+                    <AlertDescription className="space-y-2">
+                        <p>
+                            <span className="font-medium text-foreground">Device</span> check-ins are
+                            fetched in real time from your door controllers for today.
+                        </p>
+                        <p>
+                            <span className="font-medium text-foreground">Mobile App</span>{' '}
+                            check-in/out comes from the Hik-Connect Total Time Card report for the
+                            last {attendanceLookbackDays} days.
+                        </p>
+                        <p>
+                            Today&apos;s mobile attendance is not available immediately. Hik-Connect
+                            processes it after the working day ends, so mobile app records for the
+                            current day usually appear after you fetch again the next day.
+                        </p>
+                    </AlertDescription>
+                </Alert>
+            ) : null}
 
             {!isConfigured ? (
                 <Alert className="mb-6 border-amber-500/20 bg-amber-500/5">
@@ -268,7 +335,7 @@ export function HikvisionAccessEventsContent({
                         ) : null}
                     </div>
 
-                    <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_11rem]">
+                    <div className="grid grid-cols-1 items-end gap-3 md:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_9.5rem_9.5rem_10rem_11rem]">
                         <div className="flex min-w-0 flex-col gap-1.5">
                             <label
                                 htmlFor="access-events-search"
@@ -321,6 +388,24 @@ export function HikvisionAccessEventsContent({
                         </div>
 
                         <div className="flex min-w-0 flex-col gap-1.5">
+                            <span className="text-[11px] font-medium text-muted-foreground/60">Device</span>
+                            <AppSelect
+                                value={filters.device || ''}
+                                onValueChange={(value) => applyFilters({ device: value })}
+                                variant="dark"
+                                placeholder="All devices"
+                                className="h-10"
+                            >
+                                <AppSelectItem value="">All devices</AppSelectItem>
+                                {deviceOptions.map((option) => (
+                                    <AppSelectItem key={option.value} value={option.value}>
+                                        {option.label}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+                        </div>
+
+                        <div className="flex min-w-0 flex-col gap-1.5">
                             <span className="text-[11px] font-medium text-muted-foreground/60">Status</span>
                             <AppSelect
                                 value={filters.attendance_status || ''}
@@ -364,6 +449,7 @@ export function HikvisionAccessEventsContent({
                                 <DataTableHead>Card reader</DataTableHead>
                                 <DataTableHead>Authentication</DataTableHead>
                                 <DataTableHead>Attendance</DataTableHead>
+                                <DataTableHead>Source</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -393,6 +479,15 @@ export function HikvisionAccessEventsContent({
                                         {event.attendance_status ? (
                                             <Badge variant="outline">
                                                 {formatAttendanceStatus(event.attendance_status)}
+                                            </Badge>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass}>
+                                        {event.transaction_source ? (
+                                            <Badge variant="secondary">
+                                                {formatTransactionSource(event.transaction_source)}
                                             </Badge>
                                         ) : (
                                             '—'
