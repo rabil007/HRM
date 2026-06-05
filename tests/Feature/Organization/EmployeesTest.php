@@ -2268,3 +2268,116 @@ test('employee with profile template cannot be reassigned', function () {
 
     expect($employee->fresh()->employee_profile_template_id)->toBe($existingTemplate->id);
 });
+
+test('employee update returns validation error when employee number is already used', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ENU',
+        'name' => 'Employee Numberland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ENU',
+        'name' => 'Employee Number Currency',
+        'symbol' => 'EN$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Employee Number Co',
+        'slug' => 'employee-number-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $existing = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => '1',
+            'name' => 'Existing Employee',
+        ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => '2',
+            'name' => 'New Employee',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update']);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->put("/organization/employees/{$employee->id}", [
+            'employee_no' => $existing->employee_no,
+            'name' => $employee->name,
+        ])
+        ->assertSessionHasErrors([
+            'employee_no' => 'This employee number is already used in your company. Choose a different number.',
+        ]);
+
+    expect($employee->fresh()->employee_no)->toBe('2');
+});
+
+test('employee update rejects employee number reserved by a soft deleted employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ENS',
+        'name' => 'Employee Softland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ENS',
+        'name' => 'Employee Soft Currency',
+        'symbol' => 'ES$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Employee Soft Co',
+        'slug' => 'employee-soft-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $deleted = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => '1',
+            'name' => 'Deleted Employee',
+        ]);
+    $deleted->delete();
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'DRAFT-NEW',
+            'name' => 'Draft Employee',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update']);
+
+    $this->from("/organization/employees/{$employee->id}")
+        ->put("/organization/employees/{$employee->id}", [
+            'employee_no' => '1',
+            'name' => $employee->name,
+        ])
+        ->assertSessionHasErrors('employee_no');
+
+    expect($employee->fresh()->employee_no)->toBe('DRAFT-NEW');
+});

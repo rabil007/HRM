@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class StoreEmployeeRequest extends FormRequest
 {
+    use ValidatesEmployeeNumber;
+
     public function authorize(): bool
     {
         return true;
@@ -43,13 +46,7 @@ class StoreEmployeeRequest extends FormRequest
                 'integer',
                 Rule::exists('employees', 'id')->where(fn ($q) => $q->where('company_id', $companyId)),
             ],
-            'employee_no' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('employees', 'employee_no')
-                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
-            ],
+            'employee_no' => $this->employeeNumberRules($companyId),
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],
             'date_of_birth' => ['nullable', 'date'],

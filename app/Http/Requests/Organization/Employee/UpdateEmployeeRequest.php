@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use Illuminate\Foundation\Http\FormRequest;
@@ -9,6 +10,8 @@ use Illuminate\Validation\Rule;
 
 class UpdateEmployeeRequest extends FormRequest
 {
+    use ValidatesEmployeeNumber;
+
     public function authorize(): bool
     {
         return true;
@@ -43,14 +46,7 @@ class UpdateEmployeeRequest extends FormRequest
                     ->where(fn ($q) => $q->where('company_id', $companyId))
                     ->where(fn ($q) => $q->where('id', '!=', $employeeId)),
             ],
-            'employee_no' => [
-                'required',
-                'string',
-                'max:50',
-                Rule::unique('employees', 'employee_no')
-                    ->ignore($employeeId)
-                    ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
-            ],
+            'employee_no' => $this->employeeNumberRules($companyId, $employeeId),
             'name' => ['required', 'string', 'max:200'],
             'image' => ['nullable', 'image', 'max:4096'],
             'remove_image' => ['sometimes', 'boolean'],

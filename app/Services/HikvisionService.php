@@ -2,8 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionDevice;
+use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Models\HikvisionUser;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -77,7 +81,7 @@ class HikvisionService
     public function testConnection(?array $override = null): array
     {
         try {
-            $token = $this->getAccessToken($override);
+            $this->getAccessToken($override);
 
             return [
                 'success' => true,
@@ -92,31 +96,47 @@ class HikvisionService
     }
 
     /**
+     * @param  array<string, mixed>  $body
+     * @param  array<string, mixed>|null  $override
+     * @return array<string, mixed>
+     */
+    public function postWithToken(string $path, array $body = [], ?array $override = null): array
+    {
+        $token = $this->getAccessToken($override);
+        $host = $token['area_domain'] !== '' ? $token['area_domain'] : $this->resolveCredentials($override)['api_host'];
+
+        $request = Http::timeout((int) config('hikvision.timeout', 20))
+            ->acceptJson()
+            ->withHeaders([
+                'Token' => $token['access_token'],
+            ]);
+
+        // Hikvision rejects an empty JSON array (`[]`) with "Input param error".
+        $response = $body === []
+            ? $request->withBody('{}', 'application/json')->post($host.$path)
+            : $request->post($host.$path, $body);
+
+        $payload = $response->json();
+
+        if (! is_array($payload) || ($payload['errorCode'] ?? null) !== '0') {
+            $message = is_array($payload) ? (string) ($payload['message'] ?? 'Hikvision API request failed.') : 'Hikvision API request failed.';
+
+            throw new RuntimeException($message);
+        }
+
+        return $payload;
+    }
+
+    /**
      * @param  array<string, mixed>|null  $override
      * @return array{total_count: int, page_index: int, page_size: int, users: list<array{id: string, name: string}>}
      */
     public function getUsers(int $pageIndex = 1, int $pageSize = 50, ?array $override = null): array
     {
-        $token = $this->getAccessToken($override);
-        $host = $token['area_domain'] !== '' ? $token['area_domain'] : $this->resolveCredentials($override)['api_host'];
-
-        $response = Http::timeout((int) config('hikvision.timeout', 20))
-            ->acceptJson()
-            ->withHeaders([
-                'Token' => $token['access_token'],
-            ])
-            ->post($host.config('hikvision.users_path'), [
-                'pageIndex' => $pageIndex,
-                'pageSize' => $pageSize,
-            ]);
-
-        $payload = $response->json();
-
-        if (! is_array($payload) || ($payload['errorCode'] ?? null) !== '0') {
-            $message = is_array($payload) ? (string) ($payload['message'] ?? 'Failed to fetch Hikvision users.') : 'Failed to fetch Hikvision users.';
-
-            throw new RuntimeException($message);
-        }
+        $payload = $this->postWithToken(config('hikvision.users_path'), [
+            'pageIndex' => $pageIndex,
+            'pageSize' => $pageSize,
+        ], $override);
 
         $data = $payload['data'] ?? [];
         $users = [];
@@ -145,9 +165,7 @@ class HikvisionService
      */
     public function syncUsers(): array
     {
-        if (! HikvisionSetting::current()->isConfigured()) {
-            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
-        }
+        $this->ensureConfigured();
 
         $pageIndex = 1;
         $pageSize = 50;
@@ -170,5 +188,405 @@ class HikvisionService
             'synced_count' => $syncedCount,
             'message' => "Synced {$syncedCount} Hikvision user(s).",
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $criteria
+     * @param  array<string, mixed>|null  $override
+     * @return array{total_num: int, page_num: int, page_size: int, persons: list<array<string, mixed>>}
+     */
+    public function searchPersons(int $pageNum = 1, int $pageSize = 50, array $criteria = [], ?array $override = null): array
+    {
+        $searchRequest = array_replace_recursive([
+            'areaId' => '-1',
+            'buildId' => '',
+            'isContainSubArea' => 1,
+            'filter' => [
+                'name' => '',
+                'roomNum' => 0,
+                'email' => '',
+                'phone' => '',
+                'type' => 0,
+                'isExpired' => 0,
+            ],
+        ], $criteria);
+
+        $payload = $this->postWithToken(config('hikvision.persons_search_path'), [
+            'pageNum' => $pageNum,
+            'pageSize' => $pageSize,
+            'searchRequest' => $searchRequest,
+        ], $override);
+
+        $data = $payload['data'] ?? [];
+        $persons = [];
+
+        foreach ($data['personList'] ?? [] as $person) {
+            if (! is_array($person)) {
+                continue;
+            }
+
+            $persons[] = $person;
+        }
+
+        return [
+            'total_num' => (int) ($data['totalNum'] ?? 0),
+            'page_num' => (int) ($data['pageNum'] ?? $pageNum),
+            'page_size' => (int) ($data['pageSize'] ?? $pageSize),
+            'persons' => $persons,
+        ];
+    }
+
+    /**
+     * @return array{synced_count: int, message: string}
+     */
+    public function syncPersons(): array
+    {
+        $this->ensureConfigured();
+
+        $pageNum = 1;
+        $pageSize = 50;
+        $syncedCount = 0;
+        $totalNum = null;
+
+        do {
+            $result = $this->searchPersons($pageNum, $pageSize);
+            $totalNum = $result['total_num'];
+
+            foreach ($result['persons'] as $apiPerson) {
+                HikvisionPerson::upsertFromApi($apiPerson);
+                $syncedCount++;
+            }
+
+            $pageNum++;
+        } while ($syncedCount < $totalNum && count($result['persons']) > 0);
+
+        HikvisionSetting::current()->update([
+            'persons_last_synced_at' => now(),
+        ]);
+
+        return [
+            'synced_count' => $syncedCount,
+            'message' => "Synced {$syncedCount} VIMS resident(s). Access Control persons in the Hik-Connect portal are a separate dataset and are not returned by this API.",
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $override
+     * @return array{total_count: int, page_index: int, page_size: int, devices: list<array<string, mixed>>}
+     */
+    public function getDevices(int $pageIndex = 1, int $pageSize = 50, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.devices_path'), [
+            'pageIndex' => $pageIndex,
+            'pageSize' => $pageSize,
+        ], $override);
+
+        $data = $payload['data'] ?? [];
+        $devices = [];
+
+        foreach ($data['device'] ?? [] as $device) {
+            if (! is_array($device)) {
+                continue;
+            }
+
+            $devices[] = $device;
+        }
+
+        return [
+            'total_count' => (int) ($data['totalCount'] ?? 0),
+            'page_index' => (int) ($data['pageIndex'] ?? $pageIndex),
+            'page_size' => (int) ($data['pageSize'] ?? $pageSize),
+            'devices' => $devices,
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $override
+     * @return array<string, mixed>
+     */
+    public function getDeviceDetail(string $deviceSerialNo, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.device_detail_path'), [
+            'deviceSerialNo' => $deviceSerialNo,
+        ], $override);
+
+        $device = $payload['data']['device'] ?? null;
+
+        if (! is_array($device)) {
+            throw new RuntimeException('Hikvision device detail response was invalid.');
+        }
+
+        return $device;
+    }
+
+    /**
+     * @return array{synced_count: int, message: string}
+     */
+    public function syncDevices(): array
+    {
+        $this->ensureConfigured();
+
+        $pageIndex = 1;
+        $pageSize = 50;
+        $syncedCount = 0;
+        $totalCount = null;
+
+        do {
+            $result = $this->getDevices($pageIndex, $pageSize);
+            $totalCount = $result['total_count'];
+
+            foreach ($result['devices'] as $apiDevice) {
+                $serialNo = (string) ($apiDevice['serialNo'] ?? '');
+
+                if ($serialNo === '') {
+                    continue;
+                }
+
+                $detail = null;
+
+                try {
+                    $detail = $this->getDeviceDetail($serialNo);
+                } catch (RuntimeException) {
+                    // Keep list data even when detail fetch fails for a device.
+                }
+
+                HikvisionDevice::upsertFromApi($apiDevice, $detail);
+                $syncedCount++;
+            }
+
+            $pageIndex++;
+        } while ($syncedCount < $totalCount && count($result['devices']) > 0);
+
+        return [
+            'synced_count' => $syncedCount,
+            'message' => "Synced {$syncedCount} Hikvision device(s).",
+        ];
+    }
+
+    public function ensureMqSubscribed(): void
+    {
+        $settings = HikvisionSetting::current();
+
+        if ($settings->mq_subscribed_at !== null) {
+            return;
+        }
+
+        $this->postWithToken(config('hikvision.mq_subscribe_path'), [
+            'subscribeType' => 1,
+            'msgType' => [],
+        ]);
+
+        $settings->mq_subscribed_at = now();
+        $settings->save();
+    }
+
+    /**
+     * @return array{batch_id: string, remaining_number: int, events: list<array<string, mixed>>}
+     */
+    public function pollMessages(): array
+    {
+        $payload = $this->postWithToken(config('hikvision.mq_messages_path'));
+
+        $data = $payload['data'] ?? [];
+        $events = [];
+
+        foreach ($data['event'] ?? [] as $event) {
+            if (! is_array($event)) {
+                continue;
+            }
+
+            $events[] = $event;
+        }
+
+        return [
+            'batch_id' => (string) ($data['batchId'] ?? ''),
+            'remaining_number' => (int) ($data['remainingNumber'] ?? 0),
+            'events' => $events,
+        ];
+    }
+
+    public function completeMessages(string $batchId): void
+    {
+        if ($batchId === '') {
+            return;
+        }
+
+        $this->postWithToken(config('hikvision.mq_messages_complete_path'), [
+            'batchId' => $batchId,
+        ]);
+    }
+
+    /**
+     * @return list<array{id: string, name: string, serial_no: string}>
+     */
+    public function getAccessControllerDevices(): array
+    {
+        $devices = [];
+        $pageIndex = 1;
+        $pageSize = 50;
+        $totalCount = null;
+        $fetched = 0;
+
+        do {
+            $payload = $this->postWithToken(config('hikvision.devices_path'), [
+                'pageIndex' => $pageIndex,
+                'pageSize' => $pageSize,
+                'deviceCategory' => 'accessControllerDevice',
+            ]);
+
+            $data = $payload['data'] ?? [];
+            $totalCount = (int) ($data['totalCount'] ?? 0);
+
+            foreach ($data['device'] ?? [] as $device) {
+                if (! is_array($device)) {
+                    continue;
+                }
+
+                $devices[] = [
+                    'id' => (string) ($device['id'] ?? ''),
+                    'name' => (string) ($device['name'] ?? ''),
+                    'serial_no' => (string) ($device['serialNo'] ?? ''),
+                ];
+                $fetched++;
+            }
+
+            $pageIndex++;
+        } while ($fetched < $totalCount && count($data['device'] ?? []) > 0);
+
+        return $devices;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function isapiProxypass(string $deviceId, string $method, string $url, string $body = ''): array
+    {
+        $payload = $this->postWithToken(config('hikvision.isapi_proxypass_path'), [
+            'method' => $method,
+            'url' => $url,
+            'id' => $deviceId,
+            'contentType' => 'application/json',
+            'body' => $body,
+        ]);
+
+        $data = $payload['data'] ?? null;
+
+        if (! is_string($data)) {
+            throw new RuntimeException('Hikvision ISAPI proxypass response was invalid.');
+        }
+
+        $decoded = json_decode($data, true);
+
+        if (! is_array($decoded)) {
+            throw new RuntimeException('Hikvision ISAPI proxypass returned non-JSON data.');
+        }
+
+        return $decoded;
+    }
+
+    public function fetchAcsEventsForDevice(
+        string $deviceId,
+        string $deviceName,
+        CarbonInterface $startTime,
+        CarbonInterface $endTime,
+    ): int {
+        $pageSize = (int) config('hikvision.acs_event_page_size', 50);
+        $position = 0;
+        $storedCount = 0;
+        $totalMatches = null;
+
+        do {
+            $body = json_encode([
+                'AcsEventCond' => [
+                    'searchID' => '1',
+                    'searchResultPosition' => $position,
+                    'maxResults' => $pageSize,
+                    'major' => 0,
+                    'minor' => 0,
+                    'startTime' => $startTime->format('Y-m-d\TH:i:sP'),
+                    'endTime' => $endTime->format('Y-m-d\TH:i:sP'),
+                ],
+            ]);
+
+            $decoded = $this->isapiProxypass(
+                $deviceId,
+                'POST',
+                '/ISAPI/AccessControl/AcsEvent?format=json',
+                $body !== false ? $body : '',
+            );
+
+            $acsEvent = $decoded['AcsEvent'] ?? [];
+            $events = $acsEvent['InfoList'] ?? [];
+            $totalMatches = (int) ($acsEvent['totalMatches'] ?? 0);
+
+            if (! is_array($events)) {
+                break;
+            }
+
+            foreach ($events as $event) {
+                if (! is_array($event)) {
+                    continue;
+                }
+
+                $stored = HikvisionAccessEvent::upsertFromAcsEvent($event, $deviceId, $deviceName);
+
+                if ($stored !== null) {
+                    $storedCount++;
+                }
+            }
+
+            $position += count($events);
+        } while ($position < $totalMatches && count($events) > 0);
+
+        return $storedCount;
+    }
+
+    /**
+     * @return array{fetched_count: int, message: string}
+     */
+    public function fetchAccessEvents(): array
+    {
+        $this->ensureConfigured();
+
+        $timezone = (string) config('app.timezone', 'UTC');
+        $startTime = now($timezone)->startOfDay();
+        $endTime = now($timezone)->endOfDay();
+
+        $devices = $this->getAccessControllerDevices();
+
+        if ($devices === []) {
+            throw new RuntimeException('No access controller devices found on Hik-Connect.');
+        }
+
+        $fetchedCount = 0;
+
+        foreach ($devices as $device) {
+            if ($device['id'] === '') {
+                continue;
+            }
+
+            $fetchedCount += $this->fetchAcsEventsForDevice(
+                $device['id'],
+                $device['name'],
+                $startTime,
+                $endTime,
+            );
+        }
+
+        HikvisionSetting::current()->update([
+            'events_last_fetched_at' => now(),
+        ]);
+
+        return [
+            'fetched_count' => $fetchedCount,
+            'message' => "Fetched {$fetchedCount} access record(s) for today.",
+        ];
+    }
+
+    protected function ensureConfigured(): void
+    {
+        if (! HikvisionSetting::current()->isConfigured()) {
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
+        }
     }
 }

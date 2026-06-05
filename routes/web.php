@@ -1,5 +1,8 @@
 <?php
 
+use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
+use App\Http\Controllers\Hikvision\HikvisionDeviceController;
+use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Hikvision\HikvisionUserController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
@@ -225,6 +228,30 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('hikvision/users/sync', [HikvisionUserController::class, 'sync'])
         ->middleware('can:hikvision.users.sync')
         ->name('hikvision.users.sync');
+
+    Route::get('hikvision/persons', [HikvisionPersonController::class, 'index'])
+        ->middleware('can:hikvision.persons.view')
+        ->name('hikvision.persons.index');
+
+    Route::post('hikvision/persons/sync', [HikvisionPersonController::class, 'sync'])
+        ->middleware('can:hikvision.persons.sync')
+        ->name('hikvision.persons.sync');
+
+    Route::get('hikvision/devices', [HikvisionDeviceController::class, 'index'])
+        ->middleware('can:hikvision.devices.view')
+        ->name('hikvision.devices.index');
+
+    Route::post('hikvision/devices/sync', [HikvisionDeviceController::class, 'sync'])
+        ->middleware('can:hikvision.devices.sync')
+        ->name('hikvision.devices.sync');
+
+    Route::get('hikvision/access-events', [HikvisionAccessEventController::class, 'index'])
+        ->middleware('can:hikvision.events.view')
+        ->name('hikvision.access-events.index');
+
+    Route::post('hikvision/access-events/fetch', [HikvisionAccessEventController::class, 'fetch'])
+        ->middleware('can:hikvision.events.fetch')
+        ->name('hikvision.access-events.fetch');
 });
 
 require __DIR__.'/settings.php';

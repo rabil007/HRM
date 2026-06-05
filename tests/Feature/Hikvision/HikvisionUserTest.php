@@ -1,6 +1,5 @@
 <?php
 
-use App\Models\HikvisionSetting;
 use App\Models\HikvisionUser;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
@@ -12,16 +11,6 @@ function postHikvisionUsersSync(User $user): TestResponse
 
     return test()->actingAs($user)->post(route('hikvision.users.sync'), [
         '_token' => csrf_token(),
-    ]);
-}
-
-function configuredHikvisionSettings(): void
-{
-    HikvisionSetting::current()->storeFromValidated([
-        'api_host' => 'https://isgp.hikcentralconnect.com',
-        'api_key' => 'test-api-key',
-        'api_secret' => 'test-api-secret',
-        'enabled' => true,
     ]);
 }
 
