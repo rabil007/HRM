@@ -16,6 +16,7 @@ final class SettingsHubAccess
             'settings.security.view',
             'settings.appearance.view',
             'settings.integrations.whatsapp.view',
+            'settings.integrations.hikvision.view',
             'settings.integrations.whatsapp-templates.view',
             'settings.integrations.email-templates.view',
             'settings.master-data.countries.view',

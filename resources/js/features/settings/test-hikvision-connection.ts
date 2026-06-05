@@ -14,7 +14,7 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
     return firstError ?? fallback;
 }
 
-export type WhatsAppConnectionTestResult = {
+export type HikvisionConnectionTestResult = {
     success: boolean;
     message: string;
 };
@@ -23,10 +23,10 @@ function csrfToken(): string {
     return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
 }
 
-export async function testWhatsAppConnection(
+export async function testHikvisionConnection(
     url: string,
     payload: Record<string, unknown>,
-): Promise<WhatsAppConnectionTestResult> {
+): Promise<HikvisionConnectionTestResult> {
     const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -45,11 +45,11 @@ export async function testWhatsAppConnection(
         : null;
 
     if (!response.ok) {
-        throw new Error(extractErrorMessage(data, 'WhatsApp connection test failed.'));
+        throw new Error(extractErrorMessage(data, 'Hikvision connection test failed.'));
     }
 
-    return (data as WhatsAppConnectionTestResult | null) ?? {
+    return (data as HikvisionConnectionTestResult | null) ?? {
         success: false,
-        message: 'WhatsApp connection test failed.',
+        message: 'Hikvision connection test failed.',
     };
 }

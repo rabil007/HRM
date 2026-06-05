@@ -1,6 +1,7 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
 import {
     Building2,
+    Camera,
     CheckCircle2,
     ImageIcon,
     Layout,
@@ -29,10 +30,13 @@ import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
 import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import {
-    WhatsAppSettingsPanel
-    
+    HikvisionSettingsPanel,
+} from '@/features/settings/hikvision-settings-panel';
+import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
+import {
+    WhatsAppSettingsPanel,
 } from '@/features/settings/whatsapp-settings-panel';
-import type {WhatsAppSettingsPanelProps} from '@/features/settings/whatsapp-settings-panel';
+import type { WhatsAppSettingsPanelProps } from '@/features/settings/whatsapp-settings-panel';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
@@ -82,6 +86,7 @@ type Props = {
         };
     };
     whatsapp: WhatsAppSettingsPanelProps | null;
+    hikvision: HikvisionSettingsPanelProps | null;
 };
 
 const ALL_NAV_ITEMS = [
@@ -112,6 +117,13 @@ const ALL_NAV_ITEMS = [
         icon: MessageCircle,
         description: 'Business messaging',
         permission: 'settings.integrations.whatsapp.view',
+    },
+    {
+        id: 'hikvision',
+        label: 'Hikvision',
+        icon: Camera,
+        description: 'Access control API',
+        permission: 'settings.integrations.hikvision.view',
     },
     {
         id: 'preferences',
@@ -216,6 +228,7 @@ export default function ApplicationSettings({
     currencies,
     smtp,
     whatsapp,
+    hikvision,
 }: Props) {
     const auth = usePage().props.auth;
     const authUser = auth?.user as { email?: string } | undefined;
@@ -1017,6 +1030,11 @@ export default function ApplicationSettings({
                     {/* ══ WHATSAPP ══ */}
                     {tab === 'whatsapp' && whatsapp ? (
                         <WhatsAppSettingsPanel {...whatsapp} />
+                    ) : null}
+
+                    {/* ══ HIKVISION ══ */}
+                    {tab === 'hikvision' && hikvision ? (
+                        <HikvisionSettingsPanel {...hikvision} />
                     ) : null}
 
                     {/* ══ PREFERENCES ══ */}

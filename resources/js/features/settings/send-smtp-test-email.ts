@@ -14,15 +14,19 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
     return firstError ?? fallback;
 }
 
-export async function sendSmtpTestEmail(url: string, formData: FormData): Promise<string> {
-    const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+function csrfToken(): string {
+    return document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+}
 
+export async function sendSmtpTestEmail(url: string, formData: FormData): Promise<string> {
     const response = await fetch(url, {
         method: 'POST',
         headers: {
             Accept: 'application/json',
-            ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
+            'X-CSRF-TOKEN': csrfToken(),
+            'X-Requested-With': 'XMLHttpRequest',
         },
+        credentials: 'same-origin',
         body: formData,
     });
 

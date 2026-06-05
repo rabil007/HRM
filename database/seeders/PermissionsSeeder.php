@@ -23,6 +23,8 @@ class PermissionsSeeder extends Seeder
             'settings.application.update',
             'settings.integrations.whatsapp.view',
             'settings.integrations.whatsapp.update',
+            'settings.integrations.hikvision.view',
+            'settings.integrations.hikvision.update',
             'settings.integrations.whatsapp-templates.view',
             'settings.integrations.whatsapp-templates.create',
             'settings.integrations.whatsapp-templates.update',

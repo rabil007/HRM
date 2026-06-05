@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Settings\ApplicationSettingsController;
 use App\Http\Controllers\Settings\EmailTemplateController;
+use App\Http\Controllers\Settings\Integrations\HikvisionIntegrationController;
 use App\Http\Controllers\Settings\Integrations\WhatsAppIntegrationController;
 use App\Http\Controllers\Settings\MasterData\ApprovalLocationController;
 use App\Http\Controllers\Settings\MasterData\BankController;
@@ -87,6 +88,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('settings/application/whatsapp/send-test-document-template', [WhatsAppIntegrationController::class, 'sendTestDocumentTemplate'])
         ->middleware('can:settings.integrations.whatsapp.update')
         ->name('application.whatsapp.send-test-document-template');
+
+    Route::put('settings/application/hikvision', [HikvisionIntegrationController::class, 'update'])
+        ->middleware('can:settings.integrations.hikvision.update')
+        ->name('application.hikvision.update');
+
+    Route::post('settings/application/hikvision/test', [HikvisionIntegrationController::class, 'testConnection'])
+        ->middleware('can:settings.integrations.hikvision.update')
+        ->name('application.hikvision.test');
 
     Route::get('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'index'])
         ->middleware('can:settings.integrations.whatsapp-templates.view')
