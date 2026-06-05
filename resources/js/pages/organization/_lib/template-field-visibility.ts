@@ -11,7 +11,13 @@ export function isTemplateFieldVisible(
         return true;
     }
 
-    return templateFields[fieldKey]?.visible === true;
+    const config = templateFields[fieldKey];
+
+    if (!config) {
+        return true;
+    }
+
+    return config.visible === true;
 }
 
 export function createTemplateFieldVisibility(
@@ -25,13 +31,21 @@ export function isTemplateFieldRequired(
     fieldKey: string,
     defaultRequiredKeys: string[] = [],
 ): boolean {
+    if (!isTemplateFieldVisible(templateFields, fieldKey)) {
+        return false;
+    }
+
     if (!templateFields) {
         return defaultRequiredKeys.includes(fieldKey);
     }
 
     const config = templateFields[fieldKey];
 
-    return config?.visible === true && config?.required === true;
+    if (!config) {
+        return defaultRequiredKeys.includes(fieldKey);
+    }
+
+    return config.required === true;
 }
 
 export function getTemplateRequiredFieldKeys(
@@ -44,8 +58,14 @@ export function getTemplateRequiredFieldKeys(
 
     const keys = new Set<string>();
 
-    for (const [fieldKey, config] of Object.entries(templateFields)) {
-        if (config.visible && config.required) {
+    for (const fieldKey of Object.keys(templateFields)) {
+        if (isTemplateFieldRequired(templateFields, fieldKey, defaultRequiredKeys)) {
+            keys.add(fieldKey);
+        }
+    }
+
+    for (const fieldKey of defaultRequiredKeys) {
+        if (isTemplateFieldRequired(templateFields, fieldKey, defaultRequiredKeys)) {
             keys.add(fieldKey);
         }
     }

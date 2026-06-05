@@ -273,6 +273,56 @@ test('activating a contract ends other active contracts for the employee', funct
     expect($first->fresh()->status)->toBe('ended');
 });
 
+test('contract store rejects invalid salary and end date with validation errors', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CVE',
+        'name' => 'Contract Validation Land',
+        'dial_code' => '+994',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CVE',
+        'name' => 'Contract Validation Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Contract Validation Co',
+        'slug' => 'contract-validation-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP-CVE-1',
+            'name' => 'Validation Contracts',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.contracts.manage']);
+
+    $this->from(route('organization.employees.show', $employee))
+        ->post(route('organization.employees.contracts.store', $employee), [
+            'contract_type' => 'limited',
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-01-01',
+            'status' => 'active',
+            'basic_salary' => '5,000',
+        ])
+        ->assertSessionHasErrors(['end_date', 'basic_salary']);
+});
+
 test('contract store persists supplementary and site allowances', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

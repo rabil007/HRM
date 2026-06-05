@@ -1,4 +1,4 @@
-import { useForm } from '@inertiajs/react';
+import { router, useForm } from '@inertiajs/react';
 import { Plus } from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -40,7 +40,9 @@ import {
     employeeFieldMissingHighlightClass,
     employeeFieldMissingLabelClass,
 } from '@/pages/organization/_lib/employee-required-field-labels';
+import { applyRecordFormErrors } from '@/pages/organization/_lib/apply-record-form-errors';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
+import { normalizeDecimalFieldValue } from '@/pages/organization/_lib/normalize-decimal-field-value';
 import {
     createTemplateFieldVisibility,
     getTemplateRequiredFieldKeys,
@@ -151,6 +153,47 @@ function formatMoney(value: number | null | undefined): string {
         minimumFractionDigits: 2,
         maximumFractionDigits: 2,
     });
+}
+
+function buildContractPayload(
+    data: {
+        contract_type: string;
+        start_date: string;
+        end_date: string;
+        labor_contract_id: string;
+        status: string;
+        basic_salary: string;
+        housing_allowance: string;
+        transport_allowance: string;
+        other_allowances: string;
+        supplementary_allowance: string;
+        site_allowance: string;
+        note: string;
+    },
+    templateFields: Record<string, TemplateFieldConfig> | null | undefined,
+): Record<string, unknown> {
+    return omitHiddenTemplateRecordFields(
+        {
+            contract_type: data.contract_type,
+            start_date: data.start_date,
+            end_date: data.end_date === '' ? null : data.end_date,
+            labor_contract_id:
+                data.labor_contract_id.trim() === ''
+                    ? null
+                    : data.labor_contract_id.trim(),
+            status: data.status,
+            basic_salary: normalizeDecimalFieldValue(data.basic_salary),
+            housing_allowance: normalizeDecimalFieldValue(data.housing_allowance),
+            transport_allowance: normalizeDecimalFieldValue(data.transport_allowance),
+            other_allowances: normalizeDecimalFieldValue(data.other_allowances),
+            supplementary_allowance: normalizeDecimalFieldValue(
+                data.supplementary_allowance,
+            ),
+            site_allowance: normalizeDecimalFieldValue(data.site_allowance),
+            note: data.note.trim() === '' ? null : data.note.trim(),
+        },
+        templateFields,
+    );
 }
 
 function contractStatusClass(status: string | null | undefined): string {
@@ -382,34 +425,10 @@ export function EmployeeContractTab({
 
         setMissingRequiredFields(new Set());
         contractForm.clearErrors();
-        contractForm.transform((data) =>
-            omitHiddenTemplateRecordFields(
-                {
-                    contract_type: data.contract_type,
-                    start_date: data.start_date,
-                    end_date: data.end_date === '' ? null : data.end_date,
-                    labor_contract_id:
-                        data.labor_contract_id.trim() === ''
-                            ? null
-                            : data.labor_contract_id.trim(),
-                    status: data.status,
-                    basic_salary: data.basic_salary === '' ? null : data.basic_salary,
-                    housing_allowance:
-                        data.housing_allowance === '' ? null : data.housing_allowance,
-                    transport_allowance:
-                        data.transport_allowance === '' ? null : data.transport_allowance,
-                    other_allowances:
-                        data.other_allowances === '' ? null : data.other_allowances,
-                    supplementary_allowance:
-                        data.supplementary_allowance === ''
-                            ? null
-                            : data.supplementary_allowance,
-                    site_allowance:
-                        data.site_allowance === '' ? null : data.site_allowance,
-                    note: data.note.trim() === '' ? null : data.note.trim(),
-                },
-                templateContractFields,
-            ),
+
+        const payload = buildContractPayload(
+            contractForm.data,
+            templateContractFields,
         );
 
         const url = editingContract
@@ -427,12 +446,15 @@ export function EmployeeContractTab({
                 setEditingContract(null);
                 setMissingRequiredFields(new Set());
             },
+            onError: (errors: Record<string, string | string[]>) => {
+                applyRecordFormErrors(contractForm, errors);
+            },
         };
 
         if (editingContract) {
-            contractForm.put(url, options);
+            router.put(url, payload, options);
         } else {
-            contractForm.post(url, options);
+            router.post(url, payload, options);
         }
     };
 
