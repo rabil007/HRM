@@ -1,10 +1,12 @@
-import { useForm } from '@inertiajs/react';
+import { useForm, router } from '@inertiajs/react';
 import {
     Camera,
     CheckCircle2,
     Info,
+    Link2,
     Lock,
     PlugZap,
+    Radio,
     XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -30,9 +32,17 @@ export type HikvisionSettingsPanelProps = {
         has_api_secret: boolean;
         is_configured: boolean;
         uses_env_fallback: boolean;
+        webhook_verify_token: string;
+        webhook_enabled: boolean;
+        webhook_callback_url: string | null;
+        webhook_registered_at: string | null;
+        webhook_last_event_at: string | null;
+        has_webhook_verify_token: boolean;
     };
+    webhook_url: string;
     can: {
         update: boolean;
+        webhook_manage: boolean;
     };
 };
 
@@ -76,16 +86,19 @@ function StatusItem({
     );
 }
 
-export function HikvisionSettingsPanel({ settings, can }: HikvisionSettingsPanelProps) {
+export function HikvisionSettingsPanel({ settings, webhook_url, can }: HikvisionSettingsPanelProps) {
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
     const [testing, setTesting] = useState(false);
+    const [registeringWebhook, setRegisteringWebhook] = useState(false);
 
     const form = useForm({
         api_host: settings.api_host ?? '',
         api_key: '',
         api_secret: '',
         enabled: settings.enabled ?? false,
+        webhook_enabled: settings.webhook_enabled ?? false,
+        webhook_verify_token: settings.webhook_verify_token ?? '',
     });
 
     const submit = (event: React.FormEvent) => {
@@ -140,6 +153,41 @@ export function HikvisionSettingsPanel({ settings, can }: HikvisionSettingsPanel
             setTesting(false);
         }
     };
+
+    const handleRegisterWebhook = () => {
+        if (!can.webhook_manage || registeringWebhook) {
+            return;
+        }
+
+        setRegisteringWebhook(true);
+
+        router.post(
+            '/settings/application/hikvision/webhook/register',
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    toast.success('Webhook registered with Hik-Connect.');
+                },
+                onError: (errors) => {
+                    const message =
+                        typeof errors.webhook === 'string'
+                            ? errors.webhook
+                            : 'Failed to register webhook.';
+                    toast.error(message);
+                },
+                onFinish: () => {
+                    setRegisteringWebhook(false);
+                },
+            },
+        );
+    };
+
+    const webhookStatusLabel = settings.webhook_registered_at
+        ? 'Registered'
+        : settings.webhook_enabled
+          ? 'Enabled (not registered)'
+          : 'Not registered';
 
     const statusLabel =
         connectionStatus === 'connected'
@@ -345,6 +393,109 @@ export function HikvisionSettingsPanel({ settings, can }: HikvisionSettingsPanel
                                     Save Hikvision settings
                                 </Button>
                             </div>
+                        ) : null}
+                    </CardContent>
+                </Card>
+
+                <Card className="border-white/5 bg-white/5">
+                    <CardContent className="space-y-5 p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
+                                <Radio className="h-5 w-5 text-blue-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold tracking-tight">Webhook push</h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Receive real-time access events from Hik-Connect at your public callback URL.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Alert className="border-amber-500/20 bg-amber-500/5">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Public HTTPS URL required</AlertTitle>
+                            <AlertDescription>
+                                Hik-Connect must reach your callback URL over the public internet. Local
+                                development requires a tunnel (for example ngrok) pointing to this app.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <StatusItem label="Webhook status">
+                                <span className="text-sm font-medium">{webhookStatusLabel}</span>
+                            </StatusItem>
+                            <StatusItem label="Last event received">
+                                <span className="text-sm">
+                                    {settings.webhook_last_event_at
+                                        ? formatDisplayDateTime(settings.webhook_last_event_at)
+                                        : 'Never'}
+                                </span>
+                            </StatusItem>
+                            <StatusItem label="Registered at">
+                                <span className="text-sm">
+                                    {settings.webhook_registered_at
+                                        ? formatDisplayDateTime(settings.webhook_registered_at)
+                                        : '—'}
+                                </span>
+                            </StatusItem>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <FieldLabel>Callback URL</FieldLabel>
+                            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                                <Link2 className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                                <span className="truncate font-mono text-xs">{webhook_url}</span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <FieldLabel htmlFor="webhook_verify_token">Verify token</FieldLabel>
+                            <FieldInput
+                                id="webhook_verify_token"
+                                value={form.data.webhook_verify_token}
+                                onChange={(event) =>
+                                    form.setData('webhook_verify_token', event.target.value)
+                                }
+                                placeholder={
+                                    settings.has_webhook_verify_token
+                                        ? 'Leave blank to keep current token'
+                                        : 'Auto-generated on save if left blank'
+                                }
+                                disabled={!can.update}
+                                autoComplete="off"
+                            />
+                            <InputError message={form.errors.webhook_verify_token} />
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-medium">Enable webhook ingestion</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Accept inbound events at the callback URL using the verify token.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={form.data.webhook_enabled}
+                                onCheckedChange={(checked) => form.setData('webhook_enabled', checked)}
+                                disabled={!can.update}
+                            />
+                        </div>
+
+                        {can.webhook_manage ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-xl"
+                                disabled={!settings.is_configured || registeringWebhook}
+                                onClick={handleRegisterWebhook}
+                            >
+                                {registeringWebhook ? (
+                                    <Spinner className="mr-2" />
+                                ) : (
+                                    <Radio className="mr-2 h-4 w-4" />
+                                )}
+                                Register webhook
+                            </Button>
                         ) : null}
                     </CardContent>
                 </Card>

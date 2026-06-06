@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\EmployeeFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -69,6 +70,11 @@ class Employee extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function hikvisionPerson(): BelongsTo
+    {
+        return $this->belongsTo(HikvisionPerson::class);
     }
 
     public function branch(): BelongsTo
@@ -205,5 +211,30 @@ class Employee extends Model
     public function trainings(): HasMany
     {
         return $this->hasMany(EmployeeTraining::class)->orderBy('sort_order')->orderByDesc('issue_date')->orderByDesc('id');
+    }
+
+    /**
+     * @return list<array{id: int, name: string, employee_no: string|null}>
+     */
+    public static function optionsForHikvisionLinking(int $companyId, ?int $currentPersonId = null): array
+    {
+        return self::query()
+            ->where('company_id', $companyId)
+            ->where(function (Builder $query) use ($currentPersonId): void {
+                $query->whereNull('hikvision_person_id');
+
+                if ($currentPersonId !== null) {
+                    $query->orWhere('hikvision_person_id', $currentPersonId);
+                }
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no'])
+            ->map(fn (self $employee): array => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_no' => $employee->employee_no,
+            ])
+            ->values()
+            ->all();
     }
 }

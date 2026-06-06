@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Filter, Fingerprint, Info, KeyRound, RefreshCw, Search, X } from 'lucide-react';
+import { Filter, Fingerprint, Info, KeyRound, Link2, MoreHorizontal, Pencil, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -18,6 +18,12 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
@@ -25,7 +31,15 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
-import type { HikvisionPerson, HikvisionPersonFilterOption, HikvisionPersonFilters } from './types';
+import { HikvisionPersonDeleteDialog } from './person-delete-dialog';
+import { LinkPersonEmployeeDialog } from './link-person-employee-dialog';
+import { HikvisionPersonFormDialog } from './person-form-dialog';
+import type {
+    EmployeeLinkOption,
+    HikvisionPerson,
+    HikvisionPersonFilterOption,
+    HikvisionPersonFilters,
+} from './types';
 
 type Props = {
     persons: HikvisionPerson[];
@@ -33,10 +47,15 @@ type Props = {
     filters: HikvisionPersonFilters;
     groupOptions: HikvisionPersonFilterOption[];
     credentialOptions: HikvisionPersonFilterOption[];
+    employeesForLinking: EmployeeLinkOption[];
     isConfigured: boolean;
     lastSyncedAt: string | null;
     can: {
         sync: boolean;
+        create: boolean;
+        update: boolean;
+        delete: boolean;
+        link: boolean;
     };
 };
 
@@ -50,6 +69,7 @@ export function HikvisionPersonsContent({
     filters,
     groupOptions,
     credentialOptions,
+    employeesForLinking,
     isConfigured,
     lastSyncedAt,
     can,
@@ -64,6 +84,10 @@ export function HikvisionPersonsContent({
         pagination,
     });
     const [syncing, setSyncing] = useState(false);
+    const [formOpen, setFormOpen] = useState(false);
+    const [editingPerson, setEditingPerson] = useState<HikvisionPerson | null>(null);
+    const [deletePerson, setDeletePerson] = useState<HikvisionPerson | null>(null);
+    const [linkingPerson, setLinkingPerson] = useState<HikvisionPerson | null>(null);
 
     const activeFilterCount = useMemo(
         () => [filters.search, filters.group, filters.credential].filter(Boolean).length,
@@ -116,23 +140,68 @@ export function HikvisionPersonsContent({
         );
     };
 
+    const openCreateDialog = () => {
+        setEditingPerson(null);
+        setFormOpen(true);
+    };
+
+    const openEditDialog = (person: HikvisionPerson) => {
+        setEditingPerson(person);
+        setFormOpen(true);
+    };
+
+    const confirmDelete = () => {
+        if (!deletePerson) {
+            return;
+        }
+
+        router.delete(`/hikvision/persons/${deletePerson.id}`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setDeletePerson(null);
+                toast.success('Person deleted from Hikvision.');
+            },
+            onError: (errors) => {
+                const message =
+                    typeof errors.person === 'string'
+                        ? errors.person
+                        : 'Failed to delete Hikvision person.';
+                toast.error(message);
+            },
+        });
+    };
+
     return (
         <Main>
             <PageHeader
                 title="Hikvision Persons"
                 description="Access-control persons and departments synced from Hik-Connect for Teams."
                 right={
-                    can.sync ? (
-                        <Button
-                            type="button"
-                            className="rounded-xl"
-                            disabled={!isConfigured || syncing}
-                            onClick={handleSync}
-                        >
-                            {syncing ? <Spinner className="mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-                            Sync
-                        </Button>
-                    ) : null
+                    <div className="flex items-center gap-2">
+                        {can.create ? (
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="rounded-xl"
+                                disabled={!isConfigured}
+                                onClick={openCreateDialog}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add person
+                            </Button>
+                        ) : null}
+                        {can.sync ? (
+                            <Button
+                                type="button"
+                                className="rounded-xl"
+                                disabled={!isConfigured || syncing}
+                                onClick={handleSync}
+                            >
+                                {syncing ? <Spinner className="mr-2" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                                Sync
+                            </Button>
+                        ) : null}
+                    </div>
                 }
             />
 
@@ -260,9 +329,13 @@ export function HikvisionPersonsContent({
                                 <DataTableHead>Name</DataTableHead>
                                 <DataTableHead>Employee no.</DataTableHead>
                                 <DataTableHead>Department</DataTableHead>
+                                <DataTableHead>Linked employee</DataTableHead>
                                 <DataTableHead>Email</DataTableHead>
                                 <DataTableHead>Credentials</DataTableHead>
                                 <DataTableHead>Last synced</DataTableHead>
+                                {can.update || can.delete || can.link ? (
+                                    <DataTableHead className="w-12" />
+                                ) : null}
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
@@ -291,6 +364,39 @@ export function HikvisionPersonsContent({
                                         {person.group_name ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
+                                        {person.linked_employee ? (
+                                            can.link ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setLinkingPerson(person)}
+                                                    className="font-medium text-primary underline-offset-4 hover:underline"
+                                                >
+                                                    {person.linked_employee.name}
+                                                </button>
+                                            ) : (
+                                                <Link
+                                                    href={`/organization/employees/${person.linked_employee.id}`}
+                                                    className="font-medium text-primary underline-offset-4 hover:underline"
+                                                >
+                                                    {person.linked_employee.name}
+                                                </Link>
+                                            )
+                                        ) : can.link ? (
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                className="h-8 px-2 text-muted-foreground hover:text-foreground"
+                                                onClick={() => setLinkingPerson(person)}
+                                            >
+                                                <Link2 className="mr-1.5 h-3.5 w-3.5" />
+                                                Link employee
+                                            </Button>
+                                        ) : (
+                                            '—'
+                                        )}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass}>
                                         {person.email ?? '—'}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
@@ -315,6 +421,47 @@ export function HikvisionPersonsContent({
                                     <TableCell className={dataTableCellClass}>
                                         {person.synced_at ? formatDisplayDateTime(person.synced_at) : '—'}
                                     </TableCell>
+                                    {can.update || can.delete || can.link ? (
+                                        <TableCell className={dataTableCellClass}>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 rounded-lg"
+                                                    >
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    {can.link ? (
+                                                        <DropdownMenuItem onClick={() => setLinkingPerson(person)}>
+                                                            <Link2 className="mr-2 h-4 w-4" />
+                                                            {person.linked_employee
+                                                                ? 'Change linked employee'
+                                                                : 'Link employee'}
+                                                        </DropdownMenuItem>
+                                                    ) : null}
+                                                    {can.update ? (
+                                                        <DropdownMenuItem onClick={() => openEditDialog(person)}>
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            Edit
+                                                        </DropdownMenuItem>
+                                                    ) : null}
+                                                    {can.delete ? (
+                                                        <DropdownMenuItem
+                                                            className="text-destructive focus:text-destructive"
+                                                            onClick={() => setDeletePerson(person)}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Delete
+                                                        </DropdownMenuItem>
+                                                    ) : null}
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </TableCell>
+                                    ) : null}
                                 </TableRow>
                             ))}
                         </TableBody>
@@ -328,6 +475,35 @@ export function HikvisionPersonsContent({
                     />
                 </>
             )}
+
+            <HikvisionPersonFormDialog
+                open={formOpen}
+                onOpenChange={setFormOpen}
+                person={editingPerson}
+                groupOptions={groupOptions}
+            />
+
+            <HikvisionPersonDeleteDialog
+                open={deletePerson !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setDeletePerson(null);
+                    }
+                }}
+                person={deletePerson}
+                onConfirm={confirmDelete}
+            />
+
+            <LinkPersonEmployeeDialog
+                open={linkingPerson !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setLinkingPerson(null);
+                    }
+                }}
+                person={linkingPerson}
+                employeesForLinking={employeesForLinking}
+            />
         </Main>
     );
 }

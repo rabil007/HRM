@@ -21,6 +21,8 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
             'api_key' => ['nullable', 'string', 'max:255'],
             'api_secret' => ['nullable', 'string', 'max:255'],
             'enabled' => ['required', 'boolean'],
+            'webhook_enabled' => ['sometimes', 'boolean'],
+            'webhook_verify_token' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -32,6 +34,8 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
             'api_key',
             'api_secret',
             'enabled',
+            'webhook_enabled',
+            'webhook_verify_token',
         ]);
     }
 }

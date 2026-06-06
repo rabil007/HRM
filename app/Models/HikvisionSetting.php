@@ -29,6 +29,11 @@ class HikvisionSetting extends Model
         'events_fetch_status',
         'events_fetch_message',
         'events_fetch_started_at',
+        'webhook_verify_token',
+        'webhook_enabled',
+        'webhook_callback_url',
+        'webhook_registered_at',
+        'webhook_last_event_at',
     ];
 
     /**
@@ -44,6 +49,9 @@ class HikvisionSetting extends Model
             'persons_last_synced_at' => 'datetime',
             'events_last_fetched_at' => 'datetime',
             'events_fetch_started_at' => 'datetime',
+            'webhook_enabled' => 'boolean',
+            'webhook_registered_at' => 'datetime',
+            'webhook_last_event_at' => 'datetime',
         ];
     }
 
@@ -174,6 +182,12 @@ class HikvisionSetting extends Model
             'has_api_secret' => $hasStoredSecret || filled($envSecret),
             'uses_env_fallback' => ! $hasStoredCredentials && $hasEnvCredentials,
             'is_configured' => $this->isConfigured(),
+            'webhook_verify_token' => $this->webhook_verify_token ?? '',
+            'webhook_enabled' => (bool) $this->webhook_enabled,
+            'webhook_callback_url' => $this->webhook_callback_url,
+            'webhook_registered_at' => $this->webhook_registered_at?->toIso8601String(),
+            'webhook_last_event_at' => $this->webhook_last_event_at?->toIso8601String(),
+            'has_webhook_verify_token' => filled($this->webhook_verify_token),
         ];
     }
 
@@ -193,6 +207,42 @@ class HikvisionSetting extends Model
             $this->api_secret = (string) $data['api_secret'];
         }
 
+        if (array_key_exists('webhook_verify_token', $data)) {
+            $this->webhook_verify_token = filled($data['webhook_verify_token'])
+                ? (string) $data['webhook_verify_token']
+                : null;
+        }
+
+        if (array_key_exists('webhook_enabled', $data)) {
+            $this->webhook_enabled = (bool) $data['webhook_enabled'];
+        }
+
         $this->save();
+    }
+
+    public function ensureWebhookVerifyToken(): string
+    {
+        if (filled($this->webhook_verify_token)) {
+            return (string) $this->webhook_verify_token;
+        }
+
+        $token = bin2hex(random_bytes(16));
+        $this->update(['webhook_verify_token' => $token]);
+
+        return $token;
+    }
+
+    public function markWebhookRegistered(string $callbackUrl): void
+    {
+        $this->update([
+            'webhook_callback_url' => $callbackUrl,
+            'webhook_registered_at' => now(),
+            'webhook_enabled' => true,
+        ]);
+    }
+
+    public function markWebhookEventReceived(): void
+    {
+        $this->update(['webhook_last_event_at' => now()]);
     }
 }

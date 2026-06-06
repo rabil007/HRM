@@ -26,6 +26,10 @@ class HikvisionAccessEvent extends Model
 
     public const EVENT_SOURCE_ATTENDANCE_API = 'attendance_api';
 
+    public const EVENT_SOURCE_CERTIFICATE_API = 'certificate_api';
+
+    public const EVENT_SOURCE_WEBHOOK = 'webhook';
+
     protected $fillable = [
         'system_id',
         'msg_type',
@@ -36,6 +40,7 @@ class HikvisionAccessEvent extends Model
         'resource_id',
         'resource_name',
         'person_name',
+        'person_hikvision_id',
         'door_no',
         'card_reader_no',
         'verify_mode',
@@ -43,6 +48,7 @@ class HikvisionAccessEvent extends Model
         'event_source',
         'transaction_source',
         'raw_payload',
+        'snap_urls',
         'fetched_at',
     ];
 
@@ -54,6 +60,7 @@ class HikvisionAccessEvent extends Model
         return [
             'occurrence_time' => 'datetime',
             'raw_payload' => 'array',
+            'snap_urls' => 'array',
             'fetched_at' => 'datetime',
         ];
     }
@@ -186,6 +193,8 @@ class HikvisionAccessEvent extends Model
             ->whereIn('event_source', [
                 self::EVENT_SOURCE_ACS_ISAPI,
                 self::EVENT_SOURCE_ATTENDANCE_API,
+                self::EVENT_SOURCE_CERTIFICATE_API,
+                self::EVENT_SOURCE_WEBHOOK,
             ])
             ->where(function (Builder $query): void {
                 $query->whereNotNull('person_name')
@@ -345,5 +354,191 @@ class HikvisionAccessEvent extends Model
         } catch (\Throwable) {
             return now();
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    public static function upsertFromCertificateRecord(array $record): ?self
+    {
+        $personInfo = is_array($record['personInfo'] ?? null) ? $record['personInfo'] : [];
+        $personName = trim((string) ($personInfo['personName'] ?? $personInfo['name'] ?? $record['personName'] ?? ''));
+        $personHikvisionId = trim((string) ($personInfo['personId'] ?? $record['personId'] ?? ''));
+        $occurrenceTime = self::parseOccurrenceTime((string) ($record['occurTime'] ?? $record['swipeTime'] ?? ''));
+        $attendanceStatus = trim((string) ($record['attendanceStatus'] ?? ''));
+        $deviceName = trim((string) ($record['deviceName'] ?? $record['elementName'] ?? ''));
+        $verifyMode = trim((string) ($record['verifyMode'] ?? $record['checkType'] ?? ''));
+        $recordId = trim((string) ($record['recordId'] ?? $record['id'] ?? ''));
+        $transactionSource = self::mapCertificateRecordSource($record);
+
+        if ($personName === '' && $attendanceStatus === '') {
+            return null;
+        }
+
+        if (self::isDuplicateAccessRecord($personName, $occurrenceTime, $attendanceStatus, $transactionSource)) {
+            return null;
+        }
+
+        $systemId = $recordId !== ''
+            ? "cert:{$recordId}"
+            : 'cert:'.hash('sha256', implode('|', [$personHikvisionId, $personName, $occurrenceTime->toIso8601String(), $attendanceStatus, $deviceName]));
+
+        $snapUrls = self::extractSnapUrls($record);
+
+        return self::query()->updateOrCreate(
+            [
+                'system_id' => $systemId,
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => 'acs/certificate-record',
+            ],
+            [
+                'person_name' => $personName !== '' ? $personName : null,
+                'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
+                'device_name' => $deviceName !== '' ? $deviceName : null,
+                'resource_name' => trim((string) ($record['elementName'] ?? '')) ?: null,
+                'verify_mode' => $verifyMode !== '' ? $verifyMode : null,
+                'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
+                'event_source' => self::EVENT_SOURCE_CERTIFICATE_API,
+                'transaction_source' => $transactionSource,
+                'snap_urls' => $snapUrls !== [] ? $snapUrls : null,
+                'raw_payload' => $record,
+                'fetched_at' => now(),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     */
+    public static function upsertFromWebhook(array $payload): ?self
+    {
+        if (isset($payload['recordList']) && is_array($payload['recordList'])) {
+            $stored = null;
+
+            foreach ($payload['recordList'] as $record) {
+                if (! is_array($record)) {
+                    continue;
+                }
+
+                $stored = self::upsertFromWebhookRecord($record) ?? $stored;
+            }
+
+            return $stored;
+        }
+
+        return self::upsertFromWebhookRecord($payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    public static function upsertFromWebhookRecord(array $record): ?self
+    {
+        if (isset($record['personInfo']) || isset($record['occurTime']) || isset($record['swipeTime'])) {
+            $stored = self::upsertFromCertificateRecord($record);
+
+            if ($stored !== null) {
+                $stored->update(['event_source' => self::EVENT_SOURCE_WEBHOOK]);
+            }
+
+            return $stored;
+        }
+
+        $basicInfo = is_array($record['basicInfo'] ?? null) ? $record['basicInfo'] : [];
+        $device = is_array($basicInfo['device'] ?? null) ? $basicInfo['device'] : [];
+        $occurrenceTime = self::parseOccurrenceTime((string) ($basicInfo['occurrenceTime'] ?? ''));
+        $personName = trim((string) ($record['name'] ?? $record['personName'] ?? ''));
+        $attendanceStatus = trim((string) ($record['attendanceStatus'] ?? ''));
+        $deviceName = trim((string) ($device['name'] ?? $record['deviceName'] ?? ''));
+        $systemId = trim((string) ($basicInfo['systemId'] ?? ''));
+
+        if ($systemId === '') {
+            $systemId = 'webhook:'.hash('sha256', json_encode($record));
+        } else {
+            $systemId = "webhook:{$systemId}";
+        }
+
+        if ($personName === '' && $attendanceStatus === '') {
+            return null;
+        }
+
+        return self::query()->updateOrCreate(
+            [
+                'system_id' => $systemId,
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => (string) ($basicInfo['msgType'] ?? 'webhook/event'),
+            ],
+            [
+                'device_id' => filled($device['id'] ?? null) ? (string) $device['id'] : null,
+                'device_name' => $deviceName !== '' ? $deviceName : null,
+                'person_name' => $personName !== '' ? $personName : null,
+                'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
+                'event_source' => self::EVENT_SOURCE_WEBHOOK,
+                'transaction_source' => self::TRANSACTION_DEVICE,
+                'raw_payload' => $record,
+                'fetched_at' => now(),
+            ],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    protected static function mapCertificateRecordSource(array $record): string
+    {
+        $sourceType = (int) ($record['sourceType'] ?? $record['recordSource'] ?? 0);
+
+        return match ($sourceType) {
+            3 => self::TRANSACTION_MOBILE_APP,
+            1 => self::TRANSACTION_DEVICE,
+            2 => self::TRANSACTION_CORRECTION,
+            default => self::TRANSACTION_UNKNOWN,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return list<string>
+     */
+    protected static function extractSnapUrls(array $record): array
+    {
+        $urls = [];
+        $snapList = $record['acsSnapPicList'] ?? $record['snapPicList'] ?? [];
+
+        if (! is_array($snapList)) {
+            return [];
+        }
+
+        foreach ($snapList as $snap) {
+            if (! is_array($snap)) {
+                continue;
+            }
+
+            $url = trim((string) ($snap['picUrl'] ?? $snap['url'] ?? ''));
+
+            if ($url !== '') {
+                $urls[] = $url;
+            }
+        }
+
+        return array_values(array_unique($urls));
+    }
+
+    protected static function isDuplicateAccessRecord(
+        string $personName,
+        Carbon $occurrenceTime,
+        string $attendanceStatus,
+        string $transactionSource,
+    ): bool {
+        if ($personName === '') {
+            return false;
+        }
+
+        return self::query()
+            ->where('person_name', $personName)
+            ->where('occurrence_time', $occurrenceTime)
+            ->where('attendance_status', $attendanceStatus !== '' ? $attendanceStatus : null)
+            ->where('transaction_source', $transactionSource)
+            ->exists();
     }
 }

@@ -433,11 +433,12 @@ export function HikvisionAccessEventsContent({
                 />
             ) : (
                 <>
-                    <OrganizationDataTable minWidth="min-w-[1100px]">
+                    <OrganizationDataTable minWidth="min-w-[1200px]">
                         <TableHeader>
                             <DataTableHeaderRow>
                                 <DataTableHead>Time</DataTableHead>
                                 <DataTableHead>Name</DataTableHead>
+                                <DataTableHead>Photo</DataTableHead>
                                 <DataTableHead>Device</DataTableHead>
                                 <DataTableHead>Door</DataTableHead>
                                 <DataTableHead>Card reader</DataTableHead>
@@ -453,7 +454,28 @@ export function HikvisionAccessEventsContent({
                                         {formatDisplayDateTime(event.occurrence_time)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {event.person_name ?? '—'}
+                                        <div className="flex flex-col gap-0.5">
+                                            <span>{event.person_name ?? '—'}</span>
+                                            {event.employee_name ? (
+                                                <Link
+                                                    href={`/organization/employees/${event.employee_id}`}
+                                                    className="text-xs text-primary hover:underline"
+                                                >
+                                                    {event.employee_name}
+                                                </Link>
+                                            ) : null}
+                                        </div>
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass}>
+                                        {event.snap_urls.length > 0 ? (
+                                            <img
+                                                src={event.snap_urls[0]}
+                                                alt=""
+                                                className="h-10 w-10 rounded-md object-cover"
+                                            />
+                                        ) : (
+                                            '—'
+                                        )}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {event.device_name ?? '—'}

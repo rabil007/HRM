@@ -36,6 +36,24 @@ return [
 
     'attendance_totaltimecard_path' => '/api/hccgw/attendance/v1/report/totaltimecard/list',
 
+    'certificate_records_search_path' => '/api/hccgw/acs/v1/event/certificaterecords/search',
+
+    'certificate_records_page_size' => 100,
+
+    'persons_get_path' => '/api/hccgw/person/v1/persons/get',
+
+    'persons_add_path' => '/api/hccgw/person/v1/persons/add',
+
+    'persons_update_path' => '/api/hccgw/person/v1/persons/update',
+
+    'persons_delete_path' => '/api/hccgw/person/v1/persons/delete',
+
+    'persons_photo_path' => '/api/hccgw/person/v1/persons/photo',
+
+    'webhook_config_save_path' => '/api/hccgw/webhook/v1/config/save',
+
+    'webhook_verify_header' => 'X-HCC-Webhook-Token',
+
     'acs_event_page_size' => 50,
 
     'attendance_page_size' => 200,

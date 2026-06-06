@@ -58,8 +58,43 @@ test('owner can view hikvision integration settings page', function () {
         ->assertInertia(fn ($page) => $page
             ->component('settings/application')
             ->has('hikvision.settings')
-            ->where('hikvision.settings.api_host', fn ($value) => is_string($value)),
+            ->where('hikvision.settings.api_host', fn ($value) => is_string($value))
+            ->has('hikvision.webhook_url'),
         );
+});
+
+test('user with webhook permission can register hikvision webhook', function () {
+    configuredHikvisionSettings();
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/webhook/v1/config/save' => Http::response([
+            'data' => [],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'hikvision.webhook.manage',
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('application.edit'))
+        ->post(route('application.hikvision.webhook.register'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(HikvisionSetting::current()->webhook_registered_at)->not->toBeNull();
 });
 
 test('users without hikvision permission do not receive hikvision settings props', function () {

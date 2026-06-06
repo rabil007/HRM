@@ -92,6 +92,13 @@ function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
             ],
             'errorCode' => '0',
         ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => [],
+                'totalNum' => 0,
+            ],
+            'errorCode' => '0',
+        ], 200),
     ]);
 }
 
@@ -111,6 +118,33 @@ test('user with permission can view hikvision access events page', function () {
             ->has('device_options')
             ->has('fetch_status')
             ->has('can'),
+        );
+});
+
+test('access events page includes certificate-backed events with snap urls', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'cert:test-1',
+        'msg_type' => 'acs/certificate-record',
+        'occurrence_time' => '2026-06-05 08:30:00',
+        'person_name' => 'Cert User',
+        'person_hikvision_id' => 'person-cert-1',
+        'attendance_status' => 'checkIn',
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_CERTIFICATE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'snap_urls' => ['https://example.com/snap.jpg'],
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.event_source', HikvisionAccessEvent::EVENT_SOURCE_CERTIFICATE_API)
+            ->where('events.0.snap_urls', ['https://example.com/snap.jpg']),
         );
 });
 
@@ -295,6 +329,13 @@ test('fetch ignores door system events without person identity', function () {
             ],
             'errorCode' => '0',
         ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => [],
+                'totalNum' => 0,
+            ],
+            'errorCode' => '0',
+        ], 200),
     ]);
 
     configuredHikvisionSettings();
@@ -364,6 +405,13 @@ test('background job stores mobile app attendance records from total time card a
                         'clockOutDevice' => '',
                     ],
                 ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => [],
+                'totalNum' => 0,
             ],
             'errorCode' => '0',
         ], 200),

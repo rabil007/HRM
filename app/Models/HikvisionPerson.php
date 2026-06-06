@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class HikvisionPerson extends Model
 {
@@ -92,6 +93,30 @@ class HikvisionPerson extends Model
     }
 
     /**
+     * @return HasOne<Employee, $this>
+     */
+    public function employee(): HasOne
+    {
+        return $this->hasOne(Employee::class);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function toApiPersonInfo(array $overrides = []): array
+    {
+        return array_merge([
+            'personId' => $this->person_id,
+            'groupId' => $this->group_id,
+            'firstName' => $this->first_name,
+            'lastName' => $this->last_name,
+            'personCode' => $this->person_code,
+            'phone' => $this->phone,
+            'email' => $this->email,
+        ], $overrides);
+    }
+
+    /**
      * @return list<string>
      */
     public static function credentialFilterOptions(): array
@@ -142,5 +167,32 @@ class HikvisionPerson extends Model
         }
 
         return $query;
+    }
+
+    /**
+     * @return list<array{id: int, person_id: string, full_name: string|null, person_code: string|null, group_name: string|null}>
+     */
+    public static function optionsForLinking(?int $currentEmployeeId = null): array
+    {
+        return self::query()
+            ->with('group')
+            ->where(function (Builder $query) use ($currentEmployeeId): void {
+                $query->whereDoesntHave('employee');
+
+                if ($currentEmployeeId !== null) {
+                    $query->orWhereHas('employee', fn (Builder $query) => $query->where('id', $currentEmployeeId));
+                }
+            })
+            ->orderBy('full_name')
+            ->get()
+            ->map(fn (self $person): array => [
+                'id' => $person->id,
+                'person_id' => $person->person_id,
+                'full_name' => $person->full_name,
+                'person_code' => $person->person_code,
+                'group_name' => $person->group?->name,
+            ])
+            ->values()
+            ->all();
     }
 }

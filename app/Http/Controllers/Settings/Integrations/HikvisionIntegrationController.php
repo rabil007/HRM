@@ -10,6 +10,8 @@ use App\Models\User;
 use App\Services\HikvisionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\URL;
+use RuntimeException;
 
 class HikvisionIntegrationController extends Controller
 {
@@ -28,15 +30,22 @@ class HikvisionIntegrationController extends Controller
 
         return [
             'settings' => $settings->toSettingsPageArray(),
+            'webhook_url' => URL::route('webhooks.hikvision', absolute: true),
             'can' => [
                 'update' => $user->can('settings.integrations.hikvision.update'),
+                'webhook_manage' => $user->can('hikvision.webhook.manage'),
             ],
         ];
     }
 
     public function update(UpdateHikvisionIntegrationRequest $request): RedirectResponse
     {
-        HikvisionSetting::current()->storeFromValidated($request->settingsPayload());
+        $settings = HikvisionSetting::current();
+        $settings->storeFromValidated($request->settingsPayload());
+
+        if ($request->boolean('webhook_enabled') && ! filled($settings->webhook_verify_token)) {
+            $settings->ensureWebhookVerifyToken();
+        }
 
         return back()->with('success', 'Hikvision settings saved.');
     }
@@ -57,5 +66,28 @@ class HikvisionIntegrationController extends Controller
         $result = $this->hikvision->testConnection($override);
 
         return response()->json($result, $result['success'] ? 200 : 422);
+    }
+
+    public function registerWebhook(): RedirectResponse
+    {
+        $settings = HikvisionSetting::current();
+
+        if (! $settings->isConfigured()) {
+            return back()->withErrors([
+                'webhook' => 'Configure Hikvision API credentials before registering the webhook.',
+            ]);
+        }
+
+        $callbackUrl = URL::route('webhooks.hikvision', absolute: true);
+
+        try {
+            $result = $this->hikvision->ensureWebhookConfigured($callbackUrl);
+
+            return back()->with('success', $result['message']);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors([
+                'webhook' => $exception->getMessage(),
+            ]);
+        }
     }
 }

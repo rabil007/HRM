@@ -1,6 +1,7 @@
 import { Head } from '@inertiajs/react';
 import { HikvisionPersonsContent } from '@/features/hikvision/persons';
 import type {
+    EmployeeLinkOption,
     HikvisionPerson,
     HikvisionPersonFilterOption,
     HikvisionPersonFilters,
@@ -13,10 +14,15 @@ type Props = {
     filters: HikvisionPersonFilters;
     group_options: HikvisionPersonFilterOption[];
     credential_options: HikvisionPersonFilterOption[];
+    employees_for_linking: EmployeeLinkOption[];
     is_configured: boolean;
     last_synced_at: string | null;
     can: {
         sync: boolean;
+        create: boolean;
+        update: boolean;
+        delete: boolean;
+        link: boolean;
     };
 };
 
@@ -26,6 +32,7 @@ export default function HikvisionPersons({
     filters,
     group_options,
     credential_options,
+    employees_for_linking,
     is_configured,
     last_synced_at,
     can,
@@ -39,6 +46,7 @@ export default function HikvisionPersons({
                 filters={filters}
                 groupOptions={group_options}
                 credentialOptions={credential_options}
+                employeesForLinking={employees_for_linking}
                 isConfigured={is_configured}
                 lastSyncedAt={last_synced_at}
                 can={can}

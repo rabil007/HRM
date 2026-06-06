@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Hikvision;
 
 use App\Http\Controllers\Controller;
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionSetting;
 use App\Support\Pagination\ResolvesPerPage;
@@ -57,21 +58,46 @@ class HikvisionAccessEventController extends Controller
         $lastFetchedAt = $settings->events_last_fetched_at
             ?? HikvisionAccessEvent::query()->max('fetched_at');
 
+        $personHikvisionIds = $paginator->getCollection()
+            ->pluck('person_hikvision_id')
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
+
+        $employeesByPersonId = $personHikvisionIds === []
+            ? collect()
+            : Employee::query()
+                ->with('hikvisionPerson:id,person_id')
+                ->whereHas('hikvisionPerson', fn ($query) => $query->whereIn('person_id', $personHikvisionIds))
+                ->get()
+                ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
+
         return Inertia::render('hikvision/access-events', [
             'events' => $paginator->getCollection()
-                ->map(fn (HikvisionAccessEvent $event) => [
-                    'id' => $event->id,
-                    'occurrence_time' => $event->occurrence_time?->toIso8601String(),
-                    'person_name' => $event->person_name,
-                    'device_name' => $event->device_name,
-                    'door_no' => $event->door_no,
-                    'resource_name' => $event->resource_name,
-                    'card_reader_no' => $event->card_reader_no,
-                    'verify_mode' => $event->verify_mode,
-                    'attendance_status' => $event->attendance_status,
-                    'transaction_source' => $event->transaction_source,
-                    'fetched_at' => $event->fetched_at?->toIso8601String(),
-                ])
+                ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId) {
+                    $linkedEmployee = $event->person_hikvision_id
+                        ? $employeesByPersonId->get($event->person_hikvision_id)
+                        : null;
+
+                    return [
+                        'id' => $event->id,
+                        'occurrence_time' => $event->occurrence_time?->toIso8601String(),
+                        'person_name' => $event->person_name,
+                        'employee_name' => $linkedEmployee?->name,
+                        'employee_id' => $linkedEmployee?->id,
+                        'device_name' => $event->device_name,
+                        'door_no' => $event->door_no,
+                        'resource_name' => $event->resource_name,
+                        'card_reader_no' => $event->card_reader_no,
+                        'verify_mode' => $event->verify_mode,
+                        'attendance_status' => $event->attendance_status,
+                        'transaction_source' => $event->transaction_source,
+                        'event_source' => $event->event_source,
+                        'snap_urls' => $event->snap_urls ?? [],
+                        'fetched_at' => $event->fetched_at?->toIso8601String(),
+                    ];
+                })
                 ->values()
                 ->all(),
             'pagination' => $this->paginationMeta($paginator),

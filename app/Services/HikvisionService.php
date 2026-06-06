@@ -608,11 +608,174 @@ class HikvisionService
         }
 
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
-        $totalCount = $fetchedCount + $mobileCount;
+        $certificateCount = $this->fetchCertificateRecords($startTime, $endTime);
+        $totalCount = $fetchedCount + $mobileCount + $certificateCount;
 
         return [
             'fetched_count' => $totalCount,
-            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app).",
+            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app, {$certificateCount} certificate).",
+        ];
+    }
+
+    public function fetchCertificateRecords(
+        CarbonInterface $startTime,
+        CarbonInterface $endTime,
+    ): int {
+        $pageSize = (int) config('hikvision.certificate_records_page_size', 100);
+        $pageIndex = 1;
+        $storedCount = 0;
+
+        do {
+            $result = $this->searchCertificateRecords($startTime, $endTime, $pageIndex, $pageSize);
+            $records = $result['records'];
+
+            foreach ($records as $record) {
+                if (! is_array($record)) {
+                    continue;
+                }
+
+                $stored = HikvisionAccessEvent::upsertFromCertificateRecord($record);
+
+                if ($stored !== null) {
+                    $storedCount++;
+                }
+            }
+
+            $pageIndex++;
+        } while (count($records) === $pageSize);
+
+        return $storedCount;
+    }
+
+    /**
+     * @return array{records: list<array<string, mixed>>, total: int, page_index: int, page_size: int}
+     */
+    public function searchCertificateRecords(
+        CarbonInterface $beginTime,
+        CarbonInterface $endTime,
+        int $pageIndex = 1,
+        int $pageSize = 100,
+        ?array $override = null,
+    ): array {
+        $payload = $this->postWithToken(config('hikvision.certificate_records_search_path'), [
+            'pageIndex' => $pageIndex,
+            'pageSize' => $pageSize,
+            'beginTime' => $beginTime->format('Y-m-d\TH:i:sP'),
+            'endTime' => $endTime->format('Y-m-d\TH:i:sP'),
+        ], $override);
+
+        $data = is_array($payload['data'] ?? null) ? $payload['data'] : [];
+        $records = $data['recordList'] ?? [];
+
+        if (! is_array($records)) {
+            $records = [];
+        }
+
+        return [
+            'records' => array_values(array_filter($records, is_array(...))),
+            'total' => (int) ($data['totalNum'] ?? 0),
+            'page_index' => $pageIndex,
+            'page_size' => $pageSize,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function getPersonDetail(string $personId, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.persons_get_path'), [
+            'personId' => $personId,
+        ], $override);
+
+        $person = $payload['data']['personInfo'] ?? $payload['data'] ?? null;
+
+        if (! is_array($person)) {
+            throw new RuntimeException('Hikvision person detail response was invalid.');
+        }
+
+        return $person;
+    }
+
+    /**
+     * @param  array<string, mixed>  $personInfo
+     * @return array<string, mixed>
+     */
+    public function createPerson(array $personInfo, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.persons_add_path'), $personInfo, $override);
+
+        return is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+    }
+
+    /**
+     * @param  array<string, mixed>  $personInfo
+     * @return array<string, mixed>
+     */
+    public function updatePerson(array $personInfo, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.persons_update_path'), $personInfo, $override);
+
+        return is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+    }
+
+    public function deletePerson(string $personId, ?array $override = null): void
+    {
+        $this->postWithToken(config('hikvision.persons_delete_path'), [
+            'personId' => $personId,
+        ], $override);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function uploadPersonPhoto(string $personId, string $photoBase64, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.persons_photo_path'), [
+            'personId' => $personId,
+            'photoData' => $photoBase64,
+        ], $override);
+
+        return is_array($payload['data'] ?? null) ? $payload['data'] : $payload;
+    }
+
+    /**
+     * @return array{success: bool, message: string}
+     */
+    public function registerWebhook(string $callbackUrl, string $verifyToken, ?array $override = null): array
+    {
+        $this->postWithToken(config('hikvision.webhook_config_save_path'), [
+            'callbackUrl' => $callbackUrl,
+            'token' => $verifyToken,
+        ], $override);
+
+        HikvisionSetting::current()->markWebhookRegistered($callbackUrl);
+
+        return [
+            'success' => true,
+            'message' => 'Webhook registered successfully.',
+        ];
+    }
+
+    /**
+     * @return array{success: bool, message: string, callback_url: string}
+     */
+    public function ensureWebhookConfigured(string $callbackUrl): array
+    {
+        $settings = HikvisionSetting::current();
+        $token = $settings->ensureWebhookVerifyToken();
+
+        if ($settings->webhook_registered_at !== null && $settings->webhook_callback_url === $callbackUrl) {
+            return [
+                'success' => true,
+                'message' => 'Webhook is already registered.',
+                'callback_url' => $callbackUrl,
+            ];
+        }
+
+        return [
+            ...$this->registerWebhook($callbackUrl, $token),
+            'callback_url' => $callbackUrl,
         ];
     }
 

@@ -41,6 +41,7 @@ use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
 use App\Http\Controllers\Organization\UserController;
+use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +56,9 @@ Route::match(['get', 'post'], 'whatsapp/webhook', WhatsAppWebhookController::cla
 
 Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::class)
     ->name('webhooks.whatsapp');
+
+Route::post('webhooks/hikvision', HikvisionWebhookController::class)
+    ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -227,6 +231,26 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('hikvision/persons/sync', [HikvisionPersonController::class, 'sync'])
         ->middleware('can:hikvision.persons.sync')
         ->name('hikvision.persons.sync');
+
+    Route::post('hikvision/persons', [HikvisionPersonController::class, 'store'])
+        ->middleware('can:hikvision.persons.create')
+        ->name('hikvision.persons.store');
+
+    Route::put('hikvision/persons/{person}', [HikvisionPersonController::class, 'update'])
+        ->middleware('can:hikvision.persons.update')
+        ->name('hikvision.persons.update');
+
+    Route::delete('hikvision/persons/{person}', [HikvisionPersonController::class, 'destroy'])
+        ->middleware('can:hikvision.persons.delete')
+        ->name('hikvision.persons.destroy');
+
+    Route::post('hikvision/persons/{person}/photo', [HikvisionPersonController::class, 'uploadPhoto'])
+        ->middleware('can:hikvision.persons.update')
+        ->name('hikvision.persons.photo');
+
+    Route::put('hikvision/persons/{person}/employee', [HikvisionPersonController::class, 'linkEmployee'])
+        ->middleware('can:hikvision.persons.link')
+        ->name('hikvision.persons.employee.link');
 
     Route::get('hikvision/devices', [HikvisionDeviceController::class, 'index'])
         ->middleware('can:hikvision.devices.view')

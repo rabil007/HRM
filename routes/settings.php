@@ -97,6 +97,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.integrations.hikvision.update')
         ->name('application.hikvision.test');
 
+    Route::post('settings/application/hikvision/webhook/register', [HikvisionIntegrationController::class, 'registerWebhook'])
+        ->middleware('can:hikvision.webhook.manage')
+        ->name('application.hikvision.webhook.register');
+
     Route::get('settings/application/whatsapp-templates', [WhatsAppTemplateController::class, 'index'])
         ->middleware('can:settings.integrations.whatsapp-templates.view')
         ->name('application.whatsapp-templates.index');

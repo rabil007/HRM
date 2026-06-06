@@ -17,6 +17,8 @@ export type HikvisionAccessEvent = {
     id: number;
     occurrence_time: string | null;
     person_name: string | null;
+    employee_name: string | null;
+    employee_id: number | null;
     device_name: string | null;
     door_no: string | null;
     resource_name: string | null;
@@ -24,5 +26,7 @@ export type HikvisionAccessEvent = {
     verify_mode: string | null;
     attendance_status: string | null;
     transaction_source: string | null;
+    event_source: string | null;
+    snap_urls: string[];
     fetched_at: string | null;
 };

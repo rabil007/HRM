@@ -100,6 +100,25 @@ test('user with permission can view hikvision persons page', function () {
         );
 });
 
+test('persons page exposes crud permissions when granted', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.create',
+        'hikvision.persons.update',
+        'hikvision.persons.delete',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.persons.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true),
+        );
+});
+
 test('user without permission cannot view hikvision persons page', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['employees.view']);
