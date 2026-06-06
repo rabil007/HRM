@@ -28,11 +28,11 @@ import {
 } from '@/components/ui/select';
 import { Spinner } from '@/components/ui/spinner';
 import { Textarea } from '@/components/ui/textarea';
-import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import {
     HikvisionSettingsPanel,
 } from '@/features/settings/hikvision-settings-panel';
 import type { HikvisionSettingsPanelProps } from '@/features/settings/hikvision-settings-panel';
+import { sendSmtpTestEmail } from '@/features/settings/send-smtp-test-email';
 import {
     WhatsAppSettingsPanel,
 } from '@/features/settings/whatsapp-settings-panel';

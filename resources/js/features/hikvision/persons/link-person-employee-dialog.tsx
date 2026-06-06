@@ -47,18 +47,12 @@ export function LinkPersonEmployeeDialog({
     person: HikvisionPerson | null;
     employeesForLinking: EmployeeLinkOption[];
 }): ReactElement | null {
-    if (person === null) {
-        return null;
-    }
-
-    const options = buildOptions(employeesForLinking, person);
-
     const form = useForm({
-        employee_id: person.linked_employee?.id ? String(person.linked_employee.id) : '',
+        employee_id: person?.linked_employee?.id ? String(person.linked_employee.id) : '',
     });
 
     useEffect(() => {
-        if (!open) {
+        if (!open || person === null) {
             return;
         }
 
@@ -67,7 +61,14 @@ export function LinkPersonEmployeeDialog({
             'employee_id',
             person.linked_employee?.id ? String(person.linked_employee.id) : '',
         );
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- reset form when dialog opens for a person
     }, [open, person]);
+
+    if (person === null) {
+        return null;
+    }
+
+    const options = buildOptions(employeesForLinking, person);
 
     const handleOpenChange = (nextOpen: boolean): void => {
         if (nextOpen) {

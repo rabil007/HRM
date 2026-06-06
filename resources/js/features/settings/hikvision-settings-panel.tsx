@@ -19,8 +19,8 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
-import { toast } from '@/lib/toast';
 import { formatDisplayDateTime } from '@/lib/format-date';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 
 type ConnectionStatus = 'idle' | 'connected' | 'failed';

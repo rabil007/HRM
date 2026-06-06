@@ -36,11 +36,11 @@ import {
     employeeRecordsTableTdClass,
     employeeRecordsTableThClass,
 } from '@/pages/organization/_components/employee-records-panel';
+import { applyRecordFormErrors } from '@/pages/organization/_lib/apply-record-form-errors';
 import {
     employeeFieldMissingHighlightClass,
     employeeFieldMissingLabelClass,
 } from '@/pages/organization/_lib/employee-required-field-labels';
-import { applyRecordFormErrors } from '@/pages/organization/_lib/apply-record-form-errors';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import { normalizeDecimalFieldValue } from '@/pages/organization/_lib/normalize-decimal-field-value';
 import {

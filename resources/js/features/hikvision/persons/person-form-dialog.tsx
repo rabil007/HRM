@@ -54,6 +54,7 @@ export function HikvisionPersonFormDialog({
 
         form.clearErrors();
         form.setData(buildInitialForm(person));
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- reset form when dialog opens for a person
     }, [open, person]);
 
     const handlePhotoChange = (event: ChangeEvent<HTMLInputElement>): void => {
