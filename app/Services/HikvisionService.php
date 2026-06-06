@@ -716,14 +716,31 @@ class HikvisionService
     /**
      * @return array{success: bool, message: string}
      */
-    public function registerWebhook(string $callbackUrl, string $verifyToken, ?array $override = null): array
+    public function registerWebhook(string $callbackUrl, ?array $override = null): array
     {
-        $this->postWithToken(config('hikvision.webhook_config_save_path'), [
+        $settings = HikvisionSetting::current();
+        $settings->ensureWebhookVerifyToken();
+
+        $payload = [
             'callbackUrl' => $callbackUrl,
-            'token' => $verifyToken,
+            'retryTimes' => 3,
+            'retryDelay' => 1000,
+        ];
+
+        $signSecret = $settings->webhookSignSecretForRegistration();
+
+        if ($signSecret !== null) {
+            $payload['signSecret'] = $signSecret;
+        }
+
+        $this->postWithToken(config('hikvision.webhook_config_save_path'), $payload, $override);
+
+        $this->postWithToken(config('hikvision.rawmsg_mq_subscribe_path'), [
+            'subscribeType' => 1,
+            'msgType' => [],
         ], $override);
 
-        HikvisionSetting::current()->markWebhookRegistered($callbackUrl);
+        $settings->markWebhookRegistered($callbackUrl);
 
         return [
             'success' => true,
@@ -737,7 +754,7 @@ class HikvisionService
     public function ensureWebhookConfigured(string $callbackUrl): array
     {
         $settings = HikvisionSetting::current();
-        $token = $settings->ensureWebhookVerifyToken();
+        $settings->ensureWebhookVerifyToken();
 
         if ($settings->webhook_registered_at !== null && $settings->webhook_callback_url === $callbackUrl) {
             return [
@@ -748,7 +765,7 @@ class HikvisionService
         }
 
         return [
-            ...$this->registerWebhook($callbackUrl, $token),
+            ...$this->registerWebhook($callbackUrl),
             'callback_url' => $callbackUrl,
         ];
     }

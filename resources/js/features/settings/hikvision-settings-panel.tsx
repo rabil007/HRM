@@ -450,7 +450,7 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can }: Hikvision
                         </div>
 
                         <div className="space-y-1.5">
-                            <FieldLabel htmlFor="webhook_verify_token">Verify token</FieldLabel>
+                            <FieldLabel htmlFor="webhook_verify_token">Sign secret</FieldLabel>
                             <FieldInput
                                 id="webhook_verify_token"
                                 value={form.data.webhook_verify_token}
@@ -459,8 +459,8 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can }: Hikvision
                                 }
                                 placeholder={
                                     settings.has_webhook_verify_token
-                                        ? 'Leave blank to keep current token'
-                                        : 'Auto-generated on save if left blank'
+                                        ? 'Leave blank to keep current secret (8-32 letters/digits)'
+                                        : 'Auto-generated on save, or use 8-32 letters/digits'
                                 }
                                 disabled={!can.update}
                                 autoComplete="off"

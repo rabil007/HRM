@@ -52,6 +52,10 @@ return [
 
     'webhook_config_save_path' => '/api/hccgw/webhook/v1/config/save',
 
+    'webhook_config_query_path' => '/api/hccgw/webhook/v1/config/query',
+
+    'rawmsg_mq_subscribe_path' => '/api/hccgw/rawmsg/v1/mq/subscribe',
+
     'webhook_verify_header' => 'X-HCC-Webhook-Token',
 
     'acs_event_page_size' => 50,

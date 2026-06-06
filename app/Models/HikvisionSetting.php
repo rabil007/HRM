@@ -226,10 +226,42 @@ class HikvisionSetting extends Model
             return (string) $this->webhook_verify_token;
         }
 
-        $token = bin2hex(random_bytes(16));
+        $token = bin2hex(random_bytes(8));
         $this->update(['webhook_verify_token' => $token]);
 
         return $token;
+    }
+
+    public function resolveWebhookSignSecret(): string
+    {
+        $token = trim((string) ($this->webhook_verify_token ?? ''));
+
+        if ($token !== '' && preg_match('/^[A-Za-z0-9]{8,32}$/', $token) === 1) {
+            return $token;
+        }
+
+        $secret = trim((string) ($this->api_secret ?? config('hikvision.api_secret', '')));
+
+        if ($secret === '') {
+            throw new \RuntimeException('Webhook sign secret is not configured.');
+        }
+
+        return $secret;
+    }
+
+    /**
+     * Returns an explicit signSecret for config/save when the stored token is valid.
+     * Otherwise Hik-Connect defaults to the integrator SecretKey.
+     */
+    public function webhookSignSecretForRegistration(): ?string
+    {
+        $token = trim((string) ($this->webhook_verify_token ?? ''));
+
+        if ($token !== '' && preg_match('/^[A-Za-z0-9]{8,32}$/', $token) === 1) {
+            return $token;
+        }
+
+        return null;
     }
 
     public function markWebhookRegistered(string $callbackUrl): void

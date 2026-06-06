@@ -80,6 +80,10 @@ test('user with webhook permission can register hikvision webhook', function () 
             'data' => [],
             'errorCode' => '0',
         ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/rawmsg/v1/mq/subscribe' => Http::response([
+            'data' => [],
+            'errorCode' => '0',
+        ], 200),
     ]);
 
     $user = User::factory()->create();
