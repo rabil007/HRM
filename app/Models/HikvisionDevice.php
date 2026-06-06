@@ -35,6 +35,34 @@ class HikvisionDevice extends Model
      * @param  array<string, mixed>  $apiDevice
      * @param  array<string, mixed>|null  $apiDetail
      */
+    /**
+     * @return array{
+     *     id: int,
+     *     hikvision_id: string,
+     *     serial_no: string,
+     *     name: string|null,
+     *     category: string|null,
+     *     type: string|null,
+     *     online_status: int|null,
+     *     synced_at: string|null,
+     *     detail: array<string, mixed>|null
+     * }
+     */
+    public function toPageArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'hikvision_id' => $this->hikvision_id,
+            'serial_no' => $this->serial_no,
+            'name' => $this->name,
+            'category' => $this->category,
+            'type' => $this->type,
+            'online_status' => $this->online_status,
+            'synced_at' => $this->synced_at?->toIso8601String(),
+            'detail' => $this->raw_detail_payload,
+        ];
+    }
+
     public static function upsertFromApi(array $apiDevice, ?array $apiDetail = null): self
     {
         $attributes = [

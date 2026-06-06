@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Settings\Integrations;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\TestHikvisionConnectionRequest;
 use App\Http\Requests\Settings\UpdateHikvisionIntegrationRequest;
+use App\Models\HikvisionDevice;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
@@ -28,7 +29,7 @@ class HikvisionIntegrationController extends Controller
 
         $settings = HikvisionSetting::current();
 
-        return [
+        $props = [
             'settings' => $settings->toSettingsPageArray(
                 $user->can('settings.integrations.hikvision.update'),
             ),
@@ -38,6 +39,50 @@ class HikvisionIntegrationController extends Controller
                 'webhook_manage' => $user->can('hikvision.webhook.manage'),
             ],
         ];
+
+        if ($user->can('hikvision.devices.view')) {
+            $props['devices'] = self::devicesPageProps($user);
+        }
+
+        return $props;
+    }
+
+    /**
+     * @return array{
+     *     items: list<array<string, mixed>>,
+     *     last_synced_at: string|null,
+     *     can: array{sync: bool}
+     * }
+     */
+    public static function devicesPageProps(User $user): array
+    {
+        $lastSyncedAt = HikvisionDevice::query()->max('synced_at');
+
+        return [
+            'items' => HikvisionDevice::query()
+                ->orderBy('name')
+                ->get()
+                ->map(fn (HikvisionDevice $device) => $device->toPageArray())
+                ->values()
+                ->all(),
+            'last_synced_at' => $lastSyncedAt ? (string) $lastSyncedAt : null,
+            'can' => [
+                'sync' => $user->can('hikvision.devices.sync'),
+            ],
+        ];
+    }
+
+    public function syncDevices(): RedirectResponse
+    {
+        try {
+            $result = $this->hikvision->syncDevices();
+
+            return back()->with('success', $result['message']);
+        } catch (RuntimeException $exception) {
+            return back()->withErrors([
+                'devices_sync' => $exception->getMessage(),
+            ]);
+        }
     }
 
     public function update(UpdateHikvisionIntegrationRequest $request): RedirectResponse

@@ -19,6 +19,10 @@ import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
+import {
+    HikvisionDevicesSection,
+    type HikvisionDevicesSectionProps,
+} from '@/features/settings/hikvision-devices-section';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -45,6 +49,7 @@ export type HikvisionSettingsPanelProps = {
         update: boolean;
         webhook_manage: boolean;
     };
+    devices?: HikvisionDevicesSectionProps['devices'];
 };
 
 function FieldLabel({ htmlFor, children }: { htmlFor?: string; children: React.ReactNode }) {
@@ -87,7 +92,7 @@ function StatusItem({
     );
 }
 
-export function HikvisionSettingsPanel({ settings, webhook_url, can }: HikvisionSettingsPanelProps) {
+export function HikvisionSettingsPanel({ settings, webhook_url, can, devices }: HikvisionSettingsPanelProps) {
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
     const [testing, setTesting] = useState(false);
@@ -501,6 +506,13 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can }: Hikvision
                     </CardContent>
                 </Card>
             </form>
+
+            {devices ? (
+                <HikvisionDevicesSection
+                    devices={devices}
+                    isConfigured={settings.is_configured}
+                />
+            ) : null}
         </div>
     );
 }

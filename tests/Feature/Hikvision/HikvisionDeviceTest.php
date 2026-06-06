@@ -7,35 +7,50 @@ use Illuminate\Testing\TestResponse;
 
 function postHikvisionDevicesSync(User $user): TestResponse
 {
-    test()->actingAs($user)->get(route('hikvision.devices.index'));
+    test()->actingAs($user)->get(route('application.edit'));
 
-    return test()->actingAs($user)->post(route('hikvision.devices.sync'), [
+    return test()->actingAs($user)->post(route('application.hikvision.devices.sync'), [
         '_token' => csrf_token(),
     ]);
 }
 
-test('user with permission can view hikvision devices page', function () {
+test('user with permission sees devices on hikvision settings tab', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'hikvision.devices.view',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/application')
+            ->has('hikvision.devices.items')
+            ->has('hikvision.devices.can'),
+        );
+});
+
+test('user without devices permission does not receive devices props', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('settings/application')
+            ->missing('hikvision.devices'),
+        );
+});
+
+test('legacy devices url redirects to hikvision settings tab', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['hikvision.devices.view']);
 
     $this->actingAs($user)
-        ->get(route('hikvision.devices.index'))
-        ->assertOk()
-        ->assertInertia(fn ($page) => $page
-            ->component('hikvision/devices')
-            ->has('devices')
-            ->has('pagination')
-            ->has('can'),
-        );
-});
-
-test('user without permission cannot view hikvision devices page', function () {
-    $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['employees.view']);
-
-    $this->actingAs($user)
-        ->get(route('hikvision.devices.index'))
-        ->assertForbidden();
+        ->get('/hikvision/devices')
+        ->assertRedirect('/settings/application?tab=hikvision');
 });
 
 test('sync upserts devices and detail from hikvision api', function () {
@@ -89,6 +104,7 @@ test('sync upserts devices and detail from hikvision api', function () {
 
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
         'hikvision.devices.view',
         'hikvision.devices.sync',
     ]);
@@ -108,24 +124,28 @@ test('sync upserts devices and detail from hikvision api', function () {
 test('sync fails when hikvision is not configured', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
         'hikvision.devices.view',
         'hikvision.devices.sync',
     ]);
 
     postHikvisionDevicesSync($user)
         ->assertRedirect()
-        ->assertSessionHasErrors('sync');
+        ->assertSessionHasErrors('devices_sync');
 });
 
 test('user without sync permission cannot sync hikvision devices', function () {
     configuredHikvisionSettings();
 
     $user = User::factory()->create();
-    setupCompanyWithSettingsPermissions($user, ['hikvision.devices.view']);
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.hikvision.view',
+        'hikvision.devices.view',
+    ]);
 
-    test()->actingAs($user)->get(route('hikvision.devices.index'));
+    test()->actingAs($user)->get(route('application.edit'));
 
     test()->actingAs($user)
-        ->post(route('hikvision.devices.sync'), ['_token' => csrf_token()])
+        ->post(route('application.hikvision.devices.sync'), ['_token' => csrf_token()])
         ->assertForbidden();
 });

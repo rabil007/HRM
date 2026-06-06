@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
-use App\Http\Controllers\Hikvision\HikvisionDeviceController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
@@ -253,13 +252,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.persons.link')
         ->name('hikvision.persons.employee.link');
 
-    Route::get('hikvision/devices', [HikvisionDeviceController::class, 'index'])
-        ->middleware('can:hikvision.devices.view')
+    Route::redirect('hikvision/devices', '/settings/application?tab=hikvision')
         ->name('hikvision.devices.index');
-
-    Route::post('hikvision/devices/sync', [HikvisionDeviceController::class, 'sync'])
-        ->middleware('can:hikvision.devices.sync')
-        ->name('hikvision.devices.sync');
 
     Route::get('hikvision/access-events', [HikvisionAccessEventController::class, 'index'])
         ->middleware('can:hikvision.events.view')

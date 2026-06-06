@@ -20,7 +20,6 @@ import {
     Activity,
     CalendarCheck2,
     PiggyBank,
-    DoorOpen,
     Radio,
     Contact,
 } from 'lucide-react';
@@ -84,7 +83,6 @@ const baseSidebarData: SidebarData = {
             title: 'Hikvision',
             items: [
                 { title: 'Persons', url: '/hikvision/persons', icon: Contact },
-                { title: 'Devices', url: '/hikvision/devices', icon: DoorOpen },
                 { title: 'Access Events', url: '/hikvision/access-events', icon: Radio },
             ],
         },
@@ -195,8 +193,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/hikvision/persons':
                             return has(permissions, 'hikvision.persons.view') ? item : null;
-                        case '/hikvision/devices':
-                            return has(permissions, 'hikvision.devices.view') ? item : null;
                         case '/hikvision/access-events':
                             return has(permissions, 'hikvision.events.view') ? item : null;
                         default:
