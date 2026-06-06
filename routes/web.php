@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionDeviceController;
+use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Hikvision\HikvisionUserController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
@@ -227,6 +228,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('hikvision/users/sync', [HikvisionUserController::class, 'sync'])
         ->middleware('can:hikvision.users.sync')
         ->name('hikvision.users.sync');
+
+    Route::get('hikvision/persons', [HikvisionPersonController::class, 'index'])
+        ->middleware('can:hikvision.persons.view')
+        ->name('hikvision.persons.index');
+
+    Route::post('hikvision/persons/sync', [HikvisionPersonController::class, 'sync'])
+        ->middleware('can:hikvision.persons.sync')
+        ->name('hikvision.persons.sync');
 
     Route::get('hikvision/devices', [HikvisionDeviceController::class, 'index'])
         ->middleware('can:hikvision.devices.view')

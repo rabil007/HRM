@@ -22,6 +22,12 @@ return [
 
     'device_detail_path' => '/api/hccgw/resource/v1/devicedetail/get',
 
+    'person_groups_search_path' => '/api/hccgw/person/v1/groups/search',
+
+    'persons_list_path' => '/api/hccgw/person/v1/persons/list',
+
+    'persons_page_size' => 100,
+
     'mq_subscribe_path' => '/api/hccgw/rawmsg/v1/mq/subscribe',
 
     'mq_messages_path' => '/api/hccgw/rawmsg/v1/mq/messages',

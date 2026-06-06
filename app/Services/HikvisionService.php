@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionDevice;
+use App\Models\HikvisionPerson;
+use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Models\HikvisionUser;
 use Carbon\CarbonInterface;
@@ -279,6 +281,113 @@ class HikvisionService
         return [
             'synced_count' => $syncedCount,
             'message' => "Synced {$syncedCount} Hikvision device(s).",
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    public function getPersonGroups(?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.person_groups_search_path'), [
+            'parentGroupId' => '',
+            'depthTraversal' => true,
+        ], $override);
+
+        $groups = $payload['data']['personGroupList'] ?? [];
+
+        if (! is_array($groups)) {
+            return [];
+        }
+
+        return array_values(array_filter($groups, is_array(...)));
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $override
+     * @return array{persons: list<array<string, mixed>>, page_index: int, page_size: int}
+     */
+    public function getPersons(int $pageIndex = 1, int $pageSize = 100, ?array $override = null): array
+    {
+        $payload = $this->postWithToken(config('hikvision.persons_list_path'), [
+            'pageIndex' => $pageIndex,
+            'pageSize' => $pageSize,
+        ], $override);
+
+        $persons = $payload['data']['personList'] ?? [];
+
+        if (! is_array($persons)) {
+            $persons = [];
+        }
+
+        return [
+            'persons' => array_values(array_filter($persons, is_array(...))),
+            'page_index' => $pageIndex,
+            'page_size' => $pageSize,
+        ];
+    }
+
+    /**
+     * @return array{synced_count: int, message: string}
+     */
+    public function syncPersonGroups(): array
+    {
+        $groups = $this->getPersonGroups();
+        $syncedCount = 0;
+
+        foreach ($groups as $group) {
+            if ((string) ($group['groupId'] ?? '') === '') {
+                continue;
+            }
+
+            HikvisionPersonGroup::upsertFromApi($group);
+            $syncedCount++;
+        }
+
+        return [
+            'synced_count' => $syncedCount,
+            'message' => "Synced {$syncedCount} department(s).",
+        ];
+    }
+
+    /**
+     * @return array{synced_count: int, group_count: int, message: string}
+     */
+    public function syncPersons(): array
+    {
+        $this->ensureConfigured();
+
+        $groupResult = $this->syncPersonGroups();
+        $pageIndex = 1;
+        $pageSize = (int) config('hikvision.persons_page_size', 100);
+        $syncedCount = 0;
+
+        do {
+            $result = $this->getPersons($pageIndex, $pageSize);
+            $persons = $result['persons'];
+
+            foreach ($persons as $apiPerson) {
+                $personInfo = is_array($apiPerson['personInfo'] ?? null) ? $apiPerson['personInfo'] : [];
+
+                if ((string) ($personInfo['personId'] ?? '') === '') {
+                    continue;
+                }
+
+                HikvisionPerson::upsertFromApi($apiPerson);
+                $syncedCount++;
+            }
+
+            $pageIndex++;
+        } while (count($persons) === $pageSize);
+
+        HikvisionSetting::current()->update([
+            'persons_last_synced_at' => now(),
+        ]);
+
+        return [
+            'synced_count' => $syncedCount,
+            'group_count' => $groupResult['synced_count'],
+            'message' => "Synced {$syncedCount} person(s) and {$groupResult['synced_count']} department(s).",
         ];
     }
 

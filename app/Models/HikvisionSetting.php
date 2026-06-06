@@ -24,6 +24,7 @@ class HikvisionSetting extends Model
         'api_secret',
         'enabled',
         'mq_subscribed_at',
+        'persons_last_synced_at',
         'events_last_fetched_at',
         'events_fetch_status',
         'events_fetch_message',
@@ -40,6 +41,7 @@ class HikvisionSetting extends Model
             'api_secret' => 'encrypted',
             'enabled' => 'boolean',
             'mq_subscribed_at' => 'datetime',
+            'persons_last_synced_at' => 'datetime',
             'events_last_fetched_at' => 'datetime',
             'events_fetch_started_at' => 'datetime',
         ];
