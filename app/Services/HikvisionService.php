@@ -7,7 +7,6 @@ use App\Models\HikvisionDevice;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
-use App\Models\HikvisionUser;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
@@ -126,69 +125,6 @@ class HikvisionService
         }
 
         return $payload;
-    }
-
-    /**
-     * @param  array<string, mixed>|null  $override
-     * @return array{total_count: int, page_index: int, page_size: int, users: list<array{id: string, name: string}>}
-     */
-    public function getUsers(int $pageIndex = 1, int $pageSize = 50, ?array $override = null): array
-    {
-        $payload = $this->postWithToken(config('hikvision.users_path'), [
-            'pageIndex' => $pageIndex,
-            'pageSize' => $pageSize,
-        ], $override);
-
-        $data = $payload['data'] ?? [];
-        $users = [];
-
-        foreach ($data['user'] ?? [] as $user) {
-            if (! is_array($user)) {
-                continue;
-            }
-
-            $users[] = [
-                'id' => (string) ($user['id'] ?? ''),
-                'name' => (string) ($user['name'] ?? ''),
-            ];
-        }
-
-        return [
-            'total_count' => (int) ($data['totalCount'] ?? 0),
-            'page_index' => (int) ($data['pageIndex'] ?? $pageIndex),
-            'page_size' => (int) ($data['pageSize'] ?? $pageSize),
-            'users' => $users,
-        ];
-    }
-
-    /**
-     * @return array{synced_count: int, message: string}
-     */
-    public function syncUsers(): array
-    {
-        $this->ensureConfigured();
-
-        $pageIndex = 1;
-        $pageSize = 50;
-        $syncedCount = 0;
-        $totalCount = null;
-
-        do {
-            $result = $this->getUsers($pageIndex, $pageSize);
-            $totalCount = $result['total_count'];
-
-            foreach ($result['users'] as $apiUser) {
-                HikvisionUser::upsertFromApi($apiUser);
-                $syncedCount++;
-            }
-
-            $pageIndex++;
-        } while ($syncedCount < $totalCount && count($result['users']) > 0);
-
-        return [
-            'synced_count' => $syncedCount,
-            'message' => "Synced {$syncedCount} Hikvision user(s).",
-        ];
     }
 
     /**

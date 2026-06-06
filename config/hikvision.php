@@ -16,8 +16,6 @@ return [
 
     'token_path' => '/api/hccgw/platform/v1/token/get',
 
-    'users_path' => '/api/hccgw/platform/v1/users/get',
-
     'devices_path' => '/api/hccgw/resource/v1/devices/get',
 
     'device_detail_path' => '/api/hccgw/resource/v1/devicedetail/get',

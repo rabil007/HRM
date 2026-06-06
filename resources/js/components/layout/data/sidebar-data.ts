@@ -20,7 +20,6 @@ import {
     Activity,
     CalendarCheck2,
     PiggyBank,
-    Camera,
     DoorOpen,
     Radio,
     Contact,
@@ -84,7 +83,6 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Hikvision',
             items: [
-                { title: 'Users', url: '/hikvision/users', icon: Camera },
                 { title: 'Persons', url: '/hikvision/persons', icon: Contact },
                 { title: 'Devices', url: '/hikvision/devices', icon: DoorOpen },
                 { title: 'Access Events', url: '/hikvision/access-events', icon: Radio },
@@ -195,8 +193,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'employee_profile_templates.view')
                                 ? item
                                 : null;
-                        case '/hikvision/users':
-                            return has(permissions, 'hikvision.users.view') ? item : null;
                         case '/hikvision/persons':
                             return has(permissions, 'hikvision.persons.view') ? item : null;
                         case '/hikvision/devices':
