@@ -22,9 +22,29 @@ import {
 } from '@/components/ui/dialog';
 import { Spinner } from '@/components/ui/spinner';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import type { HikvisionDevice } from '@/features/hikvision/devices/types';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
+
+type HikvisionDeviceDetail = {
+    baseInfo?: Record<string, unknown>;
+    cameraChannel?: Array<Record<string, unknown>>;
+    alarmInputChannel?: Array<Record<string, unknown>>;
+    alarmOutputChannel?: Array<Record<string, unknown>>;
+    doorChannel?: Array<Record<string, unknown>>;
+    onlineStatus?: number;
+} | null;
+
+type HikvisionDevice = {
+    id: number;
+    hikvision_id: string;
+    serial_no: string;
+    name: string | null;
+    category: string | null;
+    type: string | null;
+    online_status: number | null;
+    synced_at: string | null;
+    detail: HikvisionDeviceDetail;
+};
 
 export type HikvisionDevicesSectionProps = {
     devices: {

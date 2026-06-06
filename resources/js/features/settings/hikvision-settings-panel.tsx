@@ -39,7 +39,6 @@ export type HikvisionSettingsPanelProps = {
         uses_env_fallback: boolean;
         webhook_verify_token: string;
         webhook_enabled: boolean;
-        webhook_callback_url: string | null;
         webhook_registered_at: string | null;
         webhook_last_event_at: string | null;
         has_webhook_verify_token: boolean;

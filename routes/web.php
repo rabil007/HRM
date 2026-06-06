@@ -252,8 +252,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.persons.link')
         ->name('hikvision.persons.employee.link');
 
-    Route::redirect('hikvision/devices', '/settings/application?tab=hikvision')
-        ->name('hikvision.devices.index');
+    Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
 
     Route::get('hikvision/access-events', [HikvisionAccessEventController::class, 'index'])
         ->middleware('can:hikvision.events.view')
