@@ -14,6 +14,12 @@ return [
 
     'timeout' => (int) env('HIKVISION_TIMEOUT', 20),
 
+    'api_host' => env('HIKVISION_API_HOST'),
+
+    'api_key' => env('HIKVISION_API_KEY'),
+
+    'api_secret' => env('HIKVISION_API_SECRET'),
+
     'token_path' => '/api/hccgw/platform/v1/token/get',
 
     'devices_path' => '/api/hccgw/resource/v1/devices/get',
@@ -25,12 +31,6 @@ return [
     'persons_list_path' => '/api/hccgw/person/v1/persons/list',
 
     'persons_page_size' => 100,
-
-    'mq_subscribe_path' => '/api/hccgw/rawmsg/v1/mq/subscribe',
-
-    'mq_messages_path' => '/api/hccgw/rawmsg/v1/mq/messages',
-
-    'mq_messages_complete_path' => '/api/hccgw/rawmsg/v1/mq/messages/complete',
 
     'isapi_proxypass_path' => '/api/hccgw/video/v1/isapi/proxypass',
 

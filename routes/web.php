@@ -58,6 +58,7 @@ Route::match(['get', 'post'], 'webhooks/whatsapp', WhatsAppWebhookController::cl
     ->name('webhooks.whatsapp');
 
 Route::post('webhooks/hikvision', HikvisionWebhookController::class)
+    ->middleware('throttle:120,1')
     ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {

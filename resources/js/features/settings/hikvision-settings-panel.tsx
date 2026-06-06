@@ -20,6 +20,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
 import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
 import { toast } from '@/lib/toast';
+import { formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 type ConnectionStatus = 'idle' | 'connected' | 'failed';
@@ -312,7 +313,7 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can }: Hikvision
                             <div>
                                 <p className="text-sm font-medium">Enable Hikvision integration</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Required before syncing users or attendance data.
+                                    Required before syncing persons, devices, or attendance data.
                                 </p>
                             </div>
                             <Switch

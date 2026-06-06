@@ -185,7 +185,14 @@ export function HikvisionPersonFormDialog({
                             id="person-code"
                             value={form.data.person_code}
                             onChange={(event) => form.setData('person_code', event.target.value)}
+                            readOnly={isEdit}
+                            disabled={isEdit}
                         />
+                        {isEdit ? (
+                            <p className="text-xs text-muted-foreground">
+                                Employee number is managed in Hik-Connect and cannot be changed here.
+                            </p>
+                        ) : null}
                         {form.errors.person_code ? (
                             <p className="text-xs text-destructive">{form.errors.person_code}</p>
                         ) : null}

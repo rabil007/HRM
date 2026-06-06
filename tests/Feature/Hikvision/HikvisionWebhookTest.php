@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Queue;
 test('webhook rejects requests with invalid verify token', function () {
     HikvisionSetting::current()->update([
         'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
     ]);
 
     $this->postJson(route('webhooks.hikvision'), [
@@ -19,11 +20,31 @@ test('webhook rejects requests with invalid verify token', function () {
     ])->assertForbidden();
 });
 
+test('webhook rejects requests when ingestion is disabled', function () {
+    Queue::fake();
+
+    HikvisionSetting::current()->update([
+        'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => false,
+    ]);
+
+    $this->postJson(route('webhooks.hikvision'), [
+        'personName' => 'Disabled Webhook User',
+        'attendanceStatus' => 'checkIn',
+        'occurTime' => now()->toIso8601String(),
+    ], [
+        'X-HCC-Webhook-Token' => 'expected-token',
+    ])->assertForbidden();
+
+    Queue::assertNothingPushed();
+});
+
 test('webhook dispatches job and stores event with valid token', function () {
     Queue::fake();
 
     HikvisionSetting::current()->update([
         'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
     ]);
 
     $payload = [
@@ -58,18 +79,19 @@ test('webhook dispatches job and stores event with valid token', function () {
     expect(HikvisionSetting::current()->webhook_last_event_at)->not->toBeNull();
 });
 
-test('webhook accepts verify token from query string', function () {
+test('webhook ignores empty payloads without updating last event timestamp', function () {
     Queue::fake();
 
     HikvisionSetting::current()->update([
-        'webhook_verify_token' => 'query-token',
+        'webhook_verify_token' => 'expected-token',
+        'webhook_enabled' => true,
+        'webhook_last_event_at' => null,
     ]);
 
-    $this->postJson(route('webhooks.hikvision', ['token' => 'query-token']), [
-        'personName' => 'Query Token User',
-        'attendanceStatus' => 'checkOut',
-        'occurTime' => now()->toIso8601String(),
+    $this->postJson(route('webhooks.hikvision'), [], [
+        'X-HCC-Webhook-Token' => 'expected-token',
     ])->assertNoContent();
 
-    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
+    Queue::assertNothingPushed();
+    expect(HikvisionSetting::current()->fresh()->webhook_last_event_at)->toBeNull();
 });

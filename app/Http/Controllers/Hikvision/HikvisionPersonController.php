@@ -16,6 +16,7 @@ use App\Support\Hikvision\HikvisionPersonWritePayload;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
@@ -151,6 +152,8 @@ class HikvisionPersonController extends Controller
     public function store(StoreHikvisionPersonRequest $request): RedirectResponse
     {
         try {
+            $this->ensureHikvisionConfigured();
+
             $result = $this->hikvision->createPerson(
                 HikvisionPersonWritePayload::forCreate($request->validated()),
             );
@@ -179,19 +182,19 @@ class HikvisionPersonController extends Controller
     public function update(UpdateHikvisionPersonRequest $request, HikvisionPerson $person): RedirectResponse
     {
         try {
+            $this->ensureHikvisionConfigured();
+
             $detail = $this->hikvision->getPersonDetail($person->person_id);
 
             $this->hikvision->updatePerson(
                 HikvisionPersonWritePayload::forUpdate($request->validated(), $detail),
             );
 
-            $detail = $this->hikvision->getPersonDetail($person->person_id);
-
             HikvisionPerson::upsertFromApi([
-                'personInfo' => $detail,
+                'personInfo' => HikvisionPersonWritePayload::mergeUpdatedDetail($request->validated(), $detail),
                 'fingerList' => [],
                 'pinCode' => '',
-            ]);
+            ], $person);
 
             return back()->with('success', 'Person updated in Hikvision.');
         } catch (RuntimeException $exception) {
@@ -204,13 +207,17 @@ class HikvisionPersonController extends Controller
     public function destroy(HikvisionPerson $person): RedirectResponse
     {
         try {
-            $this->hikvision->deletePerson($person->person_id);
+            $this->ensureHikvisionConfigured();
 
-            Employee::query()
-                ->where('hikvision_person_id', $person->id)
-                ->update(['hikvision_person_id' => null]);
+            DB::transaction(function () use ($person): void {
+                $this->hikvision->deletePerson($person->person_id);
 
-            $person->delete();
+                Employee::query()
+                    ->where('hikvision_person_id', $person->id)
+                    ->update(['hikvision_person_id' => null]);
+
+                $person->delete();
+            });
 
             return back()->with('success', 'Person deleted from Hikvision.');
         } catch (RuntimeException $exception) {
@@ -227,6 +234,8 @@ class HikvisionPersonController extends Controller
         ]);
 
         try {
+            $this->ensureHikvisionConfigured();
+
             $photoBase64 = base64_encode((string) file_get_contents($request->file('photo')->getRealPath()));
             $this->hikvision->uploadPersonPhoto($person->person_id, $photoBase64);
             $detail = $this->hikvision->getPersonDetail($person->person_id);
@@ -234,8 +243,8 @@ class HikvisionPersonController extends Controller
             HikvisionPerson::upsertFromApi([
                 'personInfo' => $detail,
                 'fingerList' => [],
-                'pinCode' => $person->has_pin ? '1' : '',
-            ]);
+                'pinCode' => '',
+            ], $person);
 
             return back()->with('success', 'Person photo uploaded.');
         } catch (RuntimeException $exception) {
@@ -248,6 +257,8 @@ class HikvisionPersonController extends Controller
     public function sync(Request $request): RedirectResponse
     {
         try {
+            $this->ensureHikvisionConfigured();
+
             $result = $this->hikvision->syncPersons();
 
             return back()->with('success', $result['message']);
@@ -255,6 +266,13 @@ class HikvisionPersonController extends Controller
             return back()->withErrors([
                 'sync' => $exception->getMessage(),
             ]);
+        }
+    }
+
+    private function ensureHikvisionConfigured(): void
+    {
+        if (! HikvisionSetting::current()->isConfigured()) {
+            throw new RuntimeException('Hikvision integration is not configured. Add credentials in Application settings.');
         }
     }
 }

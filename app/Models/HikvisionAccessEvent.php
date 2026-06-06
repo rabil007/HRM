@@ -66,36 +66,6 @@ class HikvisionAccessEvent extends Model
     }
 
     /**
-     * @param  array<string, mixed>  $apiEvent
-     */
-    public static function upsertFromApi(array $apiEvent, string $batchId = ''): self
-    {
-        $basicInfo = is_array($apiEvent['basicInfo'] ?? null) ? $apiEvent['basicInfo'] : [];
-        $device = is_array($basicInfo['device'] ?? null) ? $basicInfo['device'] : [];
-        $resource = is_array($basicInfo['resource'] ?? null) ? $basicInfo['resource'] : [];
-
-        $occurrenceTime = self::parseOccurrenceTime((string) ($basicInfo['occurrenceTime'] ?? ''));
-
-        return self::query()->updateOrCreate(
-            [
-                'system_id' => (string) ($basicInfo['systemId'] ?? ''),
-                'occurrence_time' => $occurrenceTime,
-                'msg_type' => (string) ($basicInfo['msgType'] ?? ''),
-            ],
-            [
-                'batch_id' => $batchId !== '' ? $batchId : null,
-                'device_id' => (string) ($device['id'] ?? ''),
-                'device_name' => (string) ($device['name'] ?? ''),
-                'resource_id' => (string) ($resource['id'] ?? ''),
-                'resource_name' => (string) ($resource['name'] ?? ''),
-                'event_source' => 'mq',
-                'raw_payload' => $apiEvent,
-                'fetched_at' => now(),
-            ],
-        );
-    }
-
-    /**
      * @param  array<string, mixed>  $acsEvent
      */
     public static function isAccessRecord(array $acsEvent): bool

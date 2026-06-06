@@ -49,10 +49,23 @@ class HikvisionPerson extends Model
     /**
      * @param  array<string, mixed>  $apiPerson
      */
-    public static function upsertFromApi(array $apiPerson): self
+    public static function upsertFromApi(array $apiPerson, ?self $preserveCredentialsFrom = null): self
     {
         $personInfo = is_array($apiPerson['personInfo'] ?? null) ? $apiPerson['personInfo'] : [];
         $fingerList = is_array($apiPerson['fingerList'] ?? null) ? $apiPerson['fingerList'] : [];
+        $hasFingerprint = $fingerList !== [];
+        $hasPin = filled($apiPerson['pinCode'] ?? null);
+
+        if ($preserveCredentialsFrom !== null) {
+            if (! $hasFingerprint && $preserveCredentialsFrom->has_fingerprint) {
+                $hasFingerprint = true;
+            }
+
+            if (! $hasPin && $preserveCredentialsFrom->has_pin) {
+                $hasPin = true;
+            }
+        }
+
         $firstName = trim((string) ($personInfo['firstName'] ?? ''));
         $lastName = trim((string) ($personInfo['lastName'] ?? ''));
         $fullName = trim($firstName.' '.$lastName);
@@ -72,12 +85,12 @@ class HikvisionPerson extends Model
                 'phone' => filled($personInfo['phone'] ?? null) ? (string) $personInfo['phone'] : null,
                 'email' => filled($personInfo['email'] ?? null) ? (string) $personInfo['email'] : null,
                 'photo_url' => filled($personInfo['headPicUrl'] ?? null) ? (string) $personInfo['headPicUrl'] : null,
-                'has_fingerprint' => $fingerList !== [],
-                'has_pin' => filled($apiPerson['pinCode'] ?? null),
+                'has_fingerprint' => $hasFingerprint,
+                'has_pin' => $hasPin,
                 'raw_payload' => [
                     'personInfo' => $personInfo,
                     'finger_count' => count($fingerList),
-                    'has_pin' => filled($apiPerson['pinCode'] ?? null),
+                    'has_pin' => $hasPin,
                 ],
                 'synced_at' => now(),
             ],
@@ -98,22 +111,6 @@ class HikvisionPerson extends Model
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    public function toApiPersonInfo(array $overrides = []): array
-    {
-        return array_merge([
-            'personId' => $this->person_id,
-            'groupId' => $this->group_id,
-            'firstName' => $this->first_name,
-            'lastName' => $this->last_name,
-            'personCode' => $this->person_code,
-            'phone' => $this->phone,
-            'email' => $this->email,
-        ], $overrides);
     }
 
     /**
@@ -167,32 +164,5 @@ class HikvisionPerson extends Model
         }
 
         return $query;
-    }
-
-    /**
-     * @return list<array{id: int, person_id: string, full_name: string|null, person_code: string|null, group_name: string|null}>
-     */
-    public static function optionsForLinking(?int $currentEmployeeId = null): array
-    {
-        return self::query()
-            ->with('group')
-            ->where(function (Builder $query) use ($currentEmployeeId): void {
-                $query->whereDoesntHave('employee');
-
-                if ($currentEmployeeId !== null) {
-                    $query->orWhereHas('employee', fn (Builder $query) => $query->where('id', $currentEmployeeId));
-                }
-            })
-            ->orderBy('full_name')
-            ->get()
-            ->map(fn (self $person): array => [
-                'id' => $person->id,
-                'person_id' => $person->person_id,
-                'full_name' => $person->full_name,
-                'person_code' => $person->person_code,
-                'group_name' => $person->group?->name,
-            ])
-            ->values()
-            ->all();
     }
 }

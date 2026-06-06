@@ -118,7 +118,7 @@ test('user with permission can update hikvision person', function () {
             && ! array_key_exists('personInfo', $body);
     });
 
-    expect($person->fresh()->full_name)->toBe('New Person');
+    expect($person->fresh()->full_name)->toBe('Updated Person');
 });
 
 test('user with permission can delete hikvision person and clear employee link', function () {

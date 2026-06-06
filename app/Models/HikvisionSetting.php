@@ -153,9 +153,9 @@ class HikvisionSetting extends Model
             return false;
         }
 
-        $host = filled($this->api_host) ? $this->api_host : (string) env('HIKVISION_API_HOST', '');
-        $key = filled($this->api_key) ? $this->api_key : (string) env('HIKVISION_API_KEY', '');
-        $secret = filled($this->api_secret) ? $this->api_secret : (string) env('HIKVISION_API_SECRET', '');
+        $host = filled($this->api_host) ? $this->api_host : (string) config('hikvision.api_host', '');
+        $key = filled($this->api_key) ? $this->api_key : (string) config('hikvision.api_key', '');
+        $secret = filled($this->api_secret) ? $this->api_secret : (string) config('hikvision.api_secret', '');
 
         return filled($host) && filled($key) && filled($secret);
     }
@@ -163,16 +163,16 @@ class HikvisionSetting extends Model
     /**
      * @return array<string, mixed>
      */
-    public function toSettingsPageArray(): array
+    public function toSettingsPageArray(bool $includeWebhookToken = false): array
     {
         $hasStoredHost = filled($this->api_host);
         $hasStoredKey = filled($this->api_key);
         $hasStoredSecret = filled($this->api_secret);
         $hasStoredCredentials = $this->hasStoredCredentials();
 
-        $envHost = (string) env('HIKVISION_API_HOST', '');
-        $envKey = (string) env('HIKVISION_API_KEY', '');
-        $envSecret = (string) env('HIKVISION_API_SECRET', '');
+        $envHost = (string) config('hikvision.api_host', '');
+        $envKey = (string) config('hikvision.api_key', '');
+        $envSecret = (string) config('hikvision.api_secret', '');
         $hasEnvCredentials = filled($envHost) && filled($envKey) && filled($envSecret);
 
         return [
@@ -182,7 +182,7 @@ class HikvisionSetting extends Model
             'has_api_secret' => $hasStoredSecret || filled($envSecret),
             'uses_env_fallback' => ! $hasStoredCredentials && $hasEnvCredentials,
             'is_configured' => $this->isConfigured(),
-            'webhook_verify_token' => $this->webhook_verify_token ?? '',
+            'webhook_verify_token' => $includeWebhookToken ? ($this->webhook_verify_token ?? '') : '',
             'webhook_enabled' => (bool) $this->webhook_enabled,
             'webhook_callback_url' => $this->webhook_callback_url,
             'webhook_registered_at' => $this->webhook_registered_at?->toIso8601String(),

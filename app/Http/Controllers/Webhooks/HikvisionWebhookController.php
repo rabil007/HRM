@@ -15,19 +15,24 @@ class HikvisionWebhookController extends Controller
         $settings = HikvisionSetting::current();
         $storedToken = (string) ($settings->webhook_verify_token ?? '');
         $headerName = (string) config('hikvision.webhook_verify_header', 'X-HCC-Webhook-Token');
-        $providedToken = (string) ($request->header($headerName) ?? $request->query('token', ''));
+        $providedToken = (string) $request->header($headerName, '');
 
         if ($storedToken === '' || ! hash_equals($storedToken, $providedToken)) {
             return response('Forbidden', 403);
         }
 
+        if (! $settings->webhook_enabled) {
+            return response('Webhook ingestion is disabled.', 403);
+        }
+
         /** @var array<string, mixed> $payload */
         $payload = $request->json()->all();
 
-        if ($payload !== []) {
-            ProcessHikvisionWebhookEventJob::dispatch($payload);
+        if ($payload === []) {
+            return response()->noContent();
         }
 
+        ProcessHikvisionWebhookEventJob::dispatch($payload);
         $settings->markWebhookEventReceived();
 
         return response()->noContent();

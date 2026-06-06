@@ -29,7 +29,9 @@ class HikvisionIntegrationController extends Controller
         $settings = HikvisionSetting::current();
 
         return [
-            'settings' => $settings->toSettingsPageArray(),
+            'settings' => $settings->toSettingsPageArray(
+                $user->can('settings.integrations.hikvision.update'),
+            ),
             'webhook_url' => URL::route('webhooks.hikvision', absolute: true),
             'can' => [
                 'update' => $user->can('settings.integrations.hikvision.update'),

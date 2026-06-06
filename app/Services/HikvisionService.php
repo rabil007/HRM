@@ -14,6 +14,11 @@ use RuntimeException;
 class HikvisionService
 {
     /**
+     * @var array{access_token: string, expire_time: int, user_id: string, area_domain: string}|null
+     */
+    private ?array $cachedAccessToken = null;
+
+    /**
      * @param  array<string, mixed>|null  $override
      * @return array{api_host: string, api_key: string, api_secret: string}
      */
@@ -22,9 +27,9 @@ class HikvisionService
         $override = $override ?? [];
         $stored = HikvisionSetting::current();
 
-        $apiHost = (string) ($override['api_host'] ?? $stored->api_host ?? env('HIKVISION_API_HOST', ''));
-        $apiKey = (string) ($override['api_key'] ?? $stored->api_key ?? env('HIKVISION_API_KEY', ''));
-        $apiSecret = (string) ($override['api_secret'] ?? $stored->api_secret ?? env('HIKVISION_API_SECRET', ''));
+        $apiHost = (string) ($override['api_host'] ?? $stored->api_host ?? config('hikvision.api_host', ''));
+        $apiKey = (string) ($override['api_key'] ?? $stored->api_key ?? config('hikvision.api_key', ''));
+        $apiSecret = (string) ($override['api_secret'] ?? $stored->api_secret ?? config('hikvision.api_secret', ''));
 
         return [
             'api_host' => rtrim($apiHost, '/'),
@@ -38,6 +43,28 @@ class HikvisionService
      * @return array{access_token: string, expire_time: int, user_id: string, area_domain: string}
      */
     public function getAccessToken(?array $override = null): array
+    {
+        if ($override !== null) {
+            return $this->fetchAccessToken($override);
+        }
+
+        if (
+            $this->cachedAccessToken !== null
+            && ($this->cachedAccessToken['expire_time'] ?? 0) > time() + 60
+        ) {
+            return $this->cachedAccessToken;
+        }
+
+        $this->cachedAccessToken = $this->fetchAccessToken(null);
+
+        return $this->cachedAccessToken;
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $override
+     * @return array{access_token: string, expire_time: int, user_id: string, area_domain: string}
+     */
+    private function fetchAccessToken(?array $override): array
     {
         $credentials = $this->resolveCredentials($override);
 
@@ -325,59 +352,6 @@ class HikvisionService
             'group_count' => $groupResult['synced_count'],
             'message' => "Synced {$syncedCount} person(s) and {$groupResult['synced_count']} department(s).",
         ];
-    }
-
-    public function ensureMqSubscribed(): void
-    {
-        $settings = HikvisionSetting::current();
-
-        if ($settings->mq_subscribed_at !== null) {
-            return;
-        }
-
-        $this->postWithToken(config('hikvision.mq_subscribe_path'), [
-            'subscribeType' => 1,
-            'msgType' => [],
-        ]);
-
-        $settings->mq_subscribed_at = now();
-        $settings->save();
-    }
-
-    /**
-     * @return array{batch_id: string, remaining_number: int, events: list<array<string, mixed>>}
-     */
-    public function pollMessages(): array
-    {
-        $payload = $this->postWithToken(config('hikvision.mq_messages_path'));
-
-        $data = $payload['data'] ?? [];
-        $events = [];
-
-        foreach ($data['event'] ?? [] as $event) {
-            if (! is_array($event)) {
-                continue;
-            }
-
-            $events[] = $event;
-        }
-
-        return [
-            'batch_id' => (string) ($data['batchId'] ?? ''),
-            'remaining_number' => (int) ($data['remainingNumber'] ?? 0),
-            'events' => $events,
-        ];
-    }
-
-    public function completeMessages(string $batchId): void
-    {
-        if ($batchId === '') {
-            return;
-        }
-
-        $this->postWithToken(config('hikvision.mq_messages_complete_path'), [
-            'batchId' => $batchId,
-        ]);
     }
 
     /**
