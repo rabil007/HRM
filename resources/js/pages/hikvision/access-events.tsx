@@ -18,6 +18,7 @@ type Props = {
     last_fetched_at: string | null;
     fetch_status: HikvisionEventsFetchStatus;
     fetch_message: string | null;
+    fetch_default_date: string;
     can: {
         fetch: boolean;
     };
@@ -33,6 +34,7 @@ export default function HikvisionAccessEvents({
     last_fetched_at,
     fetch_status,
     fetch_message,
+    fetch_default_date,
     can,
 }: Props) {
     return (
@@ -48,6 +50,7 @@ export default function HikvisionAccessEvents({
                 lastFetchedAt={last_fetched_at}
                 fetchStatus={fetch_status}
                 fetchMessage={fetch_message}
+                fetchDefaultDate={fetch_default_date}
                 can={can}
             />
         </>

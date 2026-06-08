@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Hikvision;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Hikvision\FetchHikvisionAccessEventsRequest;
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
@@ -116,13 +117,14 @@ class HikvisionAccessEventController extends Controller
                 : ($lastFetchedAt ? (string) $lastFetchedAt : null),
             'fetch_status' => $fetchResult['status'],
             'fetch_message' => $fetchResult['message'],
+            'fetch_default_date' => now(config('app.timezone', 'UTC'))->format('Y-m-d'),
             'can' => [
                 'fetch' => $request->user()?->can('hikvision.events.fetch') ?? false,
             ],
         ]);
     }
 
-    public function fetch(Request $request): RedirectResponse
+    public function fetch(FetchHikvisionAccessEventsRequest $request): RedirectResponse
     {
         $settings = HikvisionSetting::current();
 
@@ -136,9 +138,14 @@ class HikvisionAccessEventController extends Controller
             return back()->with('info', 'A fetch is already in progress.');
         }
 
-        $settings->beginEventsFetch();
-        FetchHikvisionAccessEventsJob::dispatch();
+        $date = $request->resolvedDate();
+        $dateParam = $date->toDateString();
 
-        return back()->with('success', 'Fetch started. Records will update automatically when complete.');
+        $settings->beginEventsFetch();
+        FetchHikvisionAccessEventsJob::dispatch($dateParam);
+
+        $label = $date->isToday() ? 'today' : $date->format('d-m-Y');
+
+        return back()->with('success', "Fetch started for {$label}. Records will update automatically when complete.");
     }
 }

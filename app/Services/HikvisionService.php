@@ -569,13 +569,15 @@ class HikvisionService
     /**
      * @return array{fetched_count: int, message: string}
      */
-    public function fetchAccessEvents(): array
+    public function fetchAccessEvents(?CarbonInterface $date = null): array
     {
         $this->ensureConfigured();
 
         $timezone = (string) config('app.timezone', 'UTC');
-        $startTime = now($timezone)->startOfDay();
-        $endTime = now($timezone)->endOfDay();
+        $day = ($date ?? now($timezone))->copy()->timezone($timezone);
+        $startTime = $day->copy()->startOfDay();
+        $endTime = $day->copy()->endOfDay();
+        $dateLabel = $day->isToday() ? 'today' : $day->format('Y-m-d');
 
         $devices = $this->getCachedAccessControllerDevices();
 
@@ -607,7 +609,7 @@ class HikvisionService
 
         return [
             'fetched_count' => $totalCount,
-            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app).",
+            'message' => "Fetched {$totalCount} access record(s) for {$dateLabel} ({$fetchedCount} device, {$mobileCount} mobile app).",
         ];
     }
 

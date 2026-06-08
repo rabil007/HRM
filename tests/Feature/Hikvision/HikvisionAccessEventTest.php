@@ -19,18 +19,22 @@ function freezeHikvisionAccessEventFetchDate(): void
     Carbon::setTestNow('2026-06-05 10:00:00', config('app.timezone'));
 }
 
-function postHikvisionAccessEventsFetch(User $user): TestResponse
+function postHikvisionAccessEventsFetch(User $user, ?string $date = null): TestResponse
 {
     test()->actingAs($user)->get(route('hikvision.access-events.index'));
 
-    return test()->actingAs($user)->post(route('hikvision.access-events.fetch'), [
-        '_token' => csrf_token(),
-    ]);
+    $payload = ['_token' => csrf_token()];
+
+    if ($date !== null) {
+        $payload['date'] = $date;
+    }
+
+    return test()->actingAs($user)->post(route('hikvision.access-events.fetch'), $payload);
 }
 
-function runHikvisionAccessEventsFetchJob(): void
+function runHikvisionAccessEventsFetchJob(?string $date = null): void
 {
-    (new FetchHikvisionAccessEventsJob)->handle(app(HikvisionService::class));
+    (new FetchHikvisionAccessEventsJob($date))->handle(app(HikvisionService::class));
 }
 
 function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
@@ -263,9 +267,118 @@ test('fetch dispatches background job instead of running synchronously', functio
         ->assertRedirect()
         ->assertSessionHas('success');
 
-    Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, fn (FetchHikvisionAccessEventsJob $job): bool => $job->date === now(config('app.timezone'))->format('Y-m-d'));
 
     expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_QUEUED);
+});
+
+test('fetch dispatches background job for selected date', function () {
+    Queue::fake();
+    Carbon::setTestNow('2026-06-08 12:00:00', config('app.timezone'));
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.events.view',
+        'hikvision.events.fetch',
+    ]);
+
+    postHikvisionAccessEventsFetch($user, '2026-06-07')
+        ->assertRedirect()
+        ->assertSessionHas('success', 'Fetch started for 07-06-2026. Records will update automatically when complete.');
+
+    Queue::assertPushed(FetchHikvisionAccessEventsJob::class, fn (FetchHikvisionAccessEventsJob $job): bool => $job->date === '2026-06-07');
+});
+
+test('background job fetches records for selected date window', function () {
+    Carbon::setTestNow('2026-06-08 12:00:00', config('app.timezone'));
+
+    $acsPayload = json_encode([
+        'AcsEvent' => [
+            'searchID' => '1',
+            'totalMatches' => 0,
+            'InfoList' => [],
+        ],
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/resource/v1/devices/get' => Http::response([
+            'data' => [
+                'totalCount' => 1,
+                'pageIndex' => 1,
+                'pageSize' => 50,
+                'device' => [
+                    [
+                        'id' => 'device-acs-1',
+                        'name' => 'OMS-Door',
+                        'serialNo' => 'FZ4480436',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass' => function ($request) use ($acsPayload) {
+            $body = json_decode((string) $request->body(), true);
+            $isapiBody = json_decode((string) ($body['body'] ?? ''), true);
+
+            expect($isapiBody['AcsEventCond']['startTime'] ?? null)->toBe('2026-06-07T00:00:00+04:00')
+                ->and($isapiBody['AcsEventCond']['endTime'] ?? null)->toBe('2026-06-07T23:59:59+04:00');
+
+            return Http::response([
+                'data' => $acsPayload,
+                'errorCode' => '0',
+            ], 200);
+        },
+        'isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list' => function ($request) {
+            $body = json_decode((string) $request->body(), true);
+
+            expect($body['beginTime'] ?? null)->toBe('2026-06-07T00:00:00+04:00')
+                ->and($body['endTime'] ?? null)->toBe('2026-06-07T23:59:59+04:00');
+
+            return Http::response([
+                'data' => [
+                    'pageIndex' => 1,
+                    'pageSize' => 200,
+                    'moreData' => 0,
+                    'reportDataList' => [],
+                ],
+                'errorCode' => '0',
+            ], 200);
+        },
+    ]);
+
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob('2026-06-07');
+
+    expect(HikvisionSetting::current()->events_fetch_message)->toBe('Fetched 0 access record(s) for 2026-06-07 (0 device, 0 mobile app).');
+});
+
+test('fetch rejects future dates', function () {
+    Queue::fake();
+    Carbon::setTestNow('2026-06-08 12:00:00', config('app.timezone'));
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.events.view',
+        'hikvision.events.fetch',
+    ]);
+
+    postHikvisionAccessEventsFetch($user, '2026-06-09')
+        ->assertSessionHasErrors('date');
+
+    Queue::assertNothingPushed();
 });
 
 test('fetch ignores door system events without person identity', function () {

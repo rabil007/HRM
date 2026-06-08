@@ -1,6 +1,6 @@
 import { Link, router, usePoll } from '@inertiajs/react';
 import { Download, Filter, Info, Search, X } from 'lucide-react';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
@@ -42,6 +42,7 @@ type Props = {
     lastFetchedAt: string | null;
     fetchStatus: HikvisionEventsFetchStatus;
     fetchMessage: string | null;
+    fetchDefaultDate: string;
     can: {
         fetch: boolean;
     };
@@ -122,8 +123,10 @@ export function HikvisionAccessEventsContent({
     lastFetchedAt,
     fetchStatus,
     fetchMessage,
+    fetchDefaultDate,
     can,
 }: Props) {
+    const [fetchDate, setFetchDate] = useState(fetchDefaultDate);
     const list = useServerPaginationFilters({
         url: '/hikvision/access-events',
         search: filters.search,
@@ -219,20 +222,22 @@ export function HikvisionAccessEventsContent({
     };
 
     const handleFetch = () => {
-        if (!can.fetch || !isConfigured || isProcessing) {
+        if (!can.fetch || !isConfigured || isProcessing || fetchDate === '') {
             return;
         }
 
         router.post(
             '/hikvision/access-events/fetch',
-            {},
+            { date: fetchDate },
             {
                 preserveScroll: true,
                 onError: (errors) => {
                     const message =
                         typeof errors.fetch === 'string'
                             ? errors.fetch
-                            : 'Failed to start Hikvision access records fetch.';
+                            : typeof errors.date === 'string'
+                              ? errors.date
+                              : 'Failed to start Hikvision access records fetch.';
                     toast.error(message);
                 },
             },
@@ -246,15 +251,38 @@ export function HikvisionAccessEventsContent({
                 description="Door check-ins and mobile app attendance from Hik-Connect."
                 right={
                     can.fetch ? (
-                        <Button
-                            type="button"
-                            className="rounded-xl"
-                            disabled={!isConfigured || isProcessing}
-                            onClick={handleFetch}
-                        >
-                            {isProcessing ? <Spinner className="mr-2" /> : <Download className="mr-2 h-4 w-4" />}
-                            {isProcessing ? 'Fetching…' : 'Fetch today'}
-                        </Button>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="flex min-w-0 flex-col gap-1.5">
+                                <label
+                                    htmlFor="access-events-fetch-date"
+                                    className="text-[11px] font-medium text-muted-foreground/60"
+                                >
+                                    Fetch date
+                                </label>
+                                <Input
+                                    id="access-events-fetch-date"
+                                    type="date"
+                                    value={fetchDate}
+                                    max={fetchDefaultDate}
+                                    onChange={(event) => setFetchDate(event.target.value)}
+                                    disabled={!isConfigured || isProcessing}
+                                    className="h-9 w-full rounded-xl border-white/10 bg-white/5 px-3 text-sm focus-visible:ring-primary/40 sm:w-[10.5rem]"
+                                />
+                            </div>
+                            <Button
+                                type="button"
+                                className="rounded-xl"
+                                disabled={!isConfigured || isProcessing || fetchDate === ''}
+                                onClick={handleFetch}
+                            >
+                                {isProcessing ? (
+                                    <Spinner className="mr-2" />
+                                ) : (
+                                    <Download className="mr-2 h-4 w-4" />
+                                )}
+                                {isProcessing ? 'Fetching…' : 'Fetch'}
+                            </Button>
+                        </div>
                     ) : null
                 }
             />
@@ -265,14 +293,14 @@ export function HikvisionAccessEventsContent({
                     <AlertTitle>How records are fetched</AlertTitle>
                     <AlertDescription className="space-y-2">
                         <p>
-                            Fetching loads <span className="font-medium text-foreground">today&apos;s</span>{' '}
-                            records only: door device check-ins and mobile app check-in/out from
-                            Hik-Connect.
+                            Choose a date, then click <span className="font-medium text-foreground">Fetch</span>{' '}
+                            to load that day&apos;s door device check-ins and mobile app check-in/out
+                            from Hik-Connect. Defaults to today.
                         </p>
                         <p>
-                            Mobile app attendance for the current day is processed by Hik-Connect
-                            after the working day ends. If today&apos;s mobile records are missing,
-                            fetch again later or the next day once Hik-Connect has processed them.
+                            Mobile app attendance for a day is processed by Hik-Connect after the
+                            working day ends. If same-day mobile records are missing, fetch again
+                            later or fetch the following day once Hik-Connect has processed them.
                         </p>
                     </AlertDescription>
                 </Alert>
