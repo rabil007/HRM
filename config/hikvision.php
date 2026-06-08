@@ -14,6 +14,8 @@ return [
 
     'timeout' => (int) env('HIKVISION_TIMEOUT', 20),
 
+    'events_fetch_schedule_at' => env('HIKVISION_EVENTS_FETCH_SCHEDULE_AT', '18:00'),
+
     'api_host' => env('HIKVISION_API_HOST'),
 
     'api_key' => env('HIKVISION_API_KEY'),

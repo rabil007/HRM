@@ -23,6 +23,22 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
             'enabled' => ['required', 'boolean'],
             'webhook_enabled' => ['sometimes', 'boolean'],
             'webhook_verify_token' => ['nullable', 'string', 'max:255'],
+            'events_fetch_schedule_enabled' => ['sometimes', 'boolean'],
+            'events_fetch_schedule_at' => [
+                'nullable',
+                'string',
+                'regex:/^([01]\d|2[0-3]):[0-5]\d$/',
+                'required_if:events_fetch_schedule_enabled,true,1',
+            ],
+        ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return [
+            'events_fetch_schedule_at.required_if' => 'Choose a daily fetch time when automatic fetch is enabled.',
+            'events_fetch_schedule_at.regex' => 'Use 24-hour time in HH:MM format (e.g. 18:00).',
         ];
     }
 
@@ -36,6 +52,8 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
             'enabled',
             'webhook_enabled',
             'webhook_verify_token',
+            'events_fetch_schedule_enabled',
+            'events_fetch_schedule_at',
         ]);
     }
 }

@@ -9,6 +9,7 @@ use App\Models\HikvisionDevice;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
+use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\URL;
@@ -34,6 +35,7 @@ class HikvisionIntegrationController extends Controller
                 $user->can('settings.integrations.hikvision.update'),
             ),
             'webhook_url' => URL::route('webhooks.hikvision', absolute: true),
+            'scheduler_timezone' => ApplicationTimezone::identifier(),
             'can' => [
                 'update' => $user->can('settings.integrations.hikvision.update'),
                 'webhook_manage' => $user->can('hikvision.webhook.manage'),

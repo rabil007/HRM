@@ -69,7 +69,10 @@ test('owner can view hikvision integration settings page', function () {
             ->component('settings/application')
             ->has('hikvision.settings')
             ->where('hikvision.settings.api_host', fn ($value) => is_string($value))
-            ->has('hikvision.webhook_url'),
+            ->has('hikvision.webhook_url')
+            ->has('hikvision.scheduler_timezone')
+            ->has('hikvision.settings.events_fetch_schedule_enabled')
+            ->has('hikvision.settings.events_fetch_schedule_at'),
         );
 });
 

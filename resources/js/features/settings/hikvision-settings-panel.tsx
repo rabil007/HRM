@@ -2,6 +2,7 @@ import { useForm, router } from '@inertiajs/react';
 import {
     Camera,
     CheckCircle2,
+    Clock,
     Info,
     Link2,
     Lock,
@@ -42,8 +43,12 @@ export type HikvisionSettingsPanelProps = {
         webhook_registered_at: string | null;
         webhook_last_event_at: string | null;
         has_webhook_verify_token: boolean;
+        events_fetch_schedule_enabled: boolean;
+        events_fetch_schedule_at: string;
+        events_last_fetched_at: string | null;
     };
     webhook_url: string;
+    scheduler_timezone: string;
     can: {
         update: boolean;
         webhook_manage: boolean;
@@ -91,7 +96,13 @@ function StatusItem({
     );
 }
 
-export function HikvisionSettingsPanel({ settings, webhook_url, can, devices }: HikvisionSettingsPanelProps) {
+export function HikvisionSettingsPanel({
+    settings,
+    webhook_url,
+    scheduler_timezone,
+    can,
+    devices,
+}: HikvisionSettingsPanelProps) {
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('idle');
     const [connectionMessage, setConnectionMessage] = useState<string | null>(null);
     const [testing, setTesting] = useState(false);
@@ -104,6 +115,8 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can, devices }: 
         enabled: settings.enabled ?? false,
         webhook_enabled: settings.webhook_enabled ?? false,
         webhook_verify_token: settings.webhook_verify_token ?? '',
+        events_fetch_schedule_enabled: settings.events_fetch_schedule_enabled ?? false,
+        events_fetch_schedule_at: settings.events_fetch_schedule_at ?? '18:00',
     });
 
     const submit = (event: React.FormEvent) => {
@@ -386,6 +399,101 @@ export function HikvisionSettingsPanel({ settings, webhook_url, can, devices }: 
                                 <InputError message={form.errors.api_secret} />
                             </div>
                         </div>
+
+                        {can.update ? (
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl h-11 px-6"
+                                    disabled={form.processing}
+                                >
+                                    {form.processing ? <Spinner /> : null}
+                                    Save Hikvision settings
+                                </Button>
+                            </div>
+                        ) : null}
+                    </CardContent>
+                </Card>
+
+                <Card className="border-white/5 bg-white/5">
+                    <CardContent className="space-y-5 p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
+                                <Clock className="h-5 w-5 text-blue-500" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold tracking-tight">Automatic daily fetch</h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Pull today&apos;s door and mobile app access records from Hik-Connect on a schedule.
+                                </p>
+                            </div>
+                        </div>
+
+                        <Alert className="border-blue-500/20 bg-blue-500/5">
+                            <Info className="h-4 w-4" />
+                            <AlertTitle>Server cron required</AlertTitle>
+                            <AlertDescription>
+                                Laravel scheduler must run every minute on the server, for example{' '}
+                                <span className="font-mono text-xs">* * * * * php artisan schedule:run</span>.
+                                A queue worker is also required to process the fetch job.
+                            </AlertDescription>
+                        </Alert>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <StatusItem label="Last fetch">
+                                <span className="text-sm">
+                                    {settings.events_last_fetched_at
+                                        ? formatDisplayDateTime(settings.events_last_fetched_at)
+                                        : 'Never'}
+                                </span>
+                            </StatusItem>
+                            <StatusItem label="Scheduled time">
+                                <span className="text-sm">
+                                    {form.data.events_fetch_schedule_enabled
+                                        ? `${form.data.events_fetch_schedule_at} (${scheduler_timezone})`
+                                        : 'Disabled'}
+                                </span>
+                            </StatusItem>
+                            <StatusItem label="Fetch scope">
+                                <span className="text-sm">Today only</span>
+                            </StatusItem>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-medium">Enable daily fetch</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Runs the same job as Fetch today on the Access Events page.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={form.data.events_fetch_schedule_enabled}
+                                onCheckedChange={(checked) =>
+                                    form.setData('events_fetch_schedule_enabled', checked)
+                                }
+                                disabled={!can.update || !settings.is_configured}
+                            />
+                        </div>
+
+                        {form.data.events_fetch_schedule_enabled ? (
+                            <div className="space-y-1.5 max-w-xs">
+                                <FieldLabel htmlFor="events_fetch_schedule_at">Daily fetch time</FieldLabel>
+                                <FieldInput
+                                    id="events_fetch_schedule_at"
+                                    type="time"
+                                    value={form.data.events_fetch_schedule_at}
+                                    onChange={(event) =>
+                                        form.setData('events_fetch_schedule_at', event.target.value)
+                                    }
+                                    disabled={!can.update}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Uses application timezone ({scheduler_timezone}). Mobile app records may
+                                    appear later in the day after Hik-Connect processes them.
+                                </p>
+                                <InputError message={form.errors.events_fetch_schedule_at} />
+                            </div>
+                        ) : null}
 
                         {can.update ? (
                             <div className="flex justify-end">
