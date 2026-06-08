@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeSeaServicesRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeSeaServiceRequest;
 use App\Models\Client;
 use App\Models\Employee;
@@ -101,6 +102,29 @@ class EmployeeSeaServiceController extends Controller
         $seaService->delete();
 
         return back()->with('success', 'Sea service record removed.');
+    }
+
+    public function bulkDestroy(
+        BulkDestroyEmployeeSeaServicesRequest $request,
+        Employee $employee,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless($employee->company_id === $companyId, 403);
+
+        $deleted = EmployeeSeaService::query()
+            ->where('employee_id', $employee->id)
+            ->where('company_id', $companyId)
+            ->whereIn('id', $request->validated('sea_service_ids'))
+            ->delete();
+
+        if ($deleted === 0) {
+            return back()->with('error', 'No sea service records could be deleted.');
+        }
+
+        $label = $deleted === 1 ? '1 sea service record' : "{$deleted} sea service records";
+
+        return back()->with('success', "Deleted {$label}.");
     }
 
     public function reorder(Request $request, Employee $employee): RedirectResponse

@@ -27,6 +27,10 @@ test('guests cannot manage sea services', function () {
 
     $this->get(route('organization.employees.sea-services.import.template', $employee))
         ->assertRedirect(route('login'));
+
+    $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
+        'sea_service_ids' => [1],
+    ])->assertRedirect(route('login'));
 });
 
 test('users without permission cannot manage sea services', function () {
@@ -663,4 +667,96 @@ CSV;
         ->toContain('missing vessel_type');
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('users with permission can bulk delete sea service records', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+
+    $rank = Rank::query()->create([
+        'name' => 'Chief Officer',
+        'is_active' => true,
+    ]);
+
+    $first = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'rank_id' => $rank->id,
+        'sort_order' => 0,
+    ]);
+
+    $second = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'rank_id' => $rank->id,
+        'sort_order' => 1,
+    ]);
+
+    $third = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'rank_id' => $rank->id,
+        'sort_order' => 2,
+    ]);
+
+    $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
+        'sea_service_ids' => [$first->id, $second->id],
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->assertSoftDeleted('employee_sea_services', ['id' => $first->id]);
+    $this->assertSoftDeleted('employee_sea_services', ['id' => $second->id]);
+    expect(EmployeeSeaService::query()->whereKey($third->id)->exists())->toBeTrue();
+});
+
+test('bulk delete ignores sea service records from another employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EMP0099',
+        'name' => 'Other Sailor',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
+
+    $rank = Rank::query()->create([
+        'name' => 'Master',
+        'is_active' => true,
+    ]);
+
+    $ownRecord = EmployeeSeaService::factory()->forEmployee($employee)->create([
+        'rank_id' => $rank->id,
+    ]);
+
+    $otherRecord = EmployeeSeaService::factory()->forEmployee($otherEmployee)->create([
+        'rank_id' => $rank->id,
+    ]);
+
+    $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
+        'sea_service_ids' => [$ownRecord->id, $otherRecord->id],
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->assertSoftDeleted('employee_sea_services', ['id' => $ownRecord->id]);
+    expect(EmployeeSeaService::query()->whereKey($otherRecord->id)->exists())->toBeTrue();
+});
+
+test('users without permission cannot bulk delete sea service records', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $record = EmployeeSeaService::factory()->forEmployee($employee)->create();
+
+    $this->delete(route('organization.employees.sea-services.bulk-destroy', $employee), [
+        'sea_service_ids' => [$record->id],
+    ])->assertForbidden();
+
+    expect(EmployeeSeaService::query()->whereKey($record->id)->exists())->toBeTrue();
 });

@@ -2,10 +2,12 @@ import { router, useForm } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
 import {
+    bulkDestroy as bulkDestroySeaServices,
     destroy as destroySeaService,
     store as storeSeaService,
     update as updateSeaService,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeSeaServiceController';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -21,6 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { TabsContent } from '@/components/ui/tabs';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { seaServiceImportConfig } from '@/features/organization/employees/profile/record-import-configs';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
@@ -178,6 +182,24 @@ export function EmployeeSeaServiceTab({
     const [seaServiceImportOpen, setSeaServiceImportOpen] = useState(false);
     const [editingRow, setEditingRow] = useState<SeaServiceItem | null>(null);
     const [deleteRowId, setDeleteRowId] = useState<number | null>(null);
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+    const seaServiceIds = useMemo(
+        () => sea_services.map((row) => row.id),
+        [sea_services],
+    );
+
+    const {
+        selectedIds: selectedSeaServiceIds,
+        selectedCount: selectedSeaServiceCount,
+        isSelected: isSeaServiceSelected,
+        isAllSelected: allSeaServicesSelected,
+        isPartiallySelected: seaServicesPartiallySelected,
+        toggle: toggleSeaService,
+        toggleAll: toggleAllSeaServices,
+        clear: clearSeaServiceSelection,
+    } = useBulkSelection(seaServiceIds);
 
     const employeeForm = useForm({
         vessel_type_id: '',
@@ -269,6 +291,26 @@ export function EmployeeSeaServiceTab({
                 </div>
             </div>
 
+            {canManage && sea_services.length > 0 ? (
+                <DocumentsBulkToolbar
+                    count={selectedSeaServiceCount}
+                    itemLabel="records"
+                    onClear={clearSeaServiceSelection}
+                    actions={
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 gap-1.5 text-xs"
+                            disabled={isBulkDeleting || employeeId === null}
+                            onClick={() => setBulkDeleteOpen(true)}
+                        >
+                            Delete selected
+                        </Button>
+                    }
+                />
+            ) : null}
+
             <EmployeeRecordsPanel
                 title="Sea Service"
                 count={sea_services.length}
@@ -319,6 +361,21 @@ export function EmployeeSeaServiceTab({
                 <EmployeeRecordsTable className="min-w-[1280px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
+                            {canManage ? (
+                                <th className={cn(employeeRecordsTableThClass(), 'w-10 px-3')}>
+                                    <Checkbox
+                                        checked={
+                                            allSeaServicesSelected
+                                                ? true
+                                                : seaServicesPartiallySelected
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={toggleAllSeaServices}
+                                        aria-label="Select all sea service records"
+                                    />
+                                </th>
+                            ) : null}
                             {showField('vessel_type_id') ? (
                                 <th className={employeeRecordsTableThClass()}>Vessel type</th>
                             ) : null}
@@ -366,6 +423,15 @@ export function EmployeeSeaServiceTab({
                     <tbody>
                         {sea_services.map((row) => (
                             <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'w-10 px-3')}>
+                                        <Checkbox
+                                            checked={isSeaServiceSelected(row.id)}
+                                            onCheckedChange={() => toggleSeaService(row.id)}
+                                            aria-label={`Select sea service record ${row.vessel_name ?? row.id}`}
+                                        />
+                                    </td>
+                                ) : null}
                                 {showField('vessel_type_id') ? (
                                 <td
                                     className={cn(
@@ -949,6 +1015,39 @@ export function EmployeeSeaServiceTab({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <ConfirmDeleteDialog
+                open={bulkDeleteOpen}
+                onOpenChange={setBulkDeleteOpen}
+                title="Remove selected sea service records?"
+                description={`${selectedSeaServiceCount} selected ${selectedSeaServiceCount === 1 ? 'record' : 'records'} will be permanently removed.`}
+                confirmText={isBulkDeleting ? 'Removing…' : 'Remove'}
+                onConfirm={() => {
+                    if (selectedSeaServiceIds.length === 0 || employeeId === null) {
+                        return;
+                    }
+
+                    setIsBulkDeleting(true);
+
+                    router.delete(
+                        bulkDestroySeaServices.url({ employee: employeeId }),
+                        {
+                            data: { sea_service_ids: selectedSeaServiceIds },
+                            ...SEA_SERVICE_RELOAD,
+                            onSuccess: () => {
+                                clearSeaServiceSelection();
+                                setBulkDeleteOpen(false);
+                            },
+                            onFinish: () => {
+                                setIsBulkDeleting(false);
+                            },
+                        },
+                    );
+                }}
+                contentClassName="sm:max-w-sm"
+                cancelButtonClassName="border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-zinc-100"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
+            />
 
             <EmployeeRecordDeleteDialog
                 open={!!deleteRowId}
