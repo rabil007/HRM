@@ -56,6 +56,17 @@ return [
 
     'webhook_verify_header' => 'X-HCC-Webhook-Token',
 
+    /*
+    |--------------------------------------------------------------------------
+    | Temporary webhook debug logging (remove after production verification)
+    |--------------------------------------------------------------------------
+    |
+    | Set HIKVISION_WEBHOOK_DEBUG=true in .env to log incoming webhook requests.
+    | Logs use the prefix [Hikvision Webhook] in storage/logs/laravel.log.
+    |
+    */
+    'webhook_debug_log' => (bool) env('HIKVISION_WEBHOOK_DEBUG', false),
+
     'acs_event_page_size' => 50,
 
     'attendance_page_size' => 200,

@@ -86,6 +86,109 @@ test('webhook dispatches job when signed post is valid', function () {
     Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
 });
 
+test('webhook accepts signed post with millisecond timestamp', function () {
+    Queue::fake();
+
+    HikvisionSetting::current()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
+    ]);
+
+    $payload = [
+        'batchId' => 'signed-batch-ms',
+        'personInfo' => [
+            'personId' => 'person-webhook-ms',
+            'personName' => 'Millisecond Timestamp User',
+        ],
+        'occurTime' => '2026-06-08T09:00:00+04:00',
+        'attendanceStatus' => 'checkIn',
+    ];
+
+    $batchId = 'signed-batch-ms';
+    $timestamp = (string) (time() * 1000);
+    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+
+    $this->postJson(route('webhooks.hikvision'), $payload, [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+        'X-Hook-Signature' => $signature,
+    ])->assertNoContent();
+
+    Queue::assertPushed(ProcessHikvisionWebhookEventJob::class);
+});
+
+test('webhook stores hik-connect list envelope access event', function () {
+    HikvisionSetting::current()->update([
+        'webhook_verify_token' => 'abc12345',
+        'webhook_enabled' => true,
+    ]);
+
+    $payload = [
+        'batchId' => '406c44ec5ac34d72842f8c724b5c6684',
+        'list' => [
+            [
+                'type' => 'event',
+                'basicInfo' => [
+                    'device' => [
+                        'id' => 'ac56cc2674d645d6b91313aeaa7c07da',
+                        'name' => 'OMS-Door',
+                        'category' => 'accessControllerDevice',
+                        'deviceSerial' => 'FZ4488436',
+                    ],
+                    'systemId' => '593fbd35224641bb8acc3305cd9cfd9a',
+                    'eventType' => '110013',
+                    'occurrenceTime' => '2026-06-08T09:01:54+04:00',
+                ],
+                'data' => [
+                    'openDoorInfo' => [
+                        'event' => [
+                            'basicInfo' => [
+                                'deviceId' => 'ac56cc2674d645d6b91313aeaa7c07da',
+                                'deviceName' => 'OMS-Door',
+                                'occurTime' => '2026-06-08T09:01:54+04:00',
+                                'systemId' => '593fbd35224641bb8acc3305cd9cfd9a',
+                            ],
+                            'intelliInfo' => [
+                                'firstName' => 'maysa',
+                                'lastName' => '',
+                                'personId' => '549648292066532352',
+                                'attendanceStatus' => 0,
+                                'authResult' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    $batchId = '406c44ec5ac34d72842f8c724b5c6684';
+    $timestamp = (string) (time() * 1000);
+    $signature = HikvisionWebhookSignature::generate('abc12345', $timestamp, $batchId);
+
+    $this->postJson(route('webhooks.hikvision'), $payload, [
+        'X-Hook-Batch-Id' => $batchId,
+        'X-Hook-Timestamp' => $timestamp,
+        'X-Hook-Signature' => $signature,
+    ])->assertNoContent();
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    $event = HikvisionAccessEvent::query()->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK)
+        ->and($event->person_name)->toBe('maysa')
+        ->and($event->person_hikvision_id)->toBe('549648292066532352')
+        ->and($event->device_name)->toBe('OMS-Door')
+        ->and($event->attendance_status)->toBe(HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+        ->and($event->batch_id)->toBe($batchId)
+        ->and($event->msg_type)->toBe('webhook/event/110013');
+
+    HikvisionSetting::current()->refresh();
+    expect(HikvisionSetting::current()->webhook_last_event_at)->not->toBeNull();
+});
+
 test('webhook dispatches job and stores event with valid token', function () {
     Queue::fake();
 

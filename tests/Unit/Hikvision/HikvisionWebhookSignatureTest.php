@@ -17,3 +17,11 @@ test('webhook timestamp freshness allows one minute skew', function () {
         ->and(HikvisionWebhookSignature::timestampIsFresh((string) (time() - 59)))->toBeTrue()
         ->and(HikvisionWebhookSignature::timestampIsFresh((string) (time() - 120)))->toBeFalse();
 });
+
+test('webhook timestamp freshness accepts millisecond timestamps from hik-connect', function () {
+    $nowMs = (string) (time() * 1000);
+
+    expect(HikvisionWebhookSignature::normalizeTimestamp($nowMs))->toBe(time())
+        ->and(HikvisionWebhookSignature::timestampIsFresh($nowMs))->toBeTrue()
+        ->and(HikvisionWebhookSignature::timestampIsFresh((string) ((time() - 120) * 1000)))->toBeFalse();
+});

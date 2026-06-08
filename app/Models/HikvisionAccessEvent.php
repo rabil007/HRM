@@ -382,6 +382,21 @@ class HikvisionAccessEvent extends Model
      */
     public static function upsertFromWebhook(array $payload): ?self
     {
+        if (isset($payload['list']) && is_array($payload['list'])) {
+            $batchId = filled($payload['batchId'] ?? null) ? (string) $payload['batchId'] : null;
+            $stored = null;
+
+            foreach ($payload['list'] as $item) {
+                if (! is_array($item)) {
+                    continue;
+                }
+
+                $stored = self::upsertFromHikConnectListItem($item, $batchId) ?? $stored;
+            }
+
+            return $stored;
+        }
+
         if (isset($payload['recordList']) && is_array($payload['recordList'])) {
             $stored = null;
 
@@ -397,6 +412,98 @@ class HikvisionAccessEvent extends Model
         }
 
         return self::upsertFromWebhookRecord($payload);
+    }
+
+    /**
+     * @param  array<string, mixed>  $item
+     */
+    public static function upsertFromHikConnectListItem(array $item, ?string $batchId = null): ?self
+    {
+        $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+        $openDoorInfo = is_array($data['openDoorInfo'] ?? null) ? $data['openDoorInfo'] : [];
+        $event = is_array($openDoorInfo['event'] ?? null) ? $openDoorInfo['event'] : [];
+        $eventBasicInfo = is_array($event['basicInfo'] ?? null) ? $event['basicInfo'] : [];
+        $intelliInfo = is_array($event['intelliInfo'] ?? null) ? $event['intelliInfo'] : [];
+        $itemBasicInfo = is_array($item['basicInfo'] ?? null) ? $item['basicInfo'] : [];
+        $device = is_array($itemBasicInfo['device'] ?? null) ? $itemBasicInfo['device'] : [];
+
+        $firstName = trim((string) ($intelliInfo['firstName'] ?? ''));
+        $lastName = trim((string) ($intelliInfo['lastName'] ?? ''));
+        $personName = trim("{$firstName} {$lastName}") !== ''
+            ? trim("{$firstName} {$lastName}")
+            : $firstName;
+        $personHikvisionId = trim((string) ($intelliInfo['personId'] ?? ''));
+        $occurrenceTime = self::parseOccurrenceTime((string) (
+            $itemBasicInfo['occurrenceTime']
+            ?? $eventBasicInfo['occurTime']
+            ?? ''
+        ));
+        $deviceName = trim((string) ($device['name'] ?? $eventBasicInfo['deviceName'] ?? ''));
+        $deviceId = filled($device['id'] ?? null) ? (string) $device['id'] : (
+            filled($eventBasicInfo['deviceId'] ?? null) ? (string) $eventBasicInfo['deviceId'] : null
+        );
+        $eventType = trim((string) ($itemBasicInfo['eventType'] ?? $eventBasicInfo['eventType'] ?? 'event'));
+        $attendanceStatus = self::normalizeWebhookAttendanceStatus($intelliInfo['attendanceStatus'] ?? null);
+        $systemId = trim((string) ($itemBasicInfo['systemId'] ?? $eventBasicInfo['systemId'] ?? ''));
+
+        if ($personName === '' && $attendanceStatus === '') {
+            return null;
+        }
+
+        if ($systemId === '') {
+            $systemId = 'webhook:'.hash('sha256', json_encode($item));
+        } else {
+            $systemId = "webhook:{$systemId}";
+        }
+
+        return self::query()->updateOrCreate(
+            [
+                'system_id' => $systemId,
+                'occurrence_time' => $occurrenceTime,
+                'msg_type' => "webhook/event/{$eventType}",
+            ],
+            [
+                'batch_id' => $batchId,
+                'device_id' => $deviceId,
+                'device_name' => $deviceName !== '' ? $deviceName : null,
+                'person_name' => $personName !== '' ? $personName : null,
+                'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
+                'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
+                'event_source' => self::EVENT_SOURCE_WEBHOOK,
+                'transaction_source' => self::TRANSACTION_DEVICE,
+                'raw_payload' => $item,
+                'fetched_at' => now(),
+            ],
+        );
+    }
+
+    protected static function normalizeWebhookAttendanceStatus(mixed $value): string
+    {
+        if (is_string($value)) {
+            $normalized = trim($value);
+
+            if (in_array($normalized, self::attendanceStatusOptions(), true)) {
+                return $normalized;
+            }
+
+            if ($normalized === '0') {
+                return self::ATTENDANCE_CHECK_IN;
+            }
+
+            if ($normalized === '1') {
+                return self::ATTENDANCE_CHECK_OUT;
+            }
+        }
+
+        if (is_int($value) || (is_string($value) && is_numeric($value))) {
+            return match ((int) $value) {
+                0 => self::ATTENDANCE_CHECK_IN,
+                1 => self::ATTENDANCE_CHECK_OUT,
+                default => '',
+            };
+        }
+
+        return '';
     }
 
     /**
