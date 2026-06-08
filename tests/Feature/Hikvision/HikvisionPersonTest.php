@@ -82,6 +82,49 @@ function fakeHikvisionPersonsApi(): void
     ]);
 }
 
+test('persons index paginates results and returns correct pagination meta', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.persons.view']);
+
+    foreach (range(1, 21) as $index) {
+        HikvisionPerson::query()->create([
+            'person_id' => "paginated-person-{$index}",
+            'full_name' => sprintf('Person %02d', $index),
+            'synced_at' => now(),
+        ]);
+    }
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'paginated-person-syam',
+        'full_name' => 'Syam',
+        'synced_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.persons.index', ['per_page' => 20]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('pagination.total', 22)
+            ->where('pagination.per_page', 20)
+            ->where('pagination.current_page', 1)
+            ->where('pagination.from', 1)
+            ->where('pagination.to', 20)
+            ->has('persons', 20),
+        );
+
+    $this->actingAs($user)
+        ->get(route('hikvision.persons.index', ['per_page' => 20, 'page' => 2]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('pagination.total', 22)
+            ->where('pagination.current_page', 2)
+            ->where('pagination.from', 21)
+            ->where('pagination.to', 22)
+            ->has('persons', 2)
+            ->where('persons.1.full_name', 'Syam'),
+        );
+});
+
 test('user with permission can view hikvision persons page', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['hikvision.persons.view']);

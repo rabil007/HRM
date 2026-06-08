@@ -467,12 +467,9 @@ export function HikvisionPersonsContent({
                         </TableBody>
                     </OrganizationDataTable>
 
-                    <Pagination
-                        className="mt-6"
-                        pagination={pagination}
-                        onPageChange={list.goToPage}
-                        onPerPageChange={list.setPerPage}
-                    />
+                    <div className="mt-6">
+                        <Pagination {...list.paginationProps} label="persons" />
+                    </div>
                 </>
             )}
 
