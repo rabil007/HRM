@@ -480,16 +480,26 @@ class HikvisionService
                 break;
             }
 
+            $hasInWindowRecord = false;
+
             foreach ($events as $event) {
                 if (! is_array($event)) {
                     continue;
                 }
 
-                $stored = HikvisionAccessEvent::upsertFromAcsEvent($event, $deviceId, $deviceName);
+                if (HikvisionAccessEvent::acsEventIsWithinFetchWindow($event, $startTime, $endTime)) {
+                    $hasInWindowRecord = true;
+                }
+
+                $stored = HikvisionAccessEvent::upsertFromAcsEvent($event, $deviceId, $deviceName, $startTime, $endTime);
 
                 if ($stored !== null) {
                     $storedCount++;
                 }
+            }
+
+            if (! $hasInWindowRecord && $events !== []) {
+                break;
             }
 
             $position += count($events);
@@ -521,22 +531,33 @@ class HikvisionService
             $rows = is_array($data['reportDataList'] ?? null) ? $data['reportDataList'] : [];
             $moreData = (int) ($data['moreData'] ?? 0);
 
+            $hasInWindowRecord = false;
+
             foreach ($rows as $row) {
                 if (! is_array($row)) {
                     continue;
                 }
 
-                $checkIn = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN);
+                if (HikvisionAccessEvent::timeCardRowIsWithinFetchWindow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN, $startTime, $endTime)
+                    || HikvisionAccessEvent::timeCardRowIsWithinFetchWindow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, $startTime, $endTime)) {
+                    $hasInWindowRecord = true;
+                }
+
+                $checkIn = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_IN, $startTime, $endTime);
 
                 if ($checkIn !== null) {
                     $storedCount++;
                 }
 
-                $checkOut = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT);
+                $checkOut = HikvisionAccessEvent::upsertFromTimeCardRow($row, HikvisionAccessEvent::ATTENDANCE_CHECK_OUT, $startTime, $endTime);
 
                 if ($checkOut !== null) {
                     $storedCount++;
                 }
+            }
+
+            if (! $hasInWindowRecord && $rows !== []) {
+                break;
             }
 
             $pageIndex++;
@@ -582,12 +603,11 @@ class HikvisionService
         }
 
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
-        $certificateCount = $this->fetchCertificateRecords($startTime, $endTime);
-        $totalCount = $fetchedCount + $mobileCount + $certificateCount;
+        $totalCount = $fetchedCount + $mobileCount;
 
         return [
             'fetched_count' => $totalCount,
-            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app, {$certificateCount} certificate).",
+            'message' => "Fetched {$totalCount} access record(s) for today ({$fetchedCount} device, {$mobileCount} mobile app).",
         ];
     }
 
@@ -603,16 +623,26 @@ class HikvisionService
             $result = $this->searchCertificateRecords($startTime, $endTime, $pageIndex, $pageSize);
             $records = $result['records'];
 
+            $hasInWindowRecord = false;
+
             foreach ($records as $record) {
                 if (! is_array($record)) {
                     continue;
                 }
 
-                $stored = HikvisionAccessEvent::upsertFromCertificateRecord($record);
+                if (HikvisionAccessEvent::certificateRecordIsWithinFetchWindow($record, $startTime, $endTime)) {
+                    $hasInWindowRecord = true;
+                }
+
+                $stored = HikvisionAccessEvent::upsertFromCertificateRecord($record, $startTime, $endTime);
 
                 if ($stored !== null) {
                     $storedCount++;
                 }
+            }
+
+            if (! $hasInWindowRecord && $records !== []) {
+                break;
             }
 
             $pageIndex++;

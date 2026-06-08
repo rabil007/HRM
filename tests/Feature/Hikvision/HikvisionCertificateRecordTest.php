@@ -2,7 +2,12 @@
 
 use App\Models\HikvisionAccessEvent;
 use App\Services\HikvisionService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
 
 function fakeHikvisionTokenResponse(): array
 {
@@ -114,4 +119,112 @@ test('fetch certificate records stores access events', function () {
 
     expect($count)->toBe(1)
         ->and(HikvisionAccessEvent::query()->where('event_source', HikvisionAccessEvent::EVENT_SOURCE_CERTIFICATE_API)->count())->toBe(1);
+});
+
+test('certificate record upsert skips nameless records', function () {
+    $stored = HikvisionAccessEvent::upsertFromCertificateRecord([
+        'recordId' => 'cert-nameless-1',
+        'occurTime' => '2026-06-08T08:00:00+04:00',
+        'attendanceStatus' => '1',
+        'deviceName' => 'OMS-Door',
+    ]);
+
+    expect($stored)->toBeNull();
+});
+
+test('certificate record upsert resolves hik connect person info shape', function () {
+    Carbon::setTestNow('2026-06-08 10:00:00', config('app.timezone'));
+
+    $stored = HikvisionAccessEvent::upsertFromCertificateRecord([
+        'recordGuid' => 'cert-hcc-shape-1',
+        'occurTime' => '2026-06-08T05:58:20Z',
+        'deviceTime' => '2026-06-08T09:58:20+04:00',
+        'attendanceStatus' => 1,
+        'deviceName' => 'OMS-Door',
+        'personInfo' => [
+            'id' => '658668617248164865',
+            'baseInfo' => [
+                'firstName' => 'Capt.',
+                'lastName' => 'Wael',
+            ],
+        ],
+    ], now()->startOfDay(), now()->endOfDay());
+
+    expect($stored)->not->toBeNull()
+        ->and($stored->person_name)->toBe('Capt. Wael')
+        ->and($stored->person_hikvision_id)->toBe('658668617248164865')
+        ->and($stored->attendance_status)->toBe(HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+        ->and($stored->occurrence_time->format('Y-m-d H:i:s'))->toBe('2026-06-08 09:58:20');
+});
+
+test('fetch certificate records ignores historical api responses outside today window', function () {
+    Carbon::setTestNow('2026-06-08 10:00:00', config('app.timezone'));
+    configuredHikvisionSettings();
+
+    $historicalRecords = array_fill(0, 100, [
+        'recordId' => 'cert-historical',
+        'occurTime' => '2025-11-20T08:00:00+04:00',
+        'attendanceStatus' => '1',
+        'deviceName' => 'OMS-Door',
+    ]);
+
+    Http::fake([
+        ...fakeHikvisionTokenResponse(),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => $historicalRecords,
+                'totalNum' => 8820,
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    $count = app(HikvisionService::class)->fetchCertificateRecords(
+        now()->startOfDay(),
+        now()->endOfDay(),
+    );
+
+    expect($count)->toBe(0)
+        ->and(HikvisionAccessEvent::query()->count())->toBe(0);
+
+    Http::assertSentCount(2);
+});
+
+test('fetch certificate records stores only todays named records from mixed api response', function () {
+    Carbon::setTestNow('2026-06-08 10:00:00', config('app.timezone'));
+    configuredHikvisionSettings();
+
+    Http::fake([
+        ...fakeHikvisionTokenResponse(),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => [
+                    [
+                        'recordId' => 'cert-old',
+                        'occurTime' => '2025-11-20T08:00:00+04:00',
+                        'attendanceStatus' => 'checkIn',
+                        'personInfo' => ['personName' => 'Old User'],
+                        'sourceType' => 1,
+                    ],
+                    [
+                        'recordId' => 'cert-today',
+                        'occurTime' => '2026-06-08T08:00:00+04:00',
+                        'attendanceStatus' => 'checkIn',
+                        'personInfo' => ['personName' => 'Today User'],
+                        'sourceType' => 1,
+                    ],
+                ],
+                'totalNum' => 2,
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    $count = app(HikvisionService::class)->fetchCertificateRecords(
+        now()->startOfDay(),
+        now()->endOfDay(),
+    );
+
+    expect($count)->toBe(1)
+        ->and(HikvisionAccessEvent::query()->value('person_name'))->toBe('Today User');
 });

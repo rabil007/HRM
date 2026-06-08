@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
@@ -87,6 +88,116 @@ class HikvisionAccessEvent extends Model
         $attendanceStatus = trim((string) ($acsEvent['attendanceStatus'] ?? ''));
 
         return $personName !== '' || $attendanceStatus !== '';
+    }
+
+    public static function isWithinFetchWindow(
+        CarbonInterface $occurrenceTime,
+        CarbonInterface $windowStart,
+        CarbonInterface $windowEnd,
+    ): bool {
+        return $occurrenceTime->betweenIncluded($windowStart, $windowEnd);
+    }
+
+    /**
+     * @param  array<string, mixed>  $acsEvent
+     */
+    public static function acsEventIsWithinFetchWindow(
+        array $acsEvent,
+        CarbonInterface $windowStart,
+        CarbonInterface $windowEnd,
+    ): bool {
+        if (! self::isAccessRecord($acsEvent)) {
+            return false;
+        }
+
+        $occurrenceTime = self::parseOccurrenceTime((string) ($acsEvent['time'] ?? ''));
+
+        return self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    public static function timeCardRowIsWithinFetchWindow(
+        array $row,
+        string $attendanceStatus,
+        CarbonInterface $windowStart,
+        CarbonInterface $windowEnd,
+    ): bool {
+        $isCheckIn = $attendanceStatus === self::ATTENDANCE_CHECK_IN;
+        $clockDate = trim((string) ($isCheckIn ? ($row['clockInDate'] ?? '') : ($row['clockOutDate'] ?? '')));
+        $clockTime = trim((string) ($isCheckIn ? ($row['clockInTime'] ?? '') : ($row['clockOutTime'] ?? '')));
+        $clockSource = (int) ($isCheckIn ? ($row['clockInSource'] ?? 0) : ($row['clockOutSource'] ?? 0));
+
+        if ($clockDate === '' || $clockTime === '') {
+            return false;
+        }
+
+        if (self::mapClockSource($clockSource) !== self::TRANSACTION_MOBILE_APP) {
+            return false;
+        }
+
+        $personName = trim((string) ($row['fullName'] ?? ''));
+        $personCode = trim((string) ($row['personCode'] ?? ''));
+
+        if ($personName === '' && $personCode === '') {
+            return false;
+        }
+
+        $occurrenceTime = self::parseTimeCardDateTime($clockDate, $clockTime);
+
+        return self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    public static function certificateRecordIsWithinFetchWindow(
+        array $record,
+        CarbonInterface $windowStart,
+        CarbonInterface $windowEnd,
+    ): bool {
+        if (! self::isStorableCertificateRecord($record)) {
+            return false;
+        }
+
+        $occurrenceTime = self::parseCertificateOccurrenceTime($record);
+
+        return self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    public static function isStorableCertificateRecord(array $record): bool
+    {
+        $identity = self::resolveCertificatePersonIdentity($record);
+
+        return $identity['name'] !== '' || $identity['id'] !== '';
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     * @return array{name: string, id: string}
+     */
+    public static function resolveCertificatePersonIdentity(array $record): array
+    {
+        $personInfo = is_array($record['personInfo'] ?? null) ? $record['personInfo'] : [];
+        $baseInfo = is_array($personInfo['baseInfo'] ?? null) ? $personInfo['baseInfo'] : [];
+        $personName = trim((string) ($personInfo['personName'] ?? $personInfo['name'] ?? $record['personName'] ?? ''));
+
+        if ($personName === '') {
+            $firstName = trim((string) ($baseInfo['firstName'] ?? ''));
+            $lastName = trim((string) ($baseInfo['lastName'] ?? ''));
+            $personName = trim("{$firstName} {$lastName}");
+        }
+
+        $personHikvisionId = trim((string) ($personInfo['personId'] ?? $personInfo['id'] ?? $record['personId'] ?? ''));
+
+        return [
+            'name' => $personName,
+            'id' => $personHikvisionId,
+        ];
     }
 
     /**
@@ -192,8 +303,12 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  array<string, mixed>  $row
      */
-    public static function upsertFromTimeCardRow(array $row, string $attendanceStatus): ?self
-    {
+    public static function upsertFromTimeCardRow(
+        array $row,
+        string $attendanceStatus,
+        ?CarbonInterface $windowStart = null,
+        ?CarbonInterface $windowEnd = null,
+    ): ?self {
         $isCheckIn = $attendanceStatus === self::ATTENDANCE_CHECK_IN;
         $clockDate = trim((string) ($isCheckIn ? ($row['clockInDate'] ?? '') : ($row['clockOutDate'] ?? '')));
         $clockTime = trim((string) ($isCheckIn ? ($row['clockInTime'] ?? '') : ($row['clockOutTime'] ?? '')));
@@ -218,6 +333,11 @@ class HikvisionAccessEvent extends Model
         }
 
         $occurrenceTime = self::parseTimeCardDateTime($clockDate, $clockTime);
+
+        if ($windowStart !== null && $windowEnd !== null && ! self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd)) {
+            return null;
+        }
+
         $identity = $personCode !== '' ? $personCode : $personName;
 
         $systemId = implode(':', [
@@ -268,6 +388,8 @@ class HikvisionAccessEvent extends Model
         array $acsEvent,
         string $deviceId,
         string $deviceName,
+        ?CarbonInterface $windowStart = null,
+        ?CarbonInterface $windowEnd = null,
     ): ?self {
         if (! self::isAccessRecord($acsEvent)) {
             return null;
@@ -275,6 +397,9 @@ class HikvisionAccessEvent extends Model
         $major = (int) ($acsEvent['major'] ?? 0);
         $minor = (int) ($acsEvent['minor'] ?? 0);
         $occurrenceTime = self::parseOccurrenceTime((string) ($acsEvent['time'] ?? ''));
+        if ($windowStart !== null && $windowEnd !== null && ! self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd)) {
+            return null;
+        }
         $doorNo = isset($acsEvent['doorNo']) ? (string) $acsEvent['doorNo'] : null;
         $cardReaderNo = isset($acsEvent['cardReaderNo']) ? (string) $acsEvent['cardReaderNo'] : null;
         $personName = (string) ($acsEvent['name'] ?? $acsEvent['employeeNoString'] ?? '');
@@ -329,21 +454,59 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  array<string, mixed>  $record
      */
-    public static function upsertFromCertificateRecord(array $record): ?self
+    protected static function parseCertificateOccurrenceTime(array $record): Carbon
     {
-        $personInfo = is_array($record['personInfo'] ?? null) ? $record['personInfo'] : [];
-        $personName = trim((string) ($personInfo['personName'] ?? $personInfo['name'] ?? $record['personName'] ?? ''));
-        $personHikvisionId = trim((string) ($personInfo['personId'] ?? $record['personId'] ?? ''));
-        $occurrenceTime = self::parseOccurrenceTime((string) ($record['occurTime'] ?? $record['swipeTime'] ?? ''));
-        $attendanceStatus = trim((string) ($record['attendanceStatus'] ?? ''));
+        $deviceTime = trim((string) ($record['deviceTime'] ?? ''));
+
+        if ($deviceTime !== '') {
+            return self::parseOccurrenceTime($deviceTime);
+        }
+
+        return self::parseOccurrenceTime((string) ($record['occurTime'] ?? $record['swipeTime'] ?? ''));
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    protected static function normalizeCertificateAttendanceStatus(array $record): string
+    {
+        $attendanceStatus = $record['attendanceStatus'] ?? '';
+
+        if (is_int($attendanceStatus) || is_float($attendanceStatus)) {
+            return match ((int) $attendanceStatus) {
+                1 => self::ATTENDANCE_CHECK_IN,
+                0 => self::ATTENDANCE_CHECK_OUT,
+                default => '',
+            };
+        }
+
+        return trim((string) $attendanceStatus);
+    }
+
+    /**
+     * @param  array<string, mixed>  $record
+     */
+    public static function upsertFromCertificateRecord(
+        array $record,
+        ?CarbonInterface $windowStart = null,
+        ?CarbonInterface $windowEnd = null,
+    ): ?self {
+        if (! self::isStorableCertificateRecord($record)) {
+            return null;
+        }
+
+        $identity = self::resolveCertificatePersonIdentity($record);
+        $personName = $identity['name'];
+        $personHikvisionId = $identity['id'];
+        $occurrenceTime = self::parseCertificateOccurrenceTime($record);
+        if ($windowStart !== null && $windowEnd !== null && ! self::isWithinFetchWindow($occurrenceTime, $windowStart, $windowEnd)) {
+            return null;
+        }
+        $attendanceStatus = self::normalizeCertificateAttendanceStatus($record);
         $deviceName = trim((string) ($record['deviceName'] ?? $record['elementName'] ?? ''));
         $verifyMode = trim((string) ($record['verifyMode'] ?? $record['checkType'] ?? ''));
         $recordId = trim((string) ($record['recordId'] ?? $record['id'] ?? ''));
         $transactionSource = self::mapCertificateRecordSource($record);
-
-        if ($personName === '' && $attendanceStatus === '') {
-            return null;
-        }
 
         if (self::isDuplicateAccessRecord($personName, $occurrenceTime, $attendanceStatus, $transactionSource)) {
             return null;

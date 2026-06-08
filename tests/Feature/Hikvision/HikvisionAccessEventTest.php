@@ -5,9 +5,19 @@ use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Testing\TestResponse;
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
+
+function freezeHikvisionAccessEventFetchDate(): void
+{
+    Carbon::setTestNow('2026-06-05 10:00:00', config('app.timezone'));
+}
 
 function postHikvisionAccessEventsFetch(User $user): TestResponse
 {
@@ -25,6 +35,8 @@ function runHikvisionAccessEventsFetchJob(): void
 
 function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
 {
+    freezeHikvisionAccessEventFetchDate();
+
     $acsPayload = json_encode([
         'AcsEvent' => [
             'searchID' => '1',
@@ -257,6 +269,8 @@ test('fetch dispatches background job instead of running synchronously', functio
 });
 
 test('fetch ignores door system events without person identity', function () {
+    freezeHikvisionAccessEventFetchDate();
+
     $acsPayload = json_encode([
         'AcsEvent' => [
             'searchID' => '1',
@@ -349,6 +363,8 @@ test('fetch ignores door system events without person identity', function () {
 });
 
 test('background job stores mobile app attendance records from total time card api', function () {
+    freezeHikvisionAccessEventFetchDate();
+
     $acsPayload = json_encode([
         'AcsEvent' => [
             'searchID' => '1',
@@ -446,6 +462,18 @@ test('background job stores acs access records from isapi proxypass', function (
 
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass'
         && ($request['id'] ?? null) === 'device-acs-1');
+});
+
+test('daily fetch does not call certificate records api', function () {
+    freezeHikvisionAccessEventFetchDate();
+    fakeHikvisionAcsEventsFetch();
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob();
+
+    Http::assertNotSent(fn ($request) => str_contains($request->url(), 'certificaterecords/search'));
+    expect(HikvisionSetting::current()->events_fetch_message)->not->toContain('certificate');
 });
 
 test('fetch fails when hikvision is not configured', function () {
