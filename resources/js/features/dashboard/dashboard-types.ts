@@ -45,6 +45,33 @@ export type RecentHire = {
     hired_at: string;
 };
 
+export type AttendanceTrendPoint = {
+    day: string;
+    check_ins: number;
+    check_outs: number;
+};
+
+export type RecentAttendanceEvent = {
+    id: number;
+    occurrence_time: string | null;
+    person_name: string | null;
+    employee_name: string | null;
+    employee_id: number | null;
+    attendance_status: string | null;
+    device_name: string | null;
+};
+
+export type AttendanceAnalytics = {
+    check_ins_today: number;
+    check_outs_today: number;
+    events_today: number;
+    present_today: number;
+    linked_employees: number;
+    active_employees: number;
+    weekly_trends: AttendanceTrendPoint[];
+    recent_events: RecentAttendanceEvent[];
+};
+
 export type DashboardProps = {
     document_compliance: DocumentCompliance;
     employee_analytics: EmployeeAnalytics;
@@ -57,4 +84,5 @@ export type DashboardProps = {
         branches: number;
     };
     recent_hires: RecentHire[];
+    attendance_analytics: AttendanceAnalytics;
 };

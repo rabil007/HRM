@@ -1,7 +1,10 @@
 <?php
 
 use App\Models\Employee;
+use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\User;
+use Carbon\Carbon;
 
 test('guests are redirected to the login page', function () {
     $response = $this->get(route('dashboard'));
@@ -58,5 +61,73 @@ test('dashboard returns employee analytics and document compliance props', funct
             ->has('document_health')
             ->has('organization_snapshot')
             ->has('recent_hires')
+            ->has('attendance_analytics')
+            ->has('attendance_analytics.check_ins_today')
+            ->has('attendance_analytics.recent_events')
         );
+});
+
+test('dashboard attendance analytics only includes linked company employees', function () {
+    Carbon::setTestNow('2026-06-08 10:00:00', 'Asia/Dubai');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EMP0099',
+        'name' => 'Other Employee',
+        'status' => 'active',
+    ]);
+
+    $linkedPerson = HikvisionPerson::query()->create([
+        'person_id' => 'dash-person-1',
+        'full_name' => 'Linked Employee',
+    ]);
+
+    $employee->update(['hikvision_person_id' => $linkedPerson->id]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'dash:linked:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => now(),
+        'person_name' => 'Linked Employee',
+        'person_hikvision_id' => 'dash-person-1',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'dash:unlinked:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-08 09:00:00',
+        'person_name' => 'Unlinked Person',
+        'person_hikvision_id' => 'unlinked-person',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('dashboard'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('attendance_analytics.check_ins_today', 1)
+            ->where('attendance_analytics.present_today', 1)
+            ->where('attendance_analytics.linked_employees', 1)
+            ->has('attendance_analytics.recent_events', 1)
+            ->where('attendance_analytics.recent_events.0.employee_id', $employee->id)
+        );
+
+    expect($otherEmployee->hikvision_person_id)->toBeNull();
+
+    Carbon::setTestNow();
 });

@@ -269,6 +269,23 @@ class HikvisionAccessEvent extends Model
     /**
      * @param  Builder<self>  $query
      */
+    public function scopeForCompany(Builder $query, int $companyId): Builder
+    {
+        $personTable = (new HikvisionPerson)->getTable();
+        $employeeTable = (new Employee)->getTable();
+
+        return $query->whereIn('person_hikvision_id', function ($subquery) use ($companyId, $personTable, $employeeTable): void {
+            $subquery->select("{$personTable}.person_id")
+                ->from($employeeTable)
+                ->join($personTable, "{$personTable}.id", '=', "{$employeeTable}.hikvision_person_id")
+                ->where("{$employeeTable}.company_id", $companyId)
+                ->whereNotNull("{$employeeTable}.hikvision_person_id");
+        });
+    }
+
+    /**
+     * @param  Builder<self>  $query
+     */
     public function scopeAccessRecords(Builder $query): Builder
     {
         return $query

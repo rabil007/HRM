@@ -13,12 +13,15 @@ import {
     ArrowUpRight,
     Building2,
     Link2,
-    TrendingUp,
     Layers,
     BarChart3,
     CalendarDays,
     Sparkles,
     ChevronRight,
+    LogIn,
+    LogOut,
+    Radio,
+    UserRoundCheck,
 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Main } from '@/components/layout/main';
@@ -32,10 +35,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { AttendanceTrendChart } from '@/features/dashboard/charts/attendance-trend-chart';
 import { DistributionBarChart } from '@/features/dashboard/charts/distribution-bar-chart';
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
+import { formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { documents, employees } from '@/routes/organization';
@@ -73,8 +78,11 @@ export function DashboardContent({
     document_health: documentHealth,
     organization_snapshot: organizationSnapshot,
     recent_hires: recentHires,
+    attendance_analytics: attendanceAnalytics,
 }: DashboardProps): ReactElement {
-    usePoll(60_000, { only: ['document_compliance', 'employee_analytics', 'recent_hires'] });
+    usePoll(60_000, {
+        only: ['document_compliance', 'employee_analytics', 'recent_hires', 'attendance_analytics'],
+    });
 
     const placeholder = (key: string) =>
         `${dashboard.url()}?module=${encodeURIComponent(key)}`;
@@ -273,6 +281,63 @@ export function DashboardContent({
                 />
             </div>
 
+            {/* ── Attendance KPIs ──────────────────────────────────── */}
+            <SectionLabel icon={Radio} label="Attendance Today" />
+            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <MetricCard
+                    title="Present Today"
+                    value={attendanceAnalytics.present_today.toLocaleString()}
+                    hint="Unique check-ins today"
+                    icon={UserRoundCheck}
+                    gradient="from-emerald-500/10 to-teal-500/5"
+                    iconColor="text-emerald-400"
+                    iconBg="bg-emerald-500/10 border-emerald-500/20"
+                    accent="border-emerald-500/20 hover:border-emerald-500/30 hover:shadow-emerald-500/5 hover:bg-emerald-500/[0.01]"
+                    badge={
+                        attendanceAnalytics.active_employees > 0
+                            ? `${attendanceAnalytics.active_employees} active employees`
+                            : undefined
+                    }
+                    badgeVariant="success"
+                    href="/hikvision/access-events"
+                />
+                <MetricCard
+                    title="Check Ins"
+                    value={attendanceAnalytics.check_ins_today.toLocaleString()}
+                    hint="Door and mobile check-ins"
+                    icon={LogIn}
+                    gradient="from-sky-500/10 to-blue-500/5"
+                    iconColor="text-sky-400"
+                    iconBg="bg-sky-500/10 border-sky-500/20"
+                    accent="border-sky-500/20 hover:border-sky-500/30 hover:shadow-sky-500/5 hover:bg-sky-500/[0.01]"
+                    href="/hikvision/access-events?attendance_status=checkIn"
+                />
+                <MetricCard
+                    title="Check Outs"
+                    value={attendanceAnalytics.check_outs_today.toLocaleString()}
+                    hint="Recorded departures today"
+                    icon={LogOut}
+                    gradient="from-violet-500/10 to-indigo-500/5"
+                    iconColor="text-violet-400"
+                    iconBg="bg-violet-500/10 border-violet-500/20"
+                    accent="border-violet-500/20 hover:border-violet-500/30 hover:shadow-violet-500/5 hover:bg-violet-500/[0.01]"
+                    href="/hikvision/access-events?attendance_status=checkOut"
+                />
+                <MetricCard
+                    title="Linked Employees"
+                    value={attendanceAnalytics.linked_employees.toLocaleString()}
+                    hint="Employees linked to Hikvision"
+                    icon={Radio}
+                    gradient="from-cyan-500/10 to-teal-500/5"
+                    iconColor="text-cyan-400"
+                    iconBg="bg-cyan-500/10 border-cyan-500/20"
+                    accent="border-cyan-500/20 hover:border-cyan-500/30 hover:shadow-cyan-500/5 hover:bg-cyan-500/[0.01]"
+                    badge={`${attendanceAnalytics.events_today} events today`}
+                    badgeVariant="info"
+                    href="/hikvision/persons"
+                />
+            </div>
+
             {/* ── Org snapshot strip ─────────────────────────────────── */}
             <div className="mb-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <OrgSnapshotTile
@@ -301,12 +366,13 @@ export function DashboardContent({
                     href={employees.url()}
                 />
                 <OrgSnapshotTile
-                    icon={TrendingUp}
-                    label="Expiring in 30 Days"
-                    value={documentCompliance.expiring_30}
-                    iconColor="text-yellow-400"
-                    iconBg="bg-yellow-400/10 border-yellow-400/20"
-                    href={documents.url({ query: { expiry: 'expiring_30' } })}
+                    icon={LogIn}
+                    label="Today's Events"
+                    value={attendanceAnalytics.events_today}
+                    sub={`${attendanceAnalytics.check_ins_today} check-ins`}
+                    iconColor="text-cyan-400"
+                    iconBg="bg-cyan-400/10 border-cyan-400/20"
+                    href="/hikvision/access-events"
                 />
             </div>
 
@@ -473,60 +539,26 @@ export function DashboardContent({
                 </Card>
             </div>
 
-            {/* ── Detail sections ───────────────────────────────────── */}
+            {/* ── Attendance detail ─────────────────────────────────── */}
             <div className="grid gap-6 lg:grid-cols-2">
                 <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
                     <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
-                                    Employee Status
+                                    Attendance Trends
                                 </CardTitle>
                                 <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    Workforce breakdown by current status
+                                    Check-ins and check-outs over the last 7 days
                                 </CardDescription>
                             </div>
-                            <div className="flex items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1">
-                                <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.5)]" />
-                                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                                    Live
-                                </span>
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20">
+                                <Radio className="h-4 w-4 text-cyan-400" />
                             </div>
                         </div>
                     </CardHeader>
-                    <CardContent className="grid gap-3 pt-4">
-                        <StatusBar
-                            label="Active"
-                            value={employeeAnalytics.active}
-                            total={employeeAnalytics.total}
-                            color="bg-emerald-500"
-                            glowColor="shadow-emerald-500/20"
-                            href={employees.url({ query: { status: 'active' } })}
-                        />
-                        <StatusBar
-                            label="On Leave"
-                            value={employeeAnalytics.on_leave}
-                            total={employeeAnalytics.total}
-                            color="bg-amber-500"
-                            glowColor="shadow-amber-500/20"
-                            href={employees.url({ query: { status: 'on_leave' } })}
-                        />
-                        <StatusBar
-                            label="Inactive"
-                            value={employeeAnalytics.inactive}
-                            total={employeeAnalytics.total}
-                            color="bg-blue-500"
-                            glowColor="shadow-blue-500/20"
-                            href={employees.url({ query: { status: 'inactive' } })}
-                        />
-                        <StatusBar
-                            label="Terminated"
-                            value={employeeAnalytics.terminated}
-                            total={employeeAnalytics.total}
-                            color="bg-red-500"
-                            glowColor="shadow-red-500/20"
-                            href={employees.url({ query: { status: 'terminated' } })}
-                        />
+                    <CardContent className="pt-5">
+                        <AttendanceTrendChart data={attendanceAnalytics.weekly_trends} />
                     </CardContent>
                 </Card>
 
@@ -535,48 +567,90 @@ export function DashboardContent({
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
-                                    Document Compliance
+                                    Recent Attendance
                                 </CardTitle>
                                 <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    {documentCompliance.total_documents} total documents tracked
+                                    Latest access events from linked employees
                                 </CardDescription>
                             </div>
-                            <ComplianceRing rate={documentCompliance.compliance_rate} />
+                            <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
+                                <Link href="/hikvision/access-events">View all</Link>
+                            </Button>
                         </div>
                     </CardHeader>
-                    <CardContent className="space-y-2.5 pt-4">
-                        <AtGlanceItem
-                            title="Expired documents"
-                            subtitle="Immediate action required"
-                            href={documents.url({ query: { expiry: 'expired' } })}
-                            value={String(documentCompliance.expired)}
-                            urgent={documentCompliance.expired > 0}
-                        />
-                        <AtGlanceItem
-                            title="Expiring within 7 days"
-                            subtitle="Urgent renewals"
-                            href={documents.url({ query: { expiry: 'expiring_7' } })}
-                            value={String(documentCompliance.expiring_7)}
-                            urgent={documentCompliance.expiring_7 > 0}
-                        />
-                        <AtGlanceItem
-                            title="Expiring within 15 days"
-                            subtitle="Plan ahead"
-                            href={documents.url({ query: { expiry: 'expiring_15' } })}
-                            value={String(documentCompliance.expiring_15)}
-                        />
-                        <AtGlanceItem
-                            title="Expiring within 30 days"
-                            subtitle="Expiry-tracked documents"
-                            href={documents.url({ query: { expiry: 'expiring_30' } })}
-                            value={String(documentCompliance.expiring_30)}
-                        />
-                        <AtGlanceItem
-                            title="Uploaded this month"
-                            subtitle={`${documentCompliance.total_documents} total on record`}
-                            href={documents.url()}
-                            value={String(documentCompliance.uploaded_this_month)}
-                        />
+                    <CardContent className="space-y-2 pt-4">
+                        {attendanceAnalytics.recent_events.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.02] border border-dashed border-white/10">
+                                    <Radio className="h-5 w-5 text-muted-foreground/30" />
+                                </div>
+                                <p className="text-sm font-medium text-muted-foreground/50">
+                                    No attendance events yet
+                                </p>
+                                <p className="text-xs text-muted-foreground/40">
+                                    Link employees to Hikvision persons to see access events here
+                                </p>
+                            </div>
+                        ) : (
+                            attendanceAnalytics.recent_events.map((event) => {
+                                const displayName =
+                                    event.employee_name ?? event.person_name ?? 'Unknown';
+                                const isCheckIn = event.attendance_status === 'checkIn';
+                                const isCheckOut = event.attendance_status === 'checkOut';
+
+                                const content = (
+                                    <div className="group flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.01] p-3 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.03]">
+                                        <div
+                                            className={cn(
+                                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
+                                                isCheckIn
+                                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                                                    : isCheckOut
+                                                      ? 'bg-sky-500/10 border-sky-500/20 text-sky-400'
+                                                      : 'bg-white/5 border-white/10 text-muted-foreground',
+                                            )}
+                                        >
+                                            {isCheckOut ? (
+                                                <LogOut className="h-4 w-4" />
+                                            ) : (
+                                                <LogIn className="h-4 w-4" />
+                                            )}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="truncate text-sm font-semibold text-foreground/80">
+                                                {displayName}
+                                            </p>
+                                            <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/45">
+                                                {formatDisplayDateTime(event.occurrence_time)}
+                                                {event.device_name ? ` · ${event.device_name}` : ''}
+                                            </p>
+                                        </div>
+                                        <Badge
+                                            variant="secondary"
+                                            className="shrink-0 border border-white/5 bg-white/5 text-[10px] font-bold uppercase"
+                                        >
+                                            {isCheckIn ? 'In' : isCheckOut ? 'Out' : '—'}
+                                        </Badge>
+                                    </div>
+                                );
+
+                                if (event.employee_id) {
+                                    return (
+                                        <Link
+                                            key={event.id}
+                                            href={showEmployee.url({ employee: event.employee_id })}
+                                            className="block"
+                                        >
+                                            {content}
+                                        </Link>
+                                    );
+                                }
+
+                                return (
+                                    <div key={event.id}>{content}</div>
+                                );
+                            })
+                        )}
                     </CardContent>
                 </Card>
             </div>
@@ -711,141 +785,3 @@ function OrgSnapshotTile({
     );
 }
 
-function StatusBar({
-    label,
-    value,
-    total,
-    color,
-    glowColor,
-    href,
-}: {
-    label: string;
-    value: number;
-    total: number;
-    color: string;
-    glowColor?: string;
-    href: string;
-}): ReactElement {
-    const percentage = total > 0 ? Math.round((value / total) * 100) : 0;
-
-    return (
-        <Link
-            href={href}
-            className="group flex flex-col gap-2 rounded-xl border border-white/5 bg-white/[0.015] p-3 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.035]"
-        >
-            <div className="flex items-center justify-between text-sm">
-                <span className="font-semibold text-foreground/80 transition-colors group-hover:text-foreground">
-                    {label}
-                </span>
-                <div className="flex items-center gap-2.5">
-                    <span className="font-bold text-foreground/90 tabular-nums">{value.toLocaleString()}</span>
-                    <span className="min-w-[2.5rem] rounded-full bg-white/5 border border-white/5 px-2 py-0.5 text-center text-[10px] font-bold text-muted-foreground/60">
-                        {percentage}%
-                    </span>
-                </div>
-            </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/5 border border-white/5">
-                <div
-                    className={cn("h-full rounded-full shadow-xs transition-all duration-1000", color, glowColor)}
-                    style={{ width: `${percentage}%` }}
-                />
-            </div>
-        </Link>
-    );
-}
-
-function AtGlanceItem({
-    title,
-    subtitle,
-    value,
-    href,
-    urgent = false,
-}: {
-    title: string;
-    subtitle: string;
-    value: string;
-    href: string;
-    urgent?: boolean;
-}): ReactElement {
-    return (
-        <Link
-            href={href}
-            className="group flex items-center justify-between gap-4 rounded-xl border border-white/5 bg-white/[0.015] p-3 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.035]"
-        >
-            <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-foreground/80 transition-colors group-hover:text-foreground">
-                    {title}
-                </div>
-                <div className="truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/35 mt-0.5 group-hover:text-muted-foreground/50 transition-colors">
-                    {subtitle}
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                <div
-                    className={cn(
-                        "min-w-[2rem] rounded-full border px-2.5 py-0.5 text-center text-xs font-bold tabular-nums transition-colors",
-                        urgent && value !== '0'
-                            ? "border-red-500/20 bg-red-500/10 text-red-400"
-                            : "border-white/5 bg-white/5 text-muted-foreground group-hover:text-foreground"
-                    )}
-                >
-                    {value}
-                </div>
-                {urgent && value !== '0' && (
-                    <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-                )}
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground/30 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />
-            </div>
-        </Link>
-    );
-}
-
-/**
- * A small SVG ring that visualises the compliance rate (0–100).
- * Green when ≥80 %, amber between 50–79 %, red below 50 %.
- */
-function ComplianceRing({ rate }: { rate: number }): ReactElement {
-    const radius = 20;
-    const circumference = 2 * Math.PI * radius;
-    const dashOffset = circumference - (rate / 100) * circumference;
-    const color =
-        rate >= 80 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
-    const bgColor =
-        rate >= 80 ? 'rgba(16,185,129,0.08)' : rate >= 50 ? 'rgba(245,158,11,0.08)' : 'rgba(239,68,68,0.08)';
-    const borderColor =
-        rate >= 80 ? 'rgba(16,185,129,0.15)' : rate >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)';
-
-    return (
-        <div
-            className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border"
-            style={{ background: bgColor, borderColor: borderColor }}
-        >
-            <svg width="56" height="56" viewBox="0 0 56 56" className="-rotate-90">
-                <circle
-                    cx="28"
-                    cy="28"
-                    r={radius}
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="3.5"
-                    className="text-white/5"
-                />
-                <circle
-                    cx="28"
-                    cy="28"
-                    r={radius}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth="3.5"
-                    strokeLinecap="round"
-                    strokeDasharray={circumference}
-                    strokeDashoffset={dashOffset}
-                    style={{ transition: 'stroke-dashoffset 0.8s ease' }}
-                />
-            </svg>
-            <span className="absolute text-[10px] font-black tabular-nums" style={{ color }}>
-                {rate}%
-            </span>
-        </div>
-    );
-}

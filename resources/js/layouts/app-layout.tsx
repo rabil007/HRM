@@ -43,8 +43,8 @@ export default function AppLayout({
         },
         {
             title: 'Attendance',
-            href: placeholder('attendance.records'),
-            isActive: url.includes('module=attendance') || url.includes('attendance'),
+            href: '/hikvision/access-events',
+            isActive: url.startsWith('/hikvision/access-events'),
             disabled: false,
         },
         {
