@@ -419,32 +419,38 @@ class HikvisionAccessEvent extends Model
      */
     public static function upsertFromHikConnectListItem(array $item, ?string $batchId = null): ?self
     {
-        $data = is_array($item['data'] ?? null) ? $item['data'] : [];
-        $openDoorInfo = is_array($data['openDoorInfo'] ?? null) ? $data['openDoorInfo'] : [];
-        $event = is_array($openDoorInfo['event'] ?? null) ? $openDoorInfo['event'] : [];
-        $eventBasicInfo = is_array($event['basicInfo'] ?? null) ? $event['basicInfo'] : [];
-        $intelliInfo = is_array($event['intelliInfo'] ?? null) ? $event['intelliInfo'] : [];
         $itemBasicInfo = is_array($item['basicInfo'] ?? null) ? $item['basicInfo'] : [];
         $device = is_array($itemBasicInfo['device'] ?? null) ? $itemBasicInfo['device'] : [];
+        $data = is_array($item['data'] ?? null) ? $item['data'] : [];
+        ['eventBasicInfo' => $eventBasicInfo, 'intelliInfo' => $intelliInfo] = self::resolveOpenDoorEventParts($data);
 
-        $firstName = trim((string) ($intelliInfo['firstName'] ?? ''));
-        $lastName = trim((string) ($intelliInfo['lastName'] ?? ''));
-        $personName = trim("{$firstName} {$lastName}") !== ''
-            ? trim("{$firstName} {$lastName}")
-            : $firstName;
-        $personHikvisionId = trim((string) ($intelliInfo['personId'] ?? ''));
+        $person = self::resolveWebhookPersonIdentity($intelliInfo, $data, $item);
+        $personName = $person['person_name'];
+        $personHikvisionId = $person['person_hikvision_id'];
         $occurrenceTime = self::parseOccurrenceTime((string) (
             $itemBasicInfo['occurrenceTime']
             ?? $eventBasicInfo['occurTime']
             ?? ''
         ));
-        $deviceName = trim((string) ($device['name'] ?? $eventBasicInfo['deviceName'] ?? ''));
+        $deviceName = trim((string) ($device['name'] ?? $eventBasicInfo['deviceName'] ?? $eventBasicInfo['elementName'] ?? ''));
         $deviceId = filled($device['id'] ?? null) ? (string) $device['id'] : (
             filled($eventBasicInfo['deviceId'] ?? null) ? (string) $eventBasicInfo['deviceId'] : null
         );
         $eventType = trim((string) ($itemBasicInfo['eventType'] ?? $eventBasicInfo['eventType'] ?? 'event'));
-        $attendanceStatus = self::normalizeWebhookAttendanceStatus($intelliInfo['attendanceStatus'] ?? null);
+        $attendanceStatus = self::normalizeWebhookAttendanceStatus(
+            $intelliInfo['attendanceStatus'] ?? $item['attendanceStatus'] ?? null,
+        );
         $systemId = trim((string) ($itemBasicInfo['systemId'] ?? $eventBasicInfo['systemId'] ?? ''));
+        $doorNo = isset($eventBasicInfo['channelNo']) ? (string) $eventBasicInfo['channelNo'] : (
+            isset($eventBasicInfo['doorNo']) ? (string) $eventBasicInfo['doorNo'] : null
+        );
+        $cardReaderNo = isset($eventBasicInfo['cardReaderNo']) ? (string) $eventBasicInfo['cardReaderNo'] : (
+            isset($eventBasicInfo['serialNo']) ? (string) $eventBasicInfo['serialNo'] : null
+        );
+        $resourceName = trim((string) ($eventBasicInfo['elementName'] ?? ''));
+        $verifyMode = trim((string) (
+            $intelliInfo['currentVerifyMode'] ?? $intelliInfo['verifyMode'] ?? $eventBasicInfo['currentVerifyMode'] ?? ''
+        ));
 
         if ($personName === '' && $attendanceStatus === '') {
             return null;
@@ -466,8 +472,12 @@ class HikvisionAccessEvent extends Model
                 'batch_id' => $batchId,
                 'device_id' => $deviceId,
                 'device_name' => $deviceName !== '' ? $deviceName : null,
+                'resource_name' => $resourceName !== '' ? $resourceName : ($doorNo !== null ? "Door {$doorNo}" : null),
+                'door_no' => $doorNo,
+                'card_reader_no' => $cardReaderNo,
                 'person_name' => $personName !== '' ? $personName : null,
                 'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
+                'verify_mode' => $verifyMode !== '' ? $verifyMode : null,
                 'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
                 'event_source' => self::EVENT_SOURCE_WEBHOOK,
                 'transaction_source' => self::TRANSACTION_DEVICE,
@@ -475,6 +485,93 @@ class HikvisionAccessEvent extends Model
                 'fetched_at' => now(),
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array{eventBasicInfo: array<string, mixed>, intelliInfo: array<string, mixed>}
+     */
+    protected static function resolveOpenDoorEventParts(array $data): array
+    {
+        $openDoorInfo = is_array($data['openDoorInfo'] ?? null) ? $data['openDoorInfo'] : [];
+
+        if ($openDoorInfo === []) {
+            return [
+                'eventBasicInfo' => [],
+                'intelliInfo' => [],
+            ];
+        }
+
+        if (isset($openDoorInfo['event']) && is_array($openDoorInfo['event'])) {
+            $event = $openDoorInfo['event'];
+        } elseif (isset($openDoorInfo['basicInfo']) || isset($openDoorInfo['intelliInfo'])) {
+            $event = $openDoorInfo;
+        } else {
+            $event = [];
+        }
+
+        return [
+            'eventBasicInfo' => is_array($event['basicInfo'] ?? null) ? $event['basicInfo'] : [],
+            'intelliInfo' => is_array($event['intelliInfo'] ?? null) ? $event['intelliInfo'] : [],
+        ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $intelliInfo
+     * @param  array<string, mixed>  $data
+     * @param  array<string, mixed>  $item
+     * @return array{person_name: string, person_hikvision_id: string}
+     */
+    protected static function resolveWebhookPersonIdentity(array $intelliInfo, array $data, array $item): array
+    {
+        ['eventBasicInfo' => $eventBasicInfo, 'intelliInfo' => $nestedIntelliInfo] = self::resolveOpenDoorEventParts($data);
+        $intelliInfo = $intelliInfo !== [] ? $intelliInfo : $nestedIntelliInfo;
+
+        $personInfo = is_array($intelliInfo['personInfo'] ?? null) ? $intelliInfo['personInfo'] : (
+            is_array($item['personInfo'] ?? null) ? $item['personInfo'] : []
+        );
+
+        $firstName = trim((string) ($intelliInfo['firstName'] ?? $personInfo['firstName'] ?? ''));
+        $lastName = trim((string) ($intelliInfo['lastName'] ?? $personInfo['lastName'] ?? ''));
+        $personName = trim("{$firstName} {$lastName}") !== ''
+            ? trim("{$firstName} {$lastName}")
+            : $firstName;
+
+        if ($personName === '') {
+            $personName = trim((string) (
+                $intelliInfo['name']
+                ?? $intelliInfo['personName']
+                ?? $personInfo['personName']
+                ?? $personInfo['name']
+                ?? $eventBasicInfo['name']
+                ?? ''
+            ));
+        }
+
+        $personHikvisionId = trim((string) (
+            $intelliInfo['personId']
+            ?? $personInfo['personId']
+            ?? ''
+        ));
+
+        if ($personName === '' && $personHikvisionId !== '') {
+            $syncedPerson = HikvisionPerson::query()
+                ->where('person_id', $personHikvisionId)
+                ->first();
+
+            if ($syncedPerson !== null) {
+                $personName = trim((string) ($syncedPerson->full_name ?? ''));
+
+                if ($personName === '') {
+                    $personName = trim(trim((string) ($syncedPerson->first_name ?? '')).' '.trim((string) ($syncedPerson->last_name ?? '')));
+                }
+            }
+        }
+
+        return [
+            'person_name' => $personName,
+            'person_hikvision_id' => $personHikvisionId,
+        ];
     }
 
     protected static function normalizeWebhookAttendanceStatus(mixed $value): string

@@ -44,12 +44,24 @@ class HikvisionWebhookDebugLog
             $summary['first_list_item_type'] = is_array($first) ? ($first['type'] ?? null) : null;
 
             if (is_array($first)) {
-                $intelliInfo = $first['data']['openDoorInfo']['event']['intelliInfo'] ?? null;
+                $data = is_array($first['data'] ?? null) ? $first['data'] : [];
+                $summary['first_item_data_keys'] = array_keys($data);
+
+                $openDoorInfo = is_array($data['openDoorInfo'] ?? null) ? $data['openDoorInfo'] : [];
+                $event = is_array($openDoorInfo['event'] ?? null)
+                    ? $openDoorInfo['event']
+                    : (isset($openDoorInfo['basicInfo']) || isset($openDoorInfo['intelliInfo']) ? $openDoorInfo : []);
+                $intelliInfo = is_array($event['intelliInfo'] ?? null) ? $event['intelliInfo'] : null;
+
                 if (is_array($intelliInfo)) {
+                    $summary['intelli_info_keys'] = array_keys($intelliInfo);
                     $summary['first_person'] = trim(
                         ((string) ($intelliInfo['firstName'] ?? '')).' '.((string) ($intelliInfo['lastName'] ?? ''))
-                    ) ?: null;
+                    ) ?: ($intelliInfo['personName'] ?? $intelliInfo['name'] ?? null);
                     $summary['first_person_id'] = $intelliInfo['personId'] ?? null;
+                    $summary['auth_result'] = $intelliInfo['authResult'] ?? null;
+                } else {
+                    $summary['intelli_info_keys'] = [];
                 }
             }
         }

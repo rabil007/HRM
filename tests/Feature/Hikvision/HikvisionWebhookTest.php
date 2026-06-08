@@ -2,6 +2,7 @@
 
 use App\Jobs\ProcessHikvisionWebhookEventJob;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Support\Hikvision\HikvisionWebhookSignature;
 use Illuminate\Support\Facades\Queue;
@@ -187,6 +188,57 @@ test('webhook stores hik-connect list envelope access event', function () {
 
     HikvisionSetting::current()->refresh();
     expect(HikvisionSetting::current()->webhook_last_event_at)->not->toBeNull();
+});
+
+test('webhook resolves person name from synced hikvision person when only person id is sent', function () {
+    HikvisionPerson::query()->create([
+        'person_id' => '549648292066532352',
+        'person_code' => '1',
+        'first_name' => 'maysa',
+        'last_name' => '',
+        'full_name' => 'maysa',
+        'synced_at' => now(),
+    ]);
+
+    $payload = [
+        'batchId' => 'person-id-only-batch',
+        'list' => [
+            [
+                'type' => 'event',
+                'basicInfo' => [
+                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
+                    'systemId' => 'system-person-id-only',
+                    'eventType' => '110013',
+                    'occurrenceTime' => '2026-06-08T09:30:00+04:00',
+                ],
+                'data' => [
+                    'openDoorInfo' => [
+                        'event' => [
+                            'basicInfo' => [
+                                'deviceName' => 'OMS-Door',
+                                'occurTime' => '2026-06-08T09:30:00+04:00',
+                                'channelNo' => 1,
+                            ],
+                            'intelliInfo' => [
+                                'personId' => '549648292066532352',
+                                'attendanceStatus' => 0,
+                                'authResult' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    $event = HikvisionAccessEvent::query()->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->person_name)->toBe('maysa')
+        ->and($event->person_hikvision_id)->toBe('549648292066532352')
+        ->and($event->door_no)->toBe('1');
 });
 
 test('webhook dispatches job and stores event with valid token', function () {
