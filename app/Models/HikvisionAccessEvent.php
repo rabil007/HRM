@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\Hikvision\HikvisionWebhookEventFields;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
@@ -405,6 +406,29 @@ class HikvisionAccessEvent extends Model
         $personName = (string) ($acsEvent['name'] ?? $acsEvent['employeeNoString'] ?? '');
         $verifyMode = (string) ($acsEvent['currentVerifyMode'] ?? $acsEvent['verifyMode'] ?? '');
         $attendanceStatus = (string) ($acsEvent['attendanceStatus'] ?? '');
+        $serialNo = isset($acsEvent['serialNo']) ? (string) $acsEvent['serialNo'] : '';
+
+        if ($serialNo !== '') {
+            $existing = self::findByDeviceAndSerialNo($deviceId, $serialNo);
+
+            if ($existing !== null) {
+                $existing->update([
+                    'device_name' => $deviceName,
+                    'resource_name' => $doorNo !== null ? "Door {$doorNo}" : null,
+                    'person_name' => $personName !== '' ? $personName : null,
+                    'door_no' => $doorNo,
+                    'card_reader_no' => $cardReaderNo,
+                    'verify_mode' => $verifyMode !== '' ? $verifyMode : null,
+                    'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
+                    'event_source' => self::EVENT_SOURCE_ACS_ISAPI,
+                    'transaction_source' => self::TRANSACTION_DEVICE,
+                    'raw_payload' => $acsEvent,
+                    'fetched_at' => now(),
+                ]);
+
+                return $existing->refresh();
+            }
+        }
 
         $systemId = implode(':', [
             $deviceId,
@@ -604,29 +628,37 @@ class HikvisionAccessEvent extends Model
             filled($eventBasicInfo['deviceId'] ?? null) ? (string) $eventBasicInfo['deviceId'] : null
         );
         $eventType = trim((string) ($itemBasicInfo['eventType'] ?? $eventBasicInfo['eventType'] ?? 'event'));
-        $attendanceStatus = self::normalizeWebhookAttendanceStatus(
+        $attendanceStatus = self::normalizeOpenDoorAttendanceStatus(
             $intelliInfo['attendanceStatus'] ?? $item['attendanceStatus'] ?? null,
         );
-        $systemId = trim((string) ($itemBasicInfo['systemId'] ?? $eventBasicInfo['systemId'] ?? ''));
-        $doorNo = isset($eventBasicInfo['channelNo']) ? (string) $eventBasicInfo['channelNo'] : (
-            isset($eventBasicInfo['doorNo']) ? (string) $eventBasicInfo['doorNo'] : null
-        );
-        $cardReaderNo = isset($eventBasicInfo['cardReaderNo']) ? (string) $eventBasicInfo['cardReaderNo'] : (
-            isset($eventBasicInfo['serialNo']) ? (string) $eventBasicInfo['serialNo'] : null
-        );
-        $resourceName = trim((string) ($eventBasicInfo['elementName'] ?? ''));
-        $verifyMode = trim((string) (
-            $intelliInfo['currentVerifyMode'] ?? $intelliInfo['verifyMode'] ?? $eventBasicInfo['currentVerifyMode'] ?? ''
-        ));
+        $serialNo = HikvisionWebhookEventFields::resolveSerialNo($eventBasicInfo);
+        $fields = HikvisionWebhookEventFields::resolve($eventBasicInfo, $intelliInfo, $deviceName);
 
         if ($personName === '' && $attendanceStatus === '') {
             return null;
         }
 
-        if ($systemId === '') {
-            $systemId = 'webhook:'.hash('sha256', json_encode($item));
+        if ($serialNo !== null && $deviceId !== null) {
+            $existing = self::findByDeviceAndSerialNo($deviceId, $serialNo);
+
+            if ($existing !== null) {
+                $existing->update([
+                    'batch_id' => $batchId,
+                    'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : $existing->person_hikvision_id,
+                    'snap_urls' => $fields['snap_urls'] !== [] ? $fields['snap_urls'] : $existing->snap_urls,
+                    'fetched_at' => now(),
+                ]);
+
+                return $existing->refresh();
+            }
+
+            $systemId = "webhook:{$deviceId}:{$serialNo}";
         } else {
-            $systemId = "webhook:{$systemId}";
+            $areaSystemId = trim((string) ($itemBasicInfo['systemId'] ?? $eventBasicInfo['systemId'] ?? ''));
+
+            $systemId = $areaSystemId !== ''
+                ? "webhook:{$areaSystemId}:{$occurrenceTime->getTimestamp()}"
+                : 'webhook:'.hash('sha256', json_encode($item));
         }
 
         return self::query()->updateOrCreate(
@@ -639,19 +671,47 @@ class HikvisionAccessEvent extends Model
                 'batch_id' => $batchId,
                 'device_id' => $deviceId,
                 'device_name' => $deviceName !== '' ? $deviceName : null,
-                'resource_name' => $resourceName !== '' ? $resourceName : ($doorNo !== null ? "Door {$doorNo}" : null),
-                'door_no' => $doorNo,
-                'card_reader_no' => $cardReaderNo,
+                'resource_name' => $fields['resource_name'],
+                'door_no' => $fields['door_no'],
+                'card_reader_no' => $fields['card_reader_no'],
                 'person_name' => $personName !== '' ? $personName : null,
                 'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
-                'verify_mode' => $verifyMode !== '' ? $verifyMode : null,
+                'verify_mode' => $fields['verify_mode'],
                 'attendance_status' => $attendanceStatus !== '' ? $attendanceStatus : null,
                 'event_source' => self::EVENT_SOURCE_WEBHOOK,
                 'transaction_source' => self::TRANSACTION_DEVICE,
                 'raw_payload' => $item,
+                'snap_urls' => $fields['snap_urls'] !== [] ? $fields['snap_urls'] : null,
                 'fetched_at' => now(),
             ],
         );
+    }
+
+    public static function findByDeviceAndSerialNo(string $deviceId, string $serialNo): ?self
+    {
+        return self::query()
+            ->where('device_id', $deviceId)
+            ->orderByDesc('id')
+            ->get()
+            ->first(fn (self $event): bool => self::extractSerialNoFromPayload($event->raw_payload) === $serialNo);
+    }
+
+    /**
+     * @param  array<string, mixed>|null  $payload
+     */
+    public static function extractSerialNoFromPayload(?array $payload): ?string
+    {
+        if ($payload === null) {
+            return null;
+        }
+
+        if (isset($payload['serialNo'])) {
+            return (string) $payload['serialNo'];
+        }
+
+        $nested = $payload['data']['openDoorInfo']['event']['basicInfo']['serialNo'] ?? null;
+
+        return $nested !== null ? (string) $nested : null;
     }
 
     /**
@@ -780,6 +840,27 @@ class HikvisionAccessEvent extends Model
             return match ((int) $value) {
                 0 => self::ATTENDANCE_CHECK_IN,
                 1 => self::ATTENDANCE_CHECK_OUT,
+                default => '',
+            };
+        }
+
+        return '';
+    }
+
+    protected static function normalizeOpenDoorAttendanceStatus(mixed $value): string
+    {
+        if (is_string($value)) {
+            $normalized = trim($value);
+
+            if (in_array($normalized, self::attendanceStatusOptions(), true)) {
+                return $normalized;
+            }
+        }
+
+        if (is_int($value) || (is_string($value) && is_numeric($value))) {
+            return match ((int) $value) {
+                0, 1 => self::ATTENDANCE_CHECK_IN,
+                2 => self::ATTENDANCE_CHECK_OUT,
                 default => '',
             };
         }

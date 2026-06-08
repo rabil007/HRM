@@ -190,6 +190,139 @@ test('webhook stores hik-connect list envelope access event', function () {
     expect(HikvisionSetting::current()->webhook_last_event_at)->not->toBeNull();
 });
 
+test('webhook maps production open door payload', function () {
+    $payload = productionOpenDoorWebhookPayload(
+        serialNo: 99552,
+        occurrenceTime: '2026-06-08T11:13:09+04:00',
+        personId: '705076684197985280',
+        firstName: 'Mohammed',
+        lastName: 'Rabil',
+        fullPath: 'IT',
+    );
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    $event = HikvisionAccessEvent::query()->first();
+
+    expect($event)->not->toBeNull()
+        ->and($event->person_name)->toBe('Mohammed Rabil')
+        ->and($event->resource_name)->toBe('Door 1')
+        ->and($event->door_no)->toBe('1')
+        ->and($event->card_reader_no)->toBe('1')
+        ->and($event->verify_mode)->toBe('face')
+        ->and($event->attendance_status)->toBe(HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+        ->and($event->system_id)->toBe('webhook:2bd7ecc491f8492f8ab20a3025538c63:99552')
+        ->and($event->snap_urls)->not->toBeNull();
+});
+
+test('webhook enriches existing acs row instead of creating duplicate', function () {
+    HikvisionAccessEvent::query()->create([
+        'system_id' => '2bd7ecc491f8492f8ab20a3025538c63:2026-06-08T11:13:09+04:00:5:75:1:Mohammed Rabil',
+        'msg_type' => 'acs/5/75',
+        'occurrence_time' => '2026-06-08 11:13:09',
+        'device_id' => '2bd7ecc491f8492f8ab20a3025538c63',
+        'device_name' => 'OMS-Door',
+        'resource_name' => 'Door 1',
+        'person_name' => 'Mohammed Rabil',
+        'door_no' => '1',
+        'card_reader_no' => '1',
+        'verify_mode' => 'faceOrFpOrCardOrPw',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'raw_payload' => [
+            'serialNo' => 99552,
+            'name' => 'Mohammed Rabil',
+            'doorNo' => 1,
+            'cardReaderNo' => 1,
+        ],
+        'fetched_at' => now(),
+    ]);
+
+    $payload = productionOpenDoorWebhookPayload(
+        serialNo: 99552,
+        occurrenceTime: '2026-06-08T11:13:09+04:00',
+        personId: '705076684197985280',
+        firstName: 'Mohammed',
+        lastName: 'Rabil',
+        fullPath: 'IT',
+    );
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(1);
+
+    $event = HikvisionAccessEvent::query()->first();
+
+    expect($event->event_source)->toBe(HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI)
+        ->and($event->person_hikvision_id)->toBe('705076684197985280')
+        ->and($event->resource_name)->toBe('Door 1')
+        ->and($event->verify_mode)->toBe('faceOrFpOrCardOrPw')
+        ->and($event->snap_urls)->not->toBeNull();
+});
+
+/**
+ * @return array<string, mixed>
+ */
+function productionOpenDoorWebhookPayload(
+    int $serialNo,
+    string $occurrenceTime,
+    string $personId,
+    string $firstName,
+    ?string $lastName,
+    string $fullPath,
+): array {
+    return [
+        'batchId' => 'production-open-door-batch',
+        'list' => [
+            [
+                'type' => 'event',
+                'basicInfo' => [
+                    'occurrenceTime' => $occurrenceTime,
+                    'systemId' => 'be2e21fbf43340c881fdcf8a80d224f8',
+                    'msgType' => 'Msg110013',
+                    'device' => [
+                        'id' => '2bd7ecc491f8492f8ab20a3025538c63',
+                        'name' => 'OMS-Door',
+                        'category' => 'accessControllerDevice',
+                        'deviceSerial' => 'FZ4480436',
+                    ],
+                ],
+                'data' => [
+                    'openDoorInfo' => [
+                        'event' => [
+                            'basicInfo' => [
+                                'systemId' => 'be2e21fbf43340c881fdcf8a80d224f8',
+                                'eventType' => 110013,
+                                'elementId' => 'bdf91bfaa40b459c86a4d5cd5fd08edb',
+                                'elementType' => 1002,
+                                'elementName' => 'OMS-Door',
+                                'occurTime' => $occurrenceTime,
+                                'deviceId' => '2bd7ecc491f8492f8ab20a3025538c63',
+                                'deviceSerial' => 'FZ4480436',
+                                'deviceName' => 'OMS-Door',
+                                'channelNo' => 0,
+                                'currentEvent' => 0,
+                                'serialNo' => $serialNo,
+                                'cardReaderId' => '065ffb4bb3ed4290b29a467d08d5433a',
+                            ],
+                            'intelliInfo' => [
+                                'personId' => $personId,
+                                'firstName' => $firstName,
+                                'lastName' => $lastName,
+                                'fullPath' => $fullPath,
+                                'personPicUrl' => 'https://example.com/person.jpg',
+                                'attendanceStatus' => 1,
+                                'authResult' => 1,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+}
+
 test('webhook resolves person name from synced hikvision person when only person id is sent', function () {
     HikvisionPerson::query()->create([
         'person_id' => '549648292066532352',
