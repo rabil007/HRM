@@ -241,6 +241,72 @@ test('webhook resolves person name from synced hikvision person when only person
         ->and($event->door_no)->toBe('1');
 });
 
+test('webhook skips failed authentication events', function () {
+    $payload = [
+        'batchId' => 'failed-auth-batch',
+        'list' => [
+            [
+                'type' => 'event',
+                'basicInfo' => [
+                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
+                    'systemId' => 'system-failed-auth',
+                    'eventType' => '110013',
+                    'occurrenceTime' => '2026-06-08T09:33:50+04:00',
+                ],
+                'data' => [
+                    'openDoorInfo' => [
+                        'event' => [
+                            'basicInfo' => [
+                                'deviceName' => 'OMS-Door',
+                                'occurTime' => '2026-06-08T09:33:50+04:00',
+                            ],
+                            'intelliInfo' => [
+                                'attendanceStatus' => 0,
+                                'authResult' => 0,
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(0);
+});
+
+test('webhook skips sparse door events without successful authentication', function () {
+    $payload = [
+        'batchId' => 'sparse-door-batch',
+        'list' => [
+            [
+                'type' => 'event',
+                'basicInfo' => [
+                    'device' => ['id' => 'device-1', 'name' => 'OMS-Door'],
+                    'systemId' => 'system-sparse-door',
+                    'eventType' => '110013',
+                    'occurrenceTime' => '2026-06-08T09:24:59+04:00',
+                ],
+                'data' => [
+                    'openDoorInfo' => [
+                        'event' => [
+                            'basicInfo' => [
+                                'deviceName' => 'OMS-Door',
+                                'occurTime' => '2026-06-08T09:24:59+04:00',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ];
+
+    (new ProcessHikvisionWebhookEventJob($payload))->handle();
+
+    expect(HikvisionAccessEvent::query()->count())->toBe(0);
+});
+
 test('webhook dispatches job and stores event with valid token', function () {
     Queue::fake();
 

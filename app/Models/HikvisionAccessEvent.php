@@ -424,6 +424,10 @@ class HikvisionAccessEvent extends Model
         $data = is_array($item['data'] ?? null) ? $item['data'] : [];
         ['eventBasicInfo' => $eventBasicInfo, 'intelliInfo' => $intelliInfo] = self::resolveOpenDoorEventParts($data);
 
+        if (! self::isSuccessfulWebhookAuthentication($intelliInfo, $item)) {
+            return null;
+        }
+
         $person = self::resolveWebhookPersonIdentity($intelliInfo, $data, $item);
         $personName = $person['person_name'];
         $personHikvisionId = $person['person_hikvision_id'];
@@ -572,6 +576,23 @@ class HikvisionAccessEvent extends Model
             'person_name' => $personName,
             'person_hikvision_id' => $personHikvisionId,
         ];
+    }
+
+    /**
+     * @param  array<string, mixed>  $intelliInfo
+     * @param  array<string, mixed>  $record
+     */
+    protected static function isSuccessfulWebhookAuthentication(array $intelliInfo, array $record): bool
+    {
+        if (array_key_exists('authResult', $intelliInfo)) {
+            return (int) $intelliInfo['authResult'] === 1;
+        }
+
+        if (isset($record['personInfo']) || isset($record['occurTime']) || isset($record['swipeTime'])) {
+            return true;
+        }
+
+        return false;
     }
 
     protected static function normalizeWebhookAttendanceStatus(mixed $value): string
