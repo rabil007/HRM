@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Webhooks;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessHikvisionWebhookEventJob;
 use App\Models\HikvisionSetting;
-use App\Support\Hikvision\HikvisionWebhookDebugLog;
 use App\Support\Hikvision\HikvisionWebhookSignature;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -27,33 +26,17 @@ class HikvisionWebhookController extends Controller
         $batchId = (string) $request->header('X-Hook-Batch-Id', '');
         $timestamp = (string) $request->header('X-Hook-Timestamp', '');
 
-        HikvisionWebhookDebugLog::info('GET verification request received', [
-            'batch_id' => $batchId !== '' ? $batchId : null,
-            'timestamp' => $timestamp !== '' ? $timestamp : null,
-            'ip' => $request->ip(),
-        ]);
-
         if ($batchId === '' || $timestamp === '') {
-            HikvisionWebhookDebugLog::info('GET verification rejected: missing headers');
-
             return response('Bad Request', 400);
         }
 
         try {
             $secret = HikvisionSetting::current()->resolveWebhookSignSecret();
-        } catch (\RuntimeException $exception) {
-            HikvisionWebhookDebugLog::info('GET verification rejected: sign secret missing', [
-                'error' => $exception->getMessage(),
-            ]);
-
+        } catch (\RuntimeException) {
             return response('Webhook sign secret is not configured.', 503);
         }
 
         $signature = HikvisionWebhookSignature::generate($secret, $timestamp, $batchId);
-
-        HikvisionWebhookDebugLog::info('GET verification succeeded', [
-            'batch_id' => $batchId,
-        ]);
 
         return response('', 200)->header('X-Hook-Signature', $signature);
     }
@@ -62,27 +45,11 @@ class HikvisionWebhookController extends Controller
     {
         $settings = HikvisionSetting::current();
 
-        HikvisionWebhookDebugLog::info('POST event request received', [
-            'ip' => $request->ip(),
-            'batch_id' => $request->header('X-Hook-Batch-Id'),
-            'timestamp' => $request->header('X-Hook-Timestamp'),
-            'has_signature' => $request->header('X-Hook-Signature') !== null,
-            'webhook_enabled' => $settings->webhook_enabled,
-        ]);
-
-        $authFailure = $this->authenticationFailureReason($request, $settings);
-
-        if ($authFailure !== null) {
-            HikvisionWebhookDebugLog::info('POST event rejected: authentication failed', [
-                'reason' => $authFailure,
-            ]);
-
+        if ($this->authenticationFailureReason($request, $settings) !== null) {
             return response('Forbidden', 403);
         }
 
         if (! $settings->webhook_enabled) {
-            HikvisionWebhookDebugLog::info('POST event rejected: ingestion disabled');
-
             return response('Webhook ingestion is disabled.', 403);
         }
 
@@ -90,24 +57,13 @@ class HikvisionWebhookController extends Controller
         $payload = $request->json()->all();
 
         if ($payload === []) {
-            HikvisionWebhookDebugLog::info('POST event accepted with empty payload');
-
             return response()->noContent();
         }
-
-        HikvisionWebhookDebugLog::info('POST event accepted, dispatching job', [
-            'payload' => HikvisionWebhookDebugLog::summarizePayload($payload),
-        ]);
 
         ProcessHikvisionWebhookEventJob::dispatch($payload);
         $settings->markWebhookEventReceived();
 
         return response()->noContent();
-    }
-
-    private function requestIsAuthenticated(Request $request, HikvisionSetting $settings): bool
-    {
-        return $this->authenticationFailureReason($request, $settings) === null;
     }
 
     private function authenticationFailureReason(Request $request, HikvisionSetting $settings): ?string
