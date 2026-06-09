@@ -27,7 +27,7 @@ export function SearchBar({
                     value={value}
                     onChange={(e) => onChange(e.target.value)}
                     className={cn(
-                        'pl-10 rounded-xl border-white/5 bg-white/5 focus-visible:ring-primary/20 focus-visible:bg-white/10 transition-all py-6 text-base',
+                        'pl-10 rounded-xl border-input bg-background/80 dark:border-white/5 dark:bg-white/5 focus-visible:ring-primary/20 focus-visible:bg-background dark:focus-visible:bg-white/10 transition-all py-6 text-base',
                         inputClassName,
                     )}
                 />

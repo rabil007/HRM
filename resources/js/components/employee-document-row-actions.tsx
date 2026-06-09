@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 const iconButtonClass =
-    'h-8 w-8 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-zinc-100';
+    'h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100';
 const dangerIconButtonClass =
     'h-8 w-8 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400';
 const primaryIconButtonClass =

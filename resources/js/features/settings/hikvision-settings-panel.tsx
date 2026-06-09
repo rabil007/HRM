@@ -72,7 +72,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
                 props.className,
             )}
         />
@@ -87,7 +87,7 @@ function StatusItem({
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+        <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
                 {label}
             </p>
@@ -233,7 +233,7 @@ export function HikvisionSettingsPanel({
                 </div>
             ) : null}
 
-            <Card className="border-white/5 bg-white/5">
+            <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                 <CardContent className="p-6 space-y-5">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
@@ -311,7 +311,7 @@ export function HikvisionSettingsPanel({
             </Alert>
 
             <form onSubmit={submit} className="space-y-6">
-                <Card className="border-white/5 bg-white/5">
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                     <CardContent className="p-6 space-y-6">
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
@@ -326,7 +326,7 @@ export function HikvisionSettingsPanel({
                             </div>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
                             <div>
                                 <p className="text-sm font-medium">Enable Hikvision integration</p>
                                 <p className="text-xs text-muted-foreground">
@@ -415,7 +415,7 @@ export function HikvisionSettingsPanel({
                     </CardContent>
                 </Card>
 
-                <Card className="border-white/5 bg-white/5">
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                     <CardContent className="space-y-5 p-6">
                         <div className="flex items-center gap-4">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
@@ -459,7 +459,7 @@ export function HikvisionSettingsPanel({
                             </StatusItem>
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
                             <div>
                                 <p className="text-sm font-medium">Enable daily fetch</p>
                                 <p className="text-xs text-muted-foreground">
@@ -510,7 +510,7 @@ export function HikvisionSettingsPanel({
                     </CardContent>
                 </Card>
 
-                <Card className="border-white/5 bg-white/5">
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                     <CardContent className="space-y-5 p-6">
                         <div className="flex items-center gap-4">
                             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
@@ -555,7 +555,7 @@ export function HikvisionSettingsPanel({
 
                         <div className="space-y-1.5">
                             <FieldLabel>Callback URL</FieldLabel>
-                            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                            <div className="flex items-center gap-2 rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3">
                                 <Link2 className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                                 <span className="truncate font-mono text-xs">{webhook_url}</span>
                             </div>
@@ -580,7 +580,7 @@ export function HikvisionSettingsPanel({
                             <InputError message={form.errors.webhook_verify_token} />
                         </div>
 
-                        <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/5 px-4 py-3">
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
                             <div>
                                 <p className="text-sm font-medium">Enable webhook ingestion</p>
                                 <p className="text-xs text-muted-foreground">

@@ -19,7 +19,7 @@ function ghostIconClass(variant?: TableRowActionItem['variant']): string {
         return 'size-8 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400';
     }
 
-    return 'size-8 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-zinc-100';
+    return 'size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100';
 }
 
 type TableRowActionsProps = {

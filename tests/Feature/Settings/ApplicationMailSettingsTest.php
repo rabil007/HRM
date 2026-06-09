@@ -26,6 +26,22 @@ test('application settings page includes smtp configuration', function () {
         );
 });
 
+test('application settings page includes decrypted smtp password', function () {
+    AppSetting::query()->updateOrCreate(
+        ['key' => SettingKey::MailPassword],
+        ['value' => Crypt::encryptString('secret-pass'), 'type' => 'encrypted'],
+    );
+    Cache::forget('app.settings.all');
+
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, ['settings.application.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('smtp.password', 'secret-pass'));
+});
+
 test('outgoing email views render the branding footer and inline logo', function () {
     Storage::fake('public');
 

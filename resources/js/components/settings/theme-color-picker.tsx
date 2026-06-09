@@ -33,8 +33,8 @@ export function ThemeColorPicker({ id, value, onChange }: Props) {
             onChange={(event) => onChange(event.target.value)}
             aria-label="Choose color"
             className={cn(
-                'h-14 w-full cursor-pointer rounded-xl border border-white/10 bg-white/5 p-1.5 transition-all',
-                'hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
+                'h-14 w-full cursor-pointer rounded-xl border border-input bg-background/50 p-1.5 transition-all dark:border-white/10 dark:bg-white/5',
+                'hover:border-border dark:hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40',
                 '[&::-webkit-color-swatch-wrapper]:p-0',
                 '[&::-webkit-color-swatch]:rounded-lg [&::-webkit-color-swatch]:border-0',
                 '[&::-moz-color-swatch]:rounded-lg [&::-moz-color-swatch]:border-0',

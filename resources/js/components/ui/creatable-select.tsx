@@ -138,7 +138,7 @@ export function CreatableSelect({
     const triggerClassName = cn(
         'flex w-full items-center justify-between gap-2 rounded-md border text-sm whitespace-nowrap shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
         variant === 'dark'
-            ? 'border-white/10 bg-white/5 text-zinc-100 focus-visible:ring-primary/40'
+            ? 'border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 focus-visible:ring-primary/40'
             : 'border-border bg-card text-foreground focus-visible:ring-primary/40',
         variant === 'dark' ? 'h-11 rounded-xl' : 'h-11 rounded-xl',
         size === 'sm' && 'h-8 rounded-lg px-2 text-xs',

@@ -27,7 +27,7 @@ export function EmployeeRecordRowActions({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-zinc-100"
+                className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
                 title="Edit"
                 aria-label="Edit"
                 onClick={onEdit}

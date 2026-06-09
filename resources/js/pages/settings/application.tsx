@@ -13,6 +13,7 @@ import {
     Settings2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import PasswordInput from '@/components/password-input';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
 import { ThemeColorPicker } from '@/components/settings/theme-color-picker';
 import { Button } from '@/components/ui/button';
@@ -76,6 +77,7 @@ type Props = {
         encryption: string;
         from_address: string;
         from_name: string;
+        password: string;
         has_password: boolean;
         is_configured: boolean;
         uses_env_fallback: boolean;
@@ -198,7 +200,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
                 props.className,
             )}
         />
@@ -214,7 +216,7 @@ function SettingsCard({
     className?: string;
 }) {
     return (
-        <Card className={cn('border-white/5 bg-white/5', className)}>
+        <Card className={cn('border-border/80 bg-card dark:border-white/5 dark:bg-white/5', className)}>
             <CardContent className="p-6">{children}</CardContent>
         </Card>
     );
@@ -276,7 +278,7 @@ export default function ApplicationSettings({
         host: smtp.host ?? '',
         port: smtp.port ?? 587,
         username: smtp.username ?? '',
-        password: '',
+        password: smtp.password ?? '',
         encryption: smtp.encryption ?? 'tls',
         from_address: smtp.from_address ?? '',
         from_name: smtp.from_name ?? '',
@@ -412,8 +414,8 @@ export default function ApplicationSettings({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* ── Sidebar nav ── */}
                 <aside className="lg:col-span-3 lg:sticky lg:top-6 lg:self-start">
-                    <Card className="border-white/5 bg-white/5 overflow-hidden">
-                        <div className="p-4 border-b border-white/5 bg-white/[0.02]">
+                    <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5 overflow-hidden">
+                        <div className="p-4 border-b border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/[0.02]">
                             <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                                 Settings
                             </h3>
@@ -431,7 +433,7 @@ export default function ApplicationSettings({
                                             'w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left',
                                             isActive
                                                 ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                                : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+                                                : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5',
                                         )}
                                     >
                                         <item.icon
@@ -545,7 +547,7 @@ export default function ApplicationSettings({
                                                     e.target.value,
                                                 )
                                             }
-                                            className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
+                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
                                         />
                                     </div>
                                 </div>
@@ -568,7 +570,7 @@ export default function ApplicationSettings({
                                                 generalForm.setData('timezone', value)
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
+                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
                                                 <SelectValue placeholder="Select timezone" />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-64">
@@ -589,7 +591,7 @@ export default function ApplicationSettings({
                                                 generalForm.setData('currency', value)
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
+                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
                                                 <SelectValue placeholder="Select currency" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -610,7 +612,7 @@ export default function ApplicationSettings({
                                                 generalForm.setData('date_format', value)
                                             }
                                         >
-                                            <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
+                                            <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
                                                 <SelectValue placeholder="Select format" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -774,7 +776,7 @@ export default function ApplicationSettings({
                                                     smtpForm.setData('encryption', value)
                                                 }
                                             >
-                                                <SelectTrigger className="rounded-xl border-white/10 bg-white/5 h-11">
+                                                <SelectTrigger className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11">
                                                     <SelectValue />
                                                 </SelectTrigger>
                                                 <SelectContent>
@@ -800,21 +802,16 @@ export default function ApplicationSettings({
                                         <div className="space-y-1.5 sm:col-span-2">
                                             <FieldLabel htmlFor="mail_password">Password</FieldLabel>
                                             <div className="relative">
-                                                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
-                                                <FieldInput
+                                                <Lock className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground/40" />
+                                                <PasswordInput
                                                     id="mail_password"
-                                                    type="password"
                                                     value={smtpForm.data.password}
                                                     onChange={(e) =>
                                                         smtpForm.setData('password', e.target.value)
                                                     }
-                                                    placeholder={
-                                                        smtp.has_password
-                                                            ? 'Leave blank to keep current password'
-                                                            : 'SMTP password'
-                                                    }
+                                                    placeholder="SMTP password"
                                                     autoComplete="new-password"
-                                                    className="pl-10"
+                                                    className="h-11 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 focus-visible:ring-primary/40"
                                                 />
                                             </div>
                                             {smtpForm.errors.password ? (
@@ -881,7 +878,7 @@ export default function ApplicationSettings({
                                             error={smtpForm.errors.email_branding_logo}
                                         />
 
-                                        <div className="h-px bg-white/5" />
+                                        <div className="h-px bg-border/80 dark:bg-white/5" />
 
                                         <div className="space-y-1.5">
                                             <FieldLabel htmlFor="mail_footer_tagline">
@@ -982,7 +979,7 @@ export default function ApplicationSettings({
                                             value={testBody}
                                             onChange={(e) => setTestBody(e.target.value)}
                                             placeholder="Message shown in the email body…"
-                                            className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
+                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 resize-none px-4 py-3 transition-all"
                                         />
                                     </div>
                                     <div className="space-y-1.5 sm:col-span-2">
@@ -996,7 +993,7 @@ export default function ApplicationSettings({
                                             onChange={(e) =>
                                                 setTestAttachment(e.target.files?.[0] ?? null)
                                             }
-                                            className="rounded-xl border-white/10 bg-white/5 h-11 px-4 file:mr-3 file:rounded-lg file:border-0 file:bg-white/10 file:px-3 file:py-1 file:text-xs file:font-medium transition-all"
+                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11 px-4 file:mr-3 file:rounded-lg file:border-0 file:bg-muted dark:file:bg-white/10 file:px-3 file:py-1 file:text-xs file:font-medium transition-all"
                                         />
                                         <p className="text-[10px] text-muted-foreground/50 ml-0.5">
                                             {testAttachment
@@ -1080,7 +1077,7 @@ export default function ApplicationSettings({
                                     description="Default layout and navigation preferences."
                                     color="bg-sky-500/10 border-sky-500/20 text-sky-500"
                                 />
-                                <label className="flex items-center gap-4 p-4 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer hover:bg-white/[0.04] transition-colors">
+                                <label className="flex items-center gap-4 p-4 rounded-xl border border-border/80 bg-muted/20 cursor-pointer hover:bg-muted/50 dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04] transition-colors">
                                     <Checkbox
                                         id="sidebar_compact_default"
                                         checked={preferencesForm.data.sidebar_compact_default}

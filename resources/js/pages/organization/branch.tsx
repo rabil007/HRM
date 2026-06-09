@@ -140,7 +140,7 @@ export default function BranchDetails({
                         <>
                             <Button
                                 variant="outline"
-                                className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
+                                className="rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10 h-12 px-6"
                                 onClick={() => setEditOpen(true)}
                             >
                                 Edit
@@ -158,7 +158,7 @@ export default function BranchDetails({
                 />
 
                 <div className="grid gap-6 lg:grid-cols-3">
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl lg:col-span-2 overflow-hidden">
+                    <Card className="glass-card lg:col-span-2 overflow-hidden dark:border-white/5 dark:bg-white/5">
                         <CardHeader className="pb-4">
                             <div className="flex items-center gap-4">
                                 <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
@@ -166,7 +166,7 @@ export default function BranchDetails({
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                        <Badge className="bg-muted/60 border border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10 text-[10px] uppercase font-bold tracking-wider">
                                             {branch.status}
                                         </Badge>
                                         {branch.is_headquarters ? (
@@ -218,12 +218,12 @@ export default function BranchDetails({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+                    <Card className="glass-card dark:border-white/5 dark:bg-white/5">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg font-bold tracking-tight">Quick actions</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                            <div className="flex items-center gap-3 rounded-xl border border-white/5 bg-white/5 p-4">
+                            <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 dark:border-white/5 dark:bg-white/5 p-4">
                                 <Building2 className="h-5 w-5 text-primary" />
                                 <div className="min-w-0">
                                     <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -234,7 +234,7 @@ export default function BranchDetails({
                             </div>
                             <Button
                                 variant="outline"
-                                className="w-full rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12"
+                                className="w-full rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10 h-12"
                                 asChild
                             >
                                 <a href={`/organization/branches`}>Edit from list</a>
@@ -244,10 +244,10 @@ export default function BranchDetails({
                 </div>
 
                 {can_view_audit ? (
-                <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">
+                <Card className="glass-card mt-8 dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground">
+                            <div className="h-9 w-9 rounded-xl bg-muted/60 border border-border/80 dark:bg-white/5 dark:border-white/10 flex items-center justify-center text-muted-foreground">
                                 <Activity className="h-4 w-4" />
                             </div>
                             <div>
@@ -259,17 +259,17 @@ export default function BranchDetails({
                                 </div>
                             </div>
                         </div>
-                        <Badge className="bg-white/5 text-muted-foreground border-white/10">
+                        <Badge className="bg-muted/60 border border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10">
                             {recent_activity.length} items
                         </Badge>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {recent_activity.length === 0 ? (
-                            <div className="rounded-xl border border-white/5 bg-white/5 p-10 text-center text-sm text-muted-foreground/80">
+                            <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 p-10 text-center text-sm text-muted-foreground/80">
                                 No recent activity yet.
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5 rounded-xl border border-white/5 overflow-hidden">
+                            <div className="divide-y divide-border/60 dark:divide-white/5 rounded-xl border border-border/80 dark:border-white/5 overflow-hidden">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -282,7 +282,7 @@ export default function BranchDetails({
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 space-y-1">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                                        <Badge className="bg-muted/60 border border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10 text-[10px] uppercase font-bold tracking-wider">
                                                             {a.event ?? 'event'}
                                                         </Badge>
                                                         <div className="text-sm font-medium">
@@ -304,7 +304,7 @@ export default function BranchDetails({
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
+                                                                    className="rounded-full border border-border bg-muted/60 dark:border-white/10 dark:bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
                                                                 >
                                                                     {titleCaseKey(k)}:{' '}
                                                                     <span className="text-muted-foreground/70">
@@ -319,7 +319,7 @@ export default function BranchDetails({
                                                             {keys.length > 4 ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-white/10 transition"
+                                                                    className="rounded-full border border-border bg-muted/60 dark:border-white/10 dark:bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted dark:hover:bg-white/10 transition"
                                                                     onClick={() =>
                                                                         setExpandedActivity((prev) => ({
                                                                             ...prev,

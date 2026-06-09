@@ -7,7 +7,7 @@ export default function Forbidden() {
         <>
             <Head title="Forbidden" />
             <div className="mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center px-6">
-                <Card className="w-full border-white/5 bg-white/5">
+                <Card className="w-full">
                     <CardHeader>
                         <CardTitle className="text-2xl font-extrabold tracking-tight">403 — Forbidden</CardTitle>
                     </CardHeader>
@@ -22,7 +22,7 @@ export default function Forbidden() {
                             <Button
                                 type="button"
                                 variant="secondary"
-                                className="rounded-xl h-11 px-5 border border-white/5 bg-white/5 hover:bg-white/10"
+                                className="rounded-xl h-11 px-5 border border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
                                 onClick={() => {
                                     if (window.history.length > 1) {
                                         window.history.back();

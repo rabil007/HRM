@@ -14,7 +14,7 @@ export function EmptyState({
     children?: ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-white/5 bg-white/5 backdrop-blur-xl p-10 text-center">
+        <div className="rounded-xl border border-border/80 bg-muted/30 dark:border-white/5 dark:bg-white/5 backdrop-blur-xl p-10 text-center">
             {icon}
             <div className="text-sm font-semibold text-foreground/90">{title}</div>
             {description ? <div className="mt-1 text-sm text-muted-foreground/80">{description}</div> : null}

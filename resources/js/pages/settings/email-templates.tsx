@@ -229,7 +229,7 @@ export default function EmailTemplatesSettings({
 
                         <div className="grid gap-4 lg:grid-cols-2">
                             {group.templates.map((template) => (
-                                <Card key={template.id} className="border-white/5 bg-white/5">
+                                <Card key={template.id} className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                                     <CardContent className="space-y-4 p-5">
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="space-y-1">
@@ -296,7 +296,7 @@ export default function EmailTemplatesSettings({
                                         ) : null}
 
                                         <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                            <span className="rounded-md bg-white/5 px-2 py-1">
+                                            <span className="rounded-md bg-muted/60 dark:bg-white/5 px-2 py-1">
                                                 Slug: {template.slug}
                                             </span>
                                         </div>
@@ -333,7 +333,7 @@ export default function EmailTemplatesSettings({
                             ))}
 
                             {group.templates.length === 0 ? (
-                                <Card className="border-dashed border-white/10 bg-transparent lg:col-span-2">
+                                <Card className="border-dashed border-border/80 dark:border-white/10 bg-transparent lg:col-span-2">
                                     <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
                                         <FileText className="h-8 w-8 text-muted-foreground" />
                                         <p className="text-sm text-muted-foreground">
@@ -502,7 +502,7 @@ export default function EmailTemplatesSettings({
                         </MasterDataField>
                     </>
                 ) : (
-                    <p className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-muted-foreground">
+                    <p className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 text-sm text-muted-foreground">
                         The automated expiry email uses a fixed HTML table (employee, document,
                         expiry date, days remaining). Configure recipients and daily dispatch time
                         below.

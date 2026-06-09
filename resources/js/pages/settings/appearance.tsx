@@ -142,7 +142,7 @@ export default function Appearance() {
             </div>
 
             {/* Live indicator banner */}
-            <div className="mb-8 flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03]">
+            <div className="mb-8 flex items-center gap-3 px-4 py-3 rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/[0.03]">
                 <div className="flex items-center gap-2 shrink-0">
                     {resolvedAppearance === 'dark' ? (
                         <Moon className="w-4 h-4 text-primary" />
@@ -154,7 +154,7 @@ export default function Appearance() {
                         <span className="text-primary capitalize">{resolvedAppearance}</span> mode
                     </span>
                 </div>
-                <div className="flex-1 h-px bg-white/5" />
+                <div className="flex-1 h-px bg-border/80 dark:bg-white/5" />
                 <span className="text-[10px] text-muted-foreground/50">
                     {appearance === 'system'
                         ? 'Following OS preference'
@@ -177,12 +177,12 @@ export default function Appearance() {
                                 'group relative flex flex-col overflow-hidden rounded-2xl border text-left transition-all duration-300',
                                 isActive
                                     ? 'border-primary/40 shadow-lg shadow-primary/10 ring-1 ring-primary/20 bg-primary/5'
-                                    : 'border-white/5 bg-white/[0.03] hover:border-white/10 hover:bg-white/[0.05]',
+                                    : 'border-border/80 bg-muted/20 hover:border-border hover:bg-muted/40 dark:border-white/5 dark:bg-white/[0.03] dark:hover:border-white/10 dark:hover:bg-white/[0.05]',
                             )}
                         >
                             {/* Preview window */}
                             <div className="relative h-36 w-full p-3 bg-black/20">
-                                <div className="w-full h-full rounded-lg overflow-hidden shadow-xl border border-white/10">
+                                <div className="w-full h-full rounded-lg overflow-hidden shadow-xl border border-border/60 dark:border-white/10">
                                     {preview}
                                 </div>
 
@@ -195,13 +195,13 @@ export default function Appearance() {
                             </div>
 
                             {/* Label row */}
-                            <div className="flex items-center gap-3 px-4 py-4 border-t border-white/5">
+                            <div className="flex items-center gap-3 px-4 py-4 border-t border-border/80 dark:border-white/5">
                                 <div
                                     className={cn(
                                         'w-8 h-8 rounded-xl border flex items-center justify-center shrink-0 transition-colors',
                                         isActive
                                             ? 'bg-primary/10 border-primary/30 text-primary'
-                                            : 'bg-white/5 border-white/5 text-muted-foreground',
+                                            : 'bg-muted/40 border-border text-muted-foreground dark:bg-white/5 dark:border-white/5',
                                     )}
                                 >
                                     <Icon className="w-4 h-4" />

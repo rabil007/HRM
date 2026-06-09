@@ -32,7 +32,7 @@ export function DetailsHeader({
             <div className="flex items-center gap-3">
                 <Button
                     variant="outline"
-                    className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
+                    className="rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10 h-12 px-6"
                     asChild
                 >
                     <a href={backHref}>{backLabel}</a>

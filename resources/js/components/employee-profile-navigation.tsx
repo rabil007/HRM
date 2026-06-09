@@ -45,7 +45,7 @@ export function EmployeeProfileNavigation({
                 'inline-flex shrink-0 items-center',
                 embedded
                     ? 'h-13 min-h-13'
-                    : 'group overflow-hidden rounded-2xl border border-white/8 bg-white/4 shadow-inner shadow-black/20 backdrop-blur-sm transition-colors hover:border-white/12 hover:bg-white/6',
+                    : 'group overflow-hidden rounded-2xl border border-border/80 bg-muted/40 shadow-inner backdrop-blur-sm transition-colors hover:border-border hover:bg-muted/80 dark:border-white/8 dark:bg-white/4 dark:hover:border-white/12 dark:hover:bg-white/6',
                 className,
             )}
         >
@@ -64,7 +64,7 @@ export function EmployeeProfileNavigation({
                     'w-10 transition-colors disabled:cursor-not-allowed disabled:opacity-30',
                     embedded
                         ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                        : 'text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:text-zinc-500 dark:hover:bg-white/8 dark:hover:text-zinc-200',
                 )}
             >
                 <ChevronLeft className="size-4 shrink-0" />
@@ -76,13 +76,13 @@ export function EmployeeProfileNavigation({
                     'min-w-18 px-3',
                     embedded
                         ? 'border-x border-border/80'
-                        : 'border-x border-white/7',
+                        : 'border-x border-border/80 dark:border-white/7',
                 )}
             >
                 <span
                     className={cn(
                         'text-xs font-semibold leading-none tabular-nums',
-                        embedded ? 'text-foreground' : 'text-zinc-400',
+                        embedded ? 'text-foreground' : 'text-muted-foreground dark:text-zinc-400',
                     )}
                 >
                     {navigation.position} / {navigation.total}
@@ -104,7 +104,7 @@ export function EmployeeProfileNavigation({
                     'w-10 transition-colors disabled:cursor-not-allowed disabled:opacity-30',
                     embedded
                         ? 'text-muted-foreground hover:bg-muted/40 hover:text-foreground'
-                        : 'text-zinc-500 hover:bg-white/8 hover:text-zinc-200',
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:text-zinc-500 dark:hover:bg-white/8 dark:hover:text-zinc-200',
                 )}
             >
                 <ChevronRight className="size-4 shrink-0" />

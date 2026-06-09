@@ -152,7 +152,7 @@ export default function DocumentsIndex({
                 onClearExpiry={() => onExpiryChange('all')}
             />
 
-            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-white/5 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
+            <div className="sticky top-0 z-20 -mx-1 mb-8 border-b border-border/80 dark:border-white/5 bg-background/95 px-1 pb-4 backdrop-blur-md supports-[backdrop-filter]:bg-background/80">
                 <SearchBar
                     placeholder="Search employee, document no, file name..."
                     value={searchInput}

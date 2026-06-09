@@ -100,7 +100,7 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
 
     return (
         <>
-            <Card className="border-white/5 bg-white/5">
+            <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                 <CardContent className="space-y-5 p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-4">

@@ -121,7 +121,7 @@ export function PhoneInputWithCountry({
                         disabled={disabled}
                         aria-label="Country code"
                         className={cn(
-                            'inline-flex h-10 shrink-0 items-center gap-1 rounded-xl border border-white/10 bg-white/5 px-2 text-sm text-zinc-100 outline-none hover:bg-white/10 focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50',
+                            'inline-flex h-10 shrink-0 items-center gap-1 rounded-xl border border-input bg-background/80 px-2 text-sm text-foreground outline-none hover:bg-muted focus-visible:ring-1 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 dark:hover:bg-white/10',
                             selectClassName,
                         )}
                     >
@@ -185,7 +185,7 @@ export function PhoneInputWithCountry({
                 disabled={disabled}
                 placeholder={nationalPlaceholder}
                 className={cn(
-                    'h-10 min-w-0 flex-1 rounded-xl border-white/5 bg-white/5',
+                    'h-10 min-w-0 flex-1 rounded-xl border-input bg-background/80 dark:border-white/5 dark:bg-white/5',
                     inputClassName,
                 )}
                 value={nationalNumber}

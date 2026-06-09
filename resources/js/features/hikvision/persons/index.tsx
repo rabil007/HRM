@@ -229,7 +229,7 @@ export function HikvisionPersonsContent({
                 </p>
             )}
 
-            <Card className="mb-6 border-white/5 bg-white/3">
+            <Card className="mb-6 border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/3">
                 <CardContent className="p-5">
                     <div className="mb-4 flex items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
@@ -268,7 +268,7 @@ export function HikvisionPersonsContent({
                                     value={list.searchInput}
                                     onChange={(event) => list.onSearchChange(event.target.value)}
                                     placeholder="Name, employee no, email, phone…"
-                                    className="h-10 rounded-xl border-white/10 bg-white/5 pl-10 focus-visible:ring-primary/40"
+                                    className="h-10 rounded-xl border-input bg-background/50 dark:border-white/10 dark:bg-white/5 pl-10 focus-visible:ring-primary/40"
                                 />
                             </div>
                         </div>

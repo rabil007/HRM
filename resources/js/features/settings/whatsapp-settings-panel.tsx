@@ -88,7 +88,7 @@ function FieldInput(props: React.ComponentProps<typeof Input>) {
         <Input
             {...props}
             className={cn(
-                'rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
+                'rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40 h-11 px-4 transition-all',
                 props.className,
             )}
         />
@@ -388,7 +388,7 @@ export function WhatsAppSettingsPanel({
 
     return (
         <div className="space-y-6">
-            <Card className="border-white/5 bg-white/5">
+            <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                 <CardContent className="p-6 space-y-5">
                     <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
@@ -445,7 +445,7 @@ export function WhatsAppSettingsPanel({
             </Card>
 
             {can.update ? (
-                <Card className="border-white/5 bg-white/5">
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                     <CardContent className="p-6 space-y-5">
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
@@ -507,7 +507,7 @@ export function WhatsAppSettingsPanel({
                                     onChange={(e) => setTestMessage(e.target.value)}
                                     rows={4}
                                     disabled={!canSendTests}
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40"
+                                    className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 focus-visible:ring-primary/40"
                                 />
                             </div>
 
@@ -523,7 +523,7 @@ export function WhatsAppSettingsPanel({
                                         onChange={(event) => {
                                             setTestFile(event.target.files?.[0] ?? null);
                                         }}
-                                        className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-white/15"
+                                        className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-lg file:border-0 file:bg-muted dark:file:bg-white/10 file:px-4 file:py-2 file:text-sm file:font-medium file:text-foreground hover:file:bg-muted/80 dark:hover:file:bg-white/15"
                                     />
                                     {testFile ? (
                                         <span className="text-xs text-muted-foreground">
@@ -629,7 +629,7 @@ export function WhatsAppSettingsPanel({
                                     >
                                         <SelectTrigger
                                             id="test_template_slug"
-                                            className="rounded-xl border-white/10 bg-white/5 h-11"
+                                            className="rounded-xl border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 h-11"
                                         >
                                             <SelectValue placeholder="Select template" />
                                         </SelectTrigger>
@@ -688,7 +688,7 @@ export function WhatsAppSettingsPanel({
             </Alert>
 
             <form onSubmit={submit} className="space-y-6">
-                <Card className="border-white/5 bg-white/5">
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
                     <CardContent className="p-6 space-y-6">
                         <div className="flex items-center gap-4">
                             <div className="w-10 h-10 rounded-2xl border border-green-500/20 bg-green-500/10 flex items-center justify-center shrink-0">
@@ -833,7 +833,7 @@ export function WhatsAppSettingsPanel({
                                 </p>
                             </div>
 
-                            <div className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 sm:col-span-2">
+                            <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 sm:col-span-2">
                                 <div>
                                     <p className="text-sm font-medium">Enabled</p>
                                     <p className="text-xs text-muted-foreground">
@@ -882,7 +882,7 @@ function StatusItem({
     children: React.ReactNode;
 }) {
     return (
-        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 space-y-1">
+        <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/10 dark:bg-white/5 px-4 py-3 space-y-1">
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground/60 font-bold">
                 {label}
             </p>
@@ -954,7 +954,7 @@ function WhatsAppApiExchangePanel({
                 <p className="font-mono text-xs break-all text-emerald-700 dark:text-emerald-400">
                     {exchange.request.method} {exchange.request.url}
                 </p>
-                <pre className="max-h-64 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 dark:border-white/10 dark:bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
                     {JSON.stringify(exchange.request.payload, null, 2)}
                 </pre>
             </div>
@@ -963,7 +963,7 @@ function WhatsAppApiExchangePanel({
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
                     Response — HTTP {exchange.response.http_status}
                 </p>
-                <pre className="max-h-64 overflow-auto rounded-lg border border-white/10 bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
+                <pre className="max-h-64 overflow-auto rounded-lg border border-border/80 bg-muted/10 dark:border-white/10 dark:bg-black/20 p-3 font-mono text-[11px] leading-relaxed text-foreground/90">
                     {JSON.stringify(exchange.response.body, null, 2)}
                 </pre>
             </div>

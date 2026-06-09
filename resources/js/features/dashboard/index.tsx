@@ -124,7 +124,7 @@ export function DashboardContent({
                 <div className="flex items-center gap-3">
                     <Button
                         variant="outline"
-                        className="rounded-xl glass-card hover:bg-white/10"
+                        className="rounded-xl glass-card hover:bg-muted/80 dark:hover:bg-white/10"
                         asChild
                     >
                         <Link href={employees.url()}>
@@ -261,10 +261,10 @@ export function DashboardContent({
                     value={documentCompliance.expired.toLocaleString()}
                     hint="Require immediate action"
                     icon={AlertTriangle}
-                    gradient={documentCompliance.expired > 0 ? 'from-red-500/15 to-rose-500/5' : 'from-white/5 to-transparent'}
-                    iconColor={documentCompliance.expired > 0 ? 'text-red-400' : 'text-muted-foreground/60'}
-                    iconBg={documentCompliance.expired > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-white/5 border-white/10'}
-                    accent={documentCompliance.expired > 0 ? 'border-red-500/25 hover:border-red-500/40 hover:shadow-red-500/5 hover:bg-red-500/[0.01]' : 'border-white/5 hover:border-white/10'}
+                    gradient={documentCompliance.expired > 0 ? 'from-red-500/15 to-rose-500/5' : 'from-muted/40 dark:from-white/5 to-transparent'}
+                    icon={FileText}
+                    iconBg={documentCompliance.expired > 0 ? 'bg-red-500/10 border-red-500/20' : 'bg-muted/60 border-border/80 dark:bg-white/5 dark:border-white/10'}
+                    accent={documentCompliance.expired > 0 ? 'border-red-500/25 hover:border-red-500/40 hover:shadow-red-500/5 hover:bg-red-500/[0.01]' : 'border-border/60 hover:border-border dark:border-white/5 dark:hover:border-white/10'}
                     badgeVariant="destructive"
                     href={documents.url({ query: { expiry: 'expired' } })}
                 />
@@ -377,8 +377,8 @@ export function DashboardContent({
             </div>
 
             {/* ── Workforce trend — full width ───────────────────────── */}
-            <Card className="glass-card mb-6 overflow-hidden border-white/5 bg-white/[0.02]">
-                <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+            <Card className="glass-card mb-6 overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                     <div className="flex items-start justify-between gap-4">
                         <div>
                             <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -400,8 +400,8 @@ export function DashboardContent({
 
             {/* ── Charts row ────────────────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-3">
-                <Card className="glass-card overflow-hidden lg:col-span-2 border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden lg:col-span-2 dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -421,8 +421,8 @@ export function DashboardContent({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -445,8 +445,8 @@ export function DashboardContent({
 
             {/* ── Branch + recent hires ─────────────────────────────── */}
             <div className="mb-6 grid gap-6 lg:grid-cols-2">
-                <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -469,8 +469,8 @@ export function DashboardContent({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -482,7 +482,7 @@ export function DashboardContent({
                             </div>
                             <div className="flex items-center gap-2">
                                 {recentHires.length > 0 && (
-                                    <Badge variant="secondary" className="tabular-nums font-bold border border-white/5 bg-white/5 px-2">
+                                    <Badge variant="secondary" className="tabular-nums font-bold border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5 px-2">
                                         {recentHires.length}
                                     </Badge>
                                 )}
@@ -495,7 +495,7 @@ export function DashboardContent({
                     <CardContent className="space-y-2 pt-4">
                         {recentHires.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.02] border border-dashed border-white/10">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/20 border border-dashed border-border dark:bg-white/[0.02] dark:border-white/10">
                                     <Users className="h-5 w-5 text-muted-foreground/30" />
                                 </div>
                                 <p className="text-sm font-medium text-muted-foreground/50">
@@ -510,7 +510,7 @@ export function DashboardContent({
                                     <Link
                                         key={hire.id}
                                         href={showEmployee.url({ employee: hire.id })}
-                                        className="group flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.01] p-3 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.03] hover:-translate-y-0.5"
+                                        className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03] hover:-translate-y-0.5"
                                     >
                                         <Avatar className="size-9 shrink-0 ring-2 ring-background shadow-md">
                                             <AvatarFallback
@@ -541,8 +541,8 @@ export function DashboardContent({
 
             {/* ── Attendance detail ─────────────────────────────────── */}
             <div className="grid gap-6 lg:grid-cols-2">
-                <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-start justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -562,8 +562,8 @@ export function DashboardContent({
                     </CardContent>
                 </Card>
 
-                <Card className="glass-card overflow-hidden border-white/5 bg-white/[0.02]">
-                    <CardHeader className="border-b border-white/5 pb-4 bg-white/[0.01]">
+                <Card className="glass-card overflow-hidden dark:border-white/5 dark:bg-white/[0.02]">
+                    <CardHeader className="border-b border-border/60 dark:border-white/5 pb-4 bg-muted/5 dark:bg-white/[0.01]">
                         <div className="flex items-center justify-between gap-4">
                             <div>
                                 <CardTitle className="text-base font-bold tracking-tight text-foreground/95">
@@ -581,7 +581,7 @@ export function DashboardContent({
                     <CardContent className="space-y-2 pt-4">
                         {attendanceAnalytics.recent_events.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/[0.02] border border-dashed border-white/10">
+                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/20 border border-dashed border-border dark:bg-white/[0.02] dark:border-white/10">
                                     <Radio className="h-5 w-5 text-muted-foreground/30" />
                                 </div>
                                 <p className="text-sm font-medium text-muted-foreground/50">
@@ -599,7 +599,7 @@ export function DashboardContent({
                                 const isCheckOut = event.attendance_status === 'checkOut';
 
                                 const content = (
-                                    <div className="group flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.01] p-3 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.03]">
+                                    <div className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03]">
                                         <div
                                             className={cn(
                                                 'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
@@ -607,7 +607,7 @@ export function DashboardContent({
                                                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
                                                     : isCheckOut
                                                       ? 'bg-sky-500/10 border-sky-500/20 text-sky-400'
-                                                      : 'bg-white/5 border-white/10 text-muted-foreground',
+                                                      : 'bg-muted/60 border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10',
                                             )}
                                         >
                                             {isCheckOut ? (
@@ -627,7 +627,7 @@ export function DashboardContent({
                                         </div>
                                         <Badge
                                             variant="secondary"
-                                            className="shrink-0 border border-white/5 bg-white/5 text-[10px] font-bold uppercase"
+                                            className="shrink-0 border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5 text-[10px] font-bold uppercase"
                                         >
                                             {isCheckIn ? 'In' : isCheckOut ? 'Out' : '—'}
                                         </Badge>
@@ -675,7 +675,7 @@ function SectionLabel({
             <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/50">
                 {label}
             </span>
-            <div className="h-px flex-1 bg-white/5" />
+            <div className="h-px flex-1 bg-border/80 dark:bg-white/5" />
         </div>
     );
 }
@@ -730,7 +730,7 @@ function MetricCard({
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                     <p className="text-xs text-muted-foreground/50">{hint}</p>
                     {badge && (
-                        <Badge variant={badgeVariant} className="text-[10px] font-bold px-2 py-0.5 border border-white/5 bg-white/5">
+                        <Badge variant={badgeVariant} className="text-[10px] font-bold px-2 py-0.5 border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5">
                             {badge}
                         </Badge>
                     )}
@@ -766,7 +766,7 @@ function OrgSnapshotTile({
     return (
         <Link
             href={href}
-            className="group flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3.5 transition-all duration-300 hover:border-white/10 hover:bg-white/[0.04] hover:-translate-y-0.5 hover:shadow-lg"
+            className="group flex items-center gap-3 rounded-2xl border border-border/80 bg-muted/10 px-4 py-3.5 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.02] dark:hover:border-white/10 dark:hover:bg-white/[0.04] hover:-translate-y-0.5 hover:shadow-lg"
         >
             <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-300 group-hover:scale-110 group-hover:rotate-3", iconBg)}>
                 <Icon className={cn("h-4.5 w-4.5", iconColor)} />

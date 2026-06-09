@@ -297,7 +297,7 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                     description="Upload a CSV or Excel file, review the detected mapping, then import valid employee rows."
                     right={
                         <div className="flex flex-wrap items-center gap-2">
-                            <Button variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-11 px-4" asChild>
+                            <Button variant="outline" className="rounded-xl border-border/80 bg-muted/20 hover:bg-muted/60 dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10 h-11 px-4" asChild>
                                 <Link href="/organization/employees">Cancel</Link>
                             </Button>
                             <Button variant="secondary" className="glass-card rounded-xl h-11 px-4 hover:bg-accent" asChild>
@@ -318,9 +318,9 @@ export default function EmployeeImport({ template_url, preview_url, import_url, 
                 />
 
                 <div className="mb-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="border-white/10 bg-white/5 text-muted-foreground">CSV</Badge>
-                    <Badge variant="outline" className="border-white/10 bg-white/5 text-muted-foreground">XLSX</Badge>
-                    <Badge variant="outline" className="border-white/10 bg-white/5 text-muted-foreground">XLS</Badge>
+                    <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground dark:border-white/10 dark:bg-white/5">CSV</Badge>
+                    <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground dark:border-white/10 dark:bg-white/5">XLSX</Badge>
+                    <Badge variant="outline" className="border-border bg-muted/30 text-muted-foreground dark:border-white/10 dark:bg-white/5">XLS</Badge>
                     <span>Maximum file size 10 MB · Maximum {max_rows} rows</span>
                 </div>
 
@@ -389,7 +389,7 @@ toast.error('Template selection is optional for import.');
                                         onClick={() => selectedTemplateId && inputRef.current?.click()}
                                         className="group flex flex-col items-center disabled:cursor-not-allowed"
                                     >
-                                        <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-white/10 bg-primary/10 text-primary shadow-xl shadow-primary/10">
+                                        <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-3xl border border-border/80 bg-primary/10 text-primary shadow-xl shadow-primary/10 dark:border-white/10">
                                             {isPreviewing ? <Loader2 className="h-9 w-9 animate-spin" /> : <FileSpreadsheet className="h-10 w-10" />}
                                         </div>
                                         <h1 className="text-xl font-bold text-foreground">Drop or upload a file to import</h1>
@@ -407,7 +407,7 @@ toast.error('Template selection is optional for import.');
                                                     Import Template for Employees
                                                 </a>
                                             </Button>
-                                            <Button type="button" variant="outline" className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10" onClick={() => inputRef.current?.click()}>
+                                            <Button type="button" variant="outline" className="rounded-xl border-input bg-background/50 hover:bg-muted dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10" onClick={() => inputRef.current?.click()}>
                                                 <Upload className="mr-2 h-4 w-4" />
                                                 Upload Data File
                                             </Button>
@@ -433,7 +433,7 @@ toast.error('Template selection is optional for import.');
                             <CardContent className="space-y-6 p-5">
                                 <section>
                                     <h2 className="mb-3 text-sm font-semibold text-foreground">Data to import</h2>
-                                    <div className="rounded-xl border border-white/10 bg-background/40 p-3 text-xs">
+                                    <div className="rounded-xl border border-border/80 bg-background/40 p-3 text-xs dark:border-white/10">
                                         <div className="flex items-start justify-between gap-2">
                                             <div className="min-w-0 space-y-1">
                                                 <div className="truncate font-medium text-foreground">{file?.name ?? 'Selected file'}</div>
@@ -443,7 +443,7 @@ toast.error('Template selection is optional for import.');
                                                 <X className="h-4 w-4" />
                                             </button>
                                         </div>
-                                        <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+                                        <div className="mt-3 space-y-2 border-t border-border/80 pt-3 dark:border-white/10">
                                             <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-3 py-2.5">
                                                 <div className="text-2xl font-bold tabular-nums text-emerald-500">
                                                     {preview.summary.valid}
@@ -472,7 +472,7 @@ toast.error('Template selection is optional for import.');
 
                                 <section className="space-y-2 text-xs">
                                     <h2 className="text-sm font-semibold text-foreground">Template</h2>
-                                    <div className="rounded-lg border border-white/10 bg-background/40 px-3 py-2">
+                                    <div className="rounded-lg border border-border/80 bg-background/40 px-3 py-2 dark:border-white/10">
                                         <div className="font-medium text-foreground">
                                             {templates.find((t) => t.id === selectedTemplateId)?.name ?? '—'}
                                         </div>
@@ -502,14 +502,14 @@ toast.error('Template selection is optional for import.');
                             <Card className="glass-card overflow-hidden">
                                 <div className="overflow-x-auto">
                                     <div className="min-w-[980px]">
-                                <div className="grid grid-cols-[1fr_1.8fr_1.8fr_1.8fr] border-b border-white/10 bg-muted/30 px-4 py-3 text-xs font-semibold text-muted-foreground">
+                                <div className="grid grid-cols-[1fr_1.8fr_1.8fr_1.8fr] border-b border-border/80 bg-muted/30 px-4 py-3 text-xs font-semibold text-muted-foreground dark:border-white/10">
                                     <div>File Column</div>
                                     <div>Preview</div>
                                     <div>Employee Field</div>
                                     <div>Comments</div>
                                 </div>
 
-                                <div className="divide-y divide-white/10">
+                                <div className="divide-y divide-border/60 dark:divide-white/10">
                                     {mappedFields.map(({ field, label, header, required, sensitive, allowed, permission }) => {
                                         const isMapped = Boolean(header);
                                         const relatedErrors = preview.errors.filter((error) => error.field === field);
@@ -584,7 +584,7 @@ toast.error('Template selection is optional for import.');
                                         <Badge className="border-primary/30 bg-primary/15 font-semibold text-primary">
                                             Will create {preview.summary.valid}
                                         </Badge>
-                                        <Badge className="border-white/10 bg-white/5 text-foreground">{preview.summary.total} total</Badge>
+                                        <Badge className="border-border bg-muted/60 text-foreground dark:border-white/10 dark:bg-white/5">{preview.summary.total} total</Badge>
                                         <Badge className="border-emerald-500/20 bg-emerald-500/10 text-emerald-500">{preview.summary.valid} valid</Badge>
                                         {preview.summary.invalid > 0 ? (
                                             <Badge className="border-destructive/20 bg-destructive/10 text-destructive">{preview.summary.invalid} invalid</Badge>
@@ -596,7 +596,7 @@ toast.error('Template selection is optional for import.');
                                         ) : null}
                                     </div>
 
-                                    <div className="max-h-[min(70vh,32rem)] overflow-auto rounded-xl border border-white/10">
+                                    <div className="max-h-[min(70vh,32rem)] overflow-auto rounded-xl border border-border/80 dark:border-white/10">
                                         <table className="w-full text-left text-xs">
                                             <thead className="sticky top-0 z-10 bg-muted/95 text-muted-foreground backdrop-blur-sm">
                                                 <tr>
@@ -608,7 +608,7 @@ toast.error('Template selection is optional for import.');
                                                     <th className="px-3 py-2">Status</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y divide-white/10">
+                                            <tbody className="divide-y divide-border">
                                                 {preview.rows.map((row, index) => {
                                                     const rowNumber = index + 2;
                                                     const rowErrors = errorsByRow.get(rowNumber);
