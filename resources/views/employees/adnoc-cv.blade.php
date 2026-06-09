@@ -28,17 +28,15 @@
 
         table.cv-margin-wrap td.cv-margin-cell {
             border: none;
-            padding: 0 18mm 11mm;
+            padding: 11mm 18mm;
             vertical-align: top;
         }
 
-        .cv-page-header {
-            padding-top: 11mm;
+        table.cv-head {
             margin-bottom: 2px;
-            page-break-inside: avoid;
         }
 
-        .cv-page-header--repeat {
+        table.cv-head--repeat {
             page-break-before: always;
         }
 
@@ -88,7 +86,9 @@
             border: 1px solid #000;
             padding: 2px 4px;
             vertical-align: middle;
-            word-wrap: break-word;
+            word-wrap: normal;
+            overflow-wrap: normal;
+            word-break: normal;
         }
 
         table.cv-head {
@@ -99,23 +99,8 @@
 
         table.cv-head td {
             border: none;
-            padding: 0 6px;
+            padding: 2px 6px;
             vertical-align: middle;
-        }
-
-        table.cv-head tr.cv-head-brand td {
-            height: 14mm;
-            min-height: 14mm;
-            padding-top: 0;
-            padding-bottom: 0;
-            vertical-align: middle;
-        }
-
-        table.cv-head tr.head-meta td {
-            height: 5mm;
-            min-height: 5mm;
-            padding-top: 1px;
-            padding-bottom: 1px;
         }
 
         .section {
@@ -145,18 +130,10 @@
         }
 
         .head-logo-cell img {
-            height: 11mm;
-            max-height: 11mm;
-            width: auto;
+            max-height: 42px;
             max-width: 100%;
-            object-fit: contain;
-            display: block;
-            margin-left: auto;
-        }
-
-        .head-logo-cell--left img {
-            margin-left: 0;
-            margin-right: auto;
+            width: auto;
+            height: auto;
         }
 
         .head-title-cell {
@@ -175,8 +152,7 @@
 
         .head-meta .lbl {
             border: none;
-            padding: 0;
-            vertical-align: bottom;
+            padding-top: 4px;
         }
 
         .head-source {
@@ -184,7 +160,7 @@
             font-size: 6.2pt;
             color: #666;
             text-transform: uppercase;
-            padding: 0;
+            padding-top: 3px;
             vertical-align: bottom;
         }
 
@@ -195,6 +171,11 @@
         }
 
         .val { font-size: 7pt; }
+
+        .val-nowrap {
+            font-size: 6pt;
+            white-space: nowrap;
+        }
 
         .col-h {
             font-weight: 700;
@@ -259,12 +240,24 @@
         }
 
         tr.sea-data-row td {
-            font-size: 6.2pt;
+            font-size: 6pt;
             text-align: center;
             padding: 2px 3px;
+            word-wrap: normal;
+            overflow-wrap: normal;
+        }
+
+        tr.sea-data-row td.sea-date {
+            white-space: nowrap;
+            font-size: 5.5pt;
         }
 
         tr.sea-data-row td.sea-company { text-align: left; }
+
+        table.cv-page-footer {
+            page-break-after: always;
+            page-break-inside: avoid;
+        }
     </style>
 </head>
 <body @class(['pdf-output' => $is_pdf ?? false])>
@@ -416,11 +409,11 @@
                 <tr>
                     <td colspan="2" class="val">{{ $coc['capacity'] }}</td>
                     <td colspan="2" class="val">{{ $coc['regulation'] }}</td>
-                    <td colspan="2" class="val center">{{ $coc['issue_date'] }}</td>
-                    <td colspan="2" class="val center">{{ $coc['expiry_date'] }}</td>
+                    <td colspan="2" class="val center val-nowrap">{{ $coc['issue_date'] }}</td>
+                    <td colspan="2" class="val center val-nowrap">{{ $coc['expiry_date'] }}</td>
                     <td colspan="2" class="val">{{ $coc['issuing_authority'] }}</td>
-                    <td colspan="1" class="val">{{ $coc['country'] }}</td>
-                    <td colspan="1" class="val">{{ $coc['limitations'] }}</td>
+                    <td colspan="1" class="val val-nowrap">{{ $coc['country'] }}</td>
+                    <td colspan="1" class="val val-nowrap">{{ $coc['limitations'] }}</td>
                 </tr>
             @empty
                 <tr>
@@ -445,8 +438,8 @@
                     <td colspan="2" class="val center">{{ $dp['issue_date'] }}</td>
                     <td colspan="2" class="val center">{{ $dp['expiry_date'] }}</td>
                     <td colspan="2" class="val">{{ $dp['issuing_authority'] }}</td>
-                    <td colspan="1" class="val">{{ $dp['country'] }}</td>
-                    <td colspan="1" class="val">{{ $dp['limitations'] }}</td>
+                    <td colspan="1" class="val val-nowrap">{{ $dp['country'] }}</td>
+                    <td colspan="1" class="val val-nowrap">{{ $dp['limitations'] }}</td>
                 </tr>
             @empty
                 <tr>
@@ -455,17 +448,23 @@
             @endforelse
 
             <tr><td colspan="12" class="section">SECTION 6 - STCW/OTHER TRAINING/PROFESSIONAL COURSES DETAILS</td></tr>
-            <tr>
-                <td colspan="5" class="col-h">NAME OF COURSE</td>
-                <td colspan="2" class="col-h">ISSUE DATE</td>
-                <td colspan="2" class="col-h">EXPIRY DATE</td>
-                <td colspan="3" class="col-h">INSTITUTE/CENTER/COUNTRY</td>
-            </tr>
-            @forelse ($stcw_courses as $course)
+            @include('employees.partials.adnoc-cv-stcw-columns')
+            @forelse ($stcw_courses as $index => $course)
+                @if (($is_pdf ?? false) && $index > 0 && $index % 13 === 0)
+        </table>
+        @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
+        <table class="cv">
+            <colgroup>
+                @for ($i = 0; $i < 12; $i++)
+                    <col style="width:8.333%">
+                @endfor
+            </colgroup>
+            @include('employees.partials.adnoc-cv-stcw-columns')
+                @endif
                 <tr>
                     <td colspan="5" class="val">{{ $course['name'] }}</td>
-                    <td colspan="2" class="val center">{{ $course['issue_date'] }}</td>
-                    <td colspan="2" class="val center">{{ $course['expiry_date'] }}</td>
+                    <td colspan="2" class="val center val-nowrap">{{ $course['issue_date'] }}</td>
+                    <td colspan="2" class="val center val-nowrap">{{ $course['expiry_date'] }}</td>
                     <td colspan="3" class="val">{{ $course['institute'] }}</td>
                 </tr>
             @empty
@@ -473,14 +472,31 @@
                     <td colspan="12" class="center" style="padding:4px;">No training records</td>
                 </tr>
             @endforelse
-
-            <tr class="footer-rev">
-                <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
-            </tr>
         </table>
 
         @if ($is_pdf ?? false)
+            <table class="cv cv-page-footer">
+                <colgroup>
+                    @for ($i = 0; $i < 12; $i++)
+                        <col style="width:8.333%">
+                    @endfor
+                </colgroup>
+                <tr class="footer-rev">
+                    <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
+                </tr>
+            </table>
             @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
+        @else
+            <table class="cv">
+                <colgroup>
+                    @for ($i = 0; $i < 12; $i++)
+                        <col style="width:8.333%">
+                    @endfor
+                </colgroup>
+                <tr class="footer-rev">
+                    <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
+                </tr>
+            </table>
         @endif
 
         {{-- PAGE 2 --}}
@@ -569,8 +585,8 @@
                     <td colspan="2">{{ $svc['vessel_name'] }}</td>
                     <td colspan="1">{{ $svc['vessel_type'] }}</td>
                     <td colspan="1">{{ $svc['rank'] }}</td>
-                    <td colspan="1">{{ $svc['from'] }}</td>
-                    <td colspan="1">{{ $svc['to'] }}</td>
+                    <td colspan="1" class="sea-date">{{ $svc['from'] }}</td>
+                    <td colspan="1" class="sea-date">{{ $svc['to'] }}</td>
                     <td colspan="1">{{ $svc['months'] }}</td>
                     <td colspan="1">{{ $svc['days'] }}</td>
                     <td colspan="1">{{ $svc['grt'] }}</td>

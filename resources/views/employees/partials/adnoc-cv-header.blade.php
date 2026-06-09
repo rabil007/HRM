@@ -1,4 +1,7 @@
-<table class="cv-head">
+<table @class([
+    'cv-head',
+    'cv-head--repeat' => $repeat ?? false,
+])>
     <colgroup>
         @for ($i = 0; $i < 12; $i++)
             <col style="width:8.333%">
@@ -7,7 +10,7 @@
     <tr class="cv-head-brand">
         <td colspan="2" class="head-logo-cell head-logo-cell--left">
             @if (! empty($company_logo_url))
-                <img src="{{ $company_logo_url }}" alt="Company">
+                <img src="{{ $company_logo_url }}" alt="Company" height="42">
             @else
                 &nbsp;
             @endif
@@ -17,7 +20,7 @@
         </td>
         <td colspan="2" class="head-logo-cell">
             @if (! empty($logo_url))
-                <img src="{{ $logo_url }}" alt="ADNOC">
+                <img src="{{ $logo_url }}" alt="ADNOC" height="42">
             @else
                 &nbsp;
             @endif

@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Support\Employees\Services\AdnocSeafarerCvData;
 use App\Support\Settings\SettingKey;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Storage;
@@ -388,6 +389,72 @@ test('adnoc cv shows message when employee has no stcw training', function () {
     $this->get("/organization/employees/{$employee->id}/cv")
         ->assertSuccessful()
         ->assertSee('No training records', false);
+});
+
+test('adnoc cv paginates long stcw training lists in pdf mode', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'STC',
+        'name' => 'STCW Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'STC',
+        'name' => 'STCW Currency',
+        'symbol' => 'W$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'STCW Co',
+        'slug' => 'stcw-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Many Courses',
+            'status' => 'active',
+        ]);
+
+    foreach (range(1, 20) as $i) {
+        $course = Course::query()->create([
+            'name' => "Training Course {$i}",
+            'is_active' => true,
+        ]);
+
+        EmployeeTraining::factory()
+            ->forEmployee($employee)
+            ->create([
+                'course_id' => $course->id,
+                'issue_date' => '2024-01-01',
+                'expiry_date' => '2029-01-01',
+                'institute_center' => "Center {$i}",
+            ]);
+    }
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $data = AdnocSeafarerCvData::for($employee, $company->id);
+    $data['is_pdf'] = true;
+    $data['printable'] = false;
+
+    $html = view('employees.adnoc-cv', $data)->render();
+
+    expect($html)
+        ->toContain('cv-head--repeat')
+        ->toContain('cv-page-footer')
+        ->and(substr_count($html, 'cv-head--repeat'))->toBeGreaterThanOrEqual(2);
 });
 
 test('adnoc cv closing sections render after many sea service rows', function () {

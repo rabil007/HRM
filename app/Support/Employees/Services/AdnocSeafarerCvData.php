@@ -328,7 +328,7 @@ final class AdnocSeafarerCvData
         $url = trim($url);
 
         if (str_starts_with($url, 'data:')) {
-            return self::isEmbeddableRasterDataUri($url) ? $url : null;
+            return self::normalizeEmbeddedDataUri($url);
         }
 
         $storagePath = self::storagePathFromUrl($url);
@@ -365,7 +365,7 @@ final class AdnocSeafarerCvData
             return null;
         }
 
-        return 'data:'.$mime.';base64,'.base64_encode($contents);
+        return self::toEmbeddedImageDataUri($contents, $mime);
     }
 
     private static function storagePathFromUrl(string $url): ?string
@@ -403,7 +403,78 @@ final class AdnocSeafarerCvData
             return null;
         }
 
-        return 'data:'.$mime.';base64,'.base64_encode($contents);
+        return self::toEmbeddedImageDataUri($contents, $mime);
+    }
+
+    private static function toEmbeddedImageDataUri(string $contents, string $mime): string
+    {
+        $optimized = self::resizeImageContents($contents, $mime);
+
+        return 'data:'.$mime.';base64,'.base64_encode($optimized ?? $contents);
+    }
+
+    private static function resizeImageContents(string $contents, string $mime, int $maxWidth = 240, int $maxHeight = 60): ?string
+    {
+        if (! function_exists('imagecreatefromstring')) {
+            return null;
+        }
+
+        $image = @imagecreatefromstring($contents);
+
+        if ($image === false) {
+            return null;
+        }
+
+        $width = imagesx($image);
+        $height = imagesy($image);
+
+        if ($width <= 0 || $height <= 0) {
+            imagedestroy($image);
+
+            return null;
+        }
+
+        if ($width <= $maxWidth && $height <= $maxHeight) {
+            imagedestroy($image);
+
+            return null;
+        }
+
+        $ratio = min($maxWidth / $width, $maxHeight / $height);
+        $targetWidth = max(1, (int) round($width * $ratio));
+        $targetHeight = max(1, (int) round($height * $ratio));
+
+        $canvas = imagecreatetruecolor($targetWidth, $targetHeight);
+
+        if ($canvas === false) {
+            imagedestroy($image);
+
+            return null;
+        }
+
+        imagealphablending($canvas, false);
+        imagesavealpha($canvas, true);
+        $transparent = imagecolorallocatealpha($canvas, 0, 0, 0, 127);
+        imagefilledrectangle($canvas, 0, 0, $targetWidth, $targetHeight, $transparent);
+        imagecopyresampled($canvas, $image, 0, 0, 0, 0, $targetWidth, $targetHeight, $width, $height);
+        imagedestroy($image);
+
+        ob_start();
+
+        $encoded = match ($mime) {
+            'image/jpeg', 'image/jpg' => imagejpeg($canvas, null, 85),
+            'image/gif' => imagegif($canvas),
+            default => imagepng($canvas, null, 8),
+        };
+
+        $output = ob_get_clean();
+        imagedestroy($canvas);
+
+        if ($encoded === false || $output === false || $output === '') {
+            return null;
+        }
+
+        return $output;
     }
 
     private static function detectImageMimeType(string $contents, string $reference): ?string
@@ -442,13 +513,20 @@ final class AdnocSeafarerCvData
         return $mime;
     }
 
-    private static function isEmbeddableRasterDataUri(string $dataUri): bool
+    private static function normalizeEmbeddedDataUri(string $dataUri): ?string
     {
-        if (preg_match('#^data:(image/(?:png|jpe?g|gif|webp));base64,#i', $dataUri) !== 1) {
-            return false;
+        if (preg_match('#^data:(image/(?:png|jpe?g|gif|webp));base64,(.+)$#i', $dataUri, $matches) !== 1) {
+            return null;
         }
 
-        return true;
+        $mime = strtolower($matches[1]);
+        $contents = base64_decode($matches[2], true);
+
+        if ($contents === false) {
+            return null;
+        }
+
+        return self::toEmbeddedImageDataUri($contents, $mime);
     }
 
     private static function resolveAbsoluteUrl(?string $url): ?string
