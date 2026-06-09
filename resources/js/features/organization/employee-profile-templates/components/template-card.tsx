@@ -12,8 +12,8 @@ export function TemplateCard({
     onDelete: (template: EmployeeProfileTemplate) => void;
 }) {
     const statusClass = template.is_active
-        ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
-        : 'bg-zinc-500/10 text-zinc-200 border-zinc-500/20';
+        ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
+        : 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20';
 
     const editHref = `/organization/templates/employee-profile/${template.id}/edit`;
 

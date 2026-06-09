@@ -271,7 +271,7 @@ export function EmployeeFiltersSheet({
                             return (
                                 <label
                                     key={location.id}
-                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/20 px-2 py-1.5 transition-colors hover:bg-muted/40 dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]"
                                 >
                                     <Checkbox
                                         checked={checked}
@@ -316,7 +316,7 @@ export function EmployeeFiltersSheet({
                             return (
                                 <label
                                     key={option.id}
-                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-2 py-1.5 transition-colors hover:bg-white/[0.04]"
+                                    className="flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-muted/20 px-2 py-1.5 transition-colors hover:bg-muted/40 dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]"
                                 >
                                     <Checkbox
                                         checked={checked}

@@ -80,7 +80,7 @@ export function EmployeeDocumentTableRow({
                 </div>
             </TableCell>
             <TableCell className={cn(dataTableCellClass(), 'hidden sm:table-cell')}>
-                <Badge variant="outline" className="max-w-48 truncate border-white/10 font-normal">
+                <Badge variant="outline" className="max-w-48 truncate border-border font-normal dark:border-white/10">
                     {doc.document_type}
                 </Badge>
             </TableCell>

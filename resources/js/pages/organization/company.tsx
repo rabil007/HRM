@@ -103,7 +103,7 @@ function InfoRow({
 }) {
     return (
         <div className="flex items-start gap-3">
-            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground shrink-0">
+            <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground shrink-0 dark:bg-white/5 dark:border-white/10">
                 <Icon className="h-4 w-4" />
             </div>
             <div className="min-w-0">
@@ -205,7 +205,7 @@ export default function CompanyDetails({
                         <>
                             <Button
                                 variant="outline"
-                                className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 h-12 px-6"
+                                className="rounded-xl border-border bg-muted/50 hover:bg-accent h-12 px-6 dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
                                 onClick={() => setEditOpen(true)}
                             >
                                 Edit
@@ -223,7 +223,7 @@ export default function CompanyDetails({
                 />
 
                 <div className="grid gap-6 lg:grid-cols-3">
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl lg:col-span-2 overflow-hidden">
+                    <Card className="border-border bg-card backdrop-blur-xl lg:col-span-2 overflow-hidden dark:border-white/5 dark:bg-white/5">
                         <CardHeader className="pb-4">
                             <div className="flex items-center gap-4">
                                 <div className="h-14 w-14 rounded-2xl bg-primary/10 flex items-center justify-center border border-primary/20 text-primary">
@@ -239,10 +239,10 @@ export default function CompanyDetails({
                                 </div>
                                 <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                        <Badge className="bg-muted/50 text-muted-foreground border-border text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
                                             {company.status ?? '—'}
                                         </Badge>
-                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                        <Badge className="bg-muted/50 text-muted-foreground border-border text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
                                             {company.currency.code ?? '—'}
                                         </Badge>
                                     </div>
@@ -303,7 +303,7 @@ export default function CompanyDetails({
                         </CardContent>
                     </Card>
 
-                    <Card className="border-white/5 bg-white/5 backdrop-blur-xl">
+                    <Card className="border-border bg-card backdrop-blur-xl dark:border-white/5 dark:bg-white/5">
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg font-bold tracking-tight">Payroll & Compliance</CardTitle>
                         </CardHeader>
@@ -314,7 +314,7 @@ export default function CompanyDetails({
                                 label="Working days"
                                 value={company.working_days?.length ? company.working_days.join(', ') : '—'}
                             />
-                            <div className="h-px bg-white/5" />
+                            <div className="h-px bg-border dark:bg-white/5" />
                             <InfoRow icon={BadgeCheck} label="WPS agent code" value={company.wps_agent_code ?? '—'} />
                             <InfoRow icon={Fingerprint} label="WPS MOL UID" value={company.wps_mol_uid ?? '—'} />
                         </CardContent>
@@ -322,10 +322,10 @@ export default function CompanyDetails({
                 </div>
 
                 {can_view_audit ? (
-                <Card className="border-white/5 bg-white/5 backdrop-blur-xl mt-8">
+                <Card className="border-border bg-card backdrop-blur-xl mt-8 dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground">
+                            <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground dark:bg-white/5 dark:border-white/10">
                                 <Activity className="h-4 w-4" />
                             </div>
                             <div>
@@ -337,17 +337,17 @@ export default function CompanyDetails({
                                 </div>
                             </div>
                         </div>
-                        <Badge className="bg-white/5 text-muted-foreground border-white/10">
+                        <Badge className="bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10">
                             {recent_activity.length} items
                         </Badge>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {recent_activity.length === 0 ? (
-                            <div className="rounded-xl border border-white/5 bg-white/5 p-10 text-center text-sm text-muted-foreground/80">
+                            <div className="rounded-xl border border-border bg-muted/50 p-10 text-center text-sm text-muted-foreground/80 dark:border-white/5 dark:bg-white/5">
                                 No recent activity yet.
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5 rounded-xl border border-white/5 overflow-hidden">
+                            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden dark:divide-white/5 dark:border-white/5">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -360,7 +360,7 @@ export default function CompanyDetails({
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 space-y-1">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                                        <Badge className="bg-muted/50 text-muted-foreground border-border text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
                                                             {a.event ?? 'event'}
                                                         </Badge>
                                                         <div className="text-sm font-medium">
@@ -382,7 +382,7 @@ export default function CompanyDetails({
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
                                                                 >
                                                                     {titleCaseKey(k)}:{' '}
                                                                     <span className="text-muted-foreground/70">
@@ -397,7 +397,7 @@ export default function CompanyDetails({
                                                             {keys.length > 4 ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-white/10 transition"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent transition dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                                                                     onClick={() =>
                                                                         setExpandedActivity((prev) => ({
                                                                             ...prev,

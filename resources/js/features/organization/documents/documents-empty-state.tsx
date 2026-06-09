@@ -102,7 +102,7 @@ export function DocumentsEmptyState({
                 <div
                     className={cn(
                         'mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full',
-                        'border border-white/10 bg-white/[0.03] text-muted-foreground/60',
+                        'border border-border bg-muted/30 text-muted-foreground/60 dark:border-white/10 dark:bg-white/[0.03]',
                     )}
                 >
                     <Icon className="h-4 w-4" aria-hidden />

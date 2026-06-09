@@ -35,14 +35,14 @@ export function EditableDetailField({
         <div
             data-employee-field={field}
             className={cn(
-                'group px-4 py-4 transition-colors hover:bg-white/[0.03]',
+                'group px-4 py-4 transition-colors hover:bg-muted/30 dark:hover:bg-white/[0.03]',
                 highlightMissing && employeeFieldMissingHighlightClass,
                 className,
             )}
         >
             <div
                 className={cn(
-                    'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-500',
+                    'mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
                     highlightMissing && employeeFieldMissingLabelClass,
                 )}
             >

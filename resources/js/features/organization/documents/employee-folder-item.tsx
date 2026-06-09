@@ -33,7 +33,7 @@ export function EmployeeFolderItem({
             className={cn(
                 'group relative flex min-h-[11.5rem] w-full flex-col items-center rounded-xl border border-transparent',
                 'transition-[border-color,box-shadow,background-color] duration-150',
-                'hover:border-white/10 hover:bg-muted/25 hover:shadow-sm',
+                'hover:border-border hover:bg-muted/25 hover:shadow-sm dark:hover:border-white/10',
                 selected && 'border-primary/25 bg-primary/5 ring-1 ring-primary/30',
             )}
         >

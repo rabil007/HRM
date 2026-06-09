@@ -24,13 +24,13 @@ export function MergeListItem({
         >
             <button
                 type="button"
-                className="drag-handle flex shrink-0 cursor-grab touch-none items-center text-zinc-500 hover:text-zinc-300 active:cursor-grabbing"
+                className="drag-handle flex shrink-0 cursor-grab touch-none items-center text-muted-foreground hover:text-foreground active:cursor-grabbing dark:hover:text-zinc-300"
                 aria-label={`Reorder ${document.document_name}`}
             >
                 <GripVertical className="h-5 w-5" />
             </button>
 
-            <span className="w-6 shrink-0 text-sm font-medium text-zinc-500">{index + 1}</span>
+            <span className="w-6 shrink-0 text-sm font-medium text-muted-foreground">{index + 1}</span>
 
             <PdfThumbnail
                 document={document}
@@ -38,10 +38,10 @@ export function MergeListItem({
             />
 
             <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-zinc-100">
+                <p className="truncate text-sm font-medium text-foreground">
                     {document.document_name}
                 </p>
-                <p className="mt-1 text-xs text-zinc-400">
+                <p className="mt-1 text-xs text-muted-foreground">
                     {pageCount !== null ? `${pageCount} page${pageCount === 1 ? '' : 's'}` : '— pages'}
                     {' • '}
                     {formatBytes(document.size_bytes)}

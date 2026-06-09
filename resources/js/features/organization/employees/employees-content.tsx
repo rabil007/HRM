@@ -279,7 +279,7 @@ params.set('search', initialSearch);
                             </PopoverTrigger>
                             <PopoverContent
                                 align="start"
-                                className="glass-card w-72 border-white/6 p-3"
+                                className="glass-card w-72 border-border p-3 dark:border-white/6"
                             >
                                 <DepartmentEmployeeTree
                                     nodes={department_tree}
@@ -440,8 +440,8 @@ params.set('search', initialSearch);
             <Pagination {...list.paginationProps} label="employees" />
 
             <Sheet open={isDepartmentsOpen} onOpenChange={setIsDepartmentsOpen}>
-                <SheetContent side="left" className="glass-card w-[min(100%,280px)] border-r border-white/6 p-0">
-                    <SheetHeader className="border-b border-white/6 px-4 py-4 text-left">
+                <SheetContent side="left" className="glass-card w-[min(100%,280px)] border-r border-border p-0 dark:border-white/6">
+                    <SheetHeader className="border-b border-border px-4 py-4 text-left dark:border-white/6">
                         <SheetTitle className="text-base">Departments</SheetTitle>
                     </SheetHeader>
                     <div className="overflow-y-auto p-4">

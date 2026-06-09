@@ -18,8 +18,8 @@ export function DepartmentCard({
 }) {
     const statusClass =
         department.status === 'active'
-            ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
-            : 'bg-zinc-500/10 text-zinc-200 border-zinc-500/20';
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
+            : 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20';
 
     return (
         <Card className="glass-card group overflow-hidden relative transition-all duration-300 dark:bg-linear-to-br dark:from-white/6 dark:to-white/3 dark:hover:from-white/8 dark:hover:to-white/4">

@@ -158,7 +158,7 @@ export function EmailDocumentsModal({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[90vh] w-[calc(100vw-2rem)] flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl">
-                <DialogHeader className="border-b border-white/10 px-5 py-4">
+                <DialogHeader className="border-b border-border px-5 py-4 dark:border-white/10">
                     <DialogTitle>Email documents</DialogTitle>
                 </DialogHeader>
 
@@ -185,7 +185,7 @@ export function EmailDocumentsModal({
                             autoComplete="email"
                             required
                             disabled={isSending}
-                            className="rounded-lg border-white/10 bg-zinc-950/60"
+                            className="rounded-lg border-border bg-muted/50 dark:border-white/10 dark:bg-zinc-950/60"
                         />
                         <p className="text-xs text-muted-foreground">
                             {employee.email
@@ -203,7 +203,7 @@ export function EmailDocumentsModal({
                             onChange={(event) => setCc(event.target.value)}
                             placeholder="cc1@example.com, cc2@example.com"
                             disabled={isSending}
-                            className="rounded-lg border-white/10 bg-zinc-950/60"
+                            className="rounded-lg border-border bg-muted/50 dark:border-white/10 dark:bg-zinc-950/60"
                         />
                     </div>
 
@@ -217,7 +217,7 @@ export function EmailDocumentsModal({
                             >
                                 <SelectTrigger
                                     id="email-template"
-                                    className="rounded-lg border-white/10 bg-zinc-950/60"
+                                    className="rounded-lg border-border bg-muted/50 dark:border-white/10 dark:bg-zinc-950/60"
                                 >
                                     <SelectValue placeholder="Choose a template" />
                                 </SelectTrigger>
@@ -248,7 +248,7 @@ export function EmailDocumentsModal({
                             value={subject}
                             onChange={(event) => setSubject(event.target.value)}
                             disabled={isSending}
-                            className="rounded-lg border-white/10 bg-zinc-950/60"
+                            className="rounded-lg border-border bg-muted/50 dark:border-white/10 dark:bg-zinc-950/60"
                         />
                     </div>
 
@@ -261,12 +261,12 @@ export function EmailDocumentsModal({
                             disabled={isSending}
                             rows={10}
                             placeholder="Add a message for the recipient…"
-                            className="border-input placeholder:text-muted-foreground flex min-h-[220px] w-full resize-y rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-3 text-sm leading-relaxed text-zinc-100 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
+                            className="border-input placeholder:text-muted-foreground flex min-h-[220px] w-full resize-y rounded-lg border border-border bg-muted/50 px-3 py-3 text-sm leading-relaxed text-foreground outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:border-white/10 dark:bg-zinc-950/60 dark:text-zinc-100"
                         />
                     </div>
                 </div>
 
-                <DialogFooter className="border-t border-white/10 px-5 py-4 sm:justify-end">
+                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-end dark:border-white/10">
                     <Button
                         type="button"
                         variant="outline"

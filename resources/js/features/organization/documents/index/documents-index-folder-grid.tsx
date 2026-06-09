@@ -79,7 +79,7 @@ export function DocumentsIndexFolderGrid({
 
             <section
                 className={cn(
-                    'rounded-xl border border-white/5 bg-white/[0.02] p-4 sm:p-6',
+                    'rounded-xl border border-border bg-muted/20 p-4 sm:p-6 dark:border-white/5 dark:bg-white/[0.02]',
                     'transition-opacity duration-200',
                     isSearching && 'pointer-events-none opacity-60',
                 )}

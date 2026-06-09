@@ -24,8 +24,8 @@ const SUMMARY_ITEMS: {
     {
         key: 'total_documents',
         expiry: 'all',
-        cardClass: 'border-white/5 hover:border-white/10',
-        activeClass: 'border-white/20 ring-1 ring-white/10',
+        cardClass: 'border-border hover:border-border dark:border-white/5 dark:hover:border-white/10',
+        activeClass: 'border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10',
         valueClass: 'text-foreground',
     },
     {

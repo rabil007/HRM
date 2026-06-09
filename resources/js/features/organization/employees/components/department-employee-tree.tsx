@@ -67,7 +67,7 @@ function PositionTreeNodeRow({
     return (
         <div style={{ paddingLeft: depth * 12 }} className="flex items-center gap-0.5">
             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center">
-                <Briefcase className="h-3 w-3 text-zinc-500" />
+                <Briefcase className="h-3 w-3 text-muted-foreground" />
             </span>
             <button
                 type="button"
@@ -75,12 +75,12 @@ function PositionTreeNodeRow({
                 className={cn(
                     'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
                     isSelected
-                        ? 'bg-white/10 text-white'
-                        : 'text-zinc-300 hover:bg-white/[0.06] hover:text-white',
+                        ? 'bg-accent text-foreground dark:bg-white/10 dark:text-white'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground dark:text-zinc-300 dark:hover:bg-white/[0.06] dark:hover:text-white',
                 )}
             >
                 <span className="min-w-0 flex-1 truncate">{position.name}</span>
-                <span className="shrink-0 text-xs tabular-nums text-zinc-500">{position.count}</span>
+                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{position.count}</span>
             </button>
         </div>
     );
@@ -120,12 +120,12 @@ function DepartmentTreeNodeRow({
             className={cn(
                 'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors',
                 isSelected
-                    ? 'bg-white/10 text-white'
-                    : 'text-zinc-300 hover:bg-white/[0.06] hover:text-white',
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground',
             )}
         >
             <span className="min-w-0 flex-1 truncate">{node.name}</span>
-            <span className="shrink-0 text-xs tabular-nums text-zinc-500">{node.count}</span>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{node.count}</span>
         </button>
     );
 
@@ -147,7 +147,7 @@ function DepartmentTreeNodeRow({
                 <CollapsibleTrigger asChild>
                     <button
                         type="button"
-                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-500 hover:bg-white/[0.06] hover:text-zinc-200"
+                        className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/[0.06] dark:hover:text-zinc-200"
                         aria-label={isExpanded ? 'Collapse' : 'Expand'}
                     >
                         <ChevronRight
@@ -258,7 +258,7 @@ export function DepartmentEmployeeTree({
 
     return (
         <div className={cn('flex flex-col', className)}>
-            <div className="mb-3 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-zinc-500">
+            <div className="mb-3 flex items-center gap-2 px-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
                 <Users className="h-3.5 w-3.5" />
                 Department
             </div>

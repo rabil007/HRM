@@ -237,7 +237,7 @@ export default function EmployeeProfileTemplateForm({
 
                 <div className="flex flex-col gap-6">
                     {/* ── Settings card ── */}
-                    <Card className="border-white/5 bg-white/5">
+                    <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
                         <CardContent className="p-5">
                             <div className="flex items-center gap-3 mb-5">
                                 <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
@@ -264,7 +264,7 @@ export default function EmployeeProfileTemplateForm({
                                             form.setData('name', event.target.value)
                                         }
                                         placeholder="e.g. Seafarer Profile"
-                                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 text-base font-semibold transition-all px-4"
+                                        className="rounded-xl border-input bg-background/50 focus-visible:ring-primary/40 h-11 text-base font-semibold transition-all px-4 dark:border-white/10 dark:bg-white/5"
                                     />
                                     {form.errors.name ? (
                                         <p className="text-xs font-medium text-destructive mt-1">
@@ -275,7 +275,7 @@ export default function EmployeeProfileTemplateForm({
 
                                 {/* Active toggle */}
                                 <div className="flex items-end pb-1">
-                                    <label className="flex items-center gap-4 p-3.5 rounded-xl border border-white/5 bg-white/[0.02] cursor-pointer w-full hover:bg-white/[0.04] transition-colors">
+                                    <label className="flex items-center gap-4 p-3.5 rounded-xl border border-border bg-muted/20 cursor-pointer w-full hover:bg-muted/40 transition-colors dark:border-white/5 dark:bg-white/[0.02] dark:hover:bg-white/[0.04]">
                                         <Switch
                                             id="is_active"
                                             checked={form.data.is_active}
@@ -309,7 +309,7 @@ export default function EmployeeProfileTemplateForm({
                                             form.setData('description', event.target.value)
                                         }
                                         placeholder="Briefly describe when this template should be used…"
-                                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 resize-none min-h-[72px] px-4 py-3 transition-all"
+                                        className="rounded-xl border-input bg-background/50 focus-visible:ring-primary/40 resize-none min-h-[72px] px-4 py-3 transition-all dark:border-white/10 dark:bg-white/5"
                                         rows={2}
                                     />
                                 </div>
@@ -321,12 +321,12 @@ export default function EmployeeProfileTemplateForm({
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[560px]">
                         {/* Sidebar — tab navigator */}
                         <aside className="lg:col-span-3 lg:sticky lg:top-6 lg:self-start">
-                            <Card className="border-white/5 bg-white/5 flex flex-col overflow-hidden max-h-[calc(100vh-6rem)]">
-                                <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                            <Card className="border-border bg-card flex flex-col overflow-hidden max-h-[calc(100vh-6rem)] dark:border-white/5 dark:bg-white/5">
+                                <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between dark:border-white/5 dark:bg-white/[0.02]">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                                         Tabs
                                     </h3>
-                                    <span className="text-[10px] font-mono opacity-50 border border-white/5 rounded px-1.5 py-0.5">
+                                    <span className="text-[10px] font-mono opacity-50 border border-border rounded px-1.5 py-0.5 dark:border-white/5">
                                         {registry.tab_order.length}
                                     </span>
                                 </div>
@@ -348,7 +348,7 @@ export default function EmployeeProfileTemplateForm({
                                                         'w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all text-left',
                                                         isActive
                                                             ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                                                            : 'text-muted-foreground hover:bg-white/5 hover:text-foreground',
+                                                            : 'text-muted-foreground hover:bg-muted hover:text-foreground dark:hover:bg-white/5',
                                                         !tabVisible && !isActive && 'opacity-50',
                                                     )}
                                                 >
@@ -397,9 +397,9 @@ export default function EmployeeProfileTemplateForm({
 
                         {/* Main content — field configuration */}
                         <main className="lg:col-span-9">
-                            <Card className="border-white/5 bg-white/5 h-full flex flex-col overflow-hidden shadow-2xl">
+                            <Card className="border-border bg-card h-full flex flex-col overflow-hidden shadow-2xl dark:border-white/5 dark:bg-white/5">
                                 {/* Content header */}
-                                <div className="border-b border-white/5 bg-white/[0.02] sticky top-0 z-10 backdrop-blur-md">
+                                <div className="border-b border-border bg-muted/20 sticky top-0 z-10 backdrop-blur-md dark:border-white/5 dark:bg-white/[0.02]">
                                     {/* Top row: title + tab toggle */}
                                     <div className="px-6 pt-5 pb-4 flex items-center justify-between gap-4">
                                         <div className="flex items-center gap-4 min-w-0">
@@ -417,7 +417,7 @@ export default function EmployeeProfileTemplateForm({
                                         </div>
 
                                         {/* Tab visibility toggle */}
-                                        <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-white/5 bg-white/[0.03] cursor-pointer hover:bg-white/[0.06] transition-colors shrink-0">
+                                        <label className="flex items-center gap-3 px-4 py-2.5 rounded-xl border border-border bg-muted/20 cursor-pointer hover:bg-muted/40 transition-colors shrink-0 dark:border-white/5 dark:bg-white/[0.03] dark:hover:bg-white/[0.06]">
                                             <Switch
                                                 checked={
                                                     activeTab === 'personal'
@@ -451,14 +451,14 @@ export default function EmployeeProfileTemplateForm({
                                                 value={fieldQuery}
                                                 onChange={(e) => setFieldQuery(e.target.value)}
                                                 placeholder="Search fields by name or key…"
-                                                className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-10 pl-10 pr-10 text-sm transition-all"
+                                                className="rounded-xl border-input bg-background/50 focus-visible:ring-primary/40 h-10 pl-10 pr-10 text-sm transition-all dark:border-white/10 dark:bg-white/5"
                                             />
                                             {fieldQuery ? (
                                                 <button
                                                     type="button"
                                                     aria-label="Clear search"
                                                     onClick={() => setFieldQuery('')}
-                                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-white/10 transition-colors"
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 flex items-center justify-center rounded-md text-muted-foreground/50 hover:text-foreground hover:bg-muted transition-colors dark:hover:bg-white/10"
                                                 >
                                                     <X className="w-3.5 h-3.5" />
                                                 </button>
@@ -493,7 +493,7 @@ export default function EmployeeProfileTemplateForm({
                                         {/* Empty state — no tables at all */}
                                         {tablesForActiveTab.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-20 text-center">
-                                                <div className="w-16 h-16 rounded-3xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center mb-4">
+                                                <div className="w-16 h-16 rounded-3xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-4 dark:bg-white/5 dark:border-white/10">
                                                     <ToggleLeft className="w-8 h-8 text-muted-foreground/20" />
                                                 </div>
                                                 <p className="text-sm text-muted-foreground">
@@ -507,7 +507,7 @@ export default function EmployeeProfileTemplateForm({
                                         trimmedQuery &&
                                         filteredTablesForActiveTab.length === 0 ? (
                                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                                <div className="w-14 h-14 rounded-2xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center mb-4">
+                                                <div className="w-14 h-14 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-4 dark:bg-white/5 dark:border-white/10">
                                                     <Search className="w-6 h-6 text-muted-foreground/20" />
                                                 </div>
                                                 <p className="text-sm font-medium text-foreground/70">
@@ -535,11 +535,11 @@ export default function EmployeeProfileTemplateForm({
                                         {crossTabResults.length > 0 ? (
                                             <div className="space-y-6 pt-2">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="flex-1 h-px bg-white/5" />
+                                                    <div className="flex-1 h-px bg-border dark:bg-white/5" />
                                                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 px-2">
                                                         Results in other tabs
                                                     </span>
-                                                    <div className="flex-1 h-px bg-white/5" />
+                                                    <div className="flex-1 h-px bg-border dark:bg-white/5" />
                                                 </div>
 
                                                 {crossTabResults.map(({ tabKey, tabLabel, matched }) => (
@@ -559,7 +559,7 @@ export default function EmployeeProfileTemplateForm({
                                                                     {tabLabel}
                                                                 </span>
                                                             </button>
-                                                            <div className="flex-1 h-px bg-white/5" />
+                                                            <div className="flex-1 h-px bg-border dark:bg-white/5" />
                                                         </div>
 
                                                         {matched.map(({ table, fieldEntries }) => (
@@ -630,13 +630,13 @@ function FieldTableBlock({
                 <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
                     {table}
                 </h4>
-                <div className="flex-1 h-px bg-white/5" />
+                <div className="flex-1 h-px bg-border dark:bg-white/5" />
             </div>
 
             {/* Field rows */}
-            <div className="rounded-2xl border border-white/5 overflow-hidden divide-y divide-white/5">
+            <div className="rounded-2xl border border-border overflow-hidden divide-y divide-border dark:border-white/5 dark:divide-white/5">
                 {/* Column headers */}
-                <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-white/[0.02]">
+                <div className="grid grid-cols-12 gap-3 px-5 py-2.5 bg-muted/20 dark:bg-white/[0.02]">
                     <div className="col-span-6 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
                         Field
                     </div>
@@ -660,7 +660,7 @@ function FieldTableBlock({
                             className={cn(
                                 'grid grid-cols-12 gap-3 px-5 py-3.5 items-center transition-colors',
                                 field.visible
-                                    ? 'bg-white/[0.01] hover:bg-white/[0.03]'
+                                    ? 'bg-muted/10 hover:bg-muted/30 dark:bg-white/[0.01] dark:hover:bg-white/[0.03]'
                                     : 'bg-transparent opacity-60 hover:opacity-80',
                             )}
                         >
@@ -671,7 +671,7 @@ function FieldTableBlock({
                                         'w-7 h-7 rounded-lg border flex items-center justify-center shrink-0 transition-colors',
                                         field.visible
                                             ? 'bg-primary/10 border-primary/20 text-primary'
-                                            : 'bg-white/[0.03] border-white/5 text-muted-foreground/30',
+                                            : 'bg-muted/20 border-border text-muted-foreground/30 dark:bg-white/[0.03] dark:border-white/5',
                                     )}
                                 >
                                     {field.visible ? (

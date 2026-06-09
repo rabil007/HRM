@@ -81,7 +81,7 @@ export function WhatsAppDocumentsModal({
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="flex max-h-[90vh] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg">
-                <DialogHeader className="border-b border-white/10 px-5 py-4">
+                <DialogHeader className="border-b border-border px-5 py-4 dark:border-white/10">
                     <DialogTitle>Direct WhatsApp</DialogTitle>
                 </DialogHeader>
 
@@ -114,7 +114,7 @@ export function WhatsAppDocumentsModal({
                             autoComplete="tel"
                             required
                             disabled={isSending}
-                            className="rounded-lg border-white/10 bg-zinc-950/60"
+                            className="rounded-lg border-border bg-muted/50 dark:border-white/10 dark:bg-zinc-950/60"
                         />
                         <p className="text-xs text-muted-foreground">
                             {employee.phone
@@ -123,7 +123,7 @@ export function WhatsAppDocumentsModal({
                         </p>
                     </div>
 
-                    <label className="flex items-start gap-3 rounded-lg border border-white/10 bg-zinc-950/40 px-3 py-3">
+                    <label className="flex items-start gap-3 rounded-lg border border-border bg-muted/30 px-3 py-3 dark:border-white/10 dark:bg-zinc-950/40">
                         <Checkbox
                             checked={sendTemplateFirst}
                             onCheckedChange={(checked) => setSendTemplateFirst(checked === true)}
@@ -131,7 +131,7 @@ export function WhatsAppDocumentsModal({
                             className="mt-0.5"
                         />
                         <span className="space-y-1">
-                            <span className="block text-sm font-medium text-zinc-100">
+                            <span className="block text-sm font-medium text-foreground">
                                 Send hello_world template first
                             </span>
                             <span className="block text-xs text-muted-foreground">
@@ -142,7 +142,7 @@ export function WhatsAppDocumentsModal({
                     </label>
                 </div>
 
-                <DialogFooter className="border-t border-white/10 px-5 py-4 sm:justify-end">
+                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-end dark:border-white/10">
                     <Button
                         type="button"
                         variant="outline"

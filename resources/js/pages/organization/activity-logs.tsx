@@ -73,19 +73,19 @@ function eventStyle(event: string): {
     switch (event) {
         case 'created':
             return {
-                badge: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                badge: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400',
                 dot: 'bg-emerald-400',
                 label: 'Created',
             };
         case 'deleted':
             return {
-                badge: 'bg-red-500/10 text-red-400 border-red-500/20',
+                badge: 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400',
                 dot: 'bg-red-400',
                 label: 'Deleted',
             };
         default:
             return {
-                badge: 'bg-sky-500/10 text-sky-400 border-sky-500/20',
+                badge: 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400',
                 dot: 'bg-sky-400',
                 label: 'Updated',
             };
@@ -205,7 +205,7 @@ count++;
                     </div>
 
                     {/* Total counter */}
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03] shrink-0">
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-border bg-muted/30 shrink-0 dark:border-white/5 dark:bg-white/[0.03]">
                         <div className="w-8 h-8 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                             <Activity className="w-4 h-4" />
                         </div>
@@ -219,7 +219,7 @@ count++;
                 </div>
 
                 {/* ── Filter bar ── */}
-                <Card className="border-white/5 bg-white/[0.03] mb-6">
+                <Card className="border-border bg-card mb-6 dark:border-white/5 dark:bg-white/[0.03]">
                     <CardContent className="p-5">
                         <div className="flex items-center gap-3 mb-4">
                             <Filter className="w-4 h-4 text-muted-foreground/50" />
@@ -260,7 +260,7 @@ count++;
                                             }
                                         }}
                                         placeholder="Search subject, model, user…"
-                                        className="pl-10 rounded-xl border-white/10 bg-white/5 h-10 focus-visible:ring-primary/40"
+                                        className="pl-10 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                                     />
                                 </div>
 
@@ -294,7 +294,7 @@ count++;
                                                 form.setData('date_from', e.target.value);
                                                 submit({ date_from: e.target.value });
                                             }}
-                                            className="pl-9 rounded-xl border-white/10 bg-white/5 h-10 focus-visible:ring-primary/40 text-sm"
+                                            className="pl-9 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 text-sm dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
                                     <span className="text-muted-foreground/30 text-xs shrink-0 select-none">to</span>
@@ -308,14 +308,14 @@ count++;
                                                 form.setData('date_to', e.target.value);
                                                 submit({ date_to: e.target.value });
                                             }}
-                                            className="pl-9 rounded-xl border-white/10 bg-white/5 h-10 focus-visible:ring-primary/40 text-sm"
+                                            className="pl-9 rounded-xl border-border bg-muted/50 h-10 focus-visible:ring-primary/40 text-sm dark:border-white/10 dark:bg-white/5"
                                         />
                                     </div>
                                 </div>
                             </div>
 
                             {/* Second row: event pills and action buttons */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-border dark:border-white/5">
                                 {/* Event filter pills */}
                                 <div className="flex flex-wrap gap-2 items-center">
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mr-1 select-none">
@@ -337,11 +337,11 @@ count++;
                                                         ? e === 'all'
                                                             ? 'bg-primary text-primary-foreground border-primary shadow-sm shadow-primary/30'
                                                             : e === 'created'
-                                                              ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                                                              ? 'bg-emerald-500/20 text-emerald-600 border-emerald-500/30 dark:text-emerald-400'
                                                               : e === 'deleted'
-                                                                ? 'bg-red-500/20 text-red-400 border-red-500/30'
-                                                                : 'bg-sky-500/20 text-sky-400 border-sky-500/30'
-                                                        : 'bg-white/[0.03] text-muted-foreground/60 border-white/5 hover:border-white/10 hover:text-foreground',
+                                                                ? 'bg-red-500/20 text-red-600 border-red-500/30 dark:text-red-400'
+                                                                : 'bg-sky-500/20 text-sky-600 border-sky-500/30 dark:text-sky-400'
+                                                        : 'bg-muted/30 text-muted-foreground/60 border-border hover:border-border hover:text-foreground dark:bg-white/[0.03] dark:border-white/5 dark:hover:border-white/10',
                                                 )}
                                             >
                                                 {e}
@@ -377,9 +377,9 @@ count++;
                 </Card>
 
                 {/* ── Log list ── */}
-                <Card className="border-white/5 bg-white/[0.03] overflow-hidden">
+                <Card className="border-border bg-card overflow-hidden dark:border-white/5 dark:bg-white/[0.03]">
                     {/* Table header */}
-                    <div className="px-6 py-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                    <div className="px-6 py-4 border-b border-border bg-muted/20 flex items-center justify-between dark:border-white/5 dark:bg-white/[0.02]">
                         <h2 className="text-sm font-bold text-foreground/80">Events</h2>
                         <span className="text-[11px] text-muted-foreground/50 font-mono">
                             {pagination.total.toLocaleString()} total
@@ -389,7 +389,7 @@ count++;
                     <CardContent className="p-0">
                         {logs.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-20 text-center">
-                                <div className="w-14 h-14 rounded-2xl bg-white/[0.03] border border-dashed border-white/10 flex items-center justify-center mb-4">
+                                <div className="w-14 h-14 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-4 dark:bg-white/[0.03] dark:border-white/10">
                                     <Activity className="w-6 h-6 text-muted-foreground/20" />
                                 </div>
                                 <p className="text-sm font-medium text-foreground/50">
@@ -400,7 +400,7 @@ count++;
                                 </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5">
+                            <div className="divide-y divide-border dark:divide-white/5">
                                 {logs.map((log) => {
                                     const changedKeys = pickChangedKeys(
                                         log.old_values,
@@ -422,7 +422,7 @@ count++;
                                             <CollapsibleTrigger asChild>
                                                 <button
                                                     type="button"
-                                                    className="w-full text-left px-6 py-4 hover:bg-white/[0.02] transition-colors group"
+                                                    className="w-full text-left px-6 py-4 hover:bg-muted/30 transition-colors group dark:hover:bg-white/[0.02]"
                                                 >
                                                     <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center w-full">
                                                         {/* Col 1: Event & Model */}
@@ -463,14 +463,14 @@ count++;
                                                                     {previewKeys.map((k) => (
                                                                         <span
                                                                             key={k}
-                                                                            className="inline-flex items-center rounded-md border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[9px] text-muted-foreground/50 whitespace-nowrap"
+                                                                            className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/50 whitespace-nowrap dark:border-white/5 dark:bg-white/[0.02]"
                                                                         >
                                                                             {titleCaseKey(k)}
                                                                         </span>
                                                                     ))}
                                                                     {changedKeys.length >
                                                                     previewKeys.length ? (
-                                                                        <span className="inline-flex items-center rounded-md border border-white/5 bg-white/[0.02] px-1.5 py-0.5 text-[9px] text-muted-foreground/35">
+                                                                        <span className="inline-flex items-center rounded-md border border-border bg-muted/30 px-1.5 py-0.5 text-[9px] text-muted-foreground/35 dark:border-white/5 dark:bg-white/[0.02]">
                                                                             +
                                                                             {changedKeys.length -
                                                                                 previewKeys.length}
@@ -522,23 +522,23 @@ count++;
 
                                             {/* Expanded detail */}
                                             <CollapsibleContent>
-                                                <div className="px-6 pb-5 border-l-2 border-white/5 ml-[2.125rem]">
+                                                <div className="px-6 pb-5 border-l-2 border-border ml-[2.125rem] dark:border-white/5">
                                                     {changedKeys.length > 0 ? (
-                                                        <div className="rounded-xl border border-white/5 bg-white/[0.02] overflow-hidden mt-2">
+                                                        <div className="rounded-xl border border-border bg-muted/20 overflow-hidden mt-2 dark:border-white/5 dark:bg-white/[0.02]">
                                                             <div className="overflow-x-auto">
                                                                 <table className="w-full border-collapse text-left text-xs">
                                                                     <thead>
-                                                                        <tr className="border-b border-white/5 bg-white/[0.02] text-[10px] uppercase tracking-wider text-muted-foreground/40 font-bold select-none">
+                                                                        <tr className="border-b border-border bg-muted/20 text-[10px] uppercase tracking-wider text-muted-foreground/60 font-bold select-none dark:border-white/5 dark:bg-white/[0.02]">
                                                                             <th className="py-2.5 px-4 w-1/3">Field</th>
                                                                             <th className="py-2.5 px-4 w-1/3">Old Value</th>
                                                                             <th className="py-2.5 px-4 w-1/3">New Value</th>
                                                                         </tr>
                                                                     </thead>
-                                                                    <tbody className="divide-y divide-white/5">
+                                                                    <tbody className="divide-y divide-border dark:divide-white/5">
                                                                         {changedKeys.map((k) => (
                                                                             <tr
                                                                                 key={k}
-                                                                                className="hover:bg-white/[0.01] transition-colors"
+                                                                                className="hover:bg-muted/20 transition-colors dark:hover:bg-white/[0.01]"
                                                                             >
                                                                                 <td className="py-3 px-4 font-semibold text-muted-foreground/75 whitespace-nowrap">
                                                                                     {titleCaseKey(k)}

@@ -261,7 +261,7 @@ export default function EmailTemplatesSettings({
                                         {template.slug === expiry_alert_template_slug &&
                                         template.dispatch_at ? (
                                             <p className="text-xs text-muted-foreground">
-                                                <span className="font-medium text-zinc-300">
+                                                <span className="font-medium text-foreground dark:text-zinc-300">
                                                     Daily dispatch:
                                                 </span>{' '}
                                                 {template.dispatch_at} ({scheduler_timezone})
@@ -272,7 +272,7 @@ export default function EmailTemplatesSettings({
                                             <div className="space-y-1 text-xs text-muted-foreground">
                                                 {template.to_preset ? (
                                                     <p>
-                                                        <span className="font-medium text-zinc-300">
+                                                        <span className="font-medium text-foreground dark:text-zinc-300">
                                                             To:
                                                         </span>{' '}
                                                         {template.to_preset}
@@ -280,7 +280,7 @@ export default function EmailTemplatesSettings({
                                                 ) : null}
                                                 {template.cc_preset ? (
                                                     <p>
-                                                        <span className="font-medium text-zinc-300">
+                                                        <span className="font-medium text-foreground dark:text-zinc-300">
                                                             CC:
                                                         </span>{' '}
                                                         {template.cc_preset}
@@ -461,7 +461,7 @@ export default function EmailTemplatesSettings({
                         <p className="text-xs text-muted-foreground/80">
                             Runs once per day at this time using the timezone from Application
                             settings → Regional defaults ({scheduler_timezone}). Cron must call{' '}
-                            <span className="font-mono text-zinc-400">schedule:run</span> every
+                            <span className="font-mono text-muted-foreground">schedule:run</span> every
                             minute.
                         </p>
                     </MasterDataField>

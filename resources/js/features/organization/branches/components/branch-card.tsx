@@ -35,9 +35,9 @@ export function BranchCard({
     const statusLabel = branch.status ?? '—';
     const statusClass =
         statusLabel === 'active'
-            ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
-            : statusLabel === 'inactive'
-              ? 'bg-zinc-500/10 text-zinc-200 border-zinc-500/20'
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
+            : branch.status === 'inactive'
+              ? 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20'
               : 'bg-muted/40 text-muted-foreground border-border/60 dark:bg-white/5 dark:border-white/10';
 
     const copy = async (value: string) => {

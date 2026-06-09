@@ -127,7 +127,7 @@ export function PdfMergeModal({
                     />
                 </div>
 
-                <div className="border-t border-white/10 px-5 py-4">
+                <div className="border-t border-border px-5 py-4 dark:border-white/10">
                     <FilenameInput
                         value={filename}
                         onChange={setFilename}
@@ -135,7 +135,7 @@ export function PdfMergeModal({
                     />
                 </div>
 
-                <DialogFooter className="border-t border-white/10 px-5 py-4 sm:justify-end">
+                <DialogFooter className="border-t border-border px-5 py-4 sm:justify-end dark:border-white/10">
                     <Button
                         type="button"
                         variant="outline"

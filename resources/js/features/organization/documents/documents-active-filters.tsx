@@ -48,7 +48,7 @@ export function DocumentsActiveFilters({
             ) : null}
 
             {hasSearch ? (
-                <Badge variant="outline" className="max-w-xs gap-1 truncate border-white/10 pr-1 pl-2.5 font-normal">
+                <Badge variant="outline" className="max-w-xs gap-1 truncate border-border pr-1 pl-2.5 font-normal dark:border-white/10">
                     <span className="truncate">Search: {search}</span>
                     <Button
                         type="button"

@@ -36,8 +36,8 @@ export function EmailAttachmentList({ documents }: { documents: EmailDocumentIte
     return (
         <div className="space-y-2">
             <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-zinc-200">Attachments</p>
-                <p className="text-xs text-zinc-400">
+                <p className="text-sm font-medium text-foreground dark:text-zinc-200">Attachments</p>
+                <p className="text-xs text-muted-foreground">
                     {formatBytes(totalBytes)} / {emailMaxAttachmentLabel()} max
                 </p>
             </div>
@@ -45,14 +45,14 @@ export function EmailAttachmentList({ documents }: { documents: EmailDocumentIte
                 {documents.map((document) => (
                     <li
                         key={document.id}
-                        className="flex items-start gap-2 text-sm text-zinc-300"
+                        className="flex items-start gap-2 text-sm text-foreground/80 dark:text-zinc-300"
                     >
-                        <span className="mt-0.5 text-zinc-500">•</span>
+                        <span className="mt-0.5 text-muted-foreground">•</span>
                         <span className="min-w-0 flex-1">
-                            <span className="font-medium text-zinc-100">
+                            <span className="font-medium text-foreground">
                                 {document.document_name}
                             </span>
-                            <span className="text-zinc-500">
+                            <span className="text-muted-foreground">
                                 {' '}
                                 — {formatBytes(document.size_bytes)} ·{' '}
                                 {fileTypeLabel(document.mime_type)}

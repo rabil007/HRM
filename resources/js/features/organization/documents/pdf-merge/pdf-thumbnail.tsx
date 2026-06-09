@@ -64,7 +64,7 @@ function PdfThumbnailContent({
                 <FileText
                     className={cn(
                         'h-6 w-6',
-                        hasError ? 'text-zinc-600' : 'text-zinc-500',
+                        hasError ? 'text-muted-foreground/60' : 'text-muted-foreground',
                     )}
                 />
             )}

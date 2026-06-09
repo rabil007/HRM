@@ -75,8 +75,8 @@ export default function PositionDetails({
 
     const statusClass =
         position.status === 'active'
-            ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
-            : 'bg-zinc-500/10 text-zinc-200 border-zinc-500/20';
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
+            : 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20';
 
     return (
         <>
@@ -96,7 +96,7 @@ export default function PositionDetails({
                 />
 
                 <div className="grid gap-6 lg:grid-cols-2">
-                    <Card className="border-white/5 bg-white/5">
+                    <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
                         <CardContent className="p-6 space-y-4">
                             <div className="flex items-center justify-between gap-3">
                                 <div className="text-sm font-semibold text-muted-foreground/80">Status</div>
@@ -129,10 +129,10 @@ export default function PositionDetails({
                 </div>
 
                 {can_view_audit ? (
-                <Card className="border-white/5 bg-white/5 mt-8">
+                <Card className="border-border bg-card mt-8 dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-muted-foreground">
+                            <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground dark:bg-white/5 dark:border-white/10">
                                 <Activity className="h-4 w-4" />
                             </div>
                             <div>
@@ -144,17 +144,17 @@ export default function PositionDetails({
                                 </div>
                             </div>
                         </div>
-                        <Badge className="bg-white/5 text-muted-foreground border-white/10">
+                        <Badge className="bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10">
                             {recent_activity.length} items
                         </Badge>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         {recent_activity.length === 0 ? (
-                            <div className="rounded-xl border border-white/5 bg-white/5 p-10 text-center text-sm text-muted-foreground/80">
+                            <div className="rounded-xl border border-border bg-muted/50 p-10 text-center text-sm text-muted-foreground/80 dark:border-white/5 dark:bg-white/5">
                                 No recent activity yet.
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5 rounded-xl border border-white/5 overflow-hidden">
+                            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden dark:divide-white/5 dark:border-white/5">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -167,7 +167,7 @@ export default function PositionDetails({
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 space-y-1">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-white/5 text-muted-foreground border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                                        <Badge className="bg-muted/50 text-muted-foreground border-border text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
                                                             {a.event ?? 'event'}
                                                         </Badge>
                                                         <div className="text-sm font-medium">
@@ -189,7 +189,7 @@ export default function PositionDetails({
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
                                                                 >
                                                                     {titleCaseKey(k)}:{' '}
                                                                     <span className="text-muted-foreground/70">
@@ -204,7 +204,7 @@ export default function PositionDetails({
                                                             {keys.length > 4 ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-white/10 transition"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent transition dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                                                                     onClick={() =>
                                                                         setExpandedActivity((prev) => ({
                                                                             ...prev,

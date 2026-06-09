@@ -35,11 +35,11 @@ export function CompanyCard({
     const statusLabel = company.status ?? '—';
     const statusClass =
         statusLabel === 'active'
-            ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/20'
-            : statusLabel === 'suspended'
-              ? 'bg-amber-500/10 text-amber-200 border-amber-500/20'
-              : statusLabel === 'inactive'
-                ? 'bg-zinc-500/10 text-zinc-200 border-zinc-500/20'
+            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
+            : company.status === 'suspended'
+              ? 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-200'
+              : company.status === 'inactive'
+                ? 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20'
                 : 'bg-muted/40 text-muted-foreground border-border/60 dark:bg-white/5 dark:border-white/10';
 
     const initials = company.name

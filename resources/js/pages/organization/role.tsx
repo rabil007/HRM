@@ -155,7 +155,7 @@ return name;
 
                 <div className="flex flex-col gap-6">
                     {/* Top Action Bar */}
-                    <Card className="border-white/5 bg-white/5">
+                    <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
                         <CardContent className="p-4 flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="w-full md:max-w-md space-y-1.5 font-medium">
                                 <Label htmlFor="role-name" className="text-[10px] uppercase tracking-widest text-muted-foreground/60 ml-1">
@@ -166,7 +166,7 @@ return name;
                                     value={form.data.name}
                                     onChange={(e) => form.setData('name', e.target.value)}
                                     placeholder="Enter role name..."
-                                    className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 text-base font-semibold transition-all px-4"
+                                className="rounded-xl border-border bg-muted/50 focus-visible:ring-primary/40 h-11 text-base font-semibold transition-all px-4 dark:border-white/10 dark:bg-white/5"
                                 />
                                 {form.errors.name ? <div className="text-xs font-medium text-destructive mt-1">{form.errors.name}</div> : null}
                             </div>
@@ -178,10 +178,10 @@ return name;
                                         value={permissionQuery}
                                         onChange={(e) => setPermissionQuery(e.target.value)}
                                         placeholder="Search permissions..."
-                                        className="rounded-xl border-white/10 bg-white/5 focus-visible:ring-primary/40 h-11 pl-11 transition-all"
+                                        className="rounded-xl border-border bg-muted/50 focus-visible:ring-primary/40 h-11 pl-11 transition-all dark:border-white/10 dark:bg-white/5"
                                     />
                                 </div>
-                                <div className="flex items-center gap-1.5 p-1 bg-white/[0.03] border border-white/5 rounded-xl">
+                                <div className="flex items-center gap-1.5 p-1 bg-muted/20 border border-border rounded-xl dark:bg-white/[0.03] dark:border-white/5">
                                     {[
                                         { id: 'all', label: 'All', icon: LayoutGrid },
                                         { id: 'selected', label: 'Selected', icon: CheckCircle2 },
@@ -195,7 +195,7 @@ return name;
                                             className={`rounded-lg h-9 px-4 gap-2 text-xs font-bold transition-all ${
                                                 permissionView === view.id 
                                                     ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                                                    : 'text-muted-foreground hover:bg-white/5'
+                                                    : 'text-muted-foreground hover:bg-accent dark:hover:bg-white/5'
                                             }`}
                                             onClick={() => setPermissionView(view.id as any)}
                                         >
@@ -212,10 +212,10 @@ return name;
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px]">
                         {/* Sidebar Navigator */}
                         <aside className="lg:col-span-3 space-y-4 lg:sticky lg:top-6 lg:self-start">
-                            <Card className="border-white/5 bg-white/5 flex flex-col overflow-hidden max-h-[calc(100vh-6rem)]">
-                                <div className="p-4 border-b border-white/5 bg-white/[0.02] flex items-center justify-between">
+                            <Card className="border-border bg-card flex flex-col overflow-hidden max-h-[calc(100vh-6rem)] dark:border-white/5 dark:bg-white/5">
+                                <div className="p-4 border-b border-border bg-muted/20 flex items-center justify-between dark:border-white/5 dark:bg-white/[0.02]">
                                     <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Categories</h3>
-                                    <Badge variant="outline" className="text-[10px] border-white/5 font-mono opacity-60">
+                                    <Badge variant="outline" className="text-[10px] border-border font-mono opacity-60 dark:border-white/5">
                                         {grouped.length}
                                     </Badge>
                                 </div>
@@ -234,7 +234,7 @@ return name;
                                                     className={`w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all group ${
                                                         isActive 
                                                             ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20' 
-                                                            : 'text-muted-foreground hover:bg-white/5 hover:text-foreground'
+                                                            : 'text-muted-foreground hover:bg-accent hover:text-foreground dark:hover:bg-white/5'
                                                     }`}
                                                 >
                                                     <div className="flex items-center gap-3 overflow-hidden">
@@ -252,7 +252,7 @@ return name;
                                         })}
                                     </div>
                                 </ScrollArea>
-                                <div className="p-3 bg-white/[0.02] border-t border-white/5">
+                                <div className="p-3 bg-muted/20 border-t border-border dark:bg-white/[0.02] dark:border-white/5">
                                     <Button 
                                         variant="ghost" 
                                         className="w-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 hover:text-primary h-8"
@@ -266,7 +266,7 @@ return name;
 
                         {/* Content Area */}
                         <main className="lg:col-span-9">
-                            <Card className="border-white/5 bg-white/5 h-full flex flex-col overflow-hidden shadow-2xl">
+                            <Card className="border-border bg-card h-full flex flex-col overflow-hidden shadow-2xl dark:border-white/5 dark:bg-white/5">
                                 {effectiveActiveGroup ? (
                                     <>
                                         {(() => {
@@ -284,7 +284,7 @@ return null;
 
                                             return (
                                                 <>
-                                                    <div className="p-6 border-b border-white/5 bg-white/[0.02] flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-10">
+                                                    <div className="p-6 border-b border-border bg-muted/20 flex items-center justify-between sticky top-0 bg-background/80 backdrop-blur-md z-10 dark:border-white/5 dark:bg-white/[0.02]">
                                                         <div className="flex items-center gap-4">
                                                             <div className="w-10 h-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                                                 <Shield className="w-5 h-5" />
@@ -302,7 +302,7 @@ return null;
                                                             <Button
                                                                 variant="outline"
                                                                 size="sm"
-                                                                className="rounded-xl border-white/5 bg-white/5 hover:bg-white/10 text-xs font-bold"
+                                                                className="rounded-xl border-border bg-muted/50 hover:bg-accent text-xs font-bold dark:border-white/5 dark:bg-white/5 dark:hover:bg-white/10"
                                                                 onClick={() => {
                                                                     if (allSelected) {
                                                                         const remove = new Set(allItems);
@@ -365,13 +365,13 @@ return null;
                                                                                         className={`flex items-center gap-4 p-4 rounded-2xl cursor-pointer transition-all border ${
                                                                                             checked 
                                                                                                 ? 'bg-primary/[0.08] border-primary/20 ring-1 ring-primary/10 shadow-lg shadow-primary/[0.03]' 
-                                                                                                : 'bg-white/[0.02] border-white/5 hover:bg-white/[0.04] hover:border-white/10'
+                                                                                                : 'bg-muted/20 border-border hover:bg-muted/40 hover:border-border dark:bg-white/[0.02] dark:border-white/5 dark:hover:bg-white/[0.04] dark:hover:border-white/10'
                                                                                         }`}
                                                                                     >
                                                                                         <Checkbox
                                                                                             checked={checked}
                                                                                             onCheckedChange={(value) => togglePermission(permission, Boolean(value))}
-                                                                                            className="h-5 w-5 border-white/10 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                                                                                            className="h-5 w-5 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary dark:border-white/10"
                                                                                         />
                                                                                         <div className="flex-1 overflow-hidden">
                                                                                             <p className={`text-sm font-bold truncate tracking-tight ${checked ? 'text-primary' : 'text-foreground/80'}`}>
@@ -396,7 +396,7 @@ return null;
                                     </>
                                 ) : (
                                     <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                                        <div className="w-20 h-20 rounded-3xl bg-white/5 border border-dashed border-white/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                        <div className="w-20 h-20 rounded-3xl bg-muted/50 border border-dashed border-border flex items-center justify-center mb-6 group-hover:scale-110 transition-transform dark:bg-white/5 dark:border-white/10">
                                             <Shield className="w-10 h-10 text-muted-foreground/20" />
                                         </div>
                                         <h3 className="text-xl font-bold text-foreground mb-2">Select a Category</h3>

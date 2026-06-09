@@ -64,7 +64,7 @@ function statusConfig(status: User['status']) {
         return {
             label: 'Active',
             dot: 'bg-emerald-400',
-            badge: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/20',
+            badge: 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-300',
         };
     }
 
@@ -72,27 +72,27 @@ function statusConfig(status: User['status']) {
         return {
             label: 'Suspended',
             dot: 'bg-amber-400',
-            badge: 'bg-amber-500/10 text-amber-300 border-amber-500/20',
+            badge: 'bg-amber-500/10 text-amber-700 border-amber-500/20 dark:text-amber-300',
         };
     }
 
     return {
         label: 'Inactive',
         dot: 'bg-zinc-400',
-        badge: 'bg-zinc-500/10 text-zinc-300 border-zinc-500/20',
+        badge: 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:border-zinc-500/20',
     };
 }
 
 function eventColor(event: string | null) {
     switch (event?.toLowerCase()) {
         case 'created':
-            return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+            return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400';
         case 'updated':
-            return 'bg-sky-500/10 text-sky-400 border-sky-500/20';
+            return 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400';
         case 'deleted':
-            return 'bg-red-500/10 text-red-400 border-red-500/20';
+            return 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400';
         default:
-            return 'bg-white/5 text-muted-foreground border-white/10';
+            return 'bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10';
     }
 }
 
@@ -109,8 +109,8 @@ function InfoRow({
     valueNode?: React.ReactNode;
 }) {
     return (
-        <div className="flex items-center gap-4 py-3.5 border-b border-white/5 last:border-0">
-            <div className="w-8 h-8 rounded-xl bg-white/[0.04] border border-white/5 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-4 py-3.5 border-b border-border last:border-0 dark:border-white/5">
+            <div className="w-8 h-8 rounded-xl bg-muted/40 border border-border flex items-center justify-center shrink-0 dark:bg-white/[0.04] dark:border-white/5">
                 <Icon className="w-3.5 h-3.5 text-muted-foreground/60" />
             </div>
             <div className="text-sm text-muted-foreground/70 font-medium w-28 shrink-0">{label}</div>
@@ -174,14 +174,14 @@ export default function UserDetails({
                 </div>
 
                 {/* ── Hero profile banner ── */}
-                <div className="relative rounded-2xl border border-white/5 bg-white/[0.03] overflow-hidden mb-6">
+                <div className="relative rounded-2xl border border-border bg-muted/30 overflow-hidden mb-6 dark:border-white/5 dark:bg-white/[0.03]">
                     {/* Glow orb */}
                     <div className="absolute top-0 right-0 w-80 h-80 bg-primary/10 blur-[80px] rounded-full -translate-y-1/2 translate-x-1/3 pointer-events-none" />
 
                     <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-6 px-8 py-7">
                         {/* Avatar */}
                         <div className="relative shrink-0">
-                            <div className="w-20 h-20 rounded-2xl border-2 border-white/10 overflow-hidden bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center shadow-xl">
+                            <div className="w-20 h-20 rounded-2xl border-2 border-border overflow-hidden bg-gradient-to-br from-primary/30 to-primary/10 flex items-center justify-center shadow-xl dark:border-white/10">
                                 {user.avatar ? (
                                     <img
                                         src={user.avatar}
@@ -244,9 +244,9 @@ export default function UserDetails({
                 {/* ── Details grid ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
                     {/* Main details card */}
-                    <Card className="border-white/5 bg-white/[0.03] lg:col-span-2">
+                    <Card className="border-border bg-card lg:col-span-2 dark:border-white/5 dark:bg-white/[0.03]">
                         <CardContent className="px-6 pt-5 pb-2">
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40 mb-1">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-1">
                                 Account details
                             </p>
                             <InfoRow
@@ -296,9 +296,9 @@ export default function UserDetails({
 
                     {/* Quick stats sidebar */}
                     <div className="space-y-4">
-                        <Card className="border-white/5 bg-white/[0.03] overflow-hidden">
+                        <Card className="border-border bg-card overflow-hidden dark:border-white/5 dark:bg-white/[0.03]">
                             <CardContent className="p-5 space-y-4">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/40">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
                                     Activity
                                 </p>
                                 <div className="flex items-center justify-between">
@@ -309,7 +309,7 @@ export default function UserDetails({
                                         {recent_activity.length}
                                     </span>
                                 </div>
-                                <div className="h-px bg-white/5" />
+                                <div className="h-px bg-border dark:bg-white/5" />
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground/70">Status</span>
                                     <Badge
@@ -323,9 +323,9 @@ export default function UserDetails({
                                 </div>
                                 {user.last_login_at ? (
                                     <>
-                                        <div className="h-px bg-white/5" />
+                                        <div className="h-px bg-border dark:bg-white/5" />
                                         <div>
-                                            <p className="text-[10px] text-muted-foreground/40 mb-1">
+                                            <p className="text-[10px] text-muted-foreground/60 mb-1">
                                                 Last seen
                                             </p>
                                             <p className="text-xs font-semibold text-foreground/80">
@@ -341,8 +341,8 @@ export default function UserDetails({
 
                 {/* ── Activity log ── */}
                 {can_view_audit ? (
-                <Card className="border-white/5 bg-white/[0.03]">
-                    <div className="px-6 py-5 border-b border-white/5 flex items-center justify-between">
+                <Card className="border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
+                    <div className="px-6 py-5 border-b border-border flex items-center justify-between dark:border-white/5">
                         <div className="flex items-center gap-3">
                             <div className="w-9 h-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                 <Activity className="w-4 h-4" />
@@ -356,7 +356,7 @@ export default function UserDetails({
                                 </p>
                             </div>
                         </div>
-                        <Badge className="bg-white/5 text-muted-foreground border-white/10 font-mono text-xs">
+                        <Badge className="bg-muted/50 text-muted-foreground border-border font-mono text-xs dark:bg-white/5 dark:border-white/10">
                             {recent_activity.length}
                         </Badge>
                     </div>
@@ -364,7 +364,7 @@ export default function UserDetails({
                     <CardContent className="p-0">
                         {recent_activity.length === 0 ? (
                             <div className="flex flex-col items-center justify-center py-16 text-center">
-                                <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-dashed border-white/10 flex items-center justify-center mb-3">
+                                <div className="w-12 h-12 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-3 dark:bg-white/[0.03] dark:border-white/10">
                                     <Activity className="w-5 h-5 text-muted-foreground/20" />
                                 </div>
                                 <p className="text-sm text-muted-foreground/50">
@@ -372,7 +372,7 @@ export default function UserDetails({
                                 </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-white/5">
+                            <div className="divide-y divide-border dark:divide-white/5">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -382,7 +382,7 @@ export default function UserDetails({
                                         (a.event ?? '').trim().toLowerCase();
 
                                     return (
-                                        <div key={a.id} className="px-6 py-4 hover:bg-white/[0.015] transition-colors">
+                                        <div key={a.id} className="px-6 py-4 hover:bg-muted/30 transition-colors dark:hover:bg-white/[0.015]">
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                 <div className="min-w-0 space-y-2 flex-1">
                                                     {/* Row 1: event + causer */}
@@ -418,7 +418,7 @@ export default function UserDetails({
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
-                                                                    className="inline-flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[11px] text-muted-foreground/80"
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground/80 dark:border-white/8 dark:bg-white/[0.04]"
                                                                 >
                                                                     <span className="font-semibold text-foreground/60">
                                                                         {titleCaseKey(k)}:
@@ -439,7 +439,7 @@ export default function UserDetails({
                                                             {keys.length > 4 ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="inline-flex items-center gap-1 rounded-lg border border-white/8 bg-white/[0.04] px-2.5 py-1 text-[11px] text-muted-foreground/60 hover:bg-white/[0.08] hover:text-foreground transition-colors"
+                                                                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground/60 hover:bg-accent hover:text-foreground transition-colors dark:border-white/8 dark:bg-white/[0.04] dark:hover:bg-white/[0.08]"
                                                                     onClick={() =>
                                                                         setExpandedActivity(
                                                                             (prev) => ({
