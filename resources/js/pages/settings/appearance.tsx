@@ -27,7 +27,7 @@ const MODES: {
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar */}
                     <div className="w-10 bg-slate-50 border-r border-slate-200 p-1.5 space-y-1.5">
-                        <div className="w-full h-1.5 rounded-sm bg-indigo-500/60" />
+                        <div className="w-full h-1.5 rounded-sm bg-primary/60" />
                         <div className="w-full h-1.5 rounded-sm bg-slate-200" />
                         <div className="w-full h-1.5 rounded-sm bg-slate-200" />
                         <div className="w-full h-1.5 rounded-sm bg-slate-200" />
@@ -59,7 +59,7 @@ const MODES: {
                 <div className="flex flex-1 overflow-hidden">
                     {/* Sidebar */}
                     <div className="w-10 bg-zinc-800/80 border-r border-white/5 p-1.5 space-y-1.5">
-                        <div className="w-full h-1.5 rounded-sm bg-indigo-500/80" />
+                        <div className="w-full h-1.5 rounded-sm bg-primary/80" />
                         <div className="w-full h-1.5 rounded-sm bg-white/10" />
                         <div className="w-full h-1.5 rounded-sm bg-white/10" />
                         <div className="w-full h-1.5 rounded-sm bg-white/10" />
@@ -87,7 +87,7 @@ const MODES: {
                     <div className="h-7 bg-slate-100 border-b border-slate-200" />
                     <div className="flex flex-1 overflow-hidden">
                         <div className="w-8 bg-slate-50 border-r border-slate-200 p-1 space-y-1">
-                            <div className="w-full h-1.5 rounded-sm bg-indigo-400/60" />
+                            <div className="w-full h-1.5 rounded-sm bg-primary/60" />
                             <div className="w-full h-1.5 rounded-sm bg-slate-200" />
                         </div>
                         <div className="flex-1 p-1.5 space-y-1.5">
@@ -103,7 +103,7 @@ const MODES: {
                     <div className="h-7 bg-zinc-800 border-b border-white/5" />
                     <div className="flex flex-1 overflow-hidden">
                         <div className="w-8 bg-zinc-800/80 border-r border-white/5 p-1 space-y-1">
-                            <div className="w-full h-1.5 rounded-sm bg-indigo-500/70" />
+                            <div className="w-full h-1.5 rounded-sm bg-primary/70" />
                             <div className="w-full h-1.5 rounded-sm bg-white/10" />
                         </div>
                         <div className="flex-1 p-1.5 space-y-1.5">
@@ -145,7 +145,7 @@ export default function Appearance() {
             <div className="mb-8 flex items-center gap-3 px-4 py-3 rounded-xl border border-white/5 bg-white/[0.03]">
                 <div className="flex items-center gap-2 shrink-0">
                     {resolvedAppearance === 'dark' ? (
-                        <Moon className="w-4 h-4 text-indigo-400" />
+                        <Moon className="w-4 h-4 text-primary" />
                     ) : (
                         <Sun className="w-4 h-4 text-amber-400" />
                     )}

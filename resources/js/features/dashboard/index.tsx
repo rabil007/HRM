@@ -174,10 +174,10 @@ export function DashboardContent({
                     value={employeeAnalytics.total.toLocaleString()}
                     hint="All employees on record"
                     icon={Users}
-                    gradient="from-blue-500/10 to-indigo-500/5"
-                    iconColor="text-blue-400"
-                    iconBg="bg-blue-500/10 border-blue-500/20"
-                    accent="border-blue-500/20 hover:border-blue-500/30 hover:shadow-blue-500/5 hover:bg-blue-500/[0.01]"
+                    gradient="from-primary/10 to-primary/5"
+                    iconColor="text-primary"
+                    iconBg="bg-primary/10 border-primary/20"
+                    accent="border-primary/20 hover:border-primary/30 hover:shadow-primary/5 hover:bg-primary/[0.01]"
                     badge={`${employeeAnalytics.active} active`}
                     badgeVariant="info"
                     href={employees.url()}
@@ -200,10 +200,10 @@ export function DashboardContent({
                     value={employeeAnalytics.new_hires_this_month.toLocaleString()}
                     hint="Joined this month"
                     icon={UserPlus}
-                    gradient="from-violet-500/10 to-purple-500/5"
-                    iconColor="text-violet-400"
-                    iconBg="bg-violet-500/10 border-violet-500/20"
-                    accent="border-violet-500/20 hover:border-violet-500/30 hover:shadow-violet-500/5 hover:bg-violet-500/[0.01]"
+                    gradient="from-accent/10 to-accent/5"
+                    iconColor="text-accent"
+                    iconBg="bg-accent/10 border-accent/20"
+                    accent="border-accent/20 hover:border-accent/30 hover:shadow-accent/5 hover:bg-accent/[0.01]"
                     href={employees.url()}
                 />
                 <MetricCard
@@ -317,10 +317,10 @@ export function DashboardContent({
                     value={attendanceAnalytics.check_outs_today.toLocaleString()}
                     hint="Recorded departures today"
                     icon={LogOut}
-                    gradient="from-violet-500/10 to-indigo-500/5"
-                    iconColor="text-violet-400"
-                    iconBg="bg-violet-500/10 border-violet-500/20"
-                    accent="border-violet-500/20 hover:border-violet-500/30 hover:shadow-violet-500/5 hover:bg-violet-500/[0.01]"
+                    gradient="from-primary/10 to-accent/5"
+                    iconColor="text-primary"
+                    iconBg="bg-primary/10 border-primary/20"
+                    accent="border-primary/20 hover:border-primary/30 hover:shadow-primary/5 hover:bg-primary/[0.01]"
                     href="/hikvision/access-events?attendance_status=checkOut"
                 />
                 <MetricCard
@@ -353,8 +353,8 @@ export function DashboardContent({
                     icon={Layers}
                     label="Departments"
                     value={organizationSnapshot.departments}
-                    iconColor="text-indigo-400"
-                    iconBg="bg-indigo-400/10 border-indigo-400/20"
+                    iconColor="text-primary"
+                    iconBg="bg-primary/10 border-primary/20"
                     href={employees.url()}
                 />
                 <OrgSnapshotTile
@@ -411,8 +411,8 @@ export function DashboardContent({
                                     Distribution across your organization structure
                                 </CardDescription>
                             </div>
-                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-500/10 border border-indigo-500/20">
-                                <Layers className="h-4 w-4 text-indigo-400" />
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
+                                <Layers className="h-4 w-4 text-primary" />
                             </div>
                         </div>
                     </CardHeader>
@@ -486,8 +486,8 @@ export function DashboardContent({
                                         {recentHires.length}
                                     </Badge>
                                 )}
-                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-violet-500/10 border border-violet-500/20">
-                                    <Sparkles className="h-4 w-4 text-violet-400" />
+                                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent/10 border border-accent/20">
+                                    <Sparkles className="h-4 w-4 text-accent" />
                                 </div>
                             </div>
                         </div>

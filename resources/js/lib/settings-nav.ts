@@ -34,7 +34,7 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         href: '/settings/application',
         permission: 'settings.application.view',
         icon: SlidersHorizontal,
-        color: 'bg-indigo-500/10 text-indigo-600',
+        color: 'bg-primary/10 text-primary',
     },
     {
         title: 'WhatsApp templates',
@@ -62,7 +62,7 @@ export const SETTINGS_SYSTEM_ITEMS: SettingsNavItem[] = [
         href: '/settings/appearance',
         permission: 'settings.appearance.view',
         icon: Palette,
-        color: 'bg-purple-500/10 text-purple-600',
+        color: 'bg-accent/10 text-accent',
     },
 ];
 
@@ -149,7 +149,7 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         href: '/settings/master-data/ranks',
         permission: 'settings.master-data.ranks.view',
         icon: Award,
-        color: 'bg-violet-500/10 text-violet-600',
+        color: 'bg-accent/10 text-accent',
     },
     {
         title: 'Clients',

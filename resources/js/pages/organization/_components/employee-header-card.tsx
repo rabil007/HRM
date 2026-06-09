@@ -389,7 +389,7 @@ export function EmployeeHeaderCard({
                             {employee.employee_profile_template?.name ? (
                                 <Badge
                                     title={`Profile template: ${employee.employee_profile_template.name}`}
-                                    className="flex max-w-[11rem] items-center gap-1.5 rounded-full border-violet-500/25 bg-violet-500/10 px-2.5 py-1 text-[10px] font-medium text-violet-300"
+                                    className="flex max-w-[11rem] items-center gap-1.5 rounded-full border-accent/25 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent"
                                 >
                                     <ClipboardList className="h-3 w-3 shrink-0" />
                                     <span className="truncate">{employee.employee_profile_template.name}</span>

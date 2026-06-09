@@ -53,10 +53,24 @@ export function applyBrandTheme(primaryColor: string, accentColor: string): void
     const primary = primaryColor.trim();
     const accent = accentColor.trim();
     const primaryForeground = foregroundForBackground(primary);
+    const accentForeground = foregroundForBackground(accent);
 
+    /** Primary — buttons, active states, focus rings */
     root.style.setProperty('--brand-primary', primary);
-    root.style.setProperty('--brand-accent', accent);
     root.style.setProperty('--primary', primary);
     root.style.setProperty('--primary-foreground', primaryForeground);
     root.style.setProperty('--ring', mixWithAlpha(primary, 0.45));
+
+    /** Sidebar active items inherit primary */
+    root.style.setProperty('--sidebar-primary', primary);
+    root.style.setProperty('--sidebar-primary-foreground', primaryForeground);
+    root.style.setProperty('--sidebar-ring', mixWithAlpha(primary, 0.45));
+
+    /** Accent — hover surfaces, badges, secondary highlights */
+    root.style.setProperty('--brand-accent', accent);
+    root.style.setProperty('--accent', accent);
+    root.style.setProperty('--accent-foreground', accentForeground);
+
+    /** Chart-1 tracks primary for consistency */
+    root.style.setProperty('--chart-1', primary);
 }

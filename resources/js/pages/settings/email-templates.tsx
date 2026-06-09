@@ -253,8 +253,8 @@ export default function EmailTemplatesSettings({
                                                     </p>
                                                 )}
                                             </div>
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-                                                <Mail className="h-5 w-5 text-blue-600" />
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                                <Mail className="h-5 w-5 text-primary" />
                                             </div>
                                         </div>
 

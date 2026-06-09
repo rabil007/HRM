@@ -646,7 +646,7 @@ export default function ApplicationSettings({
                                     icon={ImageIcon}
                                     title="Brand assets"
                                     description="Upload logos and favicon. Changes apply immediately across login and browser tab."
-                                    color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                    color="bg-accent/10 border-accent/20 text-accent"
                                 />
                                 <div className="space-y-6">
                                     <BrandingUploadField
@@ -867,7 +867,7 @@ export default function ApplicationSettings({
                                         icon={Palette}
                                         title="Email branding & footer"
                                         description="Logo and text shown in the footer of every outgoing email."
-                                        color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                        color="bg-accent/10 border-accent/20 text-accent"
                                     />
                                     <div className="space-y-5">
                                         <BrandingUploadField
@@ -1046,7 +1046,7 @@ export default function ApplicationSettings({
                                     icon={Palette}
                                     title="Theme colors"
                                     description="Primary and accent colors applied globally across the UI."
-                                    color="bg-violet-500/10 border-violet-500/20 text-violet-500"
+                                    color="bg-accent/10 border-accent/20 text-accent"
                                 />
                                 <div className="grid gap-6 sm:grid-cols-2">
                                     <div className="space-y-1.5">

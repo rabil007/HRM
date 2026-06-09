@@ -31,7 +31,7 @@ const STATUS_CONFIG = {
 
 const POSITION_COLORS = [
     'border-primary/20 bg-primary/10 text-primary',
-    'border-violet-500/20 bg-violet-500/10 text-violet-400',
+    'border-accent/20 bg-accent/10 text-accent',
     'border-sky-500/20 bg-sky-500/10 text-sky-400',
     'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
     'border-amber-500/20 bg-amber-500/10 text-amber-400',

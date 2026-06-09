@@ -104,8 +104,8 @@ export function HikvisionDevicesSection({ devices, isConfigured }: HikvisionDevi
                 <CardContent className="space-y-5 p-6">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-                                <DoorOpen className="h-5 w-5 text-blue-500" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                <DoorOpen className="h-5 w-5 text-primary" />
                             </div>
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">Synced devices</h2>

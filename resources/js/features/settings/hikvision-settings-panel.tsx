@@ -236,8 +236,8 @@ export function HikvisionSettingsPanel({
             <Card className="border-white/5 bg-white/5">
                 <CardContent className="p-6 space-y-5">
                     <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-2xl border border-blue-500/20 bg-blue-500/10 flex items-center justify-center shrink-0">
-                            <PlugZap className="w-5 h-5 text-blue-500" />
+                        <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
+                            <PlugZap className="w-5 h-5 text-primary" />
                         </div>
                         <div>
                             <h2 className="text-base font-bold tracking-tight">Connection status</h2>
@@ -299,7 +299,7 @@ export function HikvisionSettingsPanel({
                 </CardContent>
             </Card>
 
-            <Alert className="border-blue-500/20 bg-blue-500/5">
+            <Alert className="border-primary/20 bg-primary/5">
                 <Info className="h-4 w-4" />
                 <AlertTitle>Hik-Connect for Teams OpenAPI</AlertTitle>
                 <AlertDescription>
@@ -314,8 +314,8 @@ export function HikvisionSettingsPanel({
                 <Card className="border-white/5 bg-white/5">
                     <CardContent className="p-6 space-y-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-2xl border border-blue-500/20 bg-blue-500/10 flex items-center justify-center shrink-0">
-                                <Camera className="w-5 h-5 text-blue-500" />
+                            <div className="w-10 h-10 rounded-2xl border border-primary/20 bg-primary/10 flex items-center justify-center shrink-0">
+                                <Camera className="w-5 h-5 text-primary" />
                             </div>
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">API credentials</h2>
@@ -418,8 +418,8 @@ export function HikvisionSettingsPanel({
                 <Card className="border-white/5 bg-white/5">
                     <CardContent className="space-y-5 p-6">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-                                <Clock className="h-5 w-5 text-blue-500" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                <Clock className="h-5 w-5 text-primary" />
                             </div>
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">Automatic daily fetch</h2>
@@ -429,7 +429,7 @@ export function HikvisionSettingsPanel({
                             </div>
                         </div>
 
-                        <Alert className="border-blue-500/20 bg-blue-500/5">
+                        <Alert className="border-primary/20 bg-primary/5">
                             <Info className="h-4 w-4" />
                             <AlertTitle>Server cron required</AlertTitle>
                             <AlertDescription>
@@ -513,8 +513,8 @@ export function HikvisionSettingsPanel({
                 <Card className="border-white/5 bg-white/5">
                     <CardContent className="space-y-5 p-6">
                         <div className="flex items-center gap-4">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-                                <Radio className="h-5 w-5 text-blue-500" />
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                <Radio className="h-5 w-5 text-primary" />
                             </div>
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">Webhook push</h2>
