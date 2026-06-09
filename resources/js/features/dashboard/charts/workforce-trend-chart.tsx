@@ -30,8 +30,8 @@ export function WorkforceTrendChart({ data }: { data: WorkforceTrendPoint[] }) {
             <AreaChart data={data} margin={{ top: 8, right: 8, left: -8, bottom: 0 }}>
                 <defs>
                     <linearGradient id="headcountGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="var(--color-primary)" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="var(--color-primary)" stopOpacity={0} />
+                        <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
                     </linearGradient>
                     <linearGradient id="hiresGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#34d399" stopOpacity={0.2} />
@@ -47,25 +47,25 @@ export function WorkforceTrendChart({ data }: { data: WorkforceTrendPoint[] }) {
                     dataKey="month"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                 />
                 <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                     allowDecimals={false}
                 />
                 <Tooltip
                     contentStyle={{
-                        backgroundColor: 'var(--color-popover)',
-                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
                         borderRadius: '0.875rem',
                         fontSize: '12px',
                         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
                         padding: '10px 14px',
                     }}
                     labelStyle={{ fontWeight: 700, marginBottom: 4 }}
-                    cursor={{ stroke: 'var(--color-border)', strokeWidth: 1, strokeDasharray: '4 4' }}
+                    cursor={{ stroke: 'var(--border)', strokeWidth: 1, strokeDasharray: '4 4' }}
                 />
                 <Legend
                     wrapperStyle={{ fontSize: '11px', paddingTop: '12px' }}
@@ -76,7 +76,7 @@ export function WorkforceTrendChart({ data }: { data: WorkforceTrendPoint[] }) {
                     type="monotone"
                     dataKey="headcount"
                     name="Headcount"
-                    stroke="var(--color-primary)"
+                    stroke="var(--primary)"
                     strokeWidth={2.5}
                     fill="url(#headcountGradient)"
                     dot={false}

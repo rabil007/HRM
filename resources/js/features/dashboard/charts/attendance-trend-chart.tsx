@@ -32,18 +32,18 @@ export function AttendanceTrendChart({ data }: { data: AttendanceTrendPoint[] })
                     dataKey="day"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                 />
                 <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                    tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                     allowDecimals={false}
                 />
                 <Tooltip
                     contentStyle={{
-                        backgroundColor: 'var(--color-popover)',
-                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
                         borderRadius: '12px',
                         fontSize: '12px',
                     }}

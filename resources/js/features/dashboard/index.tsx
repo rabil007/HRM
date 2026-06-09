@@ -716,7 +716,7 @@ function MetricCard({
             {/* Gradient accent */}
             <div className={cn("absolute inset-x-0 top-0 h-20 bg-gradient-to-b opacity-15 group-hover:opacity-25 transition-opacity duration-300", gradient)} />
             <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-1 pt-4 px-5">
-                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 transition-colors group-hover:text-foreground/80">
+                <CardTitle className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/85 dark:text-muted-foreground/60 transition-colors group-hover:text-foreground/80">
                     {title}
                 </CardTitle>
                 {Icon && (
@@ -728,7 +728,7 @@ function MetricCard({
             <CardContent className="relative pb-4 pt-0 px-5">
                 <div className="text-3xl font-black tracking-tight">{value}</div>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <p className="text-xs text-muted-foreground/50">{hint}</p>
+                    <p className="text-xs text-muted-foreground/80 dark:text-muted-foreground/50">{hint}</p>
                     {badge && (
                         <Badge variant={badgeVariant} className="text-[10px] font-bold px-2 py-0.5 border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5">
                             {badge}
@@ -772,12 +772,12 @@ function OrgSnapshotTile({
                 <Icon className={cn("h-4.5 w-4.5", iconColor)} />
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/80">{label}</p>
+                <p className="text-xs font-semibold text-muted-foreground/80 dark:text-muted-foreground/50 transition-colors group-hover:text-muted-foreground/80">{label}</p>
                 <p className="text-xl font-black tracking-tight tabular-nums mt-0.5">
                     {value.toLocaleString()}
                 </p>
                 {sub && (
-                    <p className="text-[10px] text-muted-foreground/70 dark:text-muted-foreground/40 mt-0.5">{sub}</p>
+                    <p className="text-[10px] text-muted-foreground/85 dark:text-muted-foreground/55 mt-0.5">{sub}</p>
                 )}
             </div>
             <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground/30 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />

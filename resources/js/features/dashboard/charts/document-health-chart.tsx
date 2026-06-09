@@ -40,14 +40,14 @@ export function DocumentHealthChart({ data }: { data: DocumentHealthSlice[] }) {
                     {data.map((entry) => (
                         <Cell
                             key={entry.key}
-                            fill={SLICE_COLORS[entry.key] ?? 'var(--color-primary)'}
+                            fill={SLICE_COLORS[entry.key] ?? 'var(--primary)'}
                         />
                     ))}
                 </Pie>
                 <Tooltip
                     contentStyle={{
-                        backgroundColor: 'var(--color-popover)',
-                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
                         borderRadius: '0.875rem',
                         fontSize: '12px',
                         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',

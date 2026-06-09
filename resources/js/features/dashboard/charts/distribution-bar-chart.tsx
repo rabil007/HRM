@@ -42,14 +42,14 @@ export function DistributionBarChart({
             >
                 {isHorizontal ? (
                     <>
-                        <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                        <XAxis type="number" allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                         <YAxis
                             type="category"
                             dataKey="name"
                             width={100}
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                         />
                     </>
                 ) : (
@@ -58,16 +58,16 @@ export function DistributionBarChart({
                             dataKey="name"
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }}
+                            tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }}
                         />
-                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--color-muted-foreground)' }} />
+                        <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} />
                     </>
                 )}
                 <Tooltip
-                    cursor={{ fill: 'var(--color-muted)', opacity: 0.2 }}
+                    cursor={{ fill: 'var(--muted)', opacity: 0.2 }}
                     contentStyle={{
-                        backgroundColor: 'var(--color-popover)',
-                        border: '1px solid var(--color-border)',
+                        backgroundColor: 'var(--popover)',
+                        border: '1px solid var(--border)',
                         borderRadius: '0.875rem',
                         fontSize: '12px',
                         boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
