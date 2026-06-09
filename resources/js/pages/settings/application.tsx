@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
+import { ThemeColorPicker } from '@/components/settings/theme-color-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1050,74 +1051,24 @@ export default function ApplicationSettings({
                                 <div className="grid gap-6 sm:grid-cols-2">
                                     <div className="space-y-1.5">
                                         <FieldLabel htmlFor="primary_color">Primary color</FieldLabel>
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-11 h-11 rounded-xl border border-white/10 shrink-0 overflow-hidden cursor-pointer"
-                                                style={{
-                                                    backgroundColor:
-                                                        preferencesForm.data.primary_color,
-                                                }}
-                                            >
-                                                <input
-                                                    id="primary_color"
-                                                    type="color"
-                                                    className="w-full h-full opacity-0 cursor-pointer"
-                                                    value={preferencesForm.data.primary_color}
-                                                    onChange={(e) =>
-                                                        preferencesForm.setData(
-                                                            'primary_color',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <FieldInput
-                                                value={preferencesForm.data.primary_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData(
-                                                        'primary_color',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="font-mono"
-                                            />
-                                        </div>
+                                        <ThemeColorPicker
+                                            id="primary_color"
+                                            value={preferencesForm.data.primary_color}
+                                            onChange={(color) =>
+                                                preferencesForm.setData('primary_color', color)
+                                            }
+                                        />
                                     </div>
 
                                     <div className="space-y-1.5">
                                         <FieldLabel htmlFor="accent_color">Accent color</FieldLabel>
-                                        <div className="flex items-center gap-3">
-                                            <div
-                                                className="w-11 h-11 rounded-xl border border-white/10 shrink-0 overflow-hidden cursor-pointer"
-                                                style={{
-                                                    backgroundColor:
-                                                        preferencesForm.data.accent_color,
-                                                }}
-                                            >
-                                                <input
-                                                    id="accent_color"
-                                                    type="color"
-                                                    className="w-full h-full opacity-0 cursor-pointer"
-                                                    value={preferencesForm.data.accent_color}
-                                                    onChange={(e) =>
-                                                        preferencesForm.setData(
-                                                            'accent_color',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <FieldInput
-                                                value={preferencesForm.data.accent_color}
-                                                onChange={(e) =>
-                                                    preferencesForm.setData(
-                                                        'accent_color',
-                                                        e.target.value,
-                                                    )
-                                                }
-                                                className="font-mono"
-                                            />
-                                        </div>
+                                        <ThemeColorPicker
+                                            id="accent_color"
+                                            value={preferencesForm.data.accent_color}
+                                            onChange={(color) =>
+                                                preferencesForm.setData('accent_color', color)
+                                            }
+                                        />
                                     </div>
                                 </div>
                             </SettingsCard>
