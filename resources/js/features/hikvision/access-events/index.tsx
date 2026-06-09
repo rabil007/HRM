@@ -103,6 +103,34 @@ function isFetchProcessing(status: HikvisionEventsFetchStatus): boolean {
     return status === 'queued' || status === 'running';
 }
 
+function AccessEventPhoto({
+    snapUrl,
+    personPhotoUrl,
+}: {
+    snapUrl: string | null;
+    personPhotoUrl: string | null;
+}) {
+    const [snapFailed, setSnapFailed] = useState(false);
+    const photoUrl = snapUrl && !snapFailed ? snapUrl : personPhotoUrl;
+
+    if (!photoUrl) {
+        return <>—</>;
+    }
+
+    return (
+        <img
+            src={photoUrl}
+            alt=""
+            className="h-10 w-10 rounded-md object-cover"
+            onError={() => {
+                if (snapUrl && !snapFailed) {
+                    setSnapFailed(true);
+                }
+            }}
+        />
+    );
+}
+
 function hasActiveFilters(filters: HikvisionAccessEventFilters): boolean {
     return Boolean(
         filters.search ||
@@ -495,15 +523,10 @@ export function HikvisionAccessEventsContent({
                                         </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {event.snap_urls.length > 0 ? (
-                                            <img
-                                                src={event.snap_urls[0]}
-                                                alt=""
-                                                className="h-10 w-10 rounded-md object-cover"
-                                            />
-                                        ) : (
-                                            '—'
-                                        )}
+                                        <AccessEventPhoto
+                                            snapUrl={event.snap_urls[0] ?? null}
+                                            personPhotoUrl={event.person_photo_url}
+                                        />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {event.device_name ?? '—'}

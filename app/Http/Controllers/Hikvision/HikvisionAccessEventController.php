@@ -7,6 +7,7 @@ use App\Http\Requests\Hikvision\FetchHikvisionAccessEventsRequest;
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -74,11 +75,22 @@ class HikvisionAccessEventController extends Controller
                 ->get()
                 ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
 
+        $personsByHikvisionId = $personHikvisionIds === []
+            ? collect()
+            : HikvisionPerson::query()
+                ->whereIn('person_id', $personHikvisionIds)
+                ->get(['person_id', 'photo_url'])
+                ->keyBy('person_id');
+
         return Inertia::render('hikvision/access-events', [
             'events' => $paginator->getCollection()
-                ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId) {
+                ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId, $personsByHikvisionId) {
                     $linkedEmployee = $event->person_hikvision_id
                         ? $employeesByPersonId->get($event->person_hikvision_id)
+                        : null;
+
+                    $linkedPerson = $event->person_hikvision_id
+                        ? $personsByHikvisionId->get($event->person_hikvision_id)
                         : null;
 
                     return [
@@ -96,6 +108,9 @@ class HikvisionAccessEventController extends Controller
                         'transaction_source' => $event->transaction_source,
                         'event_source' => $event->event_source,
                         'snap_urls' => $event->snap_urls ?? [],
+                        'person_photo_url' => filled($linkedPerson?->photo_url)
+                            ? (string) $linkedPerson->photo_url
+                            : null,
                         'fetched_at' => $event->fetched_at?->toIso8601String(),
                     ];
                 })

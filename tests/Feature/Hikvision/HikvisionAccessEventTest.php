@@ -2,6 +2,7 @@
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\HikvisionAccessEvent;
+use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
@@ -134,6 +135,40 @@ test('user with permission can view hikvision access events page', function () {
             ->has('device_options')
             ->has('fetch_status')
             ->has('can'),
+        );
+});
+
+test('access events page falls back to hikvision person photo when snap url is missing', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-photo-fallback',
+        'full_name' => 'Maysa',
+        'photo_url' => 'https://example.com/person-headshot.jpg',
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'acs:photo-fallback',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-08 08:08:00',
+        'person_name' => 'Maysa',
+        'person_hikvision_id' => 'person-photo-fallback',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkIn',
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'snap_urls' => [],
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.snap_urls', [])
+            ->where('events.0.person_photo_url', 'https://example.com/person-headshot.jpg'),
         );
 });
 

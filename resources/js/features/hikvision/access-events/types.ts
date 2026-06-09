@@ -28,5 +28,6 @@ export type HikvisionAccessEvent = {
     transaction_source: string | null;
     event_source: string | null;
     snap_urls: string[];
+    person_photo_url: string | null;
     fetched_at: string | null;
 };
