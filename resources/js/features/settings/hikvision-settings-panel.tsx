@@ -5,13 +5,13 @@ import {
     Clock,
     Info,
     Link2,
-    Lock,
     PlugZap,
     Radio,
     XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
 import InputError from '@/components/input-error';
+import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -33,6 +33,8 @@ type ConnectionStatus = 'idle' | 'connected' | 'failed';
 export type HikvisionSettingsPanelProps = {
     settings: {
         api_host: string;
+        api_key: string;
+        api_secret: string;
         enabled: boolean;
         has_api_key: boolean;
         has_api_secret: boolean;
@@ -110,8 +112,8 @@ export function HikvisionSettingsPanel({
 
     const form = useForm({
         api_host: settings.api_host ?? '',
-        api_key: '',
-        api_secret: '',
+        api_key: settings.api_key ?? '',
+        api_secret: settings.api_secret ?? '',
         enabled: settings.enabled ?? false,
         webhook_enabled: settings.webhook_enabled ?? false,
         webhook_verify_token: settings.webhook_verify_token ?? '',
@@ -357,45 +359,27 @@ export function HikvisionSettingsPanel({
 
                             <div className="space-y-1.5 sm:col-span-2">
                                 <FieldLabel htmlFor="api_key">API key</FieldLabel>
-                                <div className="relative">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
-                                    <FieldInput
-                                        id="api_key"
-                                        type="password"
-                                        value={form.data.api_key}
-                                        onChange={(e) => form.setData('api_key', e.target.value)}
-                                        placeholder={
-                                            settings.has_api_key
-                                                ? 'Leave blank to keep current API key'
-                                                : 'App key (AK)'
-                                        }
-                                        disabled={!can.update}
-                                        autoComplete="new-password"
-                                        className="pl-10"
-                                    />
-                                </div>
+                                <SettingsSecretInput
+                                    id="api_key"
+                                    value={form.data.api_key}
+                                    onChange={(e) => form.setData('api_key', e.target.value)}
+                                    placeholder="App key (AK)"
+                                    disabled={!can.update}
+                                    autoComplete="new-password"
+                                />
                                 <InputError message={form.errors.api_key} />
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
                                 <FieldLabel htmlFor="api_secret">API secret</FieldLabel>
-                                <div className="relative">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
-                                    <FieldInput
-                                        id="api_secret"
-                                        type="password"
-                                        value={form.data.api_secret}
-                                        onChange={(e) => form.setData('api_secret', e.target.value)}
-                                        placeholder={
-                                            settings.has_api_secret
-                                                ? 'Leave blank to keep current API secret'
-                                                : 'App secret (SK)'
-                                        }
-                                        disabled={!can.update}
-                                        autoComplete="new-password"
-                                        className="pl-10"
-                                    />
-                                </div>
+                                <SettingsSecretInput
+                                    id="api_secret"
+                                    value={form.data.api_secret}
+                                    onChange={(e) => form.setData('api_secret', e.target.value)}
+                                    placeholder="App secret (SK)"
+                                    disabled={!can.update}
+                                    autoComplete="new-password"
+                                />
                                 <InputError message={form.errors.api_secret} />
                             </div>
                         </div>
@@ -563,17 +547,13 @@ export function HikvisionSettingsPanel({
 
                         <div className="space-y-1.5">
                             <FieldLabel htmlFor="webhook_verify_token">Sign secret</FieldLabel>
-                            <FieldInput
+                            <SettingsSecretInput
                                 id="webhook_verify_token"
                                 value={form.data.webhook_verify_token}
                                 onChange={(event) =>
                                     form.setData('webhook_verify_token', event.target.value)
                                 }
-                                placeholder={
-                                    settings.has_webhook_verify_token
-                                        ? 'Leave blank to keep current secret (8-32 letters/digits)'
-                                        : 'Auto-generated on save, or use 8-32 letters/digits'
-                                }
+                                placeholder="Auto-generated on save, or use 8-32 letters/digits"
                                 disabled={!can.update}
                                 autoComplete="off"
                             />

@@ -59,8 +59,8 @@ export function EditableDetailField({
                 <button
                     type="button"
                     className={cn(
-                        'min-w-0 truncate text-left text-sm font-medium text-zinc-200 hover:text-white disabled:cursor-default disabled:hover:text-zinc-200',
-                        highlightMissing && 'text-rose-300',
+                        'min-w-0 truncate text-left text-sm font-medium text-foreground hover:text-primary disabled:cursor-default disabled:hover:text-foreground dark:text-zinc-200 dark:hover:text-white dark:disabled:hover:text-zinc-200',
+                        highlightMissing && 'text-rose-600 dark:text-rose-300',
                     )}
                     onClick={() => beginEdit(field)}
                     disabled={!canEdit}
@@ -98,7 +98,7 @@ export function EditableDetailTextField({
     canEdit,
     onChange,
     inputType = 'text',
-    inputClassName = 'h-8 rounded-lg border-white/10 bg-white/5 text-zinc-200',
+    inputClassName = 'h-8 rounded-lg border-input bg-background/50 text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-200',
     highlightMissing = false,
 }: EditableDetailTextFieldProps): ReactElement {
     return (

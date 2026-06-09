@@ -273,7 +273,7 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_spoken ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
                                         ) : (
                                             <span className="text-muted-foreground/50">—</span>
                                         )}
@@ -287,7 +287,7 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_written ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
                                         ) : (
                                             <span className="text-muted-foreground/50">—</span>
                                         )}
@@ -301,7 +301,7 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_understood ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
                                         ) : (
                                             <span className="text-muted-foreground/50">—</span>
                                         )}
@@ -315,7 +315,7 @@ export function EmployeeLanguagesTab({
                                         )}
                                     >
                                         {row.is_mother_tongue ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
                                         ) : (
                                             <span className="text-muted-foreground/50">—</span>
                                         )}

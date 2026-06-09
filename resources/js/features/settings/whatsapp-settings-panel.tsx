@@ -5,7 +5,6 @@ import {
     FileUp,
     Info,
     Link2,
-    Lock,
     MessageCircle,
     PlugZap,
     Send,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 import InputError from '@/components/input-error';
+import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -56,6 +56,8 @@ export type WhatsAppSettingsPanelProps = {
         business_account_id: string;
         phone_number_id: string;
         app_id: string;
+        access_token: string;
+        app_secret: string;
         webhook_verify_token: string;
         enabled: boolean;
         has_access_token: boolean;
@@ -129,9 +131,9 @@ export function WhatsAppSettingsPanel({
     const form = useForm({
         business_account_id: settings.business_account_id ?? '',
         phone_number_id: settings.phone_number_id ?? '',
-        access_token: '',
+        access_token: settings.access_token ?? '',
         app_id: settings.app_id ?? '',
-        app_secret: '',
+        app_secret: settings.app_secret ?? '',
         webhook_verify_token: settings.webhook_verify_token ?? '',
         enabled: settings.enabled ?? false,
     });
@@ -746,47 +748,29 @@ export function WhatsAppSettingsPanel({
 
                             <div className="space-y-1.5 sm:col-span-2">
                                 <FieldLabel htmlFor="access_token">Access token</FieldLabel>
-                                <div className="relative">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
-                                    <FieldInput
-                                        id="access_token"
-                                        type="password"
-                                        value={form.data.access_token}
-                                        onChange={(e) =>
-                                            form.setData('access_token', e.target.value)
-                                        }
-                                        placeholder={
-                                            settings.has_access_token
-                                                ? 'Leave blank to keep current access token'
-                                                : 'Permanent access token'
-                                        }
-                                        disabled={!can.update}
-                                        autoComplete="new-password"
-                                        className="pl-10"
-                                    />
-                                </div>
+                                <SettingsSecretInput
+                                    id="access_token"
+                                    value={form.data.access_token}
+                                    onChange={(e) =>
+                                        form.setData('access_token', e.target.value)
+                                    }
+                                    placeholder="Permanent access token"
+                                    disabled={!can.update}
+                                    autoComplete="new-password"
+                                />
                                 <InputError message={form.errors.access_token} />
                             </div>
 
                             <div className="space-y-1.5 sm:col-span-2">
                                 <FieldLabel htmlFor="app_secret">App secret</FieldLabel>
-                                <div className="relative">
-                                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/40 pointer-events-none" />
-                                    <FieldInput
-                                        id="app_secret"
-                                        type="password"
-                                        value={form.data.app_secret}
-                                        onChange={(e) => form.setData('app_secret', e.target.value)}
-                                        placeholder={
-                                            settings.has_app_secret
-                                                ? 'Leave blank to keep current app secret'
-                                                : 'App secret'
-                                        }
-                                        disabled={!can.update}
-                                        autoComplete="new-password"
-                                        className="pl-10"
-                                    />
-                                </div>
+                                <SettingsSecretInput
+                                    id="app_secret"
+                                    value={form.data.app_secret}
+                                    onChange={(e) => form.setData('app_secret', e.target.value)}
+                                    placeholder="App secret"
+                                    disabled={!can.update}
+                                    autoComplete="new-password"
+                                />
                                 <InputError message={form.errors.app_secret} />
                             </div>
 
@@ -794,12 +778,13 @@ export function WhatsAppSettingsPanel({
                                 <FieldLabel htmlFor="webhook_verify_token">
                                     Webhook verify token
                                 </FieldLabel>
-                                <FieldInput
+                                <SettingsSecretInput
                                     id="webhook_verify_token"
                                     value={form.data.webhook_verify_token}
                                     onChange={(e) =>
                                         form.setData('webhook_verify_token', e.target.value)
                                     }
+                                    placeholder="Webhook verify token"
                                     disabled={!can.update}
                                     autoComplete="off"
                                 />

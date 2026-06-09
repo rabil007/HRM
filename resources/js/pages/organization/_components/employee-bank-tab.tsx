@@ -285,7 +285,7 @@ export function EmployeeBankTab({
                                         )}
                                     >
                                         {row.is_primary ? (
-                                            <span className="text-emerald-400">✓</span>
+                                            <span className="text-emerald-600 dark:text-emerald-400">✓</span>
                                         ) : (
                                             <span className="text-muted-foreground/50">—</span>
                                         )}

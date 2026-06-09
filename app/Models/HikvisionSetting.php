@@ -178,6 +178,8 @@ class HikvisionSetting extends Model
 
         return [
             'api_host' => $hasStoredHost ? (string) $this->api_host : $envHost,
+            'api_key' => $hasStoredKey ? (string) $this->api_key : $envKey,
+            'api_secret' => $hasStoredSecret ? (string) $this->api_secret : $envSecret,
             'enabled' => (bool) $this->enabled,
             'has_api_key' => $hasStoredKey || filled($envKey),
             'has_api_secret' => $hasStoredSecret || filled($envSecret),

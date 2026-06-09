@@ -66,8 +66,8 @@ function CheckboxGrid({
                     <label
                         key={option.id}
                         className={cn(
-                            'flex items-center gap-3 rounded-xl border border-white/5 bg-white/[0.02] px-3 py-2.5 transition-colors',
-                            !disabled && 'cursor-pointer hover:bg-white/[0.04]',
+                            'flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 px-3 py-2.5 transition-colors dark:border-white/5 dark:bg-white/[0.02]',
+                            !disabled && 'cursor-pointer hover:bg-muted/30 dark:hover:bg-white/[0.04]',
                             disabled && 'opacity-70',
                         )}
                     >

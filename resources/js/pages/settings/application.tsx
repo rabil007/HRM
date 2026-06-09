@@ -5,7 +5,6 @@ import {
     CheckCircle2,
     ImageIcon,
     Layout,
-    Lock,
     Mail,
     MessageCircle,
     Palette,
@@ -13,8 +12,8 @@ import {
     Settings2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import PasswordInput from '@/components/password-input';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
+import { SettingsSecretInput } from '@/components/settings/settings-secret-input';
 import { ThemeColorPicker } from '@/components/settings/theme-color-picker';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -801,19 +800,15 @@ export default function ApplicationSettings({
 
                                         <div className="space-y-1.5 sm:col-span-2">
                                             <FieldLabel htmlFor="mail_password">Password</FieldLabel>
-                                            <div className="relative">
-                                                <Lock className="pointer-events-none absolute left-3.5 top-1/2 z-10 size-4 -translate-y-1/2 text-muted-foreground/40" />
-                                                <PasswordInput
-                                                    id="mail_password"
-                                                    value={smtpForm.data.password}
-                                                    onChange={(e) =>
-                                                        smtpForm.setData('password', e.target.value)
-                                                    }
-                                                    placeholder="SMTP password"
-                                                    autoComplete="new-password"
-                                                    className="h-11 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 focus-visible:ring-primary/40"
-                                                />
-                                            </div>
+                                            <SettingsSecretInput
+                                                id="mail_password"
+                                                value={smtpForm.data.password}
+                                                onChange={(e) =>
+                                                    smtpForm.setData('password', e.target.value)
+                                                }
+                                                placeholder="SMTP password"
+                                                autoComplete="new-password"
+                                            />
                                             {smtpForm.errors.password ? (
                                                 <p className="text-xs text-destructive">
                                                     {smtpForm.errors.password}

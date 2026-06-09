@@ -70,6 +70,21 @@ test('users with whatsapp permission can open application settings without appli
         ->assertInertia(fn ($page) => $page->has('whatsapp'));
 });
 
+test('application settings page includes decrypted whatsapp secrets', function () {
+    WhatsAppSetting::current()->storeFromValidated(whatsappSettingsUpdatePayload());
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.whatsapp.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('whatsapp.settings.access_token', 'test-access-token')
+            ->where('whatsapp.settings.app_secret', 'test-app-secret'),
+        );
+});
+
 test('whatsapp settings can be saved with encrypted secrets', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, [

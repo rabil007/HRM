@@ -64,6 +64,8 @@ class WhatsAppSetting extends Model
             'business_account_id' => $this->business_account_id ?? '',
             'phone_number_id' => $this->phone_number_id ?? '',
             'app_id' => $this->app_id ?? '',
+            'access_token' => $this->access_token ?? '',
+            'app_secret' => $this->app_secret ?? '',
             'webhook_verify_token' => $this->webhook_verify_token ?? '',
             'enabled' => (bool) $this->enabled,
             'has_access_token' => filled($this->access_token),

@@ -126,13 +126,13 @@ export function EditableCommandSelectCell({
         <div
             data-employee-field={field}
             className={cn(
-                'group flex min-w-0 flex-col gap-1 rounded-xl border border-white/[0.07] bg-white/[0.03] px-3 py-2.5 transition-colors hover:border-white/[0.12] hover:bg-white/[0.06]',
+                'group flex min-w-0 flex-col gap-1 rounded-xl border border-border/80 bg-muted/40 px-3 py-2.5 transition-colors hover:border-border hover:bg-muted/80 dark:border-white/[0.07] dark:bg-white/[0.03] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.06]',
                 highlightMissing && employeeFieldMissingHighlightClass,
             )}
         >
             <div
                 className={cn(
-                    'text-[10px] font-semibold uppercase tracking-wider text-zinc-600',
+                    'text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
                     highlightMissing && 'text-rose-400',
                 )}
             >
@@ -140,7 +140,7 @@ export function EditableCommandSelectCell({
             </div>
             <button
                 type="button"
-                className="min-w-0 truncate text-left text-xs font-semibold text-zinc-300 hover:text-white disabled:cursor-default disabled:hover:text-zinc-300"
+                className="min-w-0 truncate text-left text-xs font-semibold text-foreground hover:text-primary disabled:cursor-default disabled:hover:text-foreground dark:text-zinc-300 dark:hover:text-white dark:disabled:hover:text-zinc-300"
                 onClick={() => beginEdit(field)}
                 disabled={!canEdit}
             >

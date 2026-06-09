@@ -198,11 +198,11 @@ function buildContractPayload(
 
 function contractStatusClass(status: string | null | undefined): string {
     if (status === 'active') {
-        return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400';
+        return 'border-emerald-500/25 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
     }
 
     if (status === 'draft') {
-        return 'border-amber-500/25 bg-amber-500/10 text-amber-300';
+        return 'border-amber-500/25 bg-amber-500/10 text-amber-600 dark:text-amber-300';
     }
 
     return 'border-zinc-500/25 bg-zinc-500/10 text-muted-foreground';

@@ -22,13 +22,13 @@ export function EmployeeSectionCard({
     return (
         <section
             className={cn(
-                'flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-b from-white/[0.07] to-white/[0.02] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)] backdrop-blur-xl',
+                'flex h-full flex-col overflow-hidden rounded-2xl border border-border/80 bg-card/40 shadow-sm backdrop-blur-xl dark:border-white/[0.08] dark:bg-gradient-to-b dark:from-white/[0.07] dark:to-white/[0.02] dark:shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]',
                 className,
             )}
         >
-            <header className="flex items-start gap-3 border-b border-white/[0.06] px-5 py-4">
+            <header className="flex items-start gap-3 border-b border-border/60 dark:border-white/[0.06] px-5 py-4">
                 {Icon ? (
-                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-white/[0.04] text-muted-foreground">
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl border border-border bg-muted/40 dark:bg-white/[0.04] text-muted-foreground">
                         <Icon className="size-4" aria-hidden />
                     </span>
                 ) : null}

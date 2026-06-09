@@ -244,6 +244,26 @@ test('hikvision test connection returns error message on failure', function () {
         ]);
 });
 
+test('application settings page includes decrypted hikvision credentials', function () {
+    HikvisionSetting::current()->storeFromValidated([
+        'api_host' => 'https://isgp.hikcentralconnect.com',
+        'api_key' => 'stored-api-key',
+        'api_secret' => 'stored-api-secret',
+        'enabled' => true,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);
+
+    $this->actingAs($user)
+        ->get(route('application.edit'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('hikvision.settings.api_key', 'stored-api-key')
+            ->where('hikvision.settings.api_secret', 'stored-api-secret'),
+        );
+});
+
 test('hikvision settings page reports env fallback when database credentials are empty', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.hikvision.view']);

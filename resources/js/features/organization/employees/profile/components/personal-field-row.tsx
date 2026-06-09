@@ -11,10 +11,10 @@ import {
 } from '@/pages/organization/_lib/employee-required-field-labels';
 
 export const personalFieldRowClass =
-    'grid grid-cols-1 gap-2 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-white/[0.06] hover:bg-white/[0.03] sm:grid-cols-[minmax(0,9.5rem)_1fr] sm:items-center sm:gap-5';
+    'grid grid-cols-1 gap-2 rounded-xl border border-transparent px-3 py-2.5 transition-colors hover:border-border hover:bg-muted/40 dark:hover:border-white/[0.06] dark:hover:bg-white/[0.03] sm:grid-cols-[minmax(0,9.5rem)_1fr] sm:items-center sm:gap-5';
 
 export const personalFieldLabelClass =
-    'text-[11px] font-medium uppercase tracking-wider text-zinc-500';
+    'text-[11px] font-medium uppercase tracking-wider text-muted-foreground';
 
 export type PersonalEditableTextRowProps = {
     label: string;
@@ -64,7 +64,7 @@ export function PersonalEditableTextRow({
                     <Input
                         type={inputType}
                         className={cn(
-                            'h-10 rounded-xl border-white/5 bg-white/5',
+                            'h-10 rounded-xl border-input bg-background/50 text-foreground dark:border-white/5 dark:bg-white/5 dark:text-zinc-200',
                             highlightMissing && 'border-rose-500/50',
                         )}
                         value={value}
@@ -83,8 +83,8 @@ export function PersonalEditableTextRow({
                 <button
                     type="button"
                     className={cn(
-                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
-                        highlightMissing && 'text-rose-300',
+                        'text-left text-sm font-medium text-foreground hover:text-primary dark:text-zinc-200 dark:hover:text-white',
+                        highlightMissing && 'text-rose-600 dark:text-rose-300',
                     )}
                     onClick={() => beginEdit(field)}
                 >
@@ -109,7 +109,7 @@ export function PersonalFieldRow({
     return (
         <div className={cn(personalFieldRowClass, className)}>
             <label className={personalFieldLabelClass}>{label}</label>
-            <div className="min-w-0 text-sm font-medium text-zinc-100">{children}</div>
+            <div className="min-w-0 text-sm font-medium text-foreground dark:text-zinc-100">{children}</div>
         </div>
     );
 }
@@ -187,8 +187,8 @@ export function PersonalEditablePhoneRow({
                 <button
                     type="button"
                     className={cn(
-                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
-                        highlightMissing && 'text-rose-300',
+                        'text-left text-sm font-medium text-foreground hover:text-primary dark:text-zinc-200 dark:hover:text-white',
+                        highlightMissing && 'text-rose-600 dark:text-rose-300',
                     )}
                     onClick={() => beginEdit(field)}
                 >
@@ -275,8 +275,8 @@ export function PersonalEditableSelectRow({
                 <button
                     type="button"
                     className={cn(
-                        'text-left text-sm font-medium text-zinc-200 hover:text-white',
-                        highlightMissing && 'text-rose-300',
+                        'text-left text-sm font-medium text-foreground hover:text-primary dark:text-zinc-200 dark:hover:text-white',
+                        highlightMissing && 'text-rose-600 dark:text-rose-300',
                     )}
                     onClick={() => beginEdit(field)}
                 >
