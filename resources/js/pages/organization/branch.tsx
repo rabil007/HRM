@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BranchFormSheet } from '@/features/organization/branches/components/branch-form-sheet';
 import type { Branch as SheetBranch, BranchFormData, Company, Country } from '@/features/organization/branches/types';
 import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 
 type Branch = {
     id: number;
@@ -63,13 +64,26 @@ function changedKeys(oldValues: Record<string, unknown> | null, newValues: Recor
         .sort((a, b) => a.localeCompare(b));
 }
 
+function eventColor(event: string | null) {
+    switch (event?.toLowerCase()) {
+        case 'created':
+            return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400';
+        case 'updated':
+            return 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400';
+        case 'deleted':
+            return 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400';
+        default:
+            return 'bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10';
+    }
+}
+
 function Field({ label, value }: { label: string; value: string }) {
     return (
-        <div className="space-y-1">
+        <div className="flex items-center justify-between gap-3 px-6 py-4">
             <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
                 {label}
             </div>
-            <div className="text-sm font-medium">{value}</div>
+            <div className="text-sm font-medium text-right">{value}</div>
         </div>
     );
 }
@@ -186,33 +200,35 @@ export default function BranchDetails({
                             </div>
                         </CardHeader>
 
-                        <CardContent className="grid gap-6 sm:grid-cols-2">
-                            <Field label="Code" value={branch.code ?? '—'} />
-                            <Field label="Address" value={branch.address ?? '—'} />
-                            <Field label="City" value={branch.city ?? '—'} />
-                            <Field label="Country" value={branch.country ?? '—'} />
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Contact
-                                </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm font-medium">
-                                        <Phone className="h-4 w-4 text-muted-foreground/80" />
-                                        {branch.phone ?? '—'}
+                        <CardContent className="p-0">
+                            <div className="divide-y divide-border dark:divide-white/5">
+                                <Field label="Code" value={branch.code ?? '—'} />
+                                <Field label="Address" value={branch.address ?? '—'} />
+                                <Field label="City" value={branch.city ?? '—'} />
+                                <Field label="Country" value={branch.country ?? '—'} />
+                                <div className="flex items-center justify-between gap-3 px-6 py-4">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                                        Contact
                                     </div>
-                                    <div className="flex items-center gap-2 text-sm font-medium">
-                                        <Mail className="h-4 w-4 text-muted-foreground/80" />
-                                        {branch.email ?? '—'}
+                                    <div className="space-y-1 text-right">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Phone className="h-4 w-4 text-muted-foreground/80" />
+                                            {branch.phone ?? '—'}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Mail className="h-4 w-4 text-muted-foreground/80" />
+                                            {branch.email ?? '—'}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Metadata
-                                </div>
-                                <div className="space-y-2 text-sm font-medium">
-                                    <div>Created: {branch.created_at}</div>
-                                    <div>Updated: {branch.updated_at}</div>
+                                <div className="flex items-center justify-between gap-3 px-6 py-4">
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
+                                        Metadata
+                                    </div>
+                                    <div className="space-y-1 text-right text-sm font-medium">
+                                        <div>Created: {branch.created_at}</div>
+                                        <div>Updated: {branch.updated_at}</div>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -245,31 +261,36 @@ export default function BranchDetails({
 
                 {can_view_audit ? (
                 <Card className="glass-card mt-8 dark:border-white/5 dark:bg-white/5">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-xl bg-muted/60 border border-border/80 dark:bg-white/5 dark:border-white/10 flex items-center justify-center text-muted-foreground">
+                    <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                 <Activity className="h-4 w-4" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg font-bold tracking-tight">
+                                <CardTitle className="text-base font-bold tracking-tight">
                                     Recent activity
                                 </CardTitle>
-                                <div className="text-xs text-muted-foreground/70">
+                                <div className="text-[10px] text-muted-foreground/50">
                                     Latest changes for this branch.
                                 </div>
                             </div>
                         </div>
-                        <Badge className="bg-muted/60 border border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10">
-                            {recent_activity.length} items
+                        <Badge className="bg-muted/50 text-muted-foreground border-border font-mono text-xs dark:bg-white/5 dark:border-white/10">
+                            {recent_activity.length}
                         </Badge>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="p-0">
                         {recent_activity.length === 0 ? (
-                            <div className="rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 p-10 text-center text-sm text-muted-foreground/80">
-                                No recent activity yet.
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="w-12 h-12 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-3 dark:bg-white/[0.03] dark:border-white/10">
+                                    <Activity className="w-5 h-5 text-muted-foreground/20" />
+                                </div>
+                                <p className="text-sm text-muted-foreground/50">
+                                    No activity recorded yet.
+                                </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-border/60 dark:divide-white/5 rounded-xl border border-border/80 dark:border-white/5 overflow-hidden">
+                            <div className="divide-y divide-border dark:divide-white/5">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -278,33 +299,40 @@ export default function BranchDetails({
                                         a.description.trim().toLowerCase() !== (a.event ?? '').trim().toLowerCase();
 
                                     return (
-                                        <div key={a.id} className="px-4 py-4 sm:px-6">
+                                        <div key={a.id} className="px-6 py-4 hover:bg-muted/30 transition-colors dark:hover:bg-white/[0.015]">
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                <div className="min-w-0 space-y-1">
+                                                <div className="min-w-0 space-y-2 flex-1">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-muted/60 border border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10 text-[10px] uppercase font-bold tracking-wider">
+                                                        <Badge
+                                                            className={cn(
+                                                                'text-[10px] uppercase font-bold tracking-wider border px-2 py-0.5',
+                                                                eventColor(a.event),
+                                                            )}
+                                                        >
                                                             {a.event ?? 'event'}
                                                         </Badge>
-                                                        <div className="text-sm font-medium">
+                                                        <span className="text-sm font-semibold text-foreground/90">
                                                             {a.causer?.name ?? 'System'}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground/70">
-                                                            {a.causer?.email ? `(${a.causer.email})` : ''}
-                                                        </div>
+                                                        </span>
+                                                        {a.causer?.email ? (
+                                                            <span className="text-xs text-muted-foreground/50">
+                                                                ({a.causer.email})
+                                                            </span>
+                                                        ) : null}
                                                     </div>
 
                                                     {showDescription ? (
-                                                        <div className="text-sm text-muted-foreground/90">
+                                                        <p className="text-xs text-muted-foreground/70">
                                                             {a.description}
-                                                        </div>
+                                                        </p>
                                                     ) : null}
 
                                                     {shown.length > 0 ? (
-                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                        <div className="flex flex-wrap gap-1.5 pt-0.5">
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
-                                                                    className="rounded-full border border-border bg-muted/60 dark:border-white/10 dark:bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground dark:border-white/10 dark:bg-white/5"
                                                                 >
                                                                     {titleCaseKey(k)}:{' '}
                                                                     <span className="text-muted-foreground/70">
@@ -319,7 +347,7 @@ export default function BranchDetails({
                                                             {keys.length > 4 ? (
                                                                 <button
                                                                     type="button"
-                                                                    className="rounded-full border border-border bg-muted/60 dark:border-white/10 dark:bg-white/5 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted dark:hover:bg-white/10 transition"
+                                                                    className="rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-accent transition dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                                                                     onClick={() =>
                                                                         setExpandedActivity((prev) => ({
                                                                             ...prev,
@@ -334,7 +362,7 @@ export default function BranchDetails({
                                                     ) : null}
                                                 </div>
 
-                                                <div className="shrink-0 text-xs text-muted-foreground/70">
+                                                <div className="shrink-0 text-xs text-muted-foreground/50">
                                                     {formatDisplayDate(a.created_at)}
                                                 </div>
                                             </div>

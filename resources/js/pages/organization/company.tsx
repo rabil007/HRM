@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CompanyFormSheet } from '@/features/organization/companies/components/company-form-sheet';
 import type { Company as SheetCompany, CompanyFormData, Country, Currency } from '@/features/organization/companies/types';
 import { formatDisplayDate, formatDisplayValue } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 
 type Company = {
     id: number;
@@ -81,6 +82,19 @@ function titleCaseKey(key: string): string {
         .replace(/\b\w/g, (m) => m.toUpperCase());
 }
 
+function eventColor(event: string | null) {
+    switch (event?.toLowerCase()) {
+        case 'created':
+            return 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20 dark:text-emerald-400';
+        case 'updated':
+            return 'bg-sky-500/10 text-sky-600 border-sky-500/20 dark:text-sky-400';
+        case 'deleted':
+            return 'bg-red-500/10 text-red-600 border-red-500/20 dark:text-red-400';
+        default:
+            return 'bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10';
+    }
+}
+
 function changedKeys(oldValues: Record<string, unknown> | null, newValues: Record<string, unknown> | null): string[] {
     const keys = new Set<string>([
         ...Object.keys(oldValues ?? {}),
@@ -102,7 +116,7 @@ function InfoRow({
     value: string;
 }) {
     return (
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 py-4 px-6 border-b border-border last:border-0 dark:border-white/5">
             <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground shrink-0 dark:bg-white/5 dark:border-white/10">
                 <Icon className="h-4 w-4" />
             </div>
@@ -255,7 +269,7 @@ export default function CompanyDetails({
                                 </div>
                             </div>
                         </CardHeader>
-                        <CardContent className="grid gap-6 sm:grid-cols-2">
+                        <CardContent className="p-0">
                             <InfoRow icon={Hash} label="Slug" value={company.slug || '—'} />
                             <InfoRow icon={Users} label="Company size" value={company.company_size ?? '—'} />
                             <InfoRow
@@ -270,33 +284,39 @@ export default function CompanyDetails({
                                 value={`${company.country.code ?? ''} ${company.country.name ?? ''}`.trim() || '—'}
                             />
                             <InfoRow icon={Home} label="Address" value={company.address ?? '—'} />
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Contact
+                            <div className="flex items-start gap-3 py-4 px-6 border-b border-border dark:border-white/5">
+                                <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground shrink-0 dark:bg-white/5 dark:border-white/10">
+                                    <Phone className="h-4 w-4" />
                                 </div>
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2 text-sm font-medium">
-                                        <Phone className="h-4 w-4 text-muted-foreground/80" />
-                                        {company.phone ?? '—'}
-                                    </div>
-                                    <div className="flex items-center gap-2 text-sm font-medium">
-                                        <Mail className="h-4 w-4 text-muted-foreground/80" />
-                                        {company.email ?? '—'}
+                                <div>
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Contact</div>
+                                    <div className="mt-1 space-y-1">
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Phone className="h-3.5 w-3.5 text-muted-foreground/80" />
+                                            {company.phone ?? '—'}
+                                        </div>
+                                        <div className="flex items-center gap-2 text-sm font-medium">
+                                            <Mail className="h-3.5 w-3.5 text-muted-foreground/80" />
+                                            {company.email ?? '—'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                            <div className="space-y-2">
-                                <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">
-                                    Locale & Currency
+                            <div className="flex items-start gap-3 py-4 px-6">
+                                <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground shrink-0 dark:bg-white/5 dark:border-white/10">
+                                    <Globe className="h-4 w-4" />
                                 </div>
-                                <div className="space-y-2 text-sm font-medium">
-                                    <div className="flex items-center gap-2">
-                                        <Globe className="h-4 w-4 text-muted-foreground/80" />
-                                        {company.timezone ?? '—'}
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <ShieldCheck className="h-4 w-4 text-muted-foreground/80" />
-                                        {`${company.currency.code ?? ''} ${company.currency.name ?? ''}`.trim() || '—'}
+                                <div>
+                                    <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">Locale &amp; Currency</div>
+                                    <div className="mt-1 space-y-1 text-sm font-medium">
+                                        <div className="flex items-center gap-2">
+                                            <Globe className="h-3.5 w-3.5 text-muted-foreground/80" />
+                                            {company.timezone ?? '—'}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <ShieldCheck className="h-3.5 w-3.5 text-muted-foreground/80" />
+                                            {`${company.currency.code ?? ''} ${company.currency.name ?? ''}`.trim() || '—'}
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -307,14 +327,13 @@ export default function CompanyDetails({
                         <CardHeader className="pb-3">
                             <CardTitle className="text-lg font-bold tracking-tight">Payroll & Compliance</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-5">
+                        <CardContent className="p-0">
                             <InfoRow icon={CalendarClock} label="Payroll cycle" value={company.payroll_cycle ?? '—'} />
                             <InfoRow
                                 icon={CalendarDays}
                                 label="Working days"
                                 value={company.working_days?.length ? company.working_days.join(', ') : '—'}
                             />
-                            <div className="h-px bg-border dark:bg-white/5" />
                             <InfoRow icon={BadgeCheck} label="WPS agent code" value={company.wps_agent_code ?? '—'} />
                             <InfoRow icon={Fingerprint} label="WPS MOL UID" value={company.wps_mol_uid ?? '—'} />
                         </CardContent>
@@ -323,31 +342,36 @@ export default function CompanyDetails({
 
                 {can_view_audit ? (
                 <Card className="border-border bg-card backdrop-blur-xl mt-8 dark:border-white/5 dark:bg-white/5">
-                    <CardHeader className="flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <div className="h-9 w-9 rounded-xl bg-muted/50 border border-border flex items-center justify-center text-muted-foreground dark:bg-white/5 dark:border-white/10">
+                    <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
                                 <Activity className="h-4 w-4" />
                             </div>
                             <div>
-                                <CardTitle className="text-lg font-bold tracking-tight">
+                                <CardTitle className="text-base font-bold tracking-tight">
                                     Recent activity
                                 </CardTitle>
-                                <div className="text-xs text-muted-foreground/70">
+                                <div className="text-[10px] text-muted-foreground/50">
                                     Latest changes for this company.
                                 </div>
                             </div>
                         </div>
-                        <Badge className="bg-muted/50 text-muted-foreground border-border dark:bg-white/5 dark:border-white/10">
-                            {recent_activity.length} items
+                        <Badge className="bg-muted/50 text-muted-foreground border-border font-mono text-xs dark:bg-white/5 dark:border-white/10">
+                            {recent_activity.length}
                         </Badge>
                     </CardHeader>
-                    <CardContent className="space-y-4">
+                    <CardContent className="p-0">
                         {recent_activity.length === 0 ? (
-                            <div className="rounded-xl border border-border bg-muted/50 p-10 text-center text-sm text-muted-foreground/80 dark:border-white/5 dark:bg-white/5">
-                                No recent activity yet.
+                            <div className="flex flex-col items-center justify-center py-16 text-center">
+                                <div className="w-12 h-12 rounded-2xl bg-muted/30 border border-dashed border-border flex items-center justify-center mb-3 dark:bg-white/[0.03] dark:border-white/10">
+                                    <Activity className="w-5 h-5 text-muted-foreground/20" />
+                                </div>
+                                <p className="text-sm text-muted-foreground/50">
+                                    No activity recorded yet.
+                                </p>
                             </div>
                         ) : (
-                            <div className="divide-y divide-border rounded-xl border border-border overflow-hidden dark:divide-white/5 dark:border-white/5">
+                            <div className="divide-y divide-border dark:divide-white/5">
                                 {recent_activity.map((a) => {
                                     const keys = changedKeys(a.old_values, a.new_values);
                                     const isExpanded = expandedActivity[a.id] ?? false;
@@ -356,29 +380,36 @@ export default function CompanyDetails({
                                         a.description.trim().toLowerCase() !== (a.event ?? '').trim().toLowerCase();
 
                                     return (
-                                        <div key={a.id} className="px-4 py-4 sm:px-6">
+                                        <div key={a.id} className="px-6 py-4 hover:bg-muted/30 transition-colors dark:hover:bg-white/[0.015]">
                                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                                <div className="min-w-0 space-y-1">
+                                                <div className="min-w-0 space-y-2 flex-1">
                                                     <div className="flex flex-wrap items-center gap-2">
-                                                        <Badge className="bg-muted/50 text-muted-foreground border-border text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
+                                                        <Badge
+                                                            className={cn(
+                                                                'text-[10px] uppercase font-bold tracking-wider border px-2 py-0.5',
+                                                                eventColor(a.event),
+                                                            )}
+                                                        >
                                                             {a.event ?? 'event'}
                                                         </Badge>
-                                                        <div className="text-sm font-medium">
+                                                        <span className="text-sm font-semibold text-foreground/90">
                                                             {a.causer?.name ?? 'System'}
-                                                        </div>
-                                                        <div className="text-xs text-muted-foreground/70">
-                                                            {a.causer?.email ? `(${a.causer.email})` : ''}
-                                                        </div>
+                                                        </span>
+                                                        {a.causer?.email ? (
+                                                            <span className="text-xs text-muted-foreground/50">
+                                                                ({a.causer.email})
+                                                            </span>
+                                                        ) : null}
                                                     </div>
 
                                                     {showDescription ? (
-                                                        <div className="text-sm text-muted-foreground/90">
+                                                        <p className="text-xs text-muted-foreground/70">
                                                             {a.description}
-                                                        </div>
+                                                        </p>
                                                     ) : null}
 
                                                     {shown.length > 0 ? (
-                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                        <div className="flex flex-wrap gap-1.5 pt-0.5">
                                                             {shown.map((k) => (
                                                                 <span
                                                                     key={k}
@@ -412,7 +443,7 @@ export default function CompanyDetails({
                                                     ) : null}
                                                 </div>
 
-                                                <div className="shrink-0 text-xs text-muted-foreground/70">
+                                                <div className="shrink-0 text-xs text-muted-foreground/50">
                                                     {formatDisplayDate(a.created_at)}
                                                 </div>
                                             </div>

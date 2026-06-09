@@ -65,7 +65,7 @@
 }
 
 @utility glass-card {
-    @apply border-border/70 bg-card/80 backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-white/5;
+    @apply border-border/70 bg-card/80! backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-white/5!;
 }
 
 @utility glow-primary {
