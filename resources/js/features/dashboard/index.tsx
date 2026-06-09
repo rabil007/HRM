@@ -777,7 +777,7 @@ function OrgSnapshotTile({
                     {value.toLocaleString()}
                 </p>
                 {sub && (
-                    <p className="text-[10px] text-muted-foreground/35 mt-0.5">{sub}</p>
+                    <p className="text-[10px] text-muted-foreground/70 dark:text-muted-foreground/40 mt-0.5">{sub}</p>
                 )}
             </div>
             <ArrowUpRight className="h-4 w-4 shrink-0 text-muted-foreground/30 opacity-0 transition-all duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:opacity-100" />

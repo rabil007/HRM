@@ -8,8 +8,8 @@ import type { Employee } from '../types';
 
 const STATUS_CONFIG = {
     active: {
-        dot: 'bg-emerald-400',
-        badge: 'border-emerald-500/25 bg-emerald-500/10 text-emerald-400',
+        dot: 'bg-emerald-500 dark:bg-emerald-400',
+        badge: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/15',
         label: 'Active',
     },
     inactive: {
@@ -18,13 +18,13 @@ const STATUS_CONFIG = {
         label: 'Inactive',
     },
     on_leave: {
-        dot: 'bg-amber-400 animate-pulse',
-        badge: 'border-amber-500/25 bg-amber-500/10 text-amber-400',
+        dot: 'bg-amber-500 dark:bg-amber-400 animate-pulse',
+        badge: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:border-amber-500/30 dark:bg-amber-500/15',
         label: 'On Leave',
     },
     terminated: {
-        dot: 'bg-rose-500',
-        badge: 'border-rose-500/25 bg-rose-500/10 text-rose-400',
+        dot: 'bg-rose-500 dark:bg-rose-400',
+        badge: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 dark:border-rose-500/30 dark:bg-rose-500/15',
         label: 'Terminated',
     },
 } as const;
@@ -32,10 +32,10 @@ const STATUS_CONFIG = {
 const POSITION_COLORS = [
     'border-primary/20 bg-primary/10 text-primary',
     'border-accent/20 bg-accent/10 text-accent',
-    'border-sky-500/20 bg-sky-500/10 text-sky-400',
-    'border-emerald-500/20 bg-emerald-500/10 text-emerald-400',
-    'border-amber-500/20 bg-amber-500/10 text-amber-400',
-    'border-rose-500/20 bg-rose-500/10 text-rose-400',
+    'border-sky-500/20 bg-sky-500/10 text-sky-600 dark:text-sky-400 dark:border-sky-500/30 dark:bg-sky-500/15',
+    'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/15',
+    'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:border-amber-500/30 dark:bg-amber-500/15',
+    'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 dark:border-rose-500/30 dark:bg-rose-500/15',
 ];
 
 export function EmployeeCard({
@@ -75,7 +75,7 @@ export function EmployeeCard({
                         >
                             {employee.name}
                         </div>
-                        <span className="mt-1 inline-block rounded-md bg-white/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground/70">
+                        <span className="mt-1 inline-block rounded-md bg-muted dark:bg-white/8 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-muted-foreground">
                             {employee.employee_no}
                         </span>
                     </div>
@@ -92,16 +92,16 @@ export function EmployeeCard({
 
                 {/* Contact rows */}
                 <div className="mt-2 flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70 min-w-0">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                         <Mail className="h-3 w-3 shrink-0 text-primary/60" />
                         <span className="truncate">{employee.work_email ?? '—'}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground/70 min-w-0">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                         <Phone className="h-3 w-3 shrink-0 text-primary/60" />
                         <span className="truncate">{employee.phone ?? '—'}</span>
                     </div>
                     {birthday ? (
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground/70 min-w-0">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                             <Cake className="h-3 w-3 shrink-0 text-primary/60" />
                             <span>{birthday}</span>
                         </div>
