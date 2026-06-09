@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\AppSetting;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Course;
@@ -8,6 +9,9 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Support\Settings\SettingKey;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 test('guests cannot print employee cv', function () {
     $employee = Employee::factory()->create();
@@ -60,7 +64,7 @@ test('authenticated users can open printable adnoc seafarer cv', function () {
         ->assertSuccessful()
         ->assertSee('alt="ADNOC"', false)
         ->assertSee('data:image/png;base64,', false)
-        ->assertSee('ADNOC Logistics &amp; Services', false)
+        ->assertDontSee('ADNOC Logistics &amp; Services', false)
         ->assertSee('Standard CV Form (Seafarer)', false)
         ->assertSee('SECTION 7 - LAUNGAGES KNOWN', false)
         ->assertSee('SECTION 11 - REFERENCES', false)
@@ -71,6 +75,118 @@ test('authenticated users can open printable adnoc seafarer cv', function () {
         ->assertSee('SECTION 1 - PERSONAL DATA', false)
         ->assertSee('CAPTAIN AHMED', false)
         ->assertSee('View A4 PDF', false);
+});
+
+test('adnoc cv shows company logo on the left when company has a logo', function () {
+    Storage::fake('public');
+
+    $logoPath = 'company-logos/test-logo.png';
+    Storage::disk('public')->put(
+        $logoPath,
+        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    );
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CLG',
+        'name' => 'Company Logo Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CLG',
+        'name' => 'Company Logo Currency',
+        'symbol' => 'L$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Logo Co',
+        'slug' => 'logo-co',
+        'logo' => $logoPath,
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Logo Seafarer',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('alt="Company"', false)
+        ->assertSee('head-logo-cell--left', false)
+        ->assertSee('data:image/png;base64,', false);
+});
+
+test('adnoc cv shows application main logo on the left when branding logo is configured', function () {
+    Storage::fake('public');
+
+    $logoPath = 'settings/main_logo-test.png';
+    Storage::disk('public')->put(
+        $logoPath,
+        base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='),
+    );
+
+    AppSetting::query()->updateOrCreate(
+        ['key' => SettingKey::MainLogo],
+        ['value' => $logoPath, 'type' => 'file'],
+    );
+    Cache::forget('app.settings.all');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'MLG',
+        'name' => 'Main Logo Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'MLG',
+        'name' => 'Main Logo Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Branding Co',
+        'slug' => 'branding-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Branded Seafarer',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}/cv")
+        ->assertSuccessful()
+        ->assertSee('alt="Company"', false)
+        ->assertSee('data:image/png;base64,', false);
 });
 
 test('authenticated users can download adnoc cv as pdf', function () {

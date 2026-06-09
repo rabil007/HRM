@@ -5,9 +5,14 @@
         @endfor
     </colgroup>
     <tr class="cv-head-brand">
-        <td colspan="2" class="head-spacer">&nbsp;</td>
+        <td colspan="2" class="head-logo-cell head-logo-cell--left">
+            @if (! empty($company_logo_url))
+                <img src="{{ $company_logo_url }}" alt="Company">
+            @else
+                &nbsp;
+            @endif
+        </td>
         <td colspan="8" class="head-title-cell">
-            <div class="head-title">ADNOC Logistics &amp; Services</div>
             <div class="head-subtitle">Standard CV Form (Seafarer)</div>
         </td>
         <td colspan="2" class="head-logo-cell">

@@ -14,6 +14,7 @@ use App\Support\Employees\SummarizeSeaServiceExperience;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 final class AdnocSeafarerCvData
@@ -96,18 +97,14 @@ final class AdnocSeafarerCvData
 
         $branding = $settings->brandingUrls();
         $mailBranding = $settings->mailBranding();
-        $logoUrl = self::resolveAdnocCvLogoSrc()
-            ?? self::resolveAbsoluteUrl(
-                $branding['main_logo_url']
-                ?? $branding['email_branding_logo_url']
-                ?? $mailBranding['logo_src']
-                ?? null,
-            );
+        $companyLogoUrl = self::resolveCompanyCvLogoSrc($company, $settings, $branding, $mailBranding);
+        $adnocLogoUrl = self::resolveAdnocCvLogoSrc();
 
         $dob = $employee->date_of_birth ? CarbonImmutable::parse($employee->date_of_birth) : null;
 
         return [
-            'logo_url' => $logoUrl,
+            'company_logo_url' => $companyLogoUrl,
+            'logo_url' => $adnocLogoUrl,
             'source_of_cv' => strtoupper((string) (
                 $settings->get(SettingKey::AppName)
                 ?? $company?->name
@@ -246,10 +243,150 @@ final class AdnocSeafarerCvData
         ];
     }
 
+    /**
+     * @param  array<string, string|null>  $branding
+     * @param  array<string, mixed>  $mailBranding
+     */
+    private static function resolveCompanyCvLogoSrc(
+        ?Company $company,
+        SettingService $settings,
+        array $branding,
+        array $mailBranding,
+    ): ?string {
+        if (filled($company?->logo)) {
+            $embedded = self::embedPublicDiskPath((string) $company->logo);
+
+            if ($embedded !== null) {
+                return $embedded;
+            }
+        }
+
+        foreach ([
+            SettingKey::MainLogo,
+            SettingKey::SidebarLogo,
+            SettingKey::EmailBrandingLogo,
+            SettingKey::LoginLogo,
+        ] as $key) {
+            $embedded = self::embedSettingFile($settings, $key);
+
+            if ($embedded !== null) {
+                return $embedded;
+            }
+        }
+
+        $mailLogo = $mailBranding['logo_src'] ?? null;
+
+        if (is_string($mailLogo) && $mailLogo !== '') {
+            $embedded = self::embedFromUrl($mailLogo);
+
+            if ($embedded !== null) {
+                return $embedded;
+            }
+        }
+
+        return self::embedFromUrl(
+            $branding['main_logo_url']
+            ?? $branding['email_branding_logo_url']
+            ?? $branding['login_logo_url']
+            ?? null,
+        );
+    }
+
+    private static function embedSettingFile(SettingService $settings, string $key): ?string
+    {
+        $path = $settings->get($key);
+
+        if (! filled($path)) {
+            return null;
+        }
+
+        return self::embedPublicDiskPath((string) $path);
+    }
+
     private static function resolveAdnocCvLogoSrc(): ?string
     {
-        $path = public_path('adnoc-logo.png');
+        return self::embedFilePath(public_path('adnoc-logo.png'));
+    }
 
+    private static function embedPublicDiskPath(string $path): ?string
+    {
+        $disk = Storage::disk('public');
+
+        if (! $disk->exists($path)) {
+            return null;
+        }
+
+        return self::embedFilePath($disk->path($path));
+    }
+
+    private static function embedFromUrl(?string $url): ?string
+    {
+        if (! is_string($url) || trim($url) === '') {
+            return null;
+        }
+
+        $url = trim($url);
+
+        if (str_starts_with($url, 'data:')) {
+            return self::isEmbeddableRasterDataUri($url) ? $url : null;
+        }
+
+        $storagePath = self::storagePathFromUrl($url);
+
+        if ($storagePath !== null) {
+            return self::embedPublicDiskPath($storagePath);
+        }
+
+        $absoluteUrl = self::resolveAbsoluteUrl($url);
+
+        if ($absoluteUrl === null) {
+            return null;
+        }
+
+        $storagePath = self::storagePathFromUrl($absoluteUrl);
+
+        if ($storagePath !== null) {
+            return self::embedPublicDiskPath($storagePath);
+        }
+
+        if (! str_starts_with($absoluteUrl, 'http://') && ! str_starts_with($absoluteUrl, 'https://')) {
+            return null;
+        }
+
+        $contents = @file_get_contents($absoluteUrl);
+
+        if ($contents === false) {
+            return null;
+        }
+
+        $mime = self::detectImageMimeType($contents, $absoluteUrl);
+
+        if ($mime === null) {
+            return null;
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($contents);
+    }
+
+    private static function storagePathFromUrl(string $url): ?string
+    {
+        $path = parse_url($url, PHP_URL_PATH);
+
+        if (! is_string($path) || $path === '') {
+            return null;
+        }
+
+        if (preg_match('#/storage/(.+)$#', $path, $matches) !== 1) {
+            return null;
+        }
+
+        $relativePath = urldecode($matches[1]);
+
+        return $relativePath !== '' ? $relativePath : null;
+    }
+
+    private static function embedFilePath(string $path): ?string
+    {
         if (! is_file($path)) {
             return null;
         }
@@ -260,7 +397,58 @@ final class AdnocSeafarerCvData
             return null;
         }
 
-        return 'data:image/png;base64,'.base64_encode($contents);
+        $mime = self::detectImageMimeType($contents, $path);
+
+        if ($mime === null) {
+            return null;
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode($contents);
+    }
+
+    private static function detectImageMimeType(string $contents, string $reference): ?string
+    {
+        $extension = strtolower((string) pathinfo(parse_url($reference, PHP_URL_PATH) ?? $reference, PATHINFO_EXTENSION));
+
+        if ($extension === 'svg' || str_contains(strtolower(substr($contents, 0, 256)), '<svg')) {
+            return null;
+        }
+
+        $mime = null;
+
+        if (function_exists('finfo_open')) {
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+
+            if ($finfo !== false) {
+                $detected = finfo_buffer($finfo, $contents);
+                finfo_close($finfo);
+
+                if (is_string($detected) && str_starts_with($detected, 'image/')) {
+                    $mime = $detected;
+                }
+            }
+        }
+
+        if ($mime === null) {
+            $mime = match ($extension) {
+                'jpg', 'jpeg' => 'image/jpeg',
+                'png' => 'image/png',
+                'gif' => 'image/gif',
+                'webp' => 'image/webp',
+                default => null,
+            };
+        }
+
+        return $mime;
+    }
+
+    private static function isEmbeddableRasterDataUri(string $dataUri): bool
+    {
+        if (preg_match('#^data:(image/(?:png|jpe?g|gif|webp));base64,#i', $dataUri) !== 1) {
+            return false;
+        }
+
+        return true;
     }
 
     private static function resolveAbsoluteUrl(?string $url): ?string

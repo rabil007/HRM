@@ -108,6 +108,7 @@
             min-height: 14mm;
             padding-top: 0;
             padding-bottom: 0;
+            vertical-align: middle;
         }
 
         table.cv-head tr.head-meta td {
@@ -132,16 +133,15 @@
             border-top: none;
         }
 
-        .head-spacer {
-            padding: 0;
-            width: 16.67%;
-        }
-
         .head-logo-cell {
             text-align: right;
             vertical-align: middle;
             padding: 0;
             width: 16.67%;
+        }
+
+        .head-logo-cell--left {
+            text-align: left;
         }
 
         .head-logo-cell img {
@@ -154,17 +154,16 @@
             margin-left: auto;
         }
 
-        .head-title-cell {
-            text-align: center;
-            padding: 0 4px 2px;
-            width: 66.66%;
+        .head-logo-cell--left img {
+            margin-left: 0;
+            margin-right: auto;
         }
 
-        .head-title {
-            font-size: 12pt;
-            font-weight: 700;
-            color: #0070c0;
-            line-height: 1.1;
+        .head-title-cell {
+            text-align: center;
+            vertical-align: middle;
+            padding: 0 4px;
+            width: 66.66%;
         }
 
         .head-subtitle {
