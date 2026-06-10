@@ -7,6 +7,7 @@ use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
+use App\Http\Controllers\Organization\CrewDeploymentController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
@@ -116,6 +117,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/users/{user}/memberships', [UserController::class, 'storeMembership'])->middleware('can:users.update')->name('organization.users.memberships.store');
     Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware('can:users.update')->name('organization.users.memberships.update');
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
+
+    Route::get('organization/crew-deployments', [CrewDeploymentController::class, 'index'])->middleware('can:crew_deployments.view')->name('organization.crew-deployments.index');
+    Route::post('organization/crew-deployments', [CrewDeploymentController::class, 'store'])->middleware('can:crew_deployments.manage')->name('organization.crew-deployments.store');
+    Route::get('organization/crew-deployments/import/template', [CrewDeploymentController::class, 'importTemplate'])->middleware('can:crew_deployments.manage')->name('organization.crew-deployments.import.template');
+    Route::post('organization/crew-deployments/import', [CrewDeploymentController::class, 'import'])->middleware('can:crew_deployments.manage')->name('organization.crew-deployments.import');
+    Route::get('organization/crew-deployments/export', [CrewDeploymentController::class, 'export'])->middleware('can:crew_deployments.view')->name('organization.crew-deployments.export');
+    Route::put('organization/crew-deployments/{deployment}', [CrewDeploymentController::class, 'update'])->middleware('can:crew_deployments.manage')->name('organization.crew-deployments.update');
+    Route::delete('organization/crew-deployments/{deployment}', [CrewDeploymentController::class, 'destroy'])->middleware('can:crew_deployments.manage')->name('organization.crew-deployments.destroy');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');

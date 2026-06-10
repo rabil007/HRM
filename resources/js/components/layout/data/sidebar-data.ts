@@ -22,6 +22,7 @@ import {
     PiggyBank,
     Radio,
     Contact,
+    Ship,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -76,6 +77,7 @@ const baseSidebarData: SidebarData = {
             title: 'Employees',
             items: [
                 { title: 'Employee', url: '/organization/employees', icon: Users },
+                { title: 'Crew deployments', url: '/organization/crew-deployments', icon: Ship },
                 { title: 'Documents', url: documents.url(), icon: FileText },
             ],
         },
@@ -179,6 +181,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'positions.view') ? item : null;
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
+                        case '/organization/crew-deployments':
+                            return has(permissions, 'crew_deployments.view') ? item : null;
                         case documents.url():
                             return has(permissions, 'documents.view') ? item : null;
                         case '/organization/roles':
