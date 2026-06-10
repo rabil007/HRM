@@ -13,6 +13,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
+use App\Support\CrewDeployments\CrewDeploymentBoardSort;
 use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,18 +30,23 @@ class CrewDeploymentController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        $view = $request->string('view')->toString() ?: 'current';
         $status = $request->string('status')->toString() ?: null;
         $search = $request->string('search')->toString() ?: null;
 
+        [$sort, $direction] = CrewDeploymentBoardSort::normalize(
+            $request->string('sort')->toString() ?: null,
+            $request->string('direction')->toString() ?: null,
+        );
+
         $result = $boardQuery->paginate(
             companyId: $companyId,
-            view: in_array($view, ['current', 'all'], true) ? $view : 'current',
             status: $status,
             search: $search,
             rankId: $request->integer('rank_id') ?: null,
             clientId: $request->integer('client_id') ?: null,
             companyVisaTypeId: $request->integer('company_visa_type_id') ?: null,
+            sort: $sort,
+            direction: $direction,
             perPage: min(max($request->integer('per_page', 25), 10), 100),
         );
 
@@ -58,12 +64,13 @@ class CrewDeploymentController extends Controller
             ],
             'summary' => $result['summary'],
             'filters' => [
-                'view' => $view,
                 'status' => $status,
                 'search' => $search,
                 'rank_id' => $request->integer('rank_id') ?: null,
                 'client_id' => $request->integer('client_id') ?: null,
                 'company_visa_type_id' => $request->integer('company_visa_type_id') ?: null,
+                'sort' => $sort,
+                'direction' => $direction,
             ],
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
@@ -155,7 +162,7 @@ class CrewDeploymentController extends Controller
             'date disembarked',
             'date travelled',
             'vessel',
-            'company visa type',
+            'sponsor',
             'client',
             'remarks',
         ])."\n";

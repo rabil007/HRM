@@ -6,7 +6,6 @@ use App\Models\EmployeeDeployment;
 use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
 
 final class CrewDeploymentBoardQuery
 {
@@ -18,14 +17,16 @@ final class CrewDeploymentBoardQuery
      */
     public function paginate(
         int $companyId,
-        string $view = 'current',
         ?string $status = null,
         ?string $search = null,
         ?int $rankId = null,
         ?int $clientId = null,
         ?int $companyVisaTypeId = null,
+        ?string $sort = null,
+        ?string $direction = null,
         int $perPage = 25,
     ): array {
+        [$sortColumn, $sortDirection] = CrewDeploymentBoardSort::normalize($sort, $direction);
         $baseQuery = EmployeeDeployment::query()
             ->where('employee_deployments.company_id', $companyId)
             ->with([
@@ -34,16 +35,6 @@ final class CrewDeploymentBoardQuery
                 'client',
                 'companyVisaType',
             ]);
-
-        if ($view === 'current') {
-            $currentIds = $this->currentDeploymentIds($companyId);
-
-            if ($currentIds === []) {
-                $baseQuery->whereRaw('1 = 0');
-            } else {
-                $baseQuery->whereIn('employee_deployments.id', $currentIds);
-            }
-        }
 
         $this->applySearch($baseQuery, $search);
         $this->applyRelationFilters($baseQuery, $rankId, $clientId, $companyVisaTypeId);
@@ -54,9 +45,9 @@ final class CrewDeploymentBoardQuery
             $this->applyStatusFilter($baseQuery, $status);
         }
 
+        CrewDeploymentBoardSort::apply($baseQuery, $sortColumn, $sortDirection);
+
         $paginator = $baseQuery
-            ->orderByDesc('employee_deployments.joined_date')
-            ->orderByDesc('employee_deployments.created_at')
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (EmployeeDeployment $deployment) => EmployeeDeploymentPresenter::toArray($deployment));
@@ -195,33 +186,5 @@ final class CrewDeploymentBoardQuery
         $summary['total'] = $deployments->count();
 
         return $summary;
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function currentDeploymentIds(int $companyId): array
-    {
-        $today = CarbonImmutable::today();
-
-        return EmployeeDeployment::query()
-            ->where('company_id', $companyId)
-            ->orderByDesc('joined_date')
-            ->orderByDesc('created_at')
-            ->get()
-            ->groupBy('employee_id')
-            ->map(function (Collection $group) use ($today): int {
-                $openTour = $group->first(function (EmployeeDeployment $deployment) use ($today): bool {
-                    if ($deployment->joined_date === null || $deployment->joined_date->gt($today)) {
-                        return false;
-                    }
-
-                    return $deployment->disembarked_date === null || $deployment->disembarked_date->gt($today);
-                });
-
-                return ($openTour ?? $group->first())->id;
-            })
-            ->values()
-            ->all();
     }
 }

@@ -1,6 +1,6 @@
 import { Head, router } from '@inertiajs/react';
 import { Download, Filter, Plus, Search, Upload, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import { destroy as destroyDeployment } from '@/actions/App/Http/Controllers/Organization/CrewDeploymentController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -19,10 +19,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
+import {
+    DEFAULT_DEPLOYMENT_SORT,
+    DEFAULT_DEPLOYMENT_SORT_DIRECTION,
+    DEPLOYMENT_SORT_OPTIONS,
+} from '@/features/organization/crew-deployments/crew-deployment-sort-options';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
+import { SortableDeploymentTableHead } from '@/features/organization/crew-deployments/sortable-deployment-table-head';
 import type {
     DeploymentItem,
     DeploymentSummary,
@@ -44,12 +49,13 @@ type Props = {
     deployments: PaginationMeta & { data: DeploymentItem[] };
     summary: DeploymentSummary;
     filters: {
-        view: string;
         status: string | null;
         search: string | null;
         rank_id: number | null;
         client_id: number | null;
         company_visa_type_id: number | null;
+        sort: string;
+        direction: string;
     };
     employees: EmployeeOption[];
     ranks: Option[];
@@ -86,16 +92,20 @@ export default function CrewDeploymentsIndex({
         url: '/organization/crew-deployments',
         search: filters.search ?? '',
         filters: {
-            view: filters.view,
             status: filters.status ?? '',
             rank_id: filters.rank_id ? String(filters.rank_id) : '',
             client_id: filters.client_id ? String(filters.client_id) : '',
             company_visa_type_id: filters.company_visa_type_id
                 ? String(filters.company_visa_type_id)
                 : '',
+            sort: filters.sort,
+            direction: filters.direction,
         },
         pagination: deployments,
     });
+
+    const activeSort = filters.sort ?? DEFAULT_DEPLOYMENT_SORT;
+    const activeDirection = filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
@@ -104,20 +114,42 @@ export default function CrewDeploymentsIndex({
         if (filters.client_id) count++;
         if (filters.company_visa_type_id) count++;
         if (filters.search) count++;
+        if (
+            activeSort !== DEFAULT_DEPLOYMENT_SORT ||
+            activeDirection !== DEFAULT_DEPLOYMENT_SORT_DIRECTION
+        ) {
+            count++;
+        }
         return count;
-    }, [filters]);
+    }, [activeDirection, activeSort, filters]);
 
     const clearFilters = (): void => {
         list.visit({
-            view: filters.view,
             status: '',
             rank_id: '',
             client_id: '',
             company_visa_type_id: '',
             search: '',
+            sort: DEFAULT_DEPLOYMENT_SORT,
+            direction: DEFAULT_DEPLOYMENT_SORT_DIRECTION,
             page: null,
         });
     };
+
+    const handleColumnSort = useCallback(
+        (sortKey: string): void => {
+            if (activeSort === sortKey) {
+                list.applyFilters({
+                    direction: activeDirection === 'asc' ? 'desc' : 'asc',
+                });
+
+                return;
+            }
+
+            list.applyFilters({ sort: sortKey, direction: 'desc' });
+        },
+        [activeDirection, activeSort, list],
+    );
 
     const openCreate = (): void => {
         setEditing(null);
@@ -227,17 +259,6 @@ export default function CrewDeploymentsIndex({
                         ) : null}
                     </div>
 
-                    <Tabs
-                        value={filters.view}
-                        onValueChange={(view) => list.applyFilters({ view })}
-                        className="mb-4"
-                    >
-                        <TabsList>
-                            <TabsTrigger value="current">Current crew</TabsTrigger>
-                            <TabsTrigger value="all">All assignments</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-
                     <div className="flex flex-col gap-3 lg:flex-row">
                         <div className="relative min-w-0 flex-1">
                             <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground/40" />
@@ -249,7 +270,7 @@ export default function CrewDeploymentsIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:w-auto lg:shrink-0">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:w-auto lg:shrink-0">
                             <AppSelect
                                 value={filters.rank_id ? String(filters.rank_id) : ''}
                                 onValueChange={(rankId) =>
@@ -293,17 +314,39 @@ export default function CrewDeploymentsIndex({
                                 onValueChange={(companyVisaTypeId) =>
                                     list.applyFilters({ company_visa_type_id: companyVisaTypeId })
                                 }
-                                placeholder="All visa types"
+                                placeholder="All sponsors"
                                 variant="dark"
                                 className="h-10"
                             >
-                                <AppSelectItem value="">All visa types</AppSelectItem>
+                                <AppSelectItem value="">All sponsors</AppSelectItem>
                                 {company_visa_types.map((companyVisaType) => (
                                     <AppSelectItem
                                         key={companyVisaType.id}
                                         value={String(companyVisaType.id)}
                                     >
                                         {companyVisaType.name}
+                                    </AppSelectItem>
+                                ))}
+                            </AppSelect>
+
+                            <AppSelect
+                                value={activeSort}
+                                onValueChange={(sort) =>
+                                    list.applyFilters({
+                                        sort,
+                                        direction:
+                                            sort === activeSort
+                                                ? activeDirection
+                                                : DEFAULT_DEPLOYMENT_SORT_DIRECTION,
+                                    })
+                                }
+                                placeholder="Sort by"
+                                variant="dark"
+                                className="h-10"
+                            >
+                                {DEPLOYMENT_SORT_OPTIONS.map((option) => (
+                                    <AppSelectItem key={option.value} value={option.value}>
+                                        {option.label}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
@@ -316,22 +359,134 @@ export default function CrewDeploymentsIndex({
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead>Where now</DataTableHead>
-                        <DataTableHead>Emp. no</DataTableHead>
-                        <DataTableHead>Name</DataTableHead>
-                        <DataTableHead>Rank</DataTableHead>
-                        <DataTableHead>Nationality</DataTableHead>
-                        <DataTableHead>Vessel</DataTableHead>
-                        <DataTableHead>Hire date</DataTableHead>
-                        <DataTableHead>Arrived</DataTableHead>
-                        <DataTableHead>Standby from</DataTableHead>
-                        <DataTableHead>Standby to</DataTableHead>
-                        <DataTableHead>Standby days</DataTableHead>
-                        <DataTableHead>Joined</DataTableHead>
-                        <DataTableHead>Disembarked</DataTableHead>
-                        <DataTableHead>Travelled</DataTableHead>
-                        <DataTableHead>Total days</DataTableHead>
-                        <DataTableHead>Company visa type</DataTableHead>
-                        <DataTableHead>Client</DataTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="employee_no"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Emp. no
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="employee_name"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Name
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="rank"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Rank
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="nationality"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Nationality
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="vessel_name"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Vessel
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="hire_date"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Hire date
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="arrived_date"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Arrived
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="standby_from"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Standby from
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="standby_to"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Standby to
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="standby_days"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Standby days
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="joined_date"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Joined
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="disembarked_date"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Disembarked
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="travelled_date"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Travelled
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="total_days"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Total days
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="sponsor"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Sponsor
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="client"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Client
+                        </SortableDeploymentTableHead>
                         <DataTableHead>Remarks</DataTableHead>
                         {can.manage ? (
                             <DataTableHead className="text-right">Actions</DataTableHead>

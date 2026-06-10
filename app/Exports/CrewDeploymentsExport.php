@@ -42,7 +42,7 @@ class CrewDeploymentsExport implements FromCollection, WithHeadings, WithMapping
             'Disembarked Date',
             'Travelled Date',
             'Total Days',
-            'Company Visa Type',
+            'Sponsor',
             'Client',
             'Remarks',
         ];

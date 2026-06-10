@@ -159,7 +159,7 @@ test('authorized users can store update and destroy crew deployments', function 
     expect(EmployeeDeployment::query()->find($deployment->id))->toBeNull();
 });
 
-test('current crew view shows only latest open assignment per employee', function () {
+test('deployment board shows all assignment records per employee', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     EmployeeDeployment::query()->create([
@@ -181,16 +181,12 @@ test('current crew view shows only latest open assignment per employee', functio
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-deployments.index', ['view' => 'current']))
+        ->get(route('organization.crew-deployments.index'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->has('deployments.data', 1)
-            ->where('deployments.data.0.vessel_name', 'Current Vessel'));
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-deployments.index', ['view' => 'all']))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('deployments.data', 2));
+            ->has('deployments.data', 2)
+            ->where('deployments.data.0.vessel_name', 'Current Vessel')
+            ->where('deployments.data.1.vessel_name', 'Old Vessel'));
 });
 
 test('authorized users can download crew deployment export', function () {
@@ -271,6 +267,92 @@ test('import service skips rows with unknown employee numbers', function () {
     @unlink($path);
 });
 
+test('crew deployment board can sort assignments by employee name', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $employeeAlpha = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'CD100',
+            'name' => 'Alpha Crew',
+            'rank_id' => $rank->id,
+            'status' => 'active',
+        ]);
+
+    $employeeZulu = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'CD200',
+            'name' => 'Zulu Crew',
+            'rank_id' => $rank->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employeeZulu->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Zulu Vessel',
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employeeAlpha->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Alpha Vessel',
+        'joined_date' => CarbonImmutable::today()->subDays(2),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', [
+            'sort' => 'employee_name',
+            'direction' => 'asc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 2)
+            ->where('deployments.data.0.employee_name', 'Alpha Crew')
+            ->where('deployments.data.1.employee_name', 'Zulu Crew')
+            ->where('filters.sort', 'employee_name')
+            ->where('filters.direction', 'asc'));
+});
+
+test('crew deployment board can sort assignments by total days', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Short Tour',
+        'joined_date' => '2024-01-01',
+        'disembarked_date' => '2024-01-10',
+    ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Long Tour',
+        'joined_date' => '2024-02-01',
+        'disembarked_date' => '2024-03-01',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', [
+            'sort' => 'total_days',
+            'direction' => 'desc',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 2)
+            ->where('deployments.data.0.vessel_name', 'Long Tour')
+            ->where('deployments.data.0.total_days', 30)
+            ->where('deployments.data.1.vessel_name', 'Short Tour')
+            ->where('deployments.data.1.total_days', 10));
+});
+
 test('crew deployment board can filter by status', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
@@ -285,7 +367,6 @@ test('crew deployment board can filter by status', function () {
 
     $this->actingAs($user)
         ->get(route('organization.crew-deployments.index', [
-            'view' => 'current',
             'status' => DeploymentStatus::STANDBY,
         ]))
         ->assertOk()

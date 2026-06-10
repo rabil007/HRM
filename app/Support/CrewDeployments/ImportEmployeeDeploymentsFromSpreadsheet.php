@@ -99,7 +99,7 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 : null;
 
             if ($companyVisaTypeName !== '' && $companyVisaTypeId === null) {
-                $errors[] = 'Row '.($index + 1).": company visa type \"{$companyVisaTypeName}\" not found.";
+                $errors[] = 'Row '.($index + 1).": sponsor \"{$companyVisaTypeName}\" not found.";
             }
 
             $maxSort = EmployeeDeployment::query()
