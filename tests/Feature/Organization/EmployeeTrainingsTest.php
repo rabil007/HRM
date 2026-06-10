@@ -499,3 +499,170 @@ test('training csv import respects template visible fields', function () {
         ->and($row->issue_date)->toBeNull()
         ->and($row->institute_center)->toBeNull();
 });
+
+test('users with permission can bulk delete training records', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRB',
+        'name' => 'Training Bulk Land',
+        'dial_code' => '+990',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRB',
+        'name' => 'Training Bulk Currency',
+        'symbol' => 'B$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Bulk Co',
+        'slug' => 'training-bulk-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9007',
+            'name' => 'Bulk Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $first = EmployeeTraining::factory()->forEmployee($employee)->create(['sort_order' => 0]);
+    $second = EmployeeTraining::factory()->forEmployee($employee)->create(['sort_order' => 1]);
+    $third = EmployeeTraining::factory()->forEmployee($employee)->create(['sort_order' => 2]);
+
+    $this->delete(route('organization.employees.training.bulk-destroy', $employee), [
+        'training_ids' => [$first->id, $second->id],
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->assertSoftDeleted('employee_trainings', ['id' => $first->id]);
+    $this->assertSoftDeleted('employee_trainings', ['id' => $second->id]);
+    expect(EmployeeTraining::query()->whereKey($third->id)->exists())->toBeTrue();
+});
+
+test('bulk delete ignores training records from another employee', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRO',
+        'name' => 'Training Other Land',
+        'dial_code' => '+989',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRO',
+        'name' => 'Training Other Currency',
+        'symbol' => 'O$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Other Co',
+        'slug' => 'training-other-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9008',
+            'name' => 'Own Trainee',
+            'status' => 'active',
+        ]);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9009',
+            'name' => 'Other Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.training.manage']);
+
+    $ownRecord = EmployeeTraining::factory()->forEmployee($employee)->create();
+    $otherRecord = EmployeeTraining::factory()->forEmployee($otherEmployee)->create();
+
+    $this->delete(route('organization.employees.training.bulk-destroy', $employee), [
+        'training_ids' => [$ownRecord->id, $otherRecord->id],
+    ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->assertSoftDeleted('employee_trainings', ['id' => $ownRecord->id]);
+    expect(EmployeeTraining::query()->whereKey($otherRecord->id)->exists())->toBeTrue();
+});
+
+test('users without permission cannot bulk delete training records', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TRF',
+        'name' => 'Training Forbidden Land',
+        'dial_code' => '+988',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TRF',
+        'name' => 'Training Forbidden Currency',
+        'symbol' => 'F$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Forbidden Co',
+        'slug' => 'training-forbidden-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9010',
+            'name' => 'Forbidden Trainee',
+            'status' => 'active',
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $record = EmployeeTraining::factory()->forEmployee($employee)->create();
+
+    $this->delete(route('organization.employees.training.bulk-destroy', $employee), [
+        'training_ids' => [$record->id],
+    ])->assertForbidden();
+
+    expect(EmployeeTraining::query()->whereKey($record->id)->exists())->toBeTrue();
+});

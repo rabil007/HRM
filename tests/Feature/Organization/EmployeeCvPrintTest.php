@@ -452,12 +452,9 @@ test('adnoc cv paginates long stcw training lists in pdf mode', function () {
     $html = view('employees.adnoc-cv', $data)->render();
 
     expect($html)
-        ->toContain('class="cv-page-header-repeat"')
-        ->toContain('class="cv-page-header-repeat cv-closing-page"')
         ->not->toContain('cv-page-footer')
         ->not->toContain('cv-head--repeat')
-        ->and(substr_count($html, 'class="cv-page-header-repeat"'))->toBe(1)
-        ->and(substr_count($html, 'cv-closing-page'))->toBe(1);
+        ->and(substr_count($html, 'cv-closing-page'))->toBe(0);
 });
 
 test('adnoc cv closing sections render after many sea service rows', function () {

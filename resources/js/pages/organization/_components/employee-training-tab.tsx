@@ -1,9 +1,17 @@
+import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import { useMemo, useState } from 'react';
-import { destroy as destroyTraining } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import {
+    bulkDestroy as bulkDestroyTrainings,
+    destroy as destroyTraining,
+} from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { EmployeeRecordRowActions } from '@/components/employee-record-row-actions';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TabsContent } from '@/components/ui/tabs';
+import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
+import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { EmployeeRecordDeleteDialog } from '@/features/organization/employees/profile/components/employee-record-delete-dialog';
 import { EmployeeRecordImportDialog } from '@/features/organization/employees/profile/components/employee-record-import-dialog';
 import { trainingImportConfig } from '@/features/organization/employees/profile/record-import-configs';
@@ -66,6 +74,24 @@ export function EmployeeTrainingTab({
     const [trainingImportOpen, setTrainingImportOpen] = useState(false);
     const [editingTraining, setEditingTraining] = useState<TrainingItem | null>(null);
     const [deleteTrainingId, setDeleteTrainingId] = useState<number | null>(null);
+    const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
+    const trainingIds = useMemo(
+        () => trainings.map((row) => row.id),
+        [trainings],
+    );
+
+    const {
+        selectedIds: selectedTrainingIds,
+        selectedCount: selectedTrainingCount,
+        isSelected: isTrainingSelected,
+        isAllSelected: allTrainingsSelected,
+        isPartiallySelected: trainingsPartiallySelected,
+        toggle: toggleTraining,
+        toggleAll: toggleAllTrainings,
+        clear: clearTrainingSelection,
+    } = useBulkSelection(trainingIds);
 
     const trainingImport = trainingImportConfig(employeeId);
     const trainingImportUrls = useMemo(
@@ -86,6 +112,26 @@ export function EmployeeTrainingTab({
 
     return (
         <TabsContent value="training" className="mt-6">
+            {canManage && trainings.length > 0 ? (
+                <DocumentsBulkToolbar
+                    count={selectedTrainingCount}
+                    itemLabel="records"
+                    onClear={clearTrainingSelection}
+                    actions={
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="destructive"
+                            className="h-8 gap-1.5 text-xs"
+                            disabled={isBulkDeleting || employeeId === null}
+                            onClick={() => setBulkDeleteOpen(true)}
+                        >
+                            Delete selected
+                        </Button>
+                    }
+                />
+            ) : null}
+
             <EmployeeRecordsPanel
                 title="Training"
                 count={trainings.length}
@@ -119,6 +165,21 @@ export function EmployeeTrainingTab({
                 <EmployeeRecordsTable className="min-w-[960px]">
                     <thead>
                         <tr className={employeeRecordsTableHeadClass()}>
+                            {canManage ? (
+                                <th className={cn(employeeRecordsTableThClass(), 'w-10 px-3')}>
+                                    <Checkbox
+                                        checked={
+                                            allTrainingsSelected
+                                                ? true
+                                                : trainingsPartiallySelected
+                                                  ? 'indeterminate'
+                                                  : false
+                                        }
+                                        onCheckedChange={toggleAllTrainings}
+                                        aria-label="Select all training records"
+                                    />
+                                </th>
+                            ) : null}
                             {showField('course_id') ? (
                                 <th className={employeeRecordsTableThClass()}>Course</th>
                             ) : null}
@@ -141,6 +202,15 @@ export function EmployeeTrainingTab({
                     <tbody>
                         {trainings.map((row) => (
                             <tr key={row.id} className={employeeRecordsTableRowClass()}>
+                                {canManage ? (
+                                    <td className={cn(employeeRecordsTableTdClass(), 'w-10 px-3')}>
+                                        <Checkbox
+                                            checked={isTrainingSelected(row.id)}
+                                            onCheckedChange={() => toggleTraining(row.id)}
+                                            aria-label={`Select training record ${row.course_name ?? row.id}`}
+                                        />
+                                    </td>
+                                ) : null}
                                 {showField('course_id') ? (
                                     <td
                                         className={cn(
@@ -245,6 +315,39 @@ export function EmployeeTrainingTab({
                 countries={countries}
                 templateFields={templateFields}
                 editingTraining={editingTraining}
+            />
+
+            <ConfirmDeleteDialog
+                open={bulkDeleteOpen}
+                onOpenChange={setBulkDeleteOpen}
+                title="Remove selected training records?"
+                description={`${selectedTrainingCount} selected ${selectedTrainingCount === 1 ? 'record' : 'records'} will be permanently removed.`}
+                confirmText={isBulkDeleting ? 'Removing…' : 'Remove'}
+                onConfirm={() => {
+                    if (selectedTrainingIds.length === 0 || employeeId === null) {
+                        return;
+                    }
+
+                    setIsBulkDeleting(true);
+
+                    router.delete(
+                        bulkDestroyTrainings.url({ employee: employeeId }),
+                        {
+                            data: { training_ids: selectedTrainingIds },
+                            ...TRAINING_RELOAD,
+                            onSuccess: () => {
+                                clearTrainingSelection();
+                                setBulkDeleteOpen(false);
+                            },
+                            onFinish: () => {
+                                setIsBulkDeleting(false);
+                            },
+                        },
+                    );
+                }}
+                contentClassName="sm:max-w-sm"
+                cancelButtonClassName="border-border bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
             />
 
             <EmployeeRecordDeleteDialog

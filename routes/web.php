@@ -188,6 +188,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:employees.training.manage')->name('organization.employees.training.import');
     Route::post('organization/employees/{employee}/training', [EmployeeTrainingController::class, 'store'])->middleware('can:employees.training.manage')->name('organization.employees.training.store');
     Route::put('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'update'])->middleware('can:employees.training.manage')->name('organization.employees.training.update');
+    Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-destroy');
     Route::delete('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'destroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.destroy');
 
     Route::post('organization/employees/{employee}/bank-accounts', [EmployeeBankAccountController::class, 'store'])->middleware('can:employees.bank_accounts.manage')->name('organization.employees.bank-accounts.store');

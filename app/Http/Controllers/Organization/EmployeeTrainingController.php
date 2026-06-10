@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeTrainingsRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeTrainingRequest;
 use App\Models\Country;
 use App\Models\Course;
@@ -150,6 +151,35 @@ class EmployeeTrainingController extends Controller
         $training->delete();
 
         return back()->with('success', 'Training record removed.');
+    }
+
+    public function bulkDestroy(
+        BulkDestroyEmployeeTrainingsRequest $request,
+        Employee $employee,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless($employee->company_id === $companyId, 403);
+
+        $trainings = EmployeeTraining::query()
+            ->where('employee_id', $employee->id)
+            ->where('company_id', $companyId)
+            ->whereIn('id', $request->validated('training_ids'))
+            ->get();
+
+        if ($trainings->isEmpty()) {
+            return back()->with('error', 'No training records could be deleted.');
+        }
+
+        foreach ($trainings as $training) {
+            $this->deleteCertificate($training->certificate_path);
+            $training->delete();
+        }
+
+        $deleted = $trainings->count();
+        $label = $deleted === 1 ? '1 training record' : "{$deleted} training records";
+
+        return back()->with('success', "Deleted {$label}.");
     }
 
     public function importTemplate(Request $request, Employee $employee): Response

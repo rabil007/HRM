@@ -11,8 +11,8 @@
 
         html, body {
             font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
-            font-size: 6.2pt;
-            line-height: 1.15;
+            font-size: 5pt;
+            line-height: 1.1;
             color: #000;
             margin: 0;
             padding: 0;
@@ -28,13 +28,12 @@
 
         table.cv-margin-wrap td.cv-margin-cell {
             border: none;
-            padding: 11mm 18mm;
+            padding: 6mm 10mm;
             vertical-align: top;
         }
 
         .cv-page-header-repeat {
-            page-break-before: always;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         @media screen {
@@ -81,7 +80,7 @@
 
         table.cv td {
             border: 1px solid #000;
-            padding: 2px 4px;
+            padding: 1px 3px;
             vertical-align: middle;
             word-wrap: normal;
             overflow-wrap: normal;
@@ -96,18 +95,18 @@
 
         table.cv-head td {
             border: none;
-            padding: 2px 6px;
+            padding: 1px 4px;
             vertical-align: middle;
         }
 
         .section {
             background: #e36c0a;
             color: #fff;
-            font-size: 7.5pt;
+            font-size: 5.8pt;
             font-weight: 700;
             text-align: left;
             text-transform: uppercase;
-            padding: 3px 5px;
+            padding: 2px 4px;
             border: 1px solid #000;
         }
 
@@ -127,7 +126,7 @@
         }
 
         .head-logo-cell img {
-            max-height: 42px;
+            max-height: 32px;
             max-width: 100%;
             width: auto;
             height: auto;
@@ -145,7 +144,7 @@
         }
 
         .head-subtitle {
-            font-size: 11pt;
+            font-size: 9pt;
             font-weight: 700;
             color: #c00000;
             line-height: 1.1;
@@ -153,34 +152,34 @@
 
         .head-meta .lbl {
             border: none;
-            padding-top: 4px;
+            padding-top: 2px;
         }
 
         .head-source {
             text-align: right;
-            font-size: 6.2pt;
+            font-size: 5pt;
             color: #666;
             text-transform: uppercase;
-            padding-top: 3px;
+            padding-top: 2px;
             vertical-align: bottom;
         }
 
         .lbl {
             font-weight: 700;
-            font-size: 6.2pt;
+            font-size: 5pt;
             text-transform: uppercase;
         }
 
-        .val { font-size: 7pt; }
+        .val { font-size: 5.5pt; }
 
         .val-nowrap {
-            font-size: 6pt;
+            font-size: 5pt;
             white-space: nowrap;
         }
 
         .col-h {
             font-weight: 700;
-            font-size: 5.5pt;
+            font-size: 4.5pt;
             text-align: center;
             text-transform: uppercase;
             white-space: nowrap;
@@ -188,7 +187,7 @@
 
         .col-h-wrap {
             font-weight: 700;
-            font-size: 5.5pt;
+            font-size: 4.5pt;
             text-align: center;
             text-transform: uppercase;
             line-height: 1.05;
@@ -196,20 +195,20 @@
 
         .center { text-align: center; }
 
-        .yn-h { font-weight: 700; font-size: 6.2pt; text-align: center; }
-        .yn-c { text-align: center; font-size: 9pt; }
+        .yn-h { font-weight: 700; font-size: 5pt; text-align: center; }
+        .yn-c { text-align: center; font-size: 7pt; }
 
-        .details-row td { font-size: 6.2pt; font-style: italic; color: #333; }
+        .details-row td { font-size: 5pt; font-style: italic; color: #333; }
 
-        .blank td { height: 9px; padding: 2px 4px; }
+        .blank td { height: 6px; padding: 1px 3px; }
 
-        .blank-compact td { height: 8px; padding: 2px 4px; }
+        .blank-compact td { height: 5px; padding: 1px 3px; }
 
-        .remarks-space td { height: 28px; vertical-align: top; }
+        .remarks-space td { height: 18px; vertical-align: top; }
 
         .cv-bottom-spacer td {
             border: none !important;
-            height: 10mm;
+            height: 5mm;
             padding: 0;
             line-height: 0;
         }
@@ -218,39 +217,39 @@
             background: #fde9d9;
         }
 
-        .declaration { font-size: 6.2pt; line-height: 1.3; padding: 3px 4px; }
+        .declaration { font-size: 5pt; line-height: 1.2; padding: 2px 3px; }
 
         .note {
-            font-size: 6.2pt;
+            font-size: 5pt;
             font-weight: 700;
             text-align: center;
-            padding: 2px 4px;
+            padding: 2px 3px;
             background: #ffff00;
         }
 
         .footer-rev td {
             border: none !important;
-            font-size: 6pt;
+            font-size: 4.5pt;
             text-align: right;
-            padding: 6px 2px 0;
+            padding: 3px 2px 0;
         }
 
         .footer-rev--final td {
-            padding-top: 2px;
-            padding-bottom: 4mm;
+            padding-top: 1px;
+            padding-bottom: 2mm;
         }
 
         tr.sea-data-row td {
-            font-size: 6pt;
+            font-size: 4.8pt;
             text-align: center;
-            padding: 2px 3px;
+            padding: 1px 2px;
             word-wrap: normal;
             overflow-wrap: normal;
         }
 
         tr.sea-data-row td.sea-date {
             white-space: nowrap;
-            font-size: 5.5pt;
+            font-size: 4.5pt;
         }
 
         tr.sea-data-row td.sea-company { text-align: left; }
@@ -464,10 +463,6 @@
             </tr>
         </table>
 
-        @if ($is_pdf ?? false)
-            @include('employees.partials.adnoc-cv-page-header')
-        @endif
-
         {{-- PAGE 2 --}}
         <table class="cv">
             <colgroup>
@@ -539,7 +534,7 @@
             <tr><td colspan="12" class="section">SECTION 10 - SUMMARY OF WORK EXPERIENCE (START FROM THE CURRENT/LAST VESSEL WORKED)</td></tr>
             @include('employees.partials.adnoc-cv-sea-service-columns')
             @forelse ($sea_services as $index => $svc)
-                @if (($is_pdf ?? false) && $index > 0 && $index % 12 === 0)
+                @if (($is_pdf ?? false) && $index > 0 && $index % 25 === 0)
         </table>
         @include('employees.partials.adnoc-cv-page-header')
         <table class="cv">
@@ -577,26 +572,14 @@
             </tr>
         </table>
 
-        @if ($is_pdf ?? false)
-            @include('employees.partials.adnoc-cv-page-header', ['closing' => true])
-            <table class="cv">
-                <colgroup>
-                    @for ($i = 0; $i < 12; $i++)
-                        <col style="width:8.333%">
-                    @endfor
-                </colgroup>
-                @include('employees.partials.adnoc-cv-closing')
-            </table>
-        @else
-            <table class="cv">
-                <colgroup>
-                    @for ($i = 0; $i < 12; $i++)
-                        <col style="width:8.333%">
-                    @endfor
-                </colgroup>
-                @include('employees.partials.adnoc-cv-closing')
-            </table>
-        @endif
+        <table class="cv">
+            <colgroup>
+                @for ($i = 0; $i < 12; $i++)
+                    <col style="width:8.333%">
+                @endfor
+            </colgroup>
+            @include('employees.partials.adnoc-cv-closing')
+        </table>
 
         </td></tr></table>
     </div>
