@@ -23,7 +23,6 @@ import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deploy
 import {
     DEFAULT_DEPLOYMENT_SORT,
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
-    DEPLOYMENT_SORT_OPTIONS,
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
@@ -114,14 +113,8 @@ export default function CrewDeploymentsIndex({
         if (filters.client_id) count++;
         if (filters.company_visa_type_id) count++;
         if (filters.search) count++;
-        if (
-            activeSort !== DEFAULT_DEPLOYMENT_SORT ||
-            activeDirection !== DEFAULT_DEPLOYMENT_SORT_DIRECTION
-        ) {
-            count++;
-        }
         return count;
-    }, [activeDirection, activeSort, filters]);
+    }, [filters]);
 
     const clearFilters = (): void => {
         list.visit({
@@ -270,7 +263,7 @@ export default function CrewDeploymentsIndex({
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-4 lg:w-auto lg:shrink-0">
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:w-auto lg:shrink-0">
                             <AppSelect
                                 value={filters.rank_id ? String(filters.rank_id) : ''}
                                 onValueChange={(rankId) =>
@@ -325,28 +318,6 @@ export default function CrewDeploymentsIndex({
                                         value={String(companyVisaType.id)}
                                     >
                                         {companyVisaType.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-
-                            <AppSelect
-                                value={activeSort}
-                                onValueChange={(sort) =>
-                                    list.applyFilters({
-                                        sort,
-                                        direction:
-                                            sort === activeSort
-                                                ? activeDirection
-                                                : DEFAULT_DEPLOYMENT_SORT_DIRECTION,
-                                    })
-                                }
-                                placeholder="Sort by"
-                                variant="dark"
-                                className="h-10"
-                            >
-                                {DEPLOYMENT_SORT_OPTIONS.map((option) => (
-                                    <AppSelectItem key={option.value} value={option.value}>
-                                        {option.label}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
