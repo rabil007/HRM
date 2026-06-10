@@ -77,8 +77,13 @@ const baseSidebarData: SidebarData = {
             title: 'Employees',
             items: [
                 { title: 'Employee', url: '/organization/employees', icon: Users },
-                { title: 'Crew deployments', url: '/organization/crew-deployments', icon: Ship },
                 { title: 'Documents', url: documents.url(), icon: FileText },
+            ],
+        },
+        {
+            title: 'Crew Operations',
+            items: [
+                { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
             ],
         },
         {
@@ -182,7 +187,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
                         case '/organization/crew-deployments':
-                            return has(permissions, 'crew_deployments.view') ? item : null;
+                            return has(permissions, 'crew_operations.deployments.view') ? item : null;
                         case documents.url():
                             return has(permissions, 'documents.view') ? item : null;
                         case '/organization/roles':

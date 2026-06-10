@@ -192,6 +192,8 @@ final class CrewDeploymentBoardQuery
             $summary[$status] = ($summary[$status] ?? 0) + 1;
         }
 
+        $summary['total'] = $deployments->count();
+
         return $summary;
     }
 

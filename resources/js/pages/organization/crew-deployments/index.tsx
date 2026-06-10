@@ -62,6 +62,12 @@ function displayValue(value: string | null | undefined): string {
     return value && value.trim() !== '' ? value : '—';
 }
 
+function displayNumber(value: number | null | undefined): string {
+    return value !== null && value !== undefined ? String(value) : '—';
+}
+
+const TABLE_COLUMN_COUNT = 18;
+
 export default function CrewDeploymentsIndex({
     deployments,
     summary,
@@ -125,15 +131,15 @@ export default function CrewDeploymentsIndex({
 
     return (
         <Main>
-            <Head title="Crew deployments" />
+            <Head title="Deployments" />
 
             <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                 <div>
                     <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
-                        Organization
+                        Crew Operations
                     </p>
                     <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-                        Crew deployments
+                        Deployments
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Track where crew are now — on vessel, standby, travel, and assignment
@@ -192,7 +198,9 @@ export default function CrewDeploymentsIndex({
             <CrewDeploymentsSummaryCards
                 summary={summary}
                 activeStatus={filters.status ?? ''}
+                hasActiveFilters={activeFilterCount > 0}
                 onSelect={(status) => list.applyFilters({ status })}
+                onClearFilters={clearFilters}
             />
 
             <Card className="mb-6 border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
@@ -304,18 +312,27 @@ export default function CrewDeploymentsIndex({
                 </CardContent>
             </Card>
 
-            <OrganizationDataTable minWidth="min-w-[1200px]">
+            <OrganizationDataTable minWidth="min-w-[2200px]">
                 <TableHeader>
                     <DataTableHeaderRow>
                         <DataTableHead>Where now</DataTableHead>
                         <DataTableHead>Emp. no</DataTableHead>
                         <DataTableHead>Name</DataTableHead>
                         <DataTableHead>Rank</DataTableHead>
+                        <DataTableHead>Nationality</DataTableHead>
                         <DataTableHead>Vessel</DataTableHead>
+                        <DataTableHead>Hire date</DataTableHead>
+                        <DataTableHead>Arrived</DataTableHead>
+                        <DataTableHead>Standby from</DataTableHead>
+                        <DataTableHead>Standby to</DataTableHead>
+                        <DataTableHead>Standby days</DataTableHead>
                         <DataTableHead>Joined</DataTableHead>
                         <DataTableHead>Disembarked</DataTableHead>
-                        <DataTableHead>Client</DataTableHead>
+                        <DataTableHead>Travelled</DataTableHead>
+                        <DataTableHead>Total days</DataTableHead>
                         <DataTableHead>Company visa type</DataTableHead>
+                        <DataTableHead>Client</DataTableHead>
+                        <DataTableHead>Remarks</DataTableHead>
                         {can.manage ? (
                             <DataTableHead className="text-right">Actions</DataTableHead>
                         ) : null}
@@ -325,7 +342,7 @@ export default function CrewDeploymentsIndex({
                     {deployments.data.length === 0 ? (
                         <TableRow>
                             <TableCell
-                                colSpan={can.manage ? 10 : 9}
+                                colSpan={can.manage ? TABLE_COLUMN_COUNT + 1 : TABLE_COLUMN_COUNT}
                                 className="py-10 text-center text-muted-foreground"
                             >
                                 No deployment records found.
@@ -343,16 +360,40 @@ export default function CrewDeploymentsIndex({
                                 <TableCell>{displayValue(deployment.employee_no)}</TableCell>
                                 <TableCell>{displayValue(deployment.employee_name)}</TableCell>
                                 <TableCell>{displayValue(deployment.rank_name)}</TableCell>
+                                <TableCell>{displayValue(deployment.nationality)}</TableCell>
                                 <TableCell>{displayValue(deployment.vessel_name)}</TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.hire_date)}
+                                </TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.arrived_date)}
+                                </TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.standby_from)}
+                                </TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.standby_to)}
+                                </TableCell>
+                                <TableCell>{displayNumber(deployment.standby_days)}</TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.joined_date)}
                                 </TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.disembarked_date)}
                                 </TableCell>
-                                <TableCell>{displayValue(deployment.client_name)}</TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.travelled_date)}
+                                </TableCell>
+                                <TableCell>{displayNumber(deployment.total_days)}</TableCell>
                                 <TableCell>
                                     {displayValue(deployment.company_visa_type_name)}
+                                </TableCell>
+                                <TableCell>{displayValue(deployment.client_name)}</TableCell>
+                                <TableCell
+                                    className="max-w-[200px] truncate"
+                                    title={deployment.remarks ?? undefined}
+                                >
+                                    {displayValue(deployment.remarks)}
                                 </TableCell>
                                 {can.manage ? (
                                     <TableCell className={dataTableActionsCellClass()}>

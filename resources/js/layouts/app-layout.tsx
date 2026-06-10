@@ -36,6 +36,12 @@ export default function AppLayout({
             disabled: false,
         },
         {
+            title: 'Crew Operations',
+            href: '/organization/crew-deployments',
+            isActive: url.startsWith('/organization/crew-deployments'),
+            disabled: false,
+        },
+        {
             title: 'Recruitment',
             href: placeholder('recruitment.job-postings'),
             isActive: url.includes('module=recruitment') || url.includes('recruitment'),

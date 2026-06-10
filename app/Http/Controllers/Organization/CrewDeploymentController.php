@@ -74,7 +74,7 @@ class CrewDeploymentController extends Controller
             'clients' => Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'company_visa_types' => CompanyVisaType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'can' => [
-                'manage' => $request->user()?->can('crew_deployments.manage') ?? false,
+                'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
             ],
         ]);
     }

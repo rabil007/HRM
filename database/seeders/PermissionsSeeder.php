@@ -173,8 +173,8 @@ class PermissionsSeeder extends Seeder
             'employees.sea_service.manage',
             'employees.training.manage',
 
-            'crew_deployments.view',
-            'crew_deployments.manage',
+            'crew_operations.deployments.view',
+            'crew_operations.deployments.manage',
 
             'audit.view',
 

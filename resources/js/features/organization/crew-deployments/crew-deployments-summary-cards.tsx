@@ -3,6 +3,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
 
+const TOTAL_ITEM = {
+    key: 'total',
+    label: 'Total',
+    cardClass: 'border-border bg-muted/20 hover:border-border dark:border-white/10 dark:hover:border-white/20',
+    activeClass: 'border-primary/30 ring-1 ring-primary/10',
+    valueClass: 'text-foreground',
+} as const;
+
 const SUMMARY_ITEMS = [
     {
         key: 'on_vessel',
@@ -51,14 +59,48 @@ const SUMMARY_ITEMS = [
 export function CrewDeploymentsSummaryCards({
     summary,
     activeStatus,
+    hasActiveFilters,
     onSelect,
+    onClearFilters,
 }: {
     summary: DeploymentSummary;
     activeStatus: string;
+    hasActiveFilters: boolean;
     onSelect: (status: string) => void;
+    onClearFilters: () => void;
 }): ReactElement {
+    const isTotalActive = !hasActiveFilters;
+
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+            <button
+                key={TOTAL_ITEM.key}
+                type="button"
+                onClick={onClearFilters}
+                className="text-left"
+            >
+                <Card
+                    className={cn(
+                        'h-full transition-colors',
+                        TOTAL_ITEM.cardClass,
+                        isTotalActive && TOTAL_ITEM.activeClass,
+                    )}
+                >
+                    <CardContent className="p-4">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
+                            {TOTAL_ITEM.label}
+                        </p>
+                        <p
+                            className={cn(
+                                'mt-1 text-2xl font-bold tabular-nums',
+                                TOTAL_ITEM.valueClass,
+                            )}
+                        >
+                            {summary.total ?? 0}
+                        </p>
+                    </CardContent>
+                </Card>
+            </button>
             {SUMMARY_ITEMS.map((item) => {
                 const isActive = activeStatus === item.key;
                 const count = summary[item.key] ?? 0;

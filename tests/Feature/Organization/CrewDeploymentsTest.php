@@ -72,8 +72,8 @@ function makeCrewDeploymentFixtures(): array
     ]);
 
     grantCompanyPermissions($user, $company, [
-        'crew_deployments.view',
-        'crew_deployments.manage',
+        'crew_operations.deployments.view',
+        'crew_operations.deployments.manage',
     ]);
 
     return compact('user', 'company', 'employee', 'rank');
@@ -109,7 +109,8 @@ test('authorized users can view crew deployment board', function () {
             ->has('deployments.data', 1)
             ->where('deployments.data.0.employee_no', '2018')
             ->where('deployments.data.0.status', DeploymentStatus::ON_VESSEL)
-            ->where('summary.on_vessel', 1));
+            ->where('summary.on_vessel', 1)
+            ->where('summary.total', 1));
 });
 
 test('authorized users can store update and destroy crew deployments', function () {
