@@ -21,6 +21,7 @@ use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
@@ -212,9 +213,10 @@ class EmployeeController extends Controller
                 Storage::disk('public')->delete($employee->image);
             }
 
-            $data['image'] = $request->file('image')->storePublicly(
+            $data['image'] = UploadedFileStorage::storePublicly(
+                $request->file('image'),
                 "employees/{$companyId}/images",
-                ['disk' => 'public']
+                ['disk' => 'public'],
             );
         } elseif ($removeImage) {
             if ($employee->image) {

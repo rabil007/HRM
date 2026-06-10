@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Models\WhatsAppSetting;
 use App\Models\WhatsAppTemplate;
 use App\Services\WhatsAppService;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
@@ -142,7 +143,7 @@ class WhatsAppIntegrationController extends Controller
             ], 422);
         }
 
-        $storedPath = $file->store('whatsapp-test-templates', 'public');
+        $storedPath = UploadedFileStorage::store($file, 'whatsapp-test-templates', 'public');
         $documentUrl = $this->publicHttpsUrl(Storage::disk('public')->url($storedPath));
 
         return $this->messageTestResponse(

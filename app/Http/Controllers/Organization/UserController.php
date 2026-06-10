@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Uploads\UploadedFileStorage;
 use App\Support\Users\Actions\CopyEmployeeAvatarToUser;
 use App\Support\Users\Actions\CreateOrganizationUser;
 use App\Support\Users\Actions\SyncUserEmployeeLink;
@@ -318,7 +319,11 @@ class UserController extends Controller
                 Storage::disk('public')->delete($user->avatar);
             }
 
-            $data['avatar'] = $request->file('avatar')->store('user-avatars', 'public');
+            $data['avatar'] = UploadedFileStorage::store(
+                $request->file('avatar'),
+                'user-avatars',
+                'public',
+            );
         } elseif ($request->boolean('use_employee_avatar')) {
             unset($data['avatar']);
 

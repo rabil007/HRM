@@ -3,6 +3,7 @@
 namespace App\Support\Users\Actions;
 
 use App\Models\User;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role as SpatieRole;
@@ -31,7 +32,7 @@ final class CreateOrganizationUser
         ];
 
         if ($avatar !== null) {
-            $data['avatar'] = $avatar->store('user-avatars', 'public');
+            $data['avatar'] = UploadedFileStorage::store($avatar, 'user-avatars', 'public');
         } elseif (array_key_exists('avatar', $attributes)) {
             $data['avatar'] = $attributes['avatar'];
         }

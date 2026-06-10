@@ -10,6 +10,7 @@ use App\Models\Course;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Uploads\UploadedFileStorage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -572,7 +573,8 @@ class EmployeeTrainingController extends Controller
 
     private function storeCertificate(UploadedFile $file, int $companyId): string
     {
-        return $file->storePublicly(
+        return UploadedFileStorage::storePublicly(
+            $file,
             "employees/{$companyId}/training-certificates",
             ['disk' => 'public'],
         );

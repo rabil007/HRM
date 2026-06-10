@@ -6,6 +6,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeDocumentVersion;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -97,7 +98,8 @@ class StoresEmployeeDocument
 
     private function storeFile(UploadedFile $file, int $companyId, int $employeeId, string $folderSegment): string
     {
-        return $file->storePublicly(
+        return UploadedFileStorage::storePublicly(
+            $file,
             "employee-documents/{$companyId}/{$employeeId}/".Str::slug($folderSegment),
             ['disk' => 'public'],
         );

@@ -4,6 +4,7 @@ namespace App\Services\Settings;
 
 use App\Models\AppSetting;
 use App\Support\Settings\SettingKey;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
@@ -248,7 +249,7 @@ class SettingService
         $extension = $file->getClientOriginalExtension() ?: $file->extension();
         $filename = Str::slug($key).'-'.Str::uuid().'.'.strtolower((string) $extension);
 
-        $path = $file->storeAs(self::STORAGE_DIR, $filename, 'public');
+        $path = UploadedFileStorage::storeAs($file, self::STORAGE_DIR, $filename, 'public');
 
         $this->set($key, $path, 'file');
 

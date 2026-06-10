@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
+use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Str;
 
@@ -37,9 +38,10 @@ final class CreateEmployee
         }
 
         if ($image !== null) {
-            $data['image'] = $image->storePublicly(
+            $data['image'] = UploadedFileStorage::storePublicly(
+                $image,
                 "employees/{$companyId}/images",
-                ['disk' => 'public']
+                ['disk' => 'public'],
             );
         }
 

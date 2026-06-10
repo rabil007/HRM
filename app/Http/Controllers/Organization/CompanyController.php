@@ -13,6 +13,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Uploads\UploadedFileStorage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Filesystem\FilesystemAdapter;
 use Illuminate\Http\Request;
@@ -242,7 +243,11 @@ class CompanyController extends Controller
         $data['status'] = $data['status'] ?? 'active';
 
         if ($request->hasFile('logo')) {
-            $data['logo'] = $request->file('logo')->store('company-logos', 'public');
+            $data['logo'] = UploadedFileStorage::store(
+                $request->file('logo'),
+                'company-logos',
+                'public',
+            );
         }
 
         $company = Company::create($data);
@@ -309,7 +314,11 @@ class CompanyController extends Controller
                 Storage::disk('public')->delete($company->logo);
             }
 
-            $data['logo'] = $request->file('logo')->store('company-logos', 'public');
+            $data['logo'] = UploadedFileStorage::store(
+                $request->file('logo'),
+                'company-logos',
+                'public',
+            );
         }
 
         $company->update($data);
