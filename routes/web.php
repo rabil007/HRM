@@ -62,7 +62,8 @@ Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::
     ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {
-    Route::get('log', ApplicationLogController::class)->name('log');
+    Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
+    Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Support\Logging\ApplicationLogReader;
 use App\Support\Pagination\ResolvesPerPage;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -13,7 +14,7 @@ class ApplicationLogController extends Controller
 {
     use ResolvesPerPage;
 
-    public function __invoke(Request $request, ApplicationLogReader $reader): Response
+    public function index(Request $request, ApplicationLogReader $reader): Response
     {
         $validated = $request->validate([
             'file' => ['nullable', 'string', 'max:255'],
@@ -48,5 +49,48 @@ class ApplicationLogController extends Controller
             ],
             'file_meta' => $result['file'],
         ]);
+    }
+
+    public function destroy(Request $request, ApplicationLogReader $reader): RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['nullable', 'string', 'max:255'],
+            'scope' => ['required', 'in:current,all'],
+        ]);
+
+        try {
+            if ($validated['scope'] === 'all') {
+                $cleared = $reader->clearAll();
+
+                if ($cleared === 0) {
+                    return back()->with('error', 'No log files to clear.');
+                }
+
+                $label = $cleared === 1 ? '1 log file' : "{$cleared} log files";
+
+                return redirect()
+                    ->route('log')
+                    ->with('success', "Cleared {$label}.");
+            }
+
+            $files = $reader->listFiles();
+
+            if ($files === []) {
+                return back()->with('error', 'No log files to clear.');
+            }
+
+            $fileName = $validated['file'] ?? $files[0]['name'];
+            $reader->clearFile($fileName);
+
+            return redirect()
+                ->route('log', array_filter([
+                    'file' => $fileName,
+                    'level' => $request->string('level')->toString() ?: null,
+                    'q' => $request->string('q')->toString() ?: null,
+                ]))
+                ->with('success', "Cleared {$fileName}.");
+        } catch (RuntimeException) {
+            abort(404);
+        }
     }
 }

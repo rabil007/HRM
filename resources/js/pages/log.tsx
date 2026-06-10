@@ -1,7 +1,9 @@
-import { Head, useForm } from '@inertiajs/react';
-import { AlertTriangle, FileText, Search, Terminal } from 'lucide-react';
+import { destroy as clearApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
+import { Head, router, useForm } from '@inertiajs/react';
+import { AlertTriangle, FileText, Search, Terminal, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Main } from '@/components/layout/main';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +93,9 @@ export default function ApplicationLogViewer({
     });
 
     const [openId, setOpenId] = useState<string | null>(null);
+    const [clearFileOpen, setClearFileOpen] = useState(false);
+    const [clearAllOpen, setClearAllOpen] = useState(false);
+    const [isClearing, setIsClearing] = useState(false);
 
     const list = useServerPaginationFilters({
         url: '/log',
@@ -127,6 +132,28 @@ export default function ApplicationLogViewer({
         return count;
     }, [files, form.data]);
 
+    const clearLogs = (scope: 'current' | 'all') => {
+        setIsClearing(true);
+
+        router.delete(clearApplicationLogs.url(), {
+            data: {
+                scope,
+                file: form.data.file || file_meta.name || files[0]?.name || '',
+                level: form.data.level,
+                q: form.data.q,
+            },
+            preserveScroll: true,
+            onFinish: () => {
+                setIsClearing(false);
+                setClearFileOpen(false);
+                setClearAllOpen(false);
+            },
+        });
+    };
+
+    const hasLogFiles = files.length > 0;
+    const selectedFileName = form.data.file || file_meta.name || files[0]?.name || '';
+
     return (
         <>
             <Head title="Application logs" />
@@ -148,24 +175,53 @@ export default function ApplicationLogViewer({
                         </p>
                     </div>
 
-                    {file_meta.name ? (
-                        <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
-                            <div className="flex items-center gap-2 font-medium text-foreground">
-                                <FileText className="size-3.5" />
-                                {file_meta.name}
+                    <div className="flex flex-col items-stretch gap-3 sm:items-end">
+                        {hasLogFiles ? (
+                            <div className="flex flex-wrap justify-end gap-2">
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-9 gap-1.5 border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                                    disabled={isClearing || !selectedFileName}
+                                    onClick={() => setClearFileOpen(true)}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    Clear file
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="destructive"
+                                    className="h-9 gap-1.5"
+                                    disabled={isClearing}
+                                    onClick={() => setClearAllOpen(true)}
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    Clear all logs
+                                </Button>
                             </div>
-                            <div className="mt-1">
-                                {formatBytes(file_meta.size_bytes)} · updated{' '}
-                                {new Date(file_meta.modified_at).toLocaleString()}
-                            </div>
-                            {file_meta.truncated ? (
-                                <div className="mt-2 flex items-center gap-1.5 text-amber-500">
-                                    <AlertTriangle className="size-3.5" />
-                                    Showing the latest portion of this file only.
+                        ) : null}
+
+                        {file_meta.name ? (
+                            <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 text-xs text-muted-foreground">
+                                <div className="flex items-center gap-2 font-medium text-foreground">
+                                    <FileText className="size-3.5" />
+                                    {file_meta.name}
                                 </div>
-                            ) : null}
-                        </div>
-                    ) : null}
+                                <div className="mt-1">
+                                    {formatBytes(file_meta.size_bytes)} · updated{' '}
+                                    {new Date(file_meta.modified_at).toLocaleString()}
+                                </div>
+                                {file_meta.truncated ? (
+                                    <div className="mt-2 flex items-center gap-1.5 text-amber-500">
+                                        <AlertTriangle className="size-3.5" />
+                                        Showing the latest portion of this file only.
+                                    </div>
+                                ) : null}
+                            </div>
+                        ) : null}
+                    </div>
                 </div>
 
                 <Card className="mb-6 border-border/60 bg-card/50">
@@ -355,6 +411,28 @@ export default function ApplicationLogViewer({
                     label="entries"
                 />
             </Main>
+
+            <ConfirmDeleteDialog
+                open={clearFileOpen}
+                onOpenChange={setClearFileOpen}
+                title="Clear this log file?"
+                description={`All entries in ${selectedFileName} will be permanently removed. The empty file will remain so Laravel can keep writing new logs.`}
+                confirmText={isClearing ? 'Clearing…' : 'Clear file'}
+                onConfirm={() => clearLogs('current')}
+                contentClassName="sm:max-w-md"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
+            />
+
+            <ConfirmDeleteDialog
+                open={clearAllOpen}
+                onOpenChange={setClearAllOpen}
+                title="Clear all log files?"
+                description="Every laravel log file in storage/logs will be emptied. This cannot be undone."
+                confirmText={isClearing ? 'Clearing…' : 'Clear all logs'}
+                onConfirm={() => clearLogs('all')}
+                contentClassName="sm:max-w-md"
+                confirmButtonClassName="bg-red-600 text-white hover:bg-red-500"
+            />
         </>
     );
 }

@@ -141,6 +141,26 @@ final class ApplicationLogReader
         return self::LEVELS;
     }
 
+    public function clearFile(string $fileName): void
+    {
+        $path = $this->resolvePath($fileName);
+
+        if (file_put_contents($path, '') === false) {
+            throw new RuntimeException('Could not clear the log file.');
+        }
+    }
+
+    public function clearAll(): int
+    {
+        $files = $this->listFiles();
+
+        foreach ($files as $file) {
+            $this->clearFile($file['name']);
+        }
+
+        return count($files);
+    }
+
     private function resolveFileName(?string $fileName, string $default): string
     {
         if ($fileName === null || $fileName === '') {

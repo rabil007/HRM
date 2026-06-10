@@ -37,6 +37,42 @@ test('application log viewer rejects invalid log file names', function () {
     $this->get('/log?file=../.env')->assertNotFound();
 });
 
+test('authenticated users can clear the selected application log file', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    File::ensureDirectoryExists(storage_path('logs'));
+    $path = storage_path('logs/laravel.log');
+    File::put($path, "[2026-06-10 10:00:00] local.ERROR: old entry\n");
+
+    $this->from('/log')
+        ->delete('/log', [
+            'scope' => 'current',
+            'file' => 'laravel.log',
+        ])
+        ->assertRedirect(route('log', ['file' => 'laravel.log']))
+        ->assertSessionHas('success');
+
+    expect(File::get($path))->toBe('');
+});
+
+test('authenticated users can clear all application log files', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    File::ensureDirectoryExists(storage_path('logs'));
+    File::put(storage_path('logs/laravel.log'), "[2026-06-10 10:00:00] local.ERROR: one\n");
+    File::put(storage_path('logs/laravel-2026-06-09.log'), "[2026-06-09 10:00:00] local.ERROR: two\n");
+
+    $this->from('/log')
+        ->delete('/log', ['scope' => 'all'])
+        ->assertRedirect(route('log'))
+        ->assertSessionHas('success');
+
+    expect(File::get(storage_path('logs/laravel.log')))->toBe('')
+        ->and(File::get(storage_path('logs/laravel-2026-06-09.log')))->toBe('');
+});
+
 test('application log reader filters by level and search', function () {
     $reader = app(ApplicationLogReader::class);
 
