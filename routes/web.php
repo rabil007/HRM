@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Organization\ActivityLogController;
@@ -61,6 +62,8 @@ Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::
     ->name('webhooks.hikvision');
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('log', ApplicationLogController::class)->name('log');
+
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');
     Route::get('organization/companies/export', [CompanyController::class, 'export'])->middleware('can:companies.export')->name('organization.companies.export');
