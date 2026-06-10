@@ -3,6 +3,7 @@ import { FileText, UploadCloud } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
+    bulkStore as bulkStoreTraining,
     store as storeTraining,
     update as updateTraining,
 } from '@/actions/App/Http/Controllers/Organization/EmployeeTrainingController';
@@ -14,6 +15,16 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    isSupportedUploadFile,
+    prepareUploadFiles,
+} from '@/features/organization/documents/upload/compress-upload-file';
+import {
+    DocumentUploadProgressOverlay,
+    resolveDocumentUploadPhase,
+} from '@/features/organization/documents/upload/document-upload-progress';
+import type { DocumentUploadProgressState } from '@/features/organization/documents/upload/document-upload-progress';
+import { PDF_COMPRESS_THRESHOLD_LABEL } from '@/features/organization/documents/upload/upload-draft';
 import { resolveEmployeeIdForSave } from '@/features/organization/employees/profile/resolve-employee-id-for-save';
 import type { CountryOption } from '@/features/organization/employees/types';
 import { AddTrainingCertificateListItem } from '@/features/organization/training/add-training/add-training-certificate-list-item';
@@ -22,15 +33,16 @@ import {
     CERTIFICATE_TEMPLATE_FIELD,
 } from '@/features/organization/training/add-training/add-training-draft-form';
 import {
+    buildBulkTrainingSubmitPayload,
     buildTrainingSubmitPayload,
     copyTrainingMetadataFromSource,
     createTrainingDraftFromFile,
-    createUploadDraftId,
     fileMatchesExistingDraft,
+    firstInvalidDraftIndex,
     formatUploadFileSize,
     hasVisibleTrainingContent,
     MAX_TRAINING_CERTIFICATE_FILES,
-    SUPPORTED_UPLOAD_MIME_TYPES,
+    parseBulkTrainingErrors,
     trainingDraftToFormData,
     trainingMetadataFromItem,
 } from '@/features/organization/training/add-training/training-draft';
@@ -146,16 +158,42 @@ export function AddTrainingDialog({
     const [standaloneMetadata, setStandaloneMetadata] =
         useState<TrainingDraftMetadata>(emptyTrainingMetadata);
     const [fieldErrors, setFieldErrors] = useState<TrainingDraftFieldErrors>({});
+    const [fieldErrorsByIndex, setFieldErrorsByIndex] = useState<
+        Map<number, TrainingDraftFieldErrors>
+    >(new Map());
     const [isDraggingFiles, setIsDraggingFiles] = useState(false);
-    const [isSaving, setIsSaving] = useState(false);
+    const [isCompressingFiles, setIsCompressingFiles] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<DocumentUploadProgressState>(null);
     const [removeCertificate, setRemoveCertificate] = useState(false);
+
+    const uploadProgressPhase = resolveDocumentUploadPhase({
+        isPreparing: isCompressingFiles,
+        isUploading,
+        progress: uploadProgress,
+    });
+
+    const isBusy = uploadProgressPhase !== null;
 
     const selectedDraft = useMemo(
         () => drafts.find((draft) => draft.id === selectedDraftId) ?? null,
         [drafts, selectedDraftId],
     );
 
+    const selectedDraftIndex = useMemo(
+        () => drafts.findIndex((draft) => draft.id === selectedDraftId),
+        [drafts, selectedDraftId],
+    );
+
     const activeMetadata = selectedDraft ?? standaloneMetadata;
+
+    const activeFieldErrors = useMemo(() => {
+        if (drafts.length > 0 && selectedDraftIndex >= 0) {
+            return fieldErrorsByIndex.get(selectedDraftIndex) ?? {};
+        }
+
+        return fieldErrors;
+    }, [drafts.length, fieldErrors, fieldErrorsByIndex, selectedDraftIndex]);
 
     const activeFormData = useMemo(() => {
         const existingCertificate =
@@ -183,8 +221,11 @@ export function AddTrainingDialog({
         setSelectedDraftId(null);
         setStandaloneMetadata(emptyTrainingMetadata());
         setFieldErrors({});
+        setFieldErrorsByIndex(new Map());
         setIsDraggingFiles(false);
-        setIsSaving(false);
+        setIsCompressingFiles(false);
+        setIsUploading(false);
+        setUploadProgress(null);
         setRemoveCertificate(false);
         clearMissingRequired();
     }, [clearMissingRequired]);
@@ -230,21 +271,35 @@ export function AddTrainingDialog({
     );
 
     const addCertificateFiles = useCallback(
-        (files: File[]) => {
-            const supportedFiles = files.filter((file) =>
-                (SUPPORTED_UPLOAD_MIME_TYPES as readonly string[]).includes(file.type),
-            );
+        async (files: File[]) => {
+            const supportedFiles = files.filter((file) => isSupportedUploadFile(file));
 
             if (supportedFiles.length !== files.length) {
                 toast.error('Only PDF, JPG, JPEG, and PNG files are supported.');
             }
 
+            if (supportedFiles.length === 0) {
+                return;
+            }
+
+            setIsCompressingFiles(true);
+
+            let preparedFiles = supportedFiles;
+
+            try {
+                preparedFiles = await prepareUploadFiles(supportedFiles);
+            } catch {
+                toast.error('Could not prepare one or more files for upload.');
+            } finally {
+                setIsCompressingFiles(false);
+            }
+
             setDrafts((current) => {
-                const next = [...current];
+                const next = isEdit ? [] : [...current];
                 let addedId: string | null = null;
 
-                for (const file of supportedFiles) {
-                    if (next.length >= MAX_TRAINING_CERTIFICATE_FILES) {
+                for (const file of preparedFiles) {
+                    if (!isEdit && next.length >= MAX_TRAINING_CERTIFICATE_FILES) {
                         toast.error(
                             `You can add up to ${MAX_TRAINING_CERTIFICATE_FILES} certificates at once.`,
                         );
@@ -271,7 +326,7 @@ export function AddTrainingDialog({
                 return next;
             });
         },
-        [activeMetadata],
+        [activeMetadata, isEdit],
     );
 
     const removeDraft = useCallback((draftId: string) => {
@@ -338,7 +393,7 @@ export function AddTrainingDialog({
     );
 
     const canSaveCreate =
-        !isSaving &&
+        !isBusy &&
         (drafts.length > 0
             ? drafts.every(
                   (draft) =>
@@ -349,40 +404,33 @@ export function AddTrainingDialog({
               draftHasVisibleContent(standaloneMetadata, null));
 
     const canSaveEdit =
-        !isSaving &&
+        !isBusy &&
         draftMeetsRequired(standaloneMetadata, selectedDraft?.file ?? null) &&
         draftHasVisibleContent(standaloneMetadata, selectedDraft?.file ?? null);
 
     const submitCreate = useCallback(async () => {
-        if (isSaving) {
+        if (isBusy) {
             return;
         }
 
-        const entries: TrainingDraft[] =
-            drafts.length > 0
-                ? drafts
-                : [
-                      {
-                          ...standaloneMetadata,
-                          id: createUploadDraftId(),
-                          file: null as unknown as File,
-                      },
-                  ];
+        if (drafts.length > 0) {
+            for (const draft of drafts) {
+                if (
+                    !validateRequired(
+                        trainingDraftToFormData(draft, draft.file, null),
+                    )
+                ) {
+                    setSelectedDraftId(draft.id);
 
-        for (const entry of entries) {
-            const hasFile = entry.file instanceof File;
-
-            if (
-                !validateRequired(
-                    trainingDraftToFormData(entry, hasFile ? entry.file : null, null),
-                )
-            ) {
-                if (hasFile) {
-                    setSelectedDraftId(entry.id);
+                    return;
                 }
-
-                return;
             }
+        } else if (
+            !validateRequired(
+                trainingDraftToFormData(standaloneMetadata, null, null),
+            )
+        ) {
+            return;
         }
 
         let resolvedEmployeeId: number;
@@ -393,55 +441,82 @@ export function AddTrainingDialog({
             return;
         }
 
-        setIsSaving(true);
+        setIsUploading(true);
+        setUploadProgress({ percentage: 0 });
         setFieldErrors({});
+        setFieldErrorsByIndex(new Map());
 
-        const submitNext = (index: number) => {
-            if (index >= entries.length) {
-                onOpenChange(false);
-                resetDialog();
-
-                return;
-            }
-
-            const entry = entries[index];
-            const hasFile = entry.file instanceof File;
-
+        if (drafts.length > 0) {
             router.post(
-                storeTraining.url({ employee: resolvedEmployeeId }),
-                buildTrainingSubmitPayload(entry, {
-                    templateFields,
-                    certificate: hasFile ? entry.file : null,
-                }),
+                bulkStoreTraining.url({ employee: resolvedEmployeeId }),
+                buildBulkTrainingSubmitPayload(drafts, templateFields),
                 {
                     forceFormData: true,
                     ...TRAINING_RELOAD,
-                    preserveScroll: true,
-                    onSuccess: () => submitNext(index + 1),
+                    onProgress: (event) => {
+                        setUploadProgress({
+                            percentage: event?.percentage ?? 0,
+                            loaded: event?.loaded,
+                            total: event?.total,
+                        });
+                    },
+                    onSuccess: () => {
+                        onOpenChange(false);
+                        resetDialog();
+                    },
                     onError: (errors) => {
-                        setFieldErrors(parseTrainingFieldErrors(errors));
+                        const parsed = parseBulkTrainingErrors(
+                            errors as Record<string, string | string[]>,
+                        );
+                        setFieldErrorsByIndex(parsed);
 
-                        if (hasFile) {
-                            setSelectedDraftId(entry.id);
+                        const firstInvalid = firstInvalidDraftIndex(parsed);
+
+                        if (firstInvalid !== null && drafts[firstInvalid]) {
+                            setSelectedDraftId(drafts[firstInvalid].id);
                         }
-
-                        setIsSaving(false);
                     },
                     onFinish: () => {
-                        if (index === entries.length - 1) {
-                            setIsSaving(false);
-                        }
+                        setIsUploading(false);
+                        setUploadProgress(null);
                     },
                 },
             );
-        };
 
-        submitNext(0);
+            return;
+        }
+
+        router.post(
+            storeTraining.url({ employee: resolvedEmployeeId }),
+            buildTrainingSubmitPayload(standaloneMetadata, { templateFields }),
+            {
+                forceFormData: true,
+                ...TRAINING_RELOAD,
+                onProgress: (event) => {
+                    setUploadProgress({
+                        percentage: event?.percentage ?? 0,
+                        loaded: event?.loaded,
+                        total: event?.total,
+                    });
+                },
+                onSuccess: () => {
+                    onOpenChange(false);
+                    resetDialog();
+                },
+                onError: (errors) => {
+                    setFieldErrors(parseTrainingFieldErrors(errors));
+                },
+                onFinish: () => {
+                    setIsUploading(false);
+                    setUploadProgress(null);
+                },
+            },
+        );
     }, [
         drafts,
         employeeId,
         ensureEmployee,
-        isSaving,
+        isBusy,
         onOpenChange,
         resetDialog,
         standaloneMetadata,
@@ -450,7 +525,7 @@ export function AddTrainingDialog({
     ]);
 
     const submitEdit = useCallback(async () => {
-        if (!editingTraining || isSaving) {
+        if (!editingTraining || isBusy) {
             return;
         }
 
@@ -474,7 +549,8 @@ export function AddTrainingDialog({
             return;
         }
 
-        setIsSaving(true);
+        setIsUploading(true);
+        setUploadProgress({ percentage: 0 });
         setFieldErrors({});
 
         router.put(
@@ -490,6 +566,13 @@ export function AddTrainingDialog({
             {
                 forceFormData: true,
                 ...TRAINING_RELOAD,
+                onProgress: (event) => {
+                    setUploadProgress({
+                        percentage: event?.percentage ?? 0,
+                        loaded: event?.loaded,
+                        total: event?.total,
+                    });
+                },
                 onSuccess: () => {
                     onOpenChange(false);
                     resetDialog();
@@ -497,14 +580,17 @@ export function AddTrainingDialog({
                 onError: (errors) => {
                     setFieldErrors(parseTrainingFieldErrors(errors));
                 },
-                onFinish: () => setIsSaving(false),
+                onFinish: () => {
+                    setIsUploading(false);
+                    setUploadProgress(null);
+                },
             },
         );
     }, [
         editingTraining,
         employeeId,
         ensureEmployee,
-        isSaving,
+        isBusy,
         onOpenChange,
         removeCertificate,
         resetDialog,
@@ -532,7 +618,7 @@ export function AddTrainingDialog({
                 onChange={(patch) =>
                     updateDraftMetadata(isEdit ? null : selectedDraft?.id ?? null, patch)
                 }
-                fieldErrors={fieldErrors}
+                fieldErrors={activeFieldErrors}
                 showApplyToAll={!isEdit && drafts.length > 1}
                 onApplyToAll={applyMetadataToAll}
                 showField={showField}
@@ -549,7 +635,7 @@ export function AddTrainingDialog({
                         ? setRemoveCertificate
                         : undefined
                 }
-                certificateError={fieldErrors.certificate}
+                certificateError={activeFieldErrors.certificate}
             />
         </div>
     );
@@ -570,6 +656,10 @@ export function AddTrainingDialog({
         <Dialog
             open={open}
             onOpenChange={(nextOpen) => {
+                if (!nextOpen && isBusy) {
+                    return;
+                }
+
                 if (nextOpen) {
                     initializeForOpen();
                 }
@@ -582,6 +672,21 @@ export function AddTrainingDialog({
             }}
         >
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+                <div className="relative">
+                    <DocumentUploadProgressOverlay
+                        open={isBusy}
+                        phase={uploadProgressPhase ?? 'uploading'}
+                        progress={uploadProgress}
+                        fileLabel={
+                            isEdit && selectedDraft
+                                ? selectedDraft.file.name
+                                : drafts.length === 1
+                                  ? drafts[0]?.file.name
+                                  : drafts.length > 1
+                                    ? `${drafts.length} files · ${formatUploadFileSize(uploadFileSize)}`
+                                    : null
+                        }
+                    />
                 <DialogHeader>
                     <DialogTitle>{isEdit ? 'Edit training' : 'Add training'}</DialogTitle>
                     <p className="text-sm text-muted-foreground">
@@ -610,7 +715,9 @@ export function AddTrainingDialog({
                                 onDrop={(event) => {
                                     event.preventDefault();
                                     setIsDraggingFiles(false);
-                                    addCertificateFiles(Array.from(event.dataTransfer.files));
+                                    void addCertificateFiles(
+                                        Array.from(event.dataTransfer.files),
+                                    );
                                 }}
                                 className={`rounded-2xl border border-dashed p-6 transition-colors ${
                                     isDraggingFiles
@@ -628,18 +735,27 @@ export function AddTrainingDialog({
                                         </div>
                                         <div className="mt-1 text-xs text-muted-foreground">
                                             Upload up to {MAX_TRAINING_CERTIFICATE_FILES} files.
-                                            Supported formats: PDF, JPG, JPEG, PNG. Max 5 MB each.
+                                            Supported formats: PDF, JPG, JPEG, PNG. Images are
+                                            compressed in your browser. PDFs larger than{' '}
+                                            {PDF_COMPRESS_THRESHOLD_LABEL} are optimized on the
+                                            server.
                                         </div>
                                     </div>
+                                    {isCompressingFiles && !isUploading ? (
+                                        <p className="text-xs text-muted-foreground">
+                                            Optimizing images…
+                                        </p>
+                                    ) : null}
                                     <label className="inline-flex cursor-pointer items-center rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90">
                                         Browse files
                                         <input
                                             type="file"
                                             accept=".pdf,.jpg,.jpeg,.png"
                                             multiple={!isEdit}
+                                            disabled={isBusy}
                                             className="sr-only"
                                             onChange={(event) => {
-                                                addCertificateFiles(
+                                                void addCertificateFiles(
                                                     Array.from(event.target.files ?? []),
                                                 );
                                                 event.currentTarget.value = '';
@@ -690,10 +806,7 @@ export function AddTrainingDialog({
                                                 index={index}
                                                 courseLabel={courseLabelForDraft(draft)}
                                                 selected={selectedDraftId === draft.id}
-                                                hasErrors={Boolean(
-                                                    selectedDraftId === draft.id &&
-                                                        Object.keys(fieldErrors).length > 0,
-                                                )}
+                                                hasErrors={fieldErrorsByIndex.has(index)}
                                                 onSelect={() => setSelectedDraftId(draft.id)}
                                                 onRemove={() => removeDraft(draft.id)}
                                             />
@@ -724,6 +837,7 @@ export function AddTrainingDialog({
                             variant="outline"
                             size="sm"
                             className={actions.dialogSecondary}
+                            disabled={isBusy}
                             onClick={() => onOpenChange(false)}
                         >
                             Cancel
@@ -734,7 +848,7 @@ export function AddTrainingDialog({
                             disabled={isEdit ? !canSaveEdit : !canSaveCreate}
                             onClick={isEdit ? submitEdit : submitCreate}
                         >
-                            {isSaving
+                            {isBusy
                                 ? 'Saving…'
                                 : isEdit
                                   ? 'Save'
@@ -744,6 +858,7 @@ export function AddTrainingDialog({
                         </Button>
                     </div>
                 </DialogFooter>
+                </div>
             </DialogContent>
         </Dialog>
     );

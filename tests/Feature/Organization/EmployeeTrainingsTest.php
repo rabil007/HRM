@@ -8,6 +8,8 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
+use App\Support\EmployeeDocuments\PreparedDocumentUpload;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -189,6 +191,261 @@ test('authorized users can store update and destroy training with certificate', 
         ->assertRedirect();
 
     expect(EmployeeTraining::query()->find($training->id))->toBeNull();
+});
+
+test('authorized users can bulk store multiple training certificates', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TBK',
+        'name' => 'Training Bulk Store Land',
+        'dial_code' => '+992',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TBK',
+        'name' => 'Training Bulk Store Currency',
+        'symbol' => 'K$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Bulk Store Co',
+        'slug' => 'training-bulk-store-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9010',
+            'name' => 'Bulk Store Trainee',
+            'nationality_id' => $country->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $firstCourse = Course::query()->create([
+        'name' => 'GMDSS / GOC',
+        'is_active' => true,
+    ]);
+
+    $secondCourse = Course::query()->create([
+        'name' => 'STCW Basic Safety',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.training.bulk-store', $employee), [
+        'trainings' => [
+            [
+                'course_id' => $firstCourse->id,
+                'issue_date' => '2024-11-26',
+                'expiry_date' => '2029-11-26',
+                'institute_center' => 'BINA SENA MTC',
+                'country_id' => $country->id,
+                'certificate' => UploadedFile::fake()->create('first.pdf', 100, 'application/pdf'),
+            ],
+            [
+                'course_id' => $secondCourse->id,
+                'issue_date' => '2025-01-15',
+                'expiry_date' => '2030-01-15',
+                'institute_center' => 'Maritime Academy',
+                'country_id' => $country->id,
+                'certificate' => UploadedFile::fake()->create('second.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertRedirect();
+
+    $trainings = EmployeeTraining::query()
+        ->where('employee_id', $employee->id)
+        ->orderBy('sort_order')
+        ->get();
+
+    expect($trainings)->toHaveCount(2)
+        ->and($trainings[0]->course_id)->toBe($firstCourse->id)
+        ->and($trainings[1]->course_id)->toBe($secondCourse->id)
+        ->and($trainings[0]->certificate_path)->not->toBeNull()
+        ->and($trainings[1]->certificate_path)->not->toBeNull();
+
+    Storage::disk('public')->assertExists($trainings[0]->certificate_path);
+    Storage::disk('public')->assertExists($trainings[1]->certificate_path);
+});
+
+test('bulk store validation errors use indexed keys', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TVE',
+        'name' => 'Training Validation Land',
+        'dial_code' => '+993',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TVE',
+        'name' => 'Training Validation Currency',
+        'symbol' => 'V$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Validation Co',
+        'slug' => 'training-validation-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9011',
+            'name' => 'Validation Trainee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $validCourse = Course::query()->create([
+        'name' => 'Valid Course',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.training.bulk-store', $employee), [
+        'trainings' => [
+            [
+                'course_id' => $validCourse->id,
+                'issue_date' => '2024-11-26',
+                'institute_center' => 'MTC A',
+                'certificate' => UploadedFile::fake()->create('valid.pdf', 100, 'application/pdf'),
+            ],
+            [
+                'course_id' => 999999,
+                'issue_date' => '2024-11-26',
+                'institute_center' => 'MTC B',
+                'certificate' => UploadedFile::fake()->create('invalid.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertSessionHasErrors('trainings.1.course_id');
+
+    expect(EmployeeTraining::query()->where('employee_id', $employee->id)->count())->toBe(0);
+});
+
+test('storing a training certificate invokes the document upload optimizer', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TOP',
+        'name' => 'Training Optimizer Land',
+        'dial_code' => '+994',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TOP',
+        'name' => 'Training Optimizer Currency',
+        'symbol' => 'O$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Optimizer Co',
+        'slug' => 'training-optimizer-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMP9012',
+            'name' => 'Optimizer Trainee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'PDF Optimizer Course',
+        'is_active' => true,
+    ]);
+
+    $certificate = UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf');
+
+    $optimizer = \Mockery::mock(DocumentUploadOptimizer::class);
+    $optimizer->shouldReceive('prepare')
+        ->once()
+        ->with(\Mockery::type(UploadedFile::class))
+        ->andReturn(new PreparedDocumentUpload($certificate));
+
+    $this->app->instance(DocumentUploadOptimizer::class, $optimizer);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-11-26',
+        'institute_center' => 'Optimizer MTC',
+        'certificate' => $certificate,
+    ])->assertRedirect();
 });
 
 test('csv import appends training rows for the employee', function () {

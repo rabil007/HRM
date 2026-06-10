@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Employee\BulkDestroyEmployeeTrainingsRequest;
+use App\Http\Requests\Organization\Employee\BulkStoreEmployeeTrainingRequest;
 use App\Http\Requests\Organization\Employee\ImportEmployeeTrainingRequest;
 use App\Models\Country;
 use App\Models\Course;
 use App\Models\Employee;
 use App\Models\EmployeeTraining;
+use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Uploads\UploadedFileStorage;
 use Carbon\CarbonImmutable;
@@ -22,6 +24,8 @@ use Illuminate\Validation\ValidationException;
 
 class EmployeeTrainingController extends Controller
 {
+    public function __construct(private DocumentUploadOptimizer $uploadOptimizer) {}
+
     /** @var array<string, string> */
     private const TRAINING_REQUEST_FIELD_ALIASES = [
         'certificate' => 'certificate_path',
@@ -81,6 +85,60 @@ class EmployeeTrainingController extends Controller
         }
 
         return back()->with('success', 'Training record added.');
+    }
+
+    public function bulkStore(BulkStoreEmployeeTrainingRequest $request, Employee $employee): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless($employee->company_id === $companyId, 403);
+
+        $validated = $request->validated();
+
+        $maxSort = EmployeeTraining::query()
+            ->where('employee_id', $employee->id)
+            ->where('company_id', $companyId)
+            ->max('sort_order');
+        $nextSort = $maxSort === null ? 0 : ((int) $maxSort + 1);
+
+        foreach ($validated['trainings'] as $index => $trainingData) {
+            $attributes = $this->trainingAttributes($trainingData, null);
+            $hasCertificate = $request->hasFile("trainings.{$index}.certificate");
+
+            $this->assertTrainingHasContent(
+                $attributes,
+                $hasCertificate,
+                "trainings.{$index}._",
+            );
+
+            EmployeeProfileTemplateRequestRules::assertRequiredFilePresent(
+                $request,
+                $employee,
+                'employee_trainings',
+                'certificate_path',
+                "trainings.{$index}.certificate",
+            );
+
+            $training = EmployeeTraining::query()->create([
+                'company_id' => $companyId,
+                'employee_id' => $employee->id,
+                'sort_order' => $nextSort,
+                ...$attributes,
+            ]);
+
+            $nextSort++;
+
+            if ($hasCertificate) {
+                $training->update([
+                    'certificate_path' => $this->storeCertificate(
+                        $request->file("trainings.{$index}.certificate"),
+                        $companyId,
+                    ),
+                ]);
+            }
+        }
+
+        return back()->with('success', 'Training records added.');
     }
 
     public function update(Request $request, Employee $employee, EmployeeTraining $training): RedirectResponse
@@ -447,14 +505,17 @@ class EmployeeTrainingController extends Controller
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function assertTrainingHasContent(array $attributes, bool $hasCertificate): void
-    {
+    private function assertTrainingHasContent(
+        array $attributes,
+        bool $hasCertificate,
+        string $errorKey = '_',
+    ): void {
         if ($hasCertificate || $this->trainingHasMeaningfulContent($attributes)) {
             return;
         }
 
         throw ValidationException::withMessages([
-            '_' => 'Enter at least one training detail or upload a certificate.',
+            $errorKey => 'Enter at least one training detail or upload a certificate.',
         ]);
     }
 
@@ -573,11 +634,17 @@ class EmployeeTrainingController extends Controller
 
     private function storeCertificate(UploadedFile $file, int $companyId): string
     {
-        return UploadedFileStorage::storePublicly(
-            $file,
-            "employees/{$companyId}/training-certificates",
-            ['disk' => 'public'],
-        );
+        $prepared = $this->uploadOptimizer->prepare($file);
+
+        try {
+            return UploadedFileStorage::storePublicly(
+                $prepared->file,
+                "employees/{$companyId}/training-certificates",
+                ['disk' => 'public'],
+            );
+        } finally {
+            $prepared->cleanup();
+        }
     }
 
     private function deleteCertificate(?string $path): void

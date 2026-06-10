@@ -190,6 +190,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/employees/{employee}/training/import/template', [EmployeeTrainingController::class, 'importTemplate'])->middleware('can:employees.training.manage')->name('organization.employees.training.import.template');
     Route::post('organization/employees/{employee}/training/import', [EmployeeTrainingController::class, 'import'])->middleware('can:employees.training.manage')->name('organization.employees.training.import');
+    Route::post('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkStore'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-store');
     Route::post('organization/employees/{employee}/training', [EmployeeTrainingController::class, 'store'])->middleware('can:employees.training.manage')->name('organization.employees.training.store');
     Route::put('organization/employees/{employee}/training/{training}', [EmployeeTrainingController::class, 'update'])->middleware('can:employees.training.manage')->name('organization.employees.training.update');
     Route::delete('organization/employees/{employee}/training/bulk', [EmployeeTrainingController::class, 'bulkDestroy'])->middleware('can:employees.training.manage')->name('organization.employees.training.bulk-destroy');

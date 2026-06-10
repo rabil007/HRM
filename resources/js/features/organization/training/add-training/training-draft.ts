@@ -1,6 +1,7 @@
 import {
     createUploadDraftId,
     fileMatchesExistingDraft,
+    firstInvalidDraftIndex,
     formatUploadFileSize,
     SUPPORTED_UPLOAD_MIME_TYPES,
 } from '@/features/organization/documents/upload/upload-draft';
@@ -30,7 +31,79 @@ export {
     formatUploadFileSize,
     fileMatchesExistingDraft,
     createUploadDraftId,
+    firstInvalidDraftIndex,
 };
+
+const BULK_TRAINING_ERROR_PATTERN = /^trainings\.(\d+)\.(.+)$/;
+
+export function parseBulkTrainingErrors(
+    errors: Record<string, string | string[]>,
+): Map<number, TrainingDraftFieldErrors> {
+    const byIndex = new Map<number, TrainingDraftFieldErrors>();
+
+    for (const [key, rawValue] of Object.entries(errors)) {
+        const match = key.match(BULK_TRAINING_ERROR_PATTERN);
+
+        if (!match) {
+            continue;
+        }
+
+        const index = Number(match[1]);
+        const fieldKey = match[2];
+        const message = Array.isArray(rawValue) ? (rawValue[0] ?? '') : rawValue;
+
+        if (!message) {
+            continue;
+        }
+
+        const existing = byIndex.get(index) ?? {};
+        const mappedField =
+            fieldKey === 'certificate'
+                ? 'certificate'
+                : fieldKey in emptyTrainingMetadata()
+                  ? (fieldKey as keyof TrainingDraftMetadata)
+                  : null;
+
+        if (mappedField) {
+            existing[mappedField] = message;
+            byIndex.set(index, existing);
+        }
+    }
+
+    return byIndex;
+}
+
+function emptyTrainingMetadata(): TrainingDraftMetadata {
+    return {
+        course_id: '',
+        issue_date: '',
+        expiry_date: '',
+        institute_center: '',
+        country_id: '',
+    };
+}
+
+export function buildBulkTrainingSubmitPayload(
+    drafts: TrainingDraft[],
+    templateFields?: Record<string, TemplateFieldConfig> | null,
+): Record<string, unknown> {
+    return {
+        trainings: drafts.map((draft) =>
+            omitHiddenTemplateRecordFields(
+                {
+                    course_id: draft.course_id,
+                    issue_date: draft.issue_date,
+                    expiry_date: draft.expiry_date === '' ? null : draft.expiry_date,
+                    institute_center: draft.institute_center.trim(),
+                    country_id: draft.country_id === '' ? null : draft.country_id,
+                    certificate: draft.file,
+                },
+                templateFields,
+                TRAINING_REQUEST_FIELD_ALIASES,
+            ),
+        ),
+    };
+}
 
 export type TrainingDraftMetadata = {
     course_id: string;
