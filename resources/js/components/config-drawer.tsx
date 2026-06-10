@@ -13,6 +13,7 @@ import { IconThemeSystem } from '@/assets/custom/icon-theme-system';
 import { Button } from '@/components/ui/button';
 import {
     Sheet,
+    SheetClose,
     SheetContent,
     SheetDescription,
     SheetFooter,
@@ -66,12 +67,18 @@ export function ConfigDrawer() {
                 </div>
                 <SheetFooter className="gap-2">
                     <Button
-                        variant="destructive"
+                        variant="outline"
                         onClick={handleReset}
                         aria-label="Reset all settings to default values"
                     >
+                        <RotateCcw className="mr-1 size-3.5" />
                         Reset
                     </Button>
+                    <SheetClose asChild>
+                        <Button aria-label="Apply settings and close panel">
+                            Apply
+                        </Button>
+                    </SheetClose>
                 </SheetFooter>
             </SheetContent>
         </Sheet>
@@ -263,12 +270,13 @@ function LayoutConfig() {
     const { defaultCollapsible, collapsible, setCollapsible } = useLayout();
 
     const radioState = open ? 'default' : collapsible;
+    const isModified = !open || collapsible !== defaultCollapsible;
 
     return (
         <div className="max-md:hidden">
             <SectionTitle
                 title="Layout"
-                showReset={radioState !== 'default'}
+                showReset={isModified}
                 onReset={() => {
                     setOpen(true);
                     setCollapsible(defaultCollapsible);
@@ -279,6 +287,7 @@ function LayoutConfig() {
                 onValueChange={(v) => {
                     if (v === 'default') {
                         setOpen(true);
+                        setCollapsible(defaultCollapsible);
 
                         return;
                     }

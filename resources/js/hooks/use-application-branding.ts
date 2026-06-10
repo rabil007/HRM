@@ -52,12 +52,19 @@ export function useApplicationBrandingSync(): void {
 }
 
 export function useSidebarDefaultOpen(): boolean {
-    const { settings, sidebarOpen } = usePage().props;
+    const { settings, sidebarOpen, sidebarStateSet } = usePage().props;
     const compactDefault = settings?.preferences?.sidebar_compact_default;
 
+    // If the user has explicitly set their sidebar preference via the config
+    // drawer, always respect it — even if the app default is compact.
+    if (sidebarStateSet) {
+        return sidebarOpen ?? true;
+    }
+
+    // No user preference yet — fall back to the app-level default.
     if (compactDefault === true) {
         return false;
     }
 
-    return sidebarOpen ?? true;
+    return true;
 }

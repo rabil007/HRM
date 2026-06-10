@@ -152,6 +152,7 @@ class HandleInertiaRequests extends Middleware
             'company_switcher_companies' => $companies,
             'current_company_id' => $currentCompanyId,
             'sidebarOpen' => ! $request->hasCookie('sidebar_state') || $request->cookie('sidebar_state') === 'true',
+            'sidebarStateSet' => $request->hasCookie('sidebar_state'),
         ];
     }
 
