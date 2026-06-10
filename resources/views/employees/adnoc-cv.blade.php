@@ -32,12 +32,9 @@
             vertical-align: top;
         }
 
-        table.cv-head {
-            margin-bottom: 2px;
-        }
-
-        table.cv-head--repeat {
+        .cv-page-header-repeat {
             page-break-before: always;
+            margin-bottom: 2px;
         }
 
         @media screen {
@@ -141,6 +138,10 @@
             vertical-align: middle;
             padding: 0 4px;
             width: 66.66%;
+        }
+
+        table.cv-head tr.cv-head-brand td {
+            vertical-align: middle;
         }
 
         .head-subtitle {
@@ -254,10 +255,6 @@
 
         tr.sea-data-row td.sea-company { text-align: left; }
 
-        table.cv-page-footer {
-            page-break-after: always;
-            page-break-inside: avoid;
-        }
     </style>
 </head>
 <body @class(['pdf-output' => $is_pdf ?? false])>
@@ -272,7 +269,7 @@
     <div class="cv-shell">
         <table class="cv-margin-wrap"><tr><td class="cv-margin-cell">
 
-        @include('employees.partials.adnoc-cv-page-header')
+        @include('employees.partials.adnoc-cv-header')
 
         {{-- PAGE 1 --}}
         <table class="cv">
@@ -449,18 +446,7 @@
 
             <tr><td colspan="12" class="section">SECTION 6 - STCW/OTHER TRAINING/PROFESSIONAL COURSES DETAILS</td></tr>
             @include('employees.partials.adnoc-cv-stcw-columns')
-            @forelse ($stcw_courses as $index => $course)
-                @if (($is_pdf ?? false) && $index > 0 && $index % 13 === 0)
-        </table>
-        @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
-        <table class="cv">
-            <colgroup>
-                @for ($i = 0; $i < 12; $i++)
-                    <col style="width:8.333%">
-                @endfor
-            </colgroup>
-            @include('employees.partials.adnoc-cv-stcw-columns')
-                @endif
+            @forelse ($stcw_courses as $course)
                 <tr>
                     <td colspan="5" class="val">{{ $course['name'] }}</td>
                     <td colspan="2" class="val center val-nowrap">{{ $course['issue_date'] }}</td>
@@ -472,31 +458,14 @@
                     <td colspan="12" class="center" style="padding:4px;">No training records</td>
                 </tr>
             @endforelse
+
+            <tr class="footer-rev">
+                <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
+            </tr>
         </table>
 
         @if ($is_pdf ?? false)
-            <table class="cv cv-page-footer">
-                <colgroup>
-                    @for ($i = 0; $i < 12; $i++)
-                        <col style="width:8.333%">
-                    @endfor
-                </colgroup>
-                <tr class="footer-rev">
-                    <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
-                </tr>
-            </table>
-            @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
-        @else
-            <table class="cv">
-                <colgroup>
-                    @for ($i = 0; $i < 12; $i++)
-                        <col style="width:8.333%">
-                    @endfor
-                </colgroup>
-                <tr class="footer-rev">
-                    <td colspan="12">FRM-HRA-RMP-032- Rev. 00</td>
-                </tr>
-            </table>
+            @include('employees.partials.adnoc-cv-page-header')
         @endif
 
         {{-- PAGE 2 --}}
@@ -572,7 +541,7 @@
             @forelse ($sea_services as $index => $svc)
                 @if (($is_pdf ?? false) && $index > 0 && $index % 12 === 0)
         </table>
-        @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
+        @include('employees.partials.adnoc-cv-page-header')
         <table class="cv">
             <colgroup>
                 @for ($i = 0; $i < 12; $i++)
@@ -609,7 +578,7 @@
         </table>
 
         @if ($is_pdf ?? false)
-            @include('employees.partials.adnoc-cv-page-header', ['repeat' => true])
+            @include('employees.partials.adnoc-cv-page-header', ['closing' => true])
             <table class="cv">
                 <colgroup>
                     @for ($i = 0; $i < 12; $i++)

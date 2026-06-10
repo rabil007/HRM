@@ -1,7 +1,4 @@
-<table @class([
-    'cv-head',
-    'cv-head--repeat' => $repeat ?? false,
-])>
+<table class="cv-head">
     <colgroup>
         @for ($i = 0; $i < 12; $i++)
             <col style="width:8.333%">
@@ -16,7 +13,7 @@
             @endif
         </td>
         <td colspan="8" class="head-title-cell">
-            <div class="head-subtitle">Standard CV Form (Seafarer)</div>
+            <span class="head-subtitle">Standard CV Form (Seafarer)</span>
         </td>
         <td colspan="2" class="head-logo-cell">
             @if (! empty($logo_url))
