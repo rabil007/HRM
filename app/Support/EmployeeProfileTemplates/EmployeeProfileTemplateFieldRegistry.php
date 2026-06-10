@@ -76,7 +76,7 @@ final class EmployeeProfileTemplateFieldRegistry
                 'gender_id' => 'Gender',
                 'religion_id' => 'Religion',
                 'visa_type_id' => 'Visa type',
-                'company_visa_type_id' => 'Company visa type',
+                'company_visa_type_id' => 'Sponsor',
                 'approval_location_ids' => 'Approval locations',
                 'sssa_option_ids' => 'SSSA options',
                 'nationality_id' => 'Nationality',

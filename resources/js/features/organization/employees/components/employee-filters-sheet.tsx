@@ -242,7 +242,7 @@ export function EmployeeFiltersSheet({
 
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Company visa type
+                        Sponsor
                     </Label>
                     <AppSelect
                         value={value.company_visa_type_id}

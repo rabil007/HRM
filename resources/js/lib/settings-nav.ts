@@ -89,7 +89,7 @@ export const SETTINGS_MASTER_DATA_ITEMS: SettingsNavItem[] = [
         color: 'bg-cyan-500/10 text-cyan-600',
     },
     {
-        title: 'Company visa types',
+        title: 'Sponsors',
         href: '/settings/master-data/company-visa-types',
         permission: 'settings.master-data.company-visa-types.view',
         icon: IdCard,

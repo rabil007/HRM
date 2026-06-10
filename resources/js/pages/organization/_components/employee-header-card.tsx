@@ -578,7 +578,7 @@ export function EmployeeHeaderCard({
 
                     {showField('company_visa_type_id') && (
                         <EditableDetailSelectField
-                            label="Company visa type"
+                            label="Sponsor"
                             field="company_visa_type_id"
                             value={form.data.company_visa_type_id}
                             displayValue={optionLabel(

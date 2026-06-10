@@ -122,13 +122,13 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
 
     return (
         <>
-            <Head title="Company visa types" />
+            <Head title="Sponsors" />
 
             <div className="space-y-6">
                 <Heading
                     variant="small"
-                    title="Company visa types"
-                    description="Manage company visa type titles used across the system."
+                    title="Sponsors"
+                    description="Manage sponsor titles used across the system."
                 />
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -136,11 +136,11 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
                         <Input
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search company visa types..."
+                            placeholder="Search sponsors..."
                             className={masterDataInputClass}
                         />
                     </div>
-                    {can.create ? <Button onClick={openCreate}>Add company visa type</Button> : null}
+                    {can.create ? <Button onClick={openCreate}>Add sponsor</Button> : null}
                 </div>
 
                 <div className="overflow-hidden rounded-xl border border-border/60">
@@ -171,7 +171,7 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
                             ))}
 
                             {rows.length === 0 ? (
-                                <div className="px-4 py-10 text-sm text-muted-foreground">No company visa types found.</div>
+                                <div className="px-4 py-10 text-sm text-muted-foreground">No sponsors found.</div>
                             ) : null}
                         </div>
                     </div>
@@ -181,14 +181,14 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
             <MasterDataFormSheet
                 open={sheetOpen}
                 onOpenChange={setSheetOpen}
-                title={current ? 'Edit company visa type' : 'New company visa type'}
-                description="Enter the company visa type title only."
+                title={current ? 'Edit sponsor' : 'New sponsor'}
+                description="Enter the sponsor title only."
                 footer={
                     <MasterDataFormSheetFooter
                         onCancel={() => setSheetOpen(false)}
                         onSubmit={submit}
                         processing={form.processing}
-                        submitLabel={current ? 'Save changes' : 'Create company visa type'}
+                        submitLabel={current ? 'Save changes' : 'Create sponsor'}
                     />
                 }
             >
@@ -211,11 +211,11 @@ export default function CompanyVisaTypes({ company_visa_types }: { company_visa_
             <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
                 <AlertDialogContent className="glass-card">
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Delete company visa type</AlertDialogTitle>
+                        <AlertDialogTitle>Delete sponsor</AlertDialogTitle>
                         <AlertDialogDescription>
                             {current
                                 ? `This will permanently delete “${current.name}”.`
-                                : 'This will permanently delete this company visa type.'}
+                                : 'This will permanently delete this sponsor.'}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
