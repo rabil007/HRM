@@ -249,6 +249,183 @@ test('training certificate storage failures include employee context', function 
     );
 });
 
+test('successful training certificate upload is logged with module context', function () {
+    Event::fake([MessageLogged::class]);
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TOK',
+        'name' => 'Training OK Land',
+        'dial_code' => '+997',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TOK',
+        'name' => 'Training OK Currency',
+        'symbol' => 'O$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training OK Co',
+        'slug' => 'training-ok-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMPLOG3',
+            'name' => 'Success Log Trainee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $course = Course::query()->create([
+        'name' => 'Success Log Course',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.training.store', $employee), [
+        'course_id' => $course->id,
+        'issue_date' => '2024-01-01',
+        'institute_center' => 'MTC',
+        'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
+    ])->assertRedirect();
+
+    Event::assertDispatched(
+        MessageLogged::class,
+        fn (MessageLogged $event) => $event->level === 'info'
+            && $event->message === FailedUploadLogger::SUCCESS_LOG_MESSAGE
+            && ($event->context['outcome'] ?? null) === 'success'
+            && ($event->context['upload_module'] ?? null) === 'employee_training_certificate'
+            && ($event->context['employee_id'] ?? null) === $employee->id
+            && is_string($event->context['stored_path'] ?? null),
+    );
+
+    Event::assertNotDispatched(
+        MessageLogged::class,
+        fn (MessageLogged $event) => $event->level === 'error'
+            && $event->message === FailedUploadLogger::LOG_MESSAGE,
+    );
+});
+
+test('successful training bulk certificate uploads are logged per file', function () {
+    Event::fake([MessageLogged::class]);
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'TBK',
+        'name' => 'Training Bulk OK Land',
+        'dial_code' => '+998',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'TBK',
+        'name' => 'Training Bulk OK Currency',
+        'symbol' => 'K$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Training Bulk OK Co',
+        'slug' => 'training-bulk-ok-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'EMPLOG4',
+            'name' => 'Bulk Success Trainee',
+            'status' => 'active',
+        ]);
+
+    EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'end_date' => null,
+        'labor_contract_id' => null,
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'employees.view',
+        'employees.training.manage',
+    ]);
+
+    $firstCourse = Course::query()->create([
+        'name' => 'Bulk OK Course A',
+        'is_active' => true,
+    ]);
+
+    $secondCourse = Course::query()->create([
+        'name' => 'Bulk OK Course B',
+        'is_active' => true,
+    ]);
+
+    $this->post(route('organization.employees.training.bulk-store', $employee), [
+        'trainings' => [
+            [
+                'course_id' => $firstCourse->id,
+                'issue_date' => '2024-01-01',
+                'institute_center' => 'MTC A',
+                'certificate' => UploadedFile::fake()->create('a.pdf', 100, 'application/pdf'),
+            ],
+            [
+                'course_id' => $secondCourse->id,
+                'issue_date' => '2024-02-01',
+                'institute_center' => 'MTC B',
+                'certificate' => UploadedFile::fake()->create('b.pdf', 100, 'application/pdf'),
+            ],
+        ],
+    ])->assertRedirect();
+
+    $successLogs = collect(Event::dispatched(MessageLogged::class))
+        ->flatten()
+        ->filter(
+            fn (MessageLogged $event) => $event->level === 'info'
+                && $event->message === FailedUploadLogger::SUCCESS_LOG_MESSAGE
+                && ($event->context['upload_module'] ?? null) === 'employee_training_certificate',
+        );
+
+    expect($successLogs)->toHaveCount(2);
+});
+
 test('uploaded file storage failures are logged with file context', function () {
     Event::fake([MessageLogged::class]);
 

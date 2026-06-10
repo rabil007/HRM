@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\EmployeeTraining;
 use App\Support\EmployeeDocuments\DocumentUploadOptimizer;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Uploads\FailedUploadLogger;
 use App\Support\Uploads\UploadedFileStorage;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -665,15 +666,27 @@ class EmployeeTrainingController extends Controller
             $logContext['training_id'] = $trainingId;
         }
 
+        $storagePath = "employees/{$companyId}/training-certificates";
+
         try {
-            return UploadedFileStorage::storePublicly(
+            $storedPath = UploadedFileStorage::storePublicly(
                 $prepared->file,
-                "employees/{$companyId}/training-certificates",
+                $storagePath,
                 [
                     'disk' => 'public',
                     'log_context' => $logContext,
                 ],
             );
+
+            FailedUploadLogger::logStorageSuccess(
+                $prepared->file,
+                'storePublicly',
+                $storagePath,
+                $storedPath,
+                $logContext,
+            );
+
+            return $storedPath;
         } finally {
             $prepared->cleanup();
         }

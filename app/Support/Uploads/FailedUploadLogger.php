@@ -12,6 +12,8 @@ final class FailedUploadLogger
 {
     public const LOG_MESSAGE = 'File upload failed.';
 
+    public const SUCCESS_LOG_MESSAGE = 'File upload completed.';
+
     public static function log(Request $request, string $reason, array $context = []): void
     {
         Log::error(self::LOG_MESSAGE, array_merge(
@@ -59,6 +61,36 @@ final class FailedUploadLogger
             'file' => self::describeFile($file),
             'exception' => $exception !== null ? $exception::class : null,
         ], self::routeUploadModuleContext($request), $context));
+    }
+
+    public static function logStorageSuccess(
+        UploadedFile $file,
+        string $operation,
+        string $path,
+        string $storedPath,
+        array $context = [],
+    ): void {
+        $payload = array_merge([
+            'outcome' => 'success',
+            'operation' => $operation,
+            'path' => $path,
+            'stored_path' => $storedPath,
+            'file' => self::describeFile($file),
+        ], $context);
+
+        $request = request();
+
+        if (! $request instanceof Request) {
+            Log::info(self::SUCCESS_LOG_MESSAGE, $payload);
+
+            return;
+        }
+
+        Log::info(self::SUCCESS_LOG_MESSAGE, array_merge(
+            self::requestContext($request),
+            $payload,
+            self::routeUploadModuleContext($request),
+        ));
     }
 
     /**
