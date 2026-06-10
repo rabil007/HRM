@@ -36,28 +36,51 @@ final class FailedUploadLogger
         string $path,
         string $reason,
         ?Throwable $exception = null,
+        array $context = [],
     ): void {
         $request = request();
 
         if (! $request instanceof Request) {
-            Log::error(self::LOG_MESSAGE, [
+            Log::error(self::LOG_MESSAGE, array_merge([
                 'reason' => $reason,
                 'operation' => $operation,
                 'path' => $path,
                 'file' => self::describeFile($file),
                 'exception' => $exception !== null ? $exception::class : null,
-            ]);
+            ], $context));
 
             return;
         }
 
-        self::log($request, $reason, [
+        self::log($request, $reason, array_merge([
             'failure_stage' => 'storage',
             'operation' => $operation,
             'path' => $path,
             'file' => self::describeFile($file),
             'exception' => $exception !== null ? $exception::class : null,
-        ]);
+        ], self::routeUploadModuleContext($request), $context));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function routeUploadModuleContext(Request $request): array
+    {
+        $routeName = $request->route()?->getName();
+
+        if (! is_string($routeName)) {
+            return [];
+        }
+
+        return match (true) {
+            str_contains($routeName, 'employees.training.') => [
+                'upload_module' => 'employee_training_certificate',
+            ],
+            str_contains($routeName, 'employees.documents.') => [
+                'upload_module' => 'employee_document',
+            ],
+            default => [],
+        };
     }
 
     /**

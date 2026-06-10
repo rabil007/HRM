@@ -27,7 +27,10 @@ class LogFailedFileUploads
         FailedUploadLogger::log(
             $request,
             $this->resolveFailureReason($request, $response),
-            FailedUploadLogger::responseFailureContext($request, $response),
+            array_merge(
+                FailedUploadLogger::responseFailureContext($request, $response),
+                FailedUploadLogger::routeUploadModuleContext($request),
+            ),
         );
 
         return $response;

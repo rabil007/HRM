@@ -80,7 +80,11 @@ class EmployeeTrainingController extends Controller
 
         if ($request->hasFile('certificate')) {
             $training->update([
-                'certificate_path' => $this->storeCertificate($request->file('certificate'), $companyId),
+                'certificate_path' => $this->storeCertificate(
+                    $request->file('certificate'),
+                    $companyId,
+                    $employee->id,
+                ),
             ]);
         }
 
@@ -133,6 +137,8 @@ class EmployeeTrainingController extends Controller
                     'certificate_path' => $this->storeCertificate(
                         $request->file("trainings.{$index}.certificate"),
                         $companyId,
+                        $employee->id,
+                        $index,
                     ),
                 ]);
             }
@@ -187,7 +193,12 @@ class EmployeeTrainingController extends Controller
 
         if ($request->hasFile('certificate')) {
             $this->deleteCertificate($certificatePath);
-            $attributes['certificate_path'] = $this->storeCertificate($request->file('certificate'), $companyId);
+            $attributes['certificate_path'] = $this->storeCertificate(
+                $request->file('certificate'),
+                $companyId,
+                $employee->id,
+                trainingId: $training->id,
+            );
         }
 
         $training->update($attributes);
@@ -632,15 +643,36 @@ class EmployeeTrainingController extends Controller
         return true;
     }
 
-    private function storeCertificate(UploadedFile $file, int $companyId): string
-    {
+    private function storeCertificate(
+        UploadedFile $file,
+        int $companyId,
+        int $employeeId,
+        ?int $trainingIndex = null,
+        ?int $trainingId = null,
+    ): string {
         $prepared = $this->uploadOptimizer->prepare($file);
+
+        $logContext = [
+            'upload_module' => 'employee_training_certificate',
+            'employee_id' => $employeeId,
+        ];
+
+        if ($trainingIndex !== null) {
+            $logContext['training_index'] = $trainingIndex;
+        }
+
+        if ($trainingId !== null) {
+            $logContext['training_id'] = $trainingId;
+        }
 
         try {
             return UploadedFileStorage::storePublicly(
                 $prepared->file,
                 "employees/{$companyId}/training-certificates",
-                ['disk' => 'public'],
+                [
+                    'disk' => 'public',
+                    'log_context' => $logContext,
+                ],
             );
         } finally {
             $prepared->cleanup();
