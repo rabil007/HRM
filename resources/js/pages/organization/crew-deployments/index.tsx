@@ -72,7 +72,7 @@ function displayNumber(value: number | null | undefined): string {
     return value !== null && value !== undefined ? String(value) : '—';
 }
 
-const TABLE_COLUMN_COUNT = 18;
+const TABLE_COLUMN_COUNT = 17;
 
 export default function CrewDeploymentsIndex({
     deployments,
@@ -384,14 +384,6 @@ export default function CrewDeploymentsIndex({
                             Rank
                         </SortableDeploymentTableHead>
                         <SortableDeploymentTableHead
-                            sortKey="nationality"
-                            activeSort={activeSort}
-                            direction={activeDirection}
-                            onSort={handleColumnSort}
-                        >
-                            Nationality
-                        </SortableDeploymentTableHead>
-                        <SortableDeploymentTableHead
                             sortKey="vessel_name"
                             activeSort={activeSort}
                             direction={activeDirection}
@@ -513,9 +505,13 @@ export default function CrewDeploymentsIndex({
                                     />
                                 </TableCell>
                                 <TableCell>{displayValue(deployment.employee_no)}</TableCell>
-                                <TableCell>{displayValue(deployment.employee_name)}</TableCell>
+                                <TableCell>
+                                    <div className="text-sm">{displayValue(deployment.employee_name)}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                        {displayValue(deployment.nationality)}
+                                    </div>
+                                </TableCell>
                                 <TableCell>{displayValue(deployment.rank_name)}</TableCell>
-                                <TableCell>{displayValue(deployment.nationality)}</TableCell>
                                 <TableCell>{displayValue(deployment.vessel_name)}</TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.hire_date)}
