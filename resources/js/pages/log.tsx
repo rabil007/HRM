@@ -1,7 +1,7 @@
-import { destroy as clearApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
 import { Head, router, useForm } from '@inertiajs/react';
 import { AlertTriangle, FileText, Search, Terminal, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { destroy as clearApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Main } from '@/components/layout/main';

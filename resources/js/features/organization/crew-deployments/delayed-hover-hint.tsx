@@ -2,12 +2,13 @@ import {
     useCallback,
     useEffect,
     useRef,
-    useState,
-    type MouseEvent,
-    type PointerEvent,
-    type ReactElement,
-    type ReactNode,
+    useState
+    
+    
+    
+    
 } from 'react';
+import type {MouseEvent, PointerEvent, ReactElement, ReactNode} from 'react';
 import { createPortal } from 'react-dom';
 
 export const NEEDS_UPDATE_TOOLTIP_DELAY_MS = 500;

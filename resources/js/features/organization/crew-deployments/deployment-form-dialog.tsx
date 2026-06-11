@@ -246,6 +246,7 @@ export function DeploymentFormDialog({
                                         const employee = employees.find(
                                             (item) => String(item.id) === value,
                                         );
+
                                         if (employee?.rank_id) {
                                             form.setData('rank_id', String(employee.rank_id));
                                         }

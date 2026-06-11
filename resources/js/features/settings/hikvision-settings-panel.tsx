@@ -19,11 +19,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
 import {
-    HikvisionDevicesSection,
-    type HikvisionDevicesSectionProps,
+    HikvisionDevicesSection
+    
 } from '@/features/settings/hikvision-devices-section';
+import type {HikvisionDevicesSectionProps} from '@/features/settings/hikvision-devices-section';
+import { testHikvisionConnection } from '@/features/settings/test-hikvision-connection';
 import { formatDisplayDateTime } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
+import { cn } from '@/lib/utils';
 
 const TOTAL_ITEM = {
     key: 'total',

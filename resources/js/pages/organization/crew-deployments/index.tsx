@@ -15,19 +15,19 @@ import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
 } from '@/components/data-table';
-import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Main } from '@/components/layout/main';
+import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
 import {
     DEFAULT_DEPLOYMENT_SORT,
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
+import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
@@ -113,11 +113,27 @@ export default function CrewDeploymentsIndex({
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
-        if (filters.status) count++;
-        if (filters.rank_id) count++;
-        if (filters.client_id) count++;
-        if (filters.company_visa_type_id) count++;
-        if (filters.search) count++;
+
+        if (filters.status) {
+count++;
+}
+
+        if (filters.rank_id) {
+count++;
+}
+
+        if (filters.client_id) {
+count++;
+}
+
+        if (filters.company_visa_type_id) {
+count++;
+}
+
+        if (filters.search) {
+count++;
+}
+
         return count;
     }, [filters]);
 
@@ -137,16 +153,37 @@ export default function CrewDeploymentsIndex({
     const listBackQuery = useMemo(() => {
         const query: Record<string, string> = {};
 
-        if (filters.status) query.status = filters.status;
-        if (filters.search) query.search = filters.search;
-        if (filters.rank_id) query.rank_id = String(filters.rank_id);
-        if (filters.client_id) query.client_id = String(filters.client_id);
+        if (filters.status) {
+query.status = filters.status;
+}
+
+        if (filters.search) {
+query.search = filters.search;
+}
+
+        if (filters.rank_id) {
+query.rank_id = String(filters.rank_id);
+}
+
+        if (filters.client_id) {
+query.client_id = String(filters.client_id);
+}
+
         if (filters.company_visa_type_id) {
             query.company_visa_type_id = String(filters.company_visa_type_id);
         }
-        if (filters.sort) query.sort = filters.sort;
-        if (filters.direction) query.direction = filters.direction;
-        if (deployments.per_page) query.per_page = String(deployments.per_page);
+
+        if (filters.sort) {
+query.sort = filters.sort;
+}
+
+        if (filters.direction) {
+query.direction = filters.direction;
+}
+
+        if (deployments.per_page) {
+query.per_page = String(deployments.per_page);
+}
 
         return query;
     }, [deployments.per_page, filters]);
@@ -232,7 +269,11 @@ export default function CrewDeploymentsIndex({
                                     className="sr-only"
                                     onChange={(event) => {
                                         const file = event.target.files?.[0] ?? null;
-                                        if (!file) return;
+
+                                        if (!file) {
+return;
+}
+
                                         router.post(
                                             '/organization/crew-deployments/import',
                                             { file },
@@ -655,12 +696,17 @@ export default function CrewDeploymentsIndex({
             <ConfirmDeleteDialog
                 open={deleting !== null}
                 onOpenChange={(open) => {
-                    if (!open) setDeleting(null);
+                    if (!open) {
+setDeleting(null);
+}
                 }}
                 title="Delete deployment record?"
                 description="This removes the assignment from the crew tracker."
                 onConfirm={() => {
-                    if (!deleting) return;
+                    if (!deleting) {
+return;
+}
+
                     router.delete(destroyDeployment.url({ deployment: deleting.id }), {
                         preserveScroll: true,
                         onSuccess: () => setDeleting(null),
