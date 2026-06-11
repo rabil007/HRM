@@ -12,6 +12,7 @@ use App\Models\HikvisionSetting;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -75,23 +76,21 @@ class HikvisionAccessEventController extends Controller
                 ->get()
                 ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
 
-        $personsByHikvisionId = $personHikvisionIds === []
-            ? collect()
-            : HikvisionPerson::query()
-                ->whereIn('person_id', $personHikvisionIds)
-                ->get(['person_id', 'photo_url'])
-                ->keyBy('person_id');
+        $personsWithPhotos = HikvisionPerson::query()
+            ->whereNotNull('photo_url')
+            ->where('photo_url', '!=', '')
+            ->get(['person_id', 'full_name', 'photo_url']);
+
+        $personsByHikvisionId = $personsWithPhotos->keyBy('person_id');
 
         return Inertia::render('hikvision/access-events', [
             'events' => $paginator->getCollection()
-                ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId, $personsByHikvisionId) {
+                ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId, $personsByHikvisionId, $personsWithPhotos) {
                     $linkedEmployee = $event->person_hikvision_id
                         ? $employeesByPersonId->get($event->person_hikvision_id)
                         : null;
 
-                    $linkedPerson = $event->person_hikvision_id
-                        ? $personsByHikvisionId->get($event->person_hikvision_id)
-                        : null;
+                    $linkedPerson = self::resolveLinkedPerson($event, $personsByHikvisionId, $personsWithPhotos);
 
                     return [
                         'id' => $event->id,
@@ -162,5 +161,43 @@ class HikvisionAccessEventController extends Controller
         $label = $date->isToday() ? 'today' : $date->format('d-m-Y');
 
         return back()->with('success', "Fetch started for {$label}. Records will update automatically when complete.");
+    }
+
+    /**
+     * @param  Collection<string, HikvisionPerson>  $personsByHikvisionId
+     * @param  Collection<int, HikvisionPerson>  $personsWithPhotos
+     */
+    private static function resolveLinkedPerson(
+        HikvisionAccessEvent $event,
+        Collection $personsByHikvisionId,
+        Collection $personsWithPhotos,
+    ): ?HikvisionPerson {
+        if ($event->person_hikvision_id) {
+            $person = $personsByHikvisionId->get($event->person_hikvision_id);
+
+            if ($person !== null) {
+                return $person;
+            }
+        }
+
+        $eventName = strtolower(trim((string) ($event->person_name ?? '')));
+
+        if ($eventName === '') {
+            return null;
+        }
+
+        $exactMatch = $personsWithPhotos->first(
+            fn (HikvisionPerson $person): bool => strtolower(trim((string) $person->full_name)) === $eventName,
+        );
+
+        if ($exactMatch !== null) {
+            return $exactMatch;
+        }
+
+        return $personsWithPhotos->first(function (HikvisionPerson $person) use ($eventName): bool {
+            $fullName = strtolower(trim((string) $person->full_name));
+
+            return str_starts_with($fullName, $eventName) || str_starts_with($eventName, $fullName);
+        });
     }
 }

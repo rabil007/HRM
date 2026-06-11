@@ -138,6 +138,39 @@ test('user with permission can view hikvision access events page', function () {
         );
 });
 
+test('access events page resolves hikvision person photo by name when person id is missing', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-maher-id',
+        'full_name' => 'Maher',
+        'photo_url' => 'https://example.com/maher-headshot.jpg',
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'acs:photo-by-name',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-08 09:00:00',
+        'person_name' => 'Maher',
+        'person_hikvision_id' => null,
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkIn',
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'snap_urls' => ['https://example.com/expired-snap.jpg'],
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.person_photo_url', 'https://example.com/maher-headshot.jpg'),
+        );
+});
+
 test('access events page falls back to hikvision person photo when snap url is missing', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
