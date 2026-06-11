@@ -25,6 +25,18 @@ test('reset password link can be requested', function () {
     Notification::assertSentTo($user, ResetPassword::class);
 });
 
+test('reset password email uses branded html template', function () {
+    $user = User::factory()->create();
+
+    $notification = new ResetPassword('test-token');
+    $mail = $notification->toMail($user);
+    $rendered = $mail->render();
+
+    expect($rendered)->toContain('Reset password')
+        ->and($rendered)->toContain('email-btn-link')
+        ->and($rendered)->toContain('color-scheme');
+});
+
 test('reset password screen can be rendered', function () {
     Notification::fake();
 

@@ -6,6 +6,8 @@ use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\View;
@@ -49,12 +51,39 @@ class AppServiceProvider extends ServiceProvider
         $this->configureDefaults();
         $this->configureApplicationSettings();
         $this->configureMailViews();
+        $this->configurePasswordResetNotifications();
     }
 
     protected function configureMailViews(): void
     {
         View::composer('mail.layout', function ($view): void {
             $view->with('mailBranding', app(SettingService::class)->mailBranding());
+        });
+    }
+
+    protected function configurePasswordResetNotifications(): void
+    {
+        ResetPassword::toMailUsing(function (object $notifiable, string $token): MailMessage {
+            $url = url(route('password.reset', [
+                'token' => $token,
+                'email' => $notifiable->getEmailForPasswordReset(),
+            ], false));
+
+            $expireMinutes = (int) config('auth.passwords.'.config('auth.defaults.passwords').'.expire');
+            $mailBranding = app(SettingService::class)->mailBranding();
+            $brandName = $mailBranding['brand_name'] ?? config('app.name');
+
+            return (new MailMessage)
+                ->subject("Reset your password — {$brandName}")
+                ->view([
+                    'html' => 'mail.reset-password',
+                    'text' => 'mail.reset-password-text',
+                ], [
+                    'url' => $url,
+                    'userName' => $notifiable->name ?? null,
+                    'expireMinutes' => $expireMinutes,
+                    'mailBranding' => $mailBranding,
+                ]);
         });
     }
 
