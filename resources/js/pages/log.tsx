@@ -399,15 +399,8 @@ export default function ApplicationLogViewer({
                 )}
 
                 <Pagination
-                    currentPage={pagination.current_page}
-                    lastPage={pagination.last_page}
-                    from={pagination.from}
-                    to={pagination.to}
-                    total={pagination.total}
-                    perPage={pagination.per_page}
+                    {...list.paginationProps}
                     perPageOptions={[25, 50, 100]}
-                    onPageChange={(page) => list.onPageChange(page)}
-                    onPerPageChange={(perPage) => list.onPerPageChange(perPage)}
                     label="entries"
                 />
             </Main>
