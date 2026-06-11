@@ -122,9 +122,12 @@ final class CrewDeploymentBoardQuery
                     }),
                 DeploymentStatus::JOIN_STANDBY => $builder
                     ->whereNotNull('join_standby_from')
-                    ->whereNotNull('join_standby_to')
                     ->whereDate('join_standby_from', '<=', $today)
-                    ->whereDate('join_standby_to', '>=', $today)
+                    ->where(function (Builder $dateQuery) use ($today) {
+                        $dateQuery
+                            ->whereNull('join_standby_to')
+                            ->orWhereDate('join_standby_to', '>=', $today);
+                    })
                     ->where(function (Builder $dateQuery) use ($today) {
                         $dateQuery
                             ->whereNull('joined_date')
@@ -134,9 +137,12 @@ final class CrewDeploymentBoardQuery
                     ->whereNotNull('disembarked_date')
                     ->whereDate('disembarked_date', '<=', $today)
                     ->whereNotNull('leave_standby_from')
-                    ->whereNotNull('leave_standby_to')
                     ->whereDate('leave_standby_from', '<=', $today)
-                    ->whereDate('leave_standby_to', '>=', $today)
+                    ->where(function (Builder $dateQuery) use ($today) {
+                        $dateQuery
+                            ->whereNull('leave_standby_to')
+                            ->orWhereDate('leave_standby_to', '>=', $today);
+                    })
                     ->where(function (Builder $dateQuery) use ($today) {
                         $dateQuery
                             ->whereNull('travelled_date')
@@ -144,6 +150,7 @@ final class CrewDeploymentBoardQuery
                     }),
                 DeploymentStatus::AWAITING_JOIN => $builder
                     ->whereNotNull('arrived_date')
+                    ->whereDate('arrived_date', '>=', $today)
                     ->whereNull('joined_date'),
                 DeploymentStatus::TRAVEL => $builder
                     ->whereNotNull('disembarked_date')
@@ -151,28 +158,81 @@ final class CrewDeploymentBoardQuery
                     ->whereNotNull('travelled_date'),
                 DeploymentStatus::DISEMBARKED => $builder
                     ->whereNotNull('disembarked_date')
-                    ->whereDate('disembarked_date', '<=', $today)
-                    ->whereNull('travelled_date'),
-                DeploymentStatus::UNKNOWN => $builder
-                    ->whereNull('joined_date')
-                    ->whereNull('arrived_date')
-                    ->where(function (Builder $standbyQuery) use ($today) {
-                        $standbyQuery
-                            ->where(function (Builder $joinQuery) use ($today) {
-                                $joinQuery
-                                    ->whereNull('join_standby_from')
-                                    ->orWhereNull('join_standby_to')
-                                    ->orWhereDate('join_standby_from', '>', $today)
-                                    ->orWhereDate('join_standby_to', '<', $today);
-                            })
-                            ->where(function (Builder $leaveQuery) use ($today) {
-                                $leaveQuery
-                                    ->whereNull('leave_standby_from')
-                                    ->orWhereNull('leave_standby_to')
-                                    ->orWhereDate('leave_standby_from', '>', $today)
-                                    ->orWhereDate('leave_standby_to', '<', $today);
+                    ->whereDate('disembarked_date', '=', $today)
+                    ->whereNull('travelled_date')
+                    ->where(function (Builder $notActiveLeaveStandbyQuery) use ($today) {
+                        $notActiveLeaveStandbyQuery
+                            ->whereNull('leave_standby_from')
+                            ->orWhereDate('leave_standby_from', '>', $today)
+                            ->orWhere(function (Builder $closedLeaveStandbyQuery) use ($today) {
+                                $closedLeaveStandbyQuery
+                                    ->whereNotNull('leave_standby_to')
+                                    ->whereDate('leave_standby_to', '<', $today);
                             });
                     }),
+                DeploymentStatus::UNKNOWN => $builder->where(function (Builder $unknownQuery) use ($today) {
+                    $unknownQuery
+                        ->where(function (Builder $missingDatesQuery) use ($today) {
+                            $missingDatesQuery
+                                ->whereNull('joined_date')
+                                ->whereNull('arrived_date')
+                                ->where(function (Builder $standbyQuery) use ($today) {
+                                    $standbyQuery
+                                        ->where(function (Builder $joinQuery) use ($today) {
+                                            $joinQuery
+                                                ->whereNull('join_standby_from')
+                                                ->orWhereDate('join_standby_from', '>', $today)
+                                                ->orWhere(function (Builder $closedJoinStandbyQuery) use ($today) {
+                                                    $closedJoinStandbyQuery
+                                                        ->whereNotNull('join_standby_to')
+                                                        ->whereDate('join_standby_to', '<', $today);
+                                                });
+                                        })
+                                        ->where(function (Builder $leaveQuery) use ($today) {
+                                            $leaveQuery
+                                                ->whereNull('leave_standby_from')
+                                                ->orWhereDate('leave_standby_from', '>', $today)
+                                                ->orWhere(function (Builder $closedLeaveStandbyQuery) use ($today) {
+                                                    $closedLeaveStandbyQuery
+                                                        ->whereNotNull('leave_standby_to')
+                                                        ->whereDate('leave_standby_to', '<', $today);
+                                                });
+                                        });
+                                });
+                        })
+                        ->orWhere(function (Builder $overdueArrivalQuery) use ($today) {
+                            $overdueArrivalQuery
+                                ->whereNotNull('arrived_date')
+                                ->whereDate('arrived_date', '<', $today)
+                                ->whereNull('joined_date')
+                                ->where(function (Builder $notJoinStandbyQuery) use ($today) {
+                                    $notJoinStandbyQuery
+                                        ->whereNull('join_standby_from')
+                                        ->orWhereDate('join_standby_from', '>', $today)
+                                        ->orWhere(function (Builder $closedJoinStandbyQuery) use ($today) {
+                                            $closedJoinStandbyQuery
+                                                ->whereNotNull('join_standby_to')
+                                                ->whereDate('join_standby_to', '<', $today);
+                                        });
+                                });
+                        })
+                        ->orWhere(function (Builder $overdueDisembarkQuery) use ($today) {
+                            $overdueDisembarkQuery
+                                ->whereNotNull('disembarked_date')
+                                ->whereDate('disembarked_date', '<', $today)
+                                ->whereNull('travelled_date')
+                                ->where(function (Builder $notActiveLeaveStandbyQuery) use ($today) {
+                                    $notActiveLeaveStandbyQuery
+                                        ->whereNull('leave_standby_from')
+                                        ->orWhereDate('leave_standby_from', '>', $today)
+                                        ->orWhere(function (Builder $closedLeaveStandbyQuery) use ($today) {
+                                            $closedLeaveStandbyQuery
+                                                ->whereNotNull('leave_standby_to')
+                                                ->whereDate('leave_standby_to', '<', $today);
+                                        });
+                                });
+                        });
+                }),
                 default => null,
             };
         });

@@ -373,6 +373,96 @@ test('crew deployment board can sort assignments by vessel days', function () {
             ->where('deployments.data.1.vessel_days', 10));
 });
 
+test('crew deployment board marks overdue arrivals without join date as needs update', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Vessel A',
+        'arrived_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
+            ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('summary.unknown', 1)
+            ->where('summary.awaiting_join', 0));
+});
+
+test('crew deployment board treats open ended join standby as join standby status', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Vessel A',
+        'arrived_date' => CarbonImmutable::today()->subDays(10),
+        'join_standby_from' => CarbonImmutable::today()->subDays(9),
+        'join_standby_to' => null,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployments.data.0.status', DeploymentStatus::JOIN_STANDBY)
+            ->where('deployments.data.0.status_label', 'Join standby')
+            ->where('summary.join_standby', 1)
+            ->where('summary.unknown', 0));
+});
+
+test('crew deployment board marks past disembark without follow up dates as needs update', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Vessel A',
+        'joined_date' => CarbonImmutable::today()->subDays(4),
+        'disembarked_date' => CarbonImmutable::today()->subDays(3),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
+            ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('summary.unknown', 1)
+            ->where('summary.disembarked', 0));
+});
+
+test('crew deployment board marks overdue leave standby without travel as needs update', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Vessel A',
+        'joined_date' => CarbonImmutable::today()->subDays(4),
+        'disembarked_date' => CarbonImmutable::today()->subDays(3),
+        'leave_standby_from' => CarbonImmutable::today()->subDays(2),
+        'leave_standby_to' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
+            ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('summary.unknown', 1)
+            ->where('summary.disembarked', 0));
+});
+
 test('crew deployment board can filter by join standby status', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 

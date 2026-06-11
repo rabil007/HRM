@@ -67,7 +67,11 @@ final class DeploymentStatus
             ];
         }
 
-        if ($deployment->arrived_date !== null && $deployment->joined_date === null) {
+        if (
+            $deployment->arrived_date !== null
+            && $deployment->joined_date === null
+            && $deployment->arrived_date->gte($today)
+        ) {
             return [
                 'status' => self::AWAITING_JOIN,
                 'label' => 'Awaiting join',
@@ -75,7 +79,19 @@ final class DeploymentStatus
             ];
         }
 
-        if ($deployment->disembarked_date !== null && $deployment->disembarked_date->lte($today)) {
+        if (self::isOverdueAfterDisembark($deployment, $today)) {
+            return [
+                'status' => self::UNKNOWN,
+                'label' => 'Needs update',
+                'current_vessel' => $deployment->vessel_name,
+            ];
+        }
+
+        if (
+            $deployment->disembarked_date !== null
+            && $deployment->disembarked_date->isSameDay($today)
+            && $deployment->travelled_date === null
+        ) {
             return [
                 'status' => self::DISEMBARKED,
                 'label' => 'Disembarked',
@@ -141,7 +157,7 @@ final class DeploymentStatus
             return false;
         }
 
-        if ($deployment->join_standby_from === null || $deployment->join_standby_to === null) {
+        if ($deployment->join_standby_from === null) {
             return false;
         }
 
@@ -149,7 +165,15 @@ final class DeploymentStatus
             return false;
         }
 
-        return $today->betweenIncluded($deployment->join_standby_from, $deployment->join_standby_to);
+        if ($deployment->join_standby_from->gt($today)) {
+            return false;
+        }
+
+        if ($deployment->join_standby_to === null) {
+            return true;
+        }
+
+        return $today->lte($deployment->join_standby_to);
     }
 
     private static function isLeaveStandby(EmployeeDeployment $deployment, CarbonImmutable $today): bool
@@ -158,7 +182,7 @@ final class DeploymentStatus
             return false;
         }
 
-        if ($deployment->leave_standby_from === null || $deployment->leave_standby_to === null) {
+        if ($deployment->leave_standby_from === null) {
             return false;
         }
 
@@ -166,6 +190,29 @@ final class DeploymentStatus
             return false;
         }
 
-        return $today->betweenIncluded($deployment->leave_standby_from, $deployment->leave_standby_to);
+        if ($deployment->leave_standby_from->gt($today)) {
+            return false;
+        }
+
+        if ($deployment->leave_standby_to === null) {
+            return true;
+        }
+
+        return $today->lte($deployment->leave_standby_to);
+    }
+
+    private static function isOverdueAfterDisembark(
+        EmployeeDeployment $deployment,
+        CarbonImmutable $today,
+    ): bool {
+        if ($deployment->travelled_date !== null) {
+            return false;
+        }
+
+        if ($deployment->disembarked_date === null || ! $deployment->disembarked_date->lt($today)) {
+            return false;
+        }
+
+        return ! self::isLeaveStandby($deployment, $today);
     }
 }
