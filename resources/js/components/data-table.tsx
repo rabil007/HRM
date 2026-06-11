@@ -60,11 +60,23 @@ export function DataTableHeaderRow({
 export function DataTableHead({
     children,
     className,
+    colSpan,
+    rowSpan,
 }: {
     children: ReactNode;
     className?: string;
+    colSpan?: number;
+    rowSpan?: number;
 }): ReactElement {
-    return <TableHead className={cn(dataTableHeadClass(), className)}>{children}</TableHead>;
+    return (
+        <TableHead
+            colSpan={colSpan}
+            rowSpan={rowSpan}
+            className={cn(dataTableHeadClass(), className)}
+        >
+            {children}
+        </TableHead>
+    );
 }
 
 /** Employee profile / records tables (native table element). */

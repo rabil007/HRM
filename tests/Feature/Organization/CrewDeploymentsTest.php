@@ -113,6 +113,26 @@ test('authorized users can view crew deployment board', function () {
             ->where('summary.total', 1));
 });
 
+test('crew deployment board shows hire date from employee record', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $employee->update(['hire_date' => '2024-03-15']);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Hire Date Vessel',
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('deployments.data.0.hire_date', '2024-03-15'));
+});
+
 test('authorized users can store update and destroy crew deployments', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
@@ -318,7 +338,7 @@ test('crew deployment board can sort assignments by employee name', function () 
             ->where('filters.direction', 'asc'));
 });
 
-test('crew deployment board can sort assignments by total days', function () {
+test('crew deployment board can sort assignments by vessel days', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     EmployeeDeployment::query()->create([
@@ -341,36 +361,36 @@ test('crew deployment board can sort assignments by total days', function () {
 
     $this->actingAs($user)
         ->get(route('organization.crew-deployments.index', [
-            'sort' => 'total_days',
+            'sort' => 'vessel_days',
             'direction' => 'desc',
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('deployments.data', 2)
             ->where('deployments.data.0.vessel_name', 'Long Tour')
-            ->where('deployments.data.0.total_days', 30)
+            ->where('deployments.data.0.vessel_days', 30)
             ->where('deployments.data.1.vessel_name', 'Short Tour')
-            ->where('deployments.data.1.total_days', 10));
+            ->where('deployments.data.1.vessel_days', 10));
 });
 
-test('crew deployment board can filter by status', function () {
+test('crew deployment board can filter by join standby status', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     EmployeeDeployment::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Standby Pool',
-        'standby_from' => CarbonImmutable::today()->subDay(),
-        'standby_to' => CarbonImmutable::today()->addDays(5),
+        'vessel_name' => 'Join Standby Pool',
+        'join_standby_from' => CarbonImmutable::today()->subDay(),
+        'join_standby_to' => CarbonImmutable::today()->addDays(5),
     ]);
 
     $this->actingAs($user)
         ->get(route('organization.crew-deployments.index', [
-            'status' => DeploymentStatus::STANDBY,
+            'status' => DeploymentStatus::JOIN_STANDBY,
         ]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('deployments.data', 1)
-            ->where('deployments.data.0.status', DeploymentStatus::STANDBY));
+            ->where('deployments.data.0.status', DeploymentStatus::JOIN_STANDBY));
 });

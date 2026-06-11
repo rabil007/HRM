@@ -22,13 +22,16 @@ final class CrewDeploymentBoardSort
         'vessel_name',
         'hire_date',
         'arrived_date',
-        'standby_from',
-        'standby_to',
-        'standby_days',
+        'join_standby_from',
+        'join_standby_to',
+        'join_standby_days',
         'joined_date',
         'disembarked_date',
+        'vessel_days',
+        'leave_standby_from',
+        'leave_standby_to',
+        'leave_standby_days',
         'travelled_date',
-        'total_days',
         'sponsor',
         'client',
         'created_at',
@@ -69,19 +72,28 @@ final class CrewDeploymentBoardSort
                 ->leftJoin('employees', 'employees.id', '=', 'employee_deployments.employee_id')
                 ->leftJoin('countries', 'countries.id', '=', 'employees.nationality_id')
                 ->orderBy('countries.name', $direction),
+            'hire_date' => $query
+                ->leftJoin('employees', 'employees.id', '=', 'employee_deployments.employee_id')
+                ->orderBy('employees.hire_date', $direction),
             'sponsor' => $query
                 ->leftJoin('company_visa_types', 'company_visa_types.id', '=', 'employee_deployments.company_visa_type_id')
                 ->orderBy('company_visa_types.name', $direction),
             'client' => $query
                 ->leftJoin('clients', 'clients.id', '=', 'employee_deployments.client_id')
                 ->orderBy('clients.name', $direction),
-            'standby_days' => self::orderByComputedDays(
+            'join_standby_days' => self::orderByComputedDays(
                 $query,
-                'employee_deployments.standby_from',
-                'employee_deployments.standby_to',
+                'employee_deployments.join_standby_from',
+                'employee_deployments.join_standby_to',
                 $direction,
             ),
-            'total_days' => self::orderByComputedDays(
+            'leave_standby_days' => self::orderByComputedDays(
+                $query,
+                'employee_deployments.leave_standby_from',
+                'employee_deployments.leave_standby_to',
+                $direction,
+            ),
+            'vessel_days' => self::orderByComputedDays(
                 $query,
                 'employee_deployments.joined_date',
                 'employee_deployments.disembarked_date',

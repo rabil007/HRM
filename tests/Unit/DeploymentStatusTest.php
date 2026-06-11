@@ -1,12 +1,12 @@
 <?php
 
 use App\Models\EmployeeDeployment;
+use App\Support\CrewDeployments\DeploymentStatus;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
-use App\Support\CrewDeployments\DeploymentStatus;
-use Carbon\CarbonImmutable;
 
 test('deployment status resolves on vessel for open tour', function () {
     $deployment = new EmployeeDeployment([
@@ -21,15 +21,29 @@ test('deployment status resolves on vessel for open tour', function () {
         ->and($status['label'])->toBe('On L Etoile');
 });
 
-test('deployment status resolves standby when between standby dates', function () {
+test('deployment status resolves join standby when between join standby dates', function () {
     $deployment = new EmployeeDeployment([
-        'standby_from' => CarbonImmutable::today()->subDay(),
-        'standby_to' => CarbonImmutable::today()->addDays(3),
+        'join_standby_from' => CarbonImmutable::today()->subDay(),
+        'join_standby_to' => CarbonImmutable::today()->addDays(3),
     ]);
 
     $status = DeploymentStatus::resolve($deployment, CarbonImmutable::today());
 
-    expect($status['status'])->toBe(DeploymentStatus::STANDBY);
+    expect($status['status'])->toBe(DeploymentStatus::JOIN_STANDBY)
+        ->and($status['label'])->toBe('Join standby');
+});
+
+test('deployment status resolves leave standby after disembarkation', function () {
+    $deployment = new EmployeeDeployment([
+        'disembarked_date' => CarbonImmutable::today()->subDay(),
+        'leave_standby_from' => CarbonImmutable::today()->subDay(),
+        'leave_standby_to' => CarbonImmutable::today()->addDays(3),
+    ]);
+
+    $status = DeploymentStatus::resolve($deployment, CarbonImmutable::today());
+
+    expect($status['status'])->toBe(DeploymentStatus::LEAVE_STANDBY)
+        ->and($status['label'])->toBe('Leave standby');
 });
 
 test('deployment status resolves travel after disembarkation', function () {
@@ -40,14 +54,15 @@ test('deployment status resolves travel after disembarkation', function () {
 
     $status = DeploymentStatus::resolve($deployment, CarbonImmutable::today());
 
-    expect($status['status'])->toBe(DeploymentStatus::TRAVEL);
+    expect($status['status'])->toBe(DeploymentStatus::TRAVEL)
+        ->and($status['label'])->toBe('Travelled');
 });
 
-test('deployment status calculates total days between join and disembark', function () {
+test('deployment status calculates vessel days between join and disembark', function () {
     $deployment = new EmployeeDeployment([
         'joined_date' => '2024-01-01',
         'disembarked_date' => '2024-01-31',
     ]);
 
-    expect(DeploymentStatus::totalDays($deployment))->toBe(31);
+    expect(DeploymentStatus::vesselDays($deployment))->toBe(31);
 });

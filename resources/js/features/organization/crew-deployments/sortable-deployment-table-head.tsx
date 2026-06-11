@@ -10,6 +10,8 @@ export function SortableDeploymentTableHead({
     direction,
     onSort,
     className,
+    colSpan,
+    rowSpan,
 }: {
     children: ReactNode;
     sortKey: string;
@@ -17,11 +19,13 @@ export function SortableDeploymentTableHead({
     direction: string;
     onSort: (sortKey: string) => void;
     className?: string;
+    colSpan?: number;
+    rowSpan?: number;
 }): ReactElement {
     const isActive = activeSort === sortKey;
 
     return (
-        <DataTableHead className={className}>
+        <DataTableHead className={className} colSpan={colSpan} rowSpan={rowSpan}>
             <button
                 type="button"
                 onClick={() => onSort(sortKey)}

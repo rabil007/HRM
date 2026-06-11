@@ -30,12 +30,13 @@ const fieldInputClass =
     'h-10 rounded-xl border-border/60 bg-muted/50 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5';
 
 const DATE_FIELDS = [
-    { field: 'hire_date', label: 'Date of hire' },
     { field: 'arrived_date', label: 'Arrived' },
-    { field: 'standby_from', label: 'Standby from' },
-    { field: 'standby_to', label: 'Standby to' },
+    { field: 'join_standby_from', label: 'Join standby from' },
+    { field: 'join_standby_to', label: 'Join standby to' },
     { field: 'joined_date', label: 'Joined' },
     { field: 'disembarked_date', label: 'Disembarked' },
+    { field: 'leave_standby_from', label: 'Leave standby from' },
+    { field: 'leave_standby_to', label: 'Leave standby to' },
     { field: 'travelled_date', label: 'Travelled' },
 ] as const;
 
@@ -119,10 +120,11 @@ export function DeploymentFormDialog({
         client_id: '',
         company_visa_type_id: '',
         vessel_name: '',
-        hire_date: '',
         arrived_date: '',
-        standby_from: '',
-        standby_to: '',
+        join_standby_from: '',
+        join_standby_to: '',
+        leave_standby_from: '',
+        leave_standby_to: '',
         joined_date: '',
         disembarked_date: '',
         travelled_date: '',
@@ -143,10 +145,11 @@ export function DeploymentFormDialog({
                     ? String(editing.company_visa_type_id)
                     : '',
                 vessel_name: editing.vessel_name ?? '',
-                hire_date: editing.hire_date ?? '',
                 arrived_date: editing.arrived_date ?? '',
-                standby_from: editing.standby_from ?? '',
-                standby_to: editing.standby_to ?? '',
+                join_standby_from: editing.join_standby_from ?? '',
+                join_standby_to: editing.join_standby_to ?? '',
+                leave_standby_from: editing.leave_standby_from ?? '',
+                leave_standby_to: editing.leave_standby_to ?? '',
                 joined_date: editing.joined_date ?? '',
                 disembarked_date: editing.disembarked_date ?? '',
                 travelled_date: editing.travelled_date ?? '',
@@ -176,10 +179,11 @@ export function DeploymentFormDialog({
                 ? Number(data.company_visa_type_id)
                 : null,
             vessel_name: data.vessel_name || null,
-            hire_date: data.hire_date || null,
             arrived_date: data.arrived_date || null,
-            standby_from: data.standby_from || null,
-            standby_to: data.standby_to || null,
+            join_standby_from: data.join_standby_from || null,
+            join_standby_to: data.join_standby_to || null,
+            leave_standby_from: data.leave_standby_from || null,
+            leave_standby_to: data.leave_standby_to || null,
             joined_date: data.joined_date || null,
             disembarked_date: data.disembarked_date || null,
             travelled_date: data.travelled_date || null,
@@ -210,7 +214,7 @@ export function DeploymentFormDialog({
                             <DialogDescription>
                                 {editing
                                     ? 'Update assignment dates, vessel, sponsor, and ops notes.'
-                                    : 'Record a crew assignment with tour dates and standby windows.'}
+                                    : 'Record a crew assignment with join/leave standby and vessel dates.'}
                             </DialogDescription>
                         </div>
                         {editing ? (
@@ -325,7 +329,7 @@ export function DeploymentFormDialog({
 
                     <FormSection
                         title="Dates"
-                        description="Hire and arrival dates feed standby and on-vessel status on the board."
+                        description="Date of hire comes from the employee profile. Join standby is before joining; leave standby is after disembarkation and before travel."
                     >
                         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                             {DATE_FIELDS.map(({ field, label }) => (

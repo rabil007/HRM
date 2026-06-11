@@ -117,10 +117,11 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 'client_id' => $clientId,
                 'company_visa_type_id' => $companyVisaTypeId,
                 'vessel_name' => $this->stringValue($row, $map, 'vessel'),
-                'hire_date' => $this->dateValue($row, $map, 'hire_date'),
                 'arrived_date' => $this->dateValue($row, $map, 'arrived_date'),
-                'standby_from' => $this->dateValue($row, $map, 'standby_from'),
-                'standby_to' => $this->dateValue($row, $map, 'standby_to'),
+                'join_standby_from' => $this->dateValue($row, $map, 'join_standby_from'),
+                'join_standby_to' => $this->dateValue($row, $map, 'join_standby_to'),
+                'leave_standby_from' => $this->dateValue($row, $map, 'leave_standby_from'),
+                'leave_standby_to' => $this->dateValue($row, $map, 'leave_standby_to'),
                 'joined_date' => $this->dateValue($row, $map, 'joined_date'),
                 'disembarked_date' => $this->dateValue($row, $map, 'disembarked_date'),
                 'travelled_date' => $this->dateValue($row, $map, 'travelled_date'),
@@ -181,14 +182,16 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 $map['rank'] = (int) $index;
             } elseif ($normalized === 'nationality') {
                 $map['nationality'] = (int) $index;
-            } elseif (in_array($normalized, ['dateofhire', 'hiredate'], true)) {
-                $map['hire_date'] = (int) $index;
             } elseif (in_array($normalized, ['datearrived', 'arriveddate'], true)) {
                 $map['arrived_date'] = (int) $index;
-            } elseif (in_array($normalized, ['standbyfrom'], true)) {
-                $map['standby_from'] = (int) $index;
-            } elseif (in_array($normalized, ['standbyto'], true)) {
-                $map['standby_to'] = (int) $index;
+            } elseif (in_array($normalized, ['joinstandbyfrom', 'standbyfrom'], true)) {
+                $map['join_standby_from'] = (int) $index;
+            } elseif (in_array($normalized, ['joinstandbyto', 'standbyto'], true)) {
+                $map['join_standby_to'] = (int) $index;
+            } elseif (in_array($normalized, ['leavestandbyfrom'], true)) {
+                $map['leave_standby_from'] = (int) $index;
+            } elseif (in_array($normalized, ['leavestandbyto'], true)) {
+                $map['leave_standby_to'] = (int) $index;
             } elseif (in_array($normalized, ['datejoined', 'joineddate'], true)) {
                 $map['joined_date'] = (int) $index;
             } elseif (in_array($normalized, ['datedisembarked', 'disembarkeddate'], true)) {

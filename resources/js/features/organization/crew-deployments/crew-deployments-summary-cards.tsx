@@ -20,11 +20,18 @@ const SUMMARY_ITEMS = [
         valueClass: 'text-emerald-400',
     },
     {
-        key: 'standby',
-        label: 'Standby',
+        key: 'join_standby',
+        label: 'Join standby',
         cardClass: 'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
         activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
         valueClass: 'text-amber-400',
+    },
+    {
+        key: 'leave_standby',
+        label: 'Leave standby',
+        cardClass: 'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
+        activeClass: 'border-orange-500/40 ring-1 ring-orange-500/25',
+        valueClass: 'text-orange-400',
     },
     {
         key: 'awaiting_join',
@@ -72,7 +79,7 @@ export function CrewDeploymentsSummaryCards({
     const isTotalActive = !hasActiveFilters;
 
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
             <button
                 key={TOTAL_ITEM.key}
                 type="button"

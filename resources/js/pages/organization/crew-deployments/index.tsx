@@ -71,7 +71,7 @@ function displayNumber(value: number | null | undefined): string {
     return value !== null && value !== undefined ? String(value) : '—';
 }
 
-const TABLE_COLUMN_COUNT = 17;
+const TABLE_COLUMN_COUNT = 20;
 
 export default function CrewDeploymentsIndex({
     deployments,
@@ -167,8 +167,8 @@ export default function CrewDeploymentsIndex({
                         Deployments
                     </h1>
                     <p className="mt-1 text-sm text-muted-foreground">
-                        Track where crew are now — on vessel, standby, travel, and assignment
-                        history.
+                        Track where crew are now — on vessel, join/leave standby, travel, and
+                        assignment history.
                     </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -326,15 +326,16 @@ export default function CrewDeploymentsIndex({
                 </CardContent>
             </Card>
 
-            <OrganizationDataTable minWidth="min-w-[2200px]">
+            <OrganizationDataTable minWidth="min-w-[2600px]">
                 <TableHeader>
                     <DataTableHeaderRow>
-                        <DataTableHead>Where now</DataTableHead>
+                        <DataTableHead rowSpan={2}>Where now</DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="employee_no"
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Emp. no
                         </SortableDeploymentTableHead>
@@ -343,6 +344,7 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Name
                         </SortableDeploymentTableHead>
@@ -351,6 +353,7 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Rank
                         </SortableDeploymentTableHead>
@@ -359,6 +362,7 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Vessel
                         </SortableDeploymentTableHead>
@@ -367,6 +371,7 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Date of hire
                         </SortableDeploymentTableHead>
@@ -375,38 +380,19 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Arrived
                         </SortableDeploymentTableHead>
-                        <SortableDeploymentTableHead
-                            sortKey="standby_from"
-                            activeSort={activeSort}
-                            direction={activeDirection}
-                            onSort={handleColumnSort}
-                        >
-                            Standby from
-                        </SortableDeploymentTableHead>
-                        <SortableDeploymentTableHead
-                            sortKey="standby_to"
-                            activeSort={activeSort}
-                            direction={activeDirection}
-                            onSort={handleColumnSort}
-                        >
-                            Standby to
-                        </SortableDeploymentTableHead>
-                        <SortableDeploymentTableHead
-                            sortKey="standby_days"
-                            activeSort={activeSort}
-                            direction={activeDirection}
-                            onSort={handleColumnSort}
-                        >
-                            Standby days
-                        </SortableDeploymentTableHead>
+                        <DataTableHead colSpan={3} className="text-center">
+                            Join standby
+                        </DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="joined_date"
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Joined
                         </SortableDeploymentTableHead>
@@ -415,30 +401,37 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Disembarked
                         </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="vessel_days"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                            rowSpan={2}
+                        >
+                            Vessel days
+                        </SortableDeploymentTableHead>
+                        <DataTableHead colSpan={3} className="text-center">
+                            Leave standby
+                        </DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="travelled_date"
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Travelled
-                        </SortableDeploymentTableHead>
-                        <SortableDeploymentTableHead
-                            sortKey="total_days"
-                            activeSort={activeSort}
-                            direction={activeDirection}
-                            onSort={handleColumnSort}
-                        >
-                            Total days
                         </SortableDeploymentTableHead>
                         <SortableDeploymentTableHead
                             sortKey="sponsor"
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Sponsor
                         </SortableDeploymentTableHead>
@@ -447,13 +440,66 @@ export default function CrewDeploymentsIndex({
                             activeSort={activeSort}
                             direction={activeDirection}
                             onSort={handleColumnSort}
+                            rowSpan={2}
                         >
                             Client
                         </SortableDeploymentTableHead>
-                        <DataTableHead>Remarks</DataTableHead>
+                        <DataTableHead rowSpan={2}>Remarks</DataTableHead>
                         {can.manage ? (
-                            <DataTableHead className="text-right">Actions</DataTableHead>
+                            <DataTableHead rowSpan={2} className="text-right">
+                                Actions
+                            </DataTableHead>
                         ) : null}
+                    </DataTableHeaderRow>
+                    <DataTableHeaderRow>
+                        <SortableDeploymentTableHead
+                            sortKey="join_standby_from"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            From
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="join_standby_to"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            To
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="join_standby_days"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Days
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="leave_standby_from"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            From
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="leave_standby_to"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            To
+                        </SortableDeploymentTableHead>
+                        <SortableDeploymentTableHead
+                            sortKey="leave_standby_days"
+                            activeSort={activeSort}
+                            direction={activeDirection}
+                            onSort={handleColumnSort}
+                        >
+                            Days
+                        </SortableDeploymentTableHead>
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
@@ -491,22 +537,29 @@ export default function CrewDeploymentsIndex({
                                     {formatIsoDateDisplay(deployment.arrived_date)}
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.standby_from)}
+                                    {formatIsoDateDisplay(deployment.join_standby_from)}
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.standby_to)}
+                                    {formatIsoDateDisplay(deployment.join_standby_to)}
                                 </TableCell>
-                                <TableCell>{displayNumber(deployment.standby_days)}</TableCell>
+                                <TableCell>{displayNumber(deployment.join_standby_days)}</TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.joined_date)}
                                 </TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.disembarked_date)}
                                 </TableCell>
+                                <TableCell>{displayNumber(deployment.vessel_days)}</TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.leave_standby_from)}
+                                </TableCell>
+                                <TableCell>
+                                    {formatIsoDateDisplay(deployment.leave_standby_to)}
+                                </TableCell>
+                                <TableCell>{displayNumber(deployment.leave_standby_days)}</TableCell>
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.travelled_date)}
                                 </TableCell>
-                                <TableCell>{displayNumber(deployment.total_days)}</TableCell>
                                 <TableCell>
                                     {displayValue(deployment.company_visa_type_name)}
                                 </TableCell>

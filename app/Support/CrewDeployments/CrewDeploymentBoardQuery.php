@@ -120,20 +120,27 @@ final class CrewDeploymentBoardQuery
                             ->whereNull('disembarked_date')
                             ->orWhereDate('disembarked_date', '>', $today);
                     }),
-                DeploymentStatus::STANDBY => $builder
-                    ->whereNotNull('standby_from')
-                    ->whereNotNull('standby_to')
-                    ->whereDate('standby_from', '<=', $today)
-                    ->whereDate('standby_to', '>=', $today)
+                DeploymentStatus::JOIN_STANDBY => $builder
+                    ->whereNotNull('join_standby_from')
+                    ->whereNotNull('join_standby_to')
+                    ->whereDate('join_standby_from', '<=', $today)
+                    ->whereDate('join_standby_to', '>=', $today)
                     ->where(function (Builder $dateQuery) use ($today) {
                         $dateQuery
                             ->whereNull('joined_date')
-                            ->orWhereDate('joined_date', '>', $today)
-                            ->orWhere(function (Builder $onBoardQuery) use ($today) {
-                                $onBoardQuery
-                                    ->whereNotNull('disembarked_date')
-                                    ->whereDate('disembarked_date', '<=', $today);
-                            });
+                            ->orWhereDate('joined_date', '>', $today);
+                    }),
+                DeploymentStatus::LEAVE_STANDBY => $builder
+                    ->whereNotNull('disembarked_date')
+                    ->whereDate('disembarked_date', '<=', $today)
+                    ->whereNotNull('leave_standby_from')
+                    ->whereNotNull('leave_standby_to')
+                    ->whereDate('leave_standby_from', '<=', $today)
+                    ->whereDate('leave_standby_to', '>=', $today)
+                    ->where(function (Builder $dateQuery) use ($today) {
+                        $dateQuery
+                            ->whereNull('travelled_date')
+                            ->orWhereDate('travelled_date', '>', $today);
                     }),
                 DeploymentStatus::AWAITING_JOIN => $builder
                     ->whereNotNull('arrived_date')
@@ -151,10 +158,20 @@ final class CrewDeploymentBoardQuery
                     ->whereNull('arrived_date')
                     ->where(function (Builder $standbyQuery) use ($today) {
                         $standbyQuery
-                            ->whereNull('standby_from')
-                            ->orWhereNull('standby_to')
-                            ->orWhereDate('standby_from', '>', $today)
-                            ->orWhereDate('standby_to', '<', $today);
+                            ->where(function (Builder $joinQuery) use ($today) {
+                                $joinQuery
+                                    ->whereNull('join_standby_from')
+                                    ->orWhereNull('join_standby_to')
+                                    ->orWhereDate('join_standby_from', '>', $today)
+                                    ->orWhereDate('join_standby_to', '<', $today);
+                            })
+                            ->where(function (Builder $leaveQuery) use ($today) {
+                                $leaveQuery
+                                    ->whereNull('leave_standby_from')
+                                    ->orWhereNull('leave_standby_to')
+                                    ->orWhereDate('leave_standby_from', '>', $today)
+                                    ->orWhereDate('leave_standby_to', '<', $today);
+                            });
                     }),
                 default => null,
             };
@@ -171,7 +188,8 @@ final class CrewDeploymentBoardQuery
 
         $summary = [
             DeploymentStatus::ON_VESSEL => 0,
-            DeploymentStatus::STANDBY => 0,
+            DeploymentStatus::JOIN_STANDBY => 0,
+            DeploymentStatus::LEAVE_STANDBY => 0,
             DeploymentStatus::AWAITING_JOIN => 0,
             DeploymentStatus::TRAVEL => 0,
             DeploymentStatus::DISEMBARKED => 0,
