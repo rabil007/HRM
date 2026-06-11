@@ -2,6 +2,7 @@ import type { InertiaFormProps } from '@inertiajs/react';
 import { ImageDown, Upload, UserRound } from 'lucide-react';
 import { useEffect, useId, useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import PasswordInput from '@/components/password-input';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -277,16 +278,42 @@ export function UserFormSheet({
 
                         <div className="space-y-2">
                             <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                {user ? 'Password (leave empty to keep)' : 'Password'}
+                                {user ? 'Password (leave blank to keep current)' : 'Password'}
                             </Label>
-                            <Input
+                            <PasswordInput
                                 id="password"
-                                type="password"
+                                autoComplete="new-password"
                                 className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                                 value={form.data.password}
                                 onChange={(e) => form.setData('password', e.target.value)}
                             />
-                            {form.errors.password ? <div className="text-xs font-medium text-destructive">{form.errors.password}</div> : null}
+                            <p className="text-xs text-muted-foreground/70">
+                                Use a long, random password with mixed case, numbers, and symbols.
+                            </p>
+                            {form.errors.password ? (
+                                <div className="text-xs font-medium text-destructive">{form.errors.password}</div>
+                            ) : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="password_confirmation"
+                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            >
+                                {user ? 'Confirm password' : 'Confirm password'}
+                            </Label>
+                            <PasswordInput
+                                id="password_confirmation"
+                                autoComplete="new-password"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                                value={form.data.password_confirmation}
+                                onChange={(e) => form.setData('password_confirmation', e.target.value)}
+                            />
+                            {form.errors.password_confirmation ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.password_confirmation}
+                                </div>
+                            ) : null}
                         </div>
                     </div>
                 </div>

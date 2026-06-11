@@ -2,13 +2,15 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Concerns\PasswordValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class StoreEmployeeUserRequest extends FormRequest
 {
+    use PasswordValidationRules;
+
     public function authorize(): bool
     {
         return (bool) $this->user();
@@ -35,7 +37,7 @@ class StoreEmployeeUserRequest extends FormRequest
                     ->where(fn ($q) => $q->where('company_id', $companyId)->whereNull('deleted_at')),
             ],
             'name' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', Password::min(8), 'confirmed'],
+            'password' => $this->passwordRules(),
         ];
     }
 }

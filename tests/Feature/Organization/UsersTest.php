@@ -131,6 +131,7 @@ test('authenticated users can create, update, and delete a user', function () {
         'name' => 'John Doe',
         'email' => 'john@example.com',
         'password' => 'password123',
+        'password_confirmation' => 'password123',
         'role_id' => $role->id,
         'status' => 'active',
     ])->assertRedirect('/organization/users');
@@ -414,4 +415,56 @@ test('user update can link and unlink an employee', function () {
     ])->assertRedirect('/organization/users');
 
     expect($employee->fresh()->user_id)->toBeNull();
+});
+
+test('user update requires matching password confirmation when changing password', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'PWD',
+        'name' => 'Passwordland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PWD',
+        'name' => 'Password Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Password Co',
+        'slug' => 'password-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $targetUser = User::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Password User',
+        'email' => 'password-user@example.com',
+        'password' => bcrypt('password123'),
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($auth, $company, ['users.update']);
+
+    $this->from('/organization/users')
+        ->put("/organization/users/{$targetUser->id}", [
+            'name' => 'Password User',
+            'email' => 'password-user@example.com',
+            'password' => 'new-password-123',
+            'password_confirmation' => 'different-password',
+            'role_id' => '',
+            'status' => 'active',
+        ])
+        ->assertRedirect('/organization/users')
+        ->assertSessionHasErrors('password');
 });

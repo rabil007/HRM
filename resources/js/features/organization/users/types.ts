@@ -31,6 +31,7 @@ export type UserFormData = {
     name: string;
     email: string;
     password: string;
+    password_confirmation: string;
     avatar: File | null;
     use_employee_avatar: boolean;
     employee_id: number | '';

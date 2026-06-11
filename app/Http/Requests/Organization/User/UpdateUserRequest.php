@@ -2,11 +2,14 @@
 
 namespace App\Http\Requests\Organization\User;
 
+use App\Concerns\PasswordValidationRules;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateUserRequest extends FormRequest
 {
+    use PasswordValidationRules;
+
     public function authorize(): bool
     {
         return (bool) $this->user();
@@ -20,7 +23,7 @@ class UpdateUserRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
-            'password' => ['nullable', 'string', 'min:8', 'max:255'],
+            'password' => $this->optionalPasswordRules(),
             'avatar' => ['nullable', 'file', 'image', 'max:2048'],
             'use_employee_avatar' => ['sometimes', 'boolean'],
             'employee_id' => ['nullable', 'integer'],
