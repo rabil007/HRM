@@ -476,6 +476,24 @@ export function EmployeeHeaderCard({
                         />
                     )}
 
+                    {showField('hire_date') && (
+                        <EditableDetailTextField
+                            label="Date of hire"
+                            field="hire_date"
+                            value={form.data.hire_date}
+                            displayValue={formatDisplayDate(
+                                form.data.hire_date || employee.hire_date,
+                            )}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) => form.setData('hire_date', value)}
+                            inputType="date"
+                            highlightMissing={isMissingRequired('hire_date')}
+                        />
+                    )}
+
                     {/* Rank */}
                     {showField('rank_id') && (
                         <EditableDetailSelectField

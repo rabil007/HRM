@@ -8,6 +8,7 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     rank_id: 'Rank',
     manager_id: 'Manager',
     date_of_birth: 'Date of birth',
+    hire_date: 'Date of hire',
     place_of_birth: 'Place of birth',
     gender_id: 'Gender',
     religion_id: 'Religion',

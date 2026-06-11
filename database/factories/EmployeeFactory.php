@@ -62,6 +62,7 @@ class EmployeeFactory extends Factory
             'employee_no' => (string) $this->faker->unique()->numerify('EMP####'),
             'name' => $this->faker->name(),
             'date_of_birth' => $this->faker->optional()->date(),
+            'hire_date' => $this->faker->optional()->dateTimeBetween('-5 years', 'now')?->format('Y-m-d'),
             'place_of_birth' => $this->faker->optional()->city(),
             'nationality_id' => function () {
                 $code = strtoupper((string) $this->faker->unique()->lexify('??'));

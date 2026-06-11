@@ -41,6 +41,7 @@ final class EmployeeListResource
             'emergency_contact' => $employee->emergency_contact,
             'emergency_phone' => $employee->emergency_phone,
             'date_of_birth' => $employee->date_of_birth,
+            'hire_date' => $employee->hire_date?->toDateString(),
             'place_of_birth' => $employee->place_of_birth,
             'gender_id' => $employee->gender_id,
             'gender_ref' => $employee->gender_id ? [

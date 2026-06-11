@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { Cake, Eye, Mail, Phone, Trash2 } from 'lucide-react';
+import { Cake, CalendarDays, Eye, Mail, Phone, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -51,6 +51,8 @@ export function EmployeeCard({
     const positionColor = POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
     const birthdayDisplay = formatDisplayDate(employee.date_of_birth);
     const birthday = birthdayDisplay !== '—' ? birthdayDisplay : null;
+    const hireDateDisplay = formatDisplayDate(employee.hire_date);
+    const hireDate = hireDateDisplay !== '—' ? hireDateDisplay : null;
 
     return (
         <div
@@ -100,6 +102,12 @@ export function EmployeeCard({
                         <Phone className="h-3 w-3 shrink-0 text-primary/60" />
                         <span className="truncate">{employee.phone ?? '—'}</span>
                     </div>
+                    {hireDate ? (
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
+                            <CalendarDays className="h-3 w-3 shrink-0 text-primary/60" />
+                            <span>{hireDate}</span>
+                        </div>
+                    ) : null}
                     {birthday ? (
                         <div className="flex items-center gap-2 text-xs text-muted-foreground min-w-0">
                             <Cake className="h-3 w-3 shrink-0 text-primary/60" />

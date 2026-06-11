@@ -30,7 +30,7 @@ const fieldInputClass =
     'h-10 rounded-xl border-border/60 bg-muted/50 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5';
 
 const DATE_FIELDS = [
-    { field: 'hire_date', label: 'Hire date' },
+    { field: 'hire_date', label: 'Date of hire' },
     { field: 'arrived_date', label: 'Arrived' },
     { field: 'standby_from', label: 'Standby from' },
     { field: 'standby_to', label: 'Standby to' },

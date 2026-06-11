@@ -33,7 +33,7 @@ class CrewDeploymentsExport implements FromCollection, WithHeadings, WithMapping
             'Nationality',
             'Status',
             'Vessel',
-            'Hire Date',
+            'Date of hire',
             'Arrived Date',
             'Standby From',
             'Standby To',

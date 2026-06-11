@@ -31,6 +31,7 @@ import {
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { buildEmployeeListQuery, buildEmployeeShowUrl } from './build-employee-show-url';
@@ -334,11 +335,12 @@ params.set('search', initialSearch);
                     ))}
                 </div>
             ) : (
-                <OrganizationDataTable minWidth="min-w-[1640px]">
+                <OrganizationDataTable minWidth="min-w-[1720px]">
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead className="pl-5">Employee</DataTableHead>
                             <DataTableHead>Assignment</DataTableHead>
+                            <DataTableHead>Date of hire</DataTableHead>
                             <DataTableHead>Emails</DataTableHead>
                             <DataTableHead>Phones</DataTableHead>
                             <DataTableHead>Personal</DataTableHead>
@@ -370,6 +372,9 @@ params.set('search', initialSearch);
                                                     {employee.department?.name ?? '—'}
                                                     {employee.position?.title ? ` • ${employee.position.title}` : ''}
                                                 </div>
+                                            </TableCell>
+                                            <TableCell className={cn(dataTableCellClass(), 'whitespace-nowrap text-sm')}>
+                                                {formatDisplayDate(employee.hire_date)}
                                             </TableCell>
                                             <TableCell className={dataTableCellClass()}>
                                                 <div className="text-sm truncate">{employee.work_email ?? '—'}</div>

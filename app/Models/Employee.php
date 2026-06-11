@@ -24,6 +24,18 @@ class Employee extends Model
 
     protected $guarded = [];
 
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'date_of_birth' => 'date',
+            'hire_date' => 'date',
+            'termination_date' => 'date',
+        ];
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
@@ -38,6 +50,7 @@ class Employee extends Model
                 'employee_no',
                 'name',
                 'date_of_birth',
+                'hire_date',
                 'spouse_name',
                 'personal_email',
                 'work_email',

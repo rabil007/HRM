@@ -34,15 +34,13 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             'Work Email',
             'Phone',
             'Status',
-            'Start Date',
+            'Date of hire',
             'Created At',
         ];
     }
 
     public function map($employee): array
     {
-        $startDate = $employee->currentContract?->start_date;
-
         return [
             $employee->id,
             $employee->employee_no,
@@ -54,7 +52,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $employee->work_email,
             $employee->phone,
             $employee->status,
-            optional($startDate)->toDateString(),
+            optional($employee->hire_date)->toDateString(),
             optional($employee->created_at)->toDateTimeString(),
         ];
     }

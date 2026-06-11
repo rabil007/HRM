@@ -52,6 +52,7 @@ export type EmployeeDetails = {
     emergency_contact?: string | null;
     emergency_phone?: string | null;
     date_of_birth?: string | null;
+    hire_date?: string | null;
     place_of_birth?: string | null;
     gender_id?: number | null;
     religion_id?: number | null;

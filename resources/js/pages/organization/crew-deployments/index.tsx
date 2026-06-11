@@ -368,7 +368,7 @@ export default function CrewDeploymentsIndex({
                             direction={activeDirection}
                             onSort={handleColumnSort}
                         >
-                            Hire date
+                            Date of hire
                         </SortableDeploymentTableHead>
                         <SortableDeploymentTableHead
                             sortKey="arrived_date"

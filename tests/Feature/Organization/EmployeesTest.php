@@ -439,6 +439,77 @@ test('employee profile profile_fields includes company_visa_type_id when enabled
     expect($profileFields)->toContain('company_visa_type_id');
 });
 
+test('employee can be created and updated with hire_date on the employee record', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'HD1',
+        'name' => 'Hireland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'HD1',
+        'name' => 'Hire Currency',
+        'symbol' => 'HD$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Hire Co',
+        'slug' => 'hire-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Default',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.create', 'employees.update', 'employees.view']);
+
+    $this->post('/organization/employees', [
+        'employee_profile_template_id' => $template->id,
+        'employee_no' => 'EMP-HIRE',
+        'name' => 'Hired Employee',
+        'hire_date' => '2024-03-15',
+        'start_date' => '2024-04-01',
+        'contract_type' => 'unlimited',
+        'status' => 'active',
+    ])->assertRedirect('/organization/employees');
+
+    $employee = Employee::query()
+        ->where('company_id', $company->id)
+        ->where('employee_no', 'EMP-HIRE')
+        ->first();
+
+    expect($employee)->not->toBeNull()
+        ->and($employee->hire_date?->toDateString())->toBe('2024-03-15');
+
+    $this->get('/organization/employees')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employees.0.hire_date', '2024-03-15')
+        );
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP-HIRE',
+        'name' => 'Hired Employee',
+        'hire_date' => '2024-05-20',
+        'status' => 'active',
+    ])->assertRedirect("/organization/employees/{$employee->id}");
+
+    expect($employee->fresh()->hire_date?->toDateString())->toBe('2024-05-20');
+});
+
 test('employee can be created and updated with company_visa_type_id', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

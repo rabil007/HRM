@@ -21,6 +21,7 @@ final class EmployeeProfileTemplateImportFields
         'phone' => 'phone',
         'phone_home_country' => 'phone_home_country',
         'date_of_birth' => 'date_of_birth',
+        'hire_date' => 'hire_date',
         'place_of_birth' => 'place_of_birth',
         'marital_status' => 'marital_status',
         'spouse_name' => 'spouse_name',

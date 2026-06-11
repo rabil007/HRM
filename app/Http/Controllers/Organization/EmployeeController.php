@@ -250,6 +250,7 @@ class EmployeeController extends Controller
             'rank_id',
             'manager_id',
             'date_of_birth',
+            'hire_date',
             'nationality_id',
             'visa_type_id',
             'company_visa_type_id',

@@ -603,8 +603,9 @@ toast.error('Template selection is optional for import.');
                                                     <th className="px-3 py-2">Row</th>
                                                     <th className="px-3 py-2">Employee No</th>
                                                     <th className="px-3 py-2">Name</th>
+                                                    <th className="px-3 py-2">Date of hire</th>
                                                     <th className="px-3 py-2">Contract</th>
-                                                    <th className="px-3 py-2">Start Date</th>
+                                                    <th className="px-3 py-2">Start date</th>
                                                     <th className="px-3 py-2">Status</th>
                                                 </tr>
                                             </thead>
@@ -618,6 +619,7 @@ toast.error('Template selection is optional for import.');
                                                             <td className="px-3 py-2 text-muted-foreground">{rowNumber}</td>
                                                             <td className="px-3 py-2 font-medium text-foreground">{stringy(row.employee_no) || '—'}</td>
                                                             <td className="px-3 py-2 text-muted-foreground">{stringy(row.name) || '—'}</td>
+                                                            <td className="px-3 py-2 text-muted-foreground">{formatDisplayDate(stringy(row.hire_date) || null)}</td>
                                                             <td className="px-3 py-2 text-muted-foreground">{stringy(row.contract_type) || '—'}</td>
                                                             <td className="px-3 py-2 text-muted-foreground">{formatDisplayDate(stringy(row.start_date) || null)}</td>
                                                             <td className="px-3 py-2">

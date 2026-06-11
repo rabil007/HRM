@@ -40,6 +40,7 @@ class EmployeesImport
         'phone' => ['phone', 'mobile', 'phone number', 'work phone', 'phone_uae', 'phone (uae)'],
         'phone_home_country' => ['phone_home_country', 'phone home country', 'home country phone'],
         'date_of_birth' => ['date_of_birth', 'date of birth', 'dob', 'birthday', 'birth date'],
+        'hire_date' => ['hire_date', 'hire date', 'date of hire', 'date hired', 'hired on'],
         'place_of_birth' => ['place_of_birth', 'place of birth', 'birthplace'],
         'marital_status' => ['marital_status', 'marital status', 'civil status'],
         'spouse_name' => ['spouse_name', 'spouse name'],
@@ -64,7 +65,7 @@ class EmployeesImport
         ],
         'site_allowance' => ['site_allowance', 'site allowance'],
         'note' => ['note', 'contract note', 'contract reason', 'contract change reason'],
-        'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'hire date'],
+        'start_date' => ['start_date', 'start date', 'joining date', 'date of joining', 'doj', 'contract start'],
         'end_date' => ['end_date', 'end date', 'termination date'],
         'contract_type' => ['contract_type', 'contract type', 'contract'],
         'status' => ['status'],
@@ -107,6 +108,7 @@ class EmployeesImport
             'phone' => ['employees', 'phone'],
             'phone_home_country' => ['employees', 'phone_home_country'],
             'date_of_birth' => ['employees', 'date_of_birth'],
+            'hire_date' => ['employees', 'hire_date'],
             'place_of_birth' => ['employees', 'place_of_birth'],
             'marital_status' => ['employees', 'marital_status'],
             'spouse_name' => ['employees', 'spouse_name'],
@@ -169,6 +171,7 @@ class EmployeesImport
 
     private const IMPORT_DATE_FIELDS = [
         'date_of_birth',
+        'hire_date',
         'start_date',
         'end_date',
     ];
@@ -192,6 +195,7 @@ class EmployeesImport
         'phone',
         'phone_home_country',
         'date_of_birth',
+        'hire_date',
         'place_of_birth',
         'marital_status',
         'spouse_name',
@@ -559,6 +563,7 @@ class EmployeesImport
                         'phone' => $row['phone'] ?? null,
                         'phone_home_country' => $row['phone_home_country'] ?? null,
                         'date_of_birth' => $row['date_of_birth'] ?? null,
+                        'hire_date' => $row['hire_date'] ?? null,
                         'place_of_birth' => $row['place_of_birth'] ?? null,
                         'marital_status' => $row['marital_status'] ?: null,
                         'spouse_name' => $row['spouse_name'] ?? null,
@@ -672,6 +677,7 @@ class EmployeesImport
             'phone' => ['nullable', 'string', 'max:30'],
             'phone_home_country' => ['nullable', 'string', 'max:30'],
             'date_of_birth' => ['nullable', 'date'],
+            'hire_date' => ['nullable', 'date'],
             'place_of_birth' => ['nullable', 'string', 'max:150'],
             'marital_status' => ['nullable', 'in:single,married,divorced,widowed'],
             'spouse_name' => ['nullable', 'string', 'max:200'],
@@ -781,6 +787,7 @@ class EmployeesImport
 
         $shaped = $this->normaliseDateFields($shaped, [
             'date_of_birth',
+            'hire_date',
             'start_date',
             'end_date',
         ]);

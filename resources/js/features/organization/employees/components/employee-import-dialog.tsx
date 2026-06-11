@@ -59,6 +59,7 @@ const PRIORITY_FIELDS = [
     'branch',
     'department',
     'position',
+    'hire_date',
     'contract_type',
     'start_date',
 ];
@@ -549,6 +550,7 @@ function PreviewStep({
                                 <th className="px-3 py-2 font-medium">Row</th>
                                 <th className="px-3 py-2 font-medium">Employee no</th>
                                 <th className="px-3 py-2 font-medium">Name</th>
+                                <th className="px-3 py-2 font-medium">Date of hire</th>
                                 <th className="px-3 py-2 font-medium">Contract</th>
                                 <th className="px-3 py-2 font-medium">Start date</th>
                                 <th className="px-3 py-2 font-medium">Status</th>
@@ -557,7 +559,7 @@ function PreviewStep({
                         <tbody>
                             {preview.rows.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="text-muted-foreground/70 px-3 py-6 text-center">
+                                    <td colSpan={7} className="text-muted-foreground/70 px-3 py-6 text-center">
                                         No rows found in the file.
                                     </td>
                                 </tr>
@@ -577,6 +579,9 @@ function PreviewStep({
                                             <td className="px-3 py-2 font-medium">{stringy(row.employee_no)}</td>
                                             <td className="px-3 py-2">
                                                 {stringy(row.name) || '—'}
+                                            </td>
+                                            <td className="text-muted-foreground/80 px-3 py-2">
+                                                {formatDisplayDate(stringy(row.hire_date) || null)}
                                             </td>
                                             <td className="text-muted-foreground/80 px-3 py-2">
                                                 {stringy(row.contract_type) || '—'}

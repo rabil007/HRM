@@ -9,7 +9,7 @@ export const DEPLOYMENT_SORT_OPTIONS = [
     { value: 'rank', label: 'Rank' },
     { value: 'nationality', label: 'Nationality' },
     { value: 'vessel_name', label: 'Vessel' },
-    { value: 'hire_date', label: 'Hire date' },
+    { value: 'hire_date', label: 'Date of hire' },
     { value: 'arrived_date', label: 'Arrived' },
     { value: 'standby_from', label: 'Standby from' },
     { value: 'standby_to', label: 'Standby to' },
