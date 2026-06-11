@@ -2,7 +2,10 @@ import { Head, router } from '@inertiajs/react';
 import { Download, Filter, Plus, Search, Upload, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
-import { destroy as destroyDeployment } from '@/actions/App/Http/Controllers/Organization/CrewDeploymentController';
+import {
+    destroy as destroyDeployment,
+    show as showDeployment,
+} from '@/actions/App/Http/Controllers/Organization/CrewDeploymentController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import {
@@ -10,6 +13,7 @@ import {
     DataTableHead,
     DataTableHeaderRow,
     dataTableActionsCellClass,
+    dataTableBodyRowClass,
 } from '@/components/data-table';
 import { ListTableCrudActions } from '@/components/list-table-actions';
 import { Main } from '@/components/layout/main';
@@ -26,6 +30,7 @@ import {
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
+import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
 import { SortableDeploymentTableHead } from '@/features/organization/crew-deployments/sortable-deployment-table-head';
 import type {
     DeploymentItem,
@@ -128,6 +133,35 @@ export default function CrewDeploymentsIndex({
             page: null,
         });
     };
+
+    const listBackQuery = useMemo(() => {
+        const query: Record<string, string> = {};
+
+        if (filters.status) query.status = filters.status;
+        if (filters.search) query.search = filters.search;
+        if (filters.rank_id) query.rank_id = String(filters.rank_id);
+        if (filters.client_id) query.client_id = String(filters.client_id);
+        if (filters.company_visa_type_id) {
+            query.company_visa_type_id = String(filters.company_visa_type_id);
+        }
+        if (filters.sort) query.sort = filters.sort;
+        if (filters.direction) query.direction = filters.direction;
+        if (deployments.per_page) query.per_page = String(deployments.per_page);
+
+        return query;
+    }, [deployments.per_page, filters]);
+
+    const openShow = useCallback(
+        (deploymentId: number): void => {
+            router.visit(
+                showDeployment.url(
+                    { deployment: deploymentId },
+                    Object.keys(listBackQuery).length > 0 ? { query: listBackQuery } : undefined,
+                ),
+            );
+        },
+        [listBackQuery],
+    );
 
     const handleColumnSort = useCallback(
         (sortKey: string): void => {
@@ -514,16 +548,32 @@ export default function CrewDeploymentsIndex({
                         </TableRow>
                     ) : (
                         deployments.data.map((deployment) => (
-                            <TableRow key={deployment.id}>
+                            <TableRow
+                                key={deployment.id}
+                                className={dataTableBodyRowClass()}
+                                onClick={() => openShow(deployment.id)}
+                            >
                                 <TableCell>
                                     <DeploymentStatusBadge
                                         status={deployment.status}
                                         label={deployment.status_label}
+                                        hint={deployment.status_hint}
+                                        stopRowNavigation
                                     />
                                 </TableCell>
                                 <TableCell>{displayValue(deployment.employee_no)}</TableCell>
                                 <TableCell>
-                                    <div className="text-sm">{displayValue(deployment.employee_name)}</div>
+                                    {deployment.employee_name ? (
+                                        <EmployeeProfileLink
+                                            employeeId={deployment.employee_id}
+                                            className="text-sm"
+                                            stopRowNavigation
+                                        >
+                                            {deployment.employee_name}
+                                        </EmployeeProfileLink>
+                                    ) : (
+                                        <div className="text-sm">—</div>
+                                    )}
                                     <div className="text-xs text-muted-foreground">
                                         {displayValue(deployment.nationality)}
                                     </div>
@@ -573,7 +623,12 @@ export default function CrewDeploymentsIndex({
                                 {can.manage ? (
                                     <TableCell className={dataTableActionsCellClass()}>
                                         <ListTableCrudActions
-                                            showView={false}
+                                            viewHref={showDeployment.url(
+                                                { deployment: deployment.id },
+                                                Object.keys(listBackQuery).length > 0
+                                                    ? { query: listBackQuery }
+                                                    : undefined,
+                                            )}
                                             onEdit={() => openEdit(deployment)}
                                             onDelete={() => setDeleting(deployment)}
                                         />

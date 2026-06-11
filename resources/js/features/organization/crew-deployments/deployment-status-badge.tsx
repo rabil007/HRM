@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { DelayedHoverHint } from '@/features/organization/crew-deployments/delayed-hover-hint';
 import { cn } from '@/lib/utils';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -15,16 +16,34 @@ const STATUS_STYLES: Record<string, string> = {
 export function DeploymentStatusBadge({
     status,
     label,
+    hint,
+    stopRowNavigation = false,
 }: {
     status: string;
     label: string;
+    hint?: string | null;
+    stopRowNavigation?: boolean;
 }): ReactElement {
-    return (
+    const badge = (
         <Badge
             variant="outline"
-            className={cn('font-medium', STATUS_STYLES[status] ?? STATUS_STYLES.unknown)}
+            className={cn(
+                'font-medium',
+                STATUS_STYLES[status] ?? STATUS_STYLES.unknown,
+                hint && 'underline decoration-dotted decoration-current/40 underline-offset-[3px]',
+            )}
         >
             {label}
         </Badge>
+    );
+
+    if (!hint) {
+        return badge;
+    }
+
+    return (
+        <DelayedHoverHint hint={hint} stopRowNavigation={stopRowNavigation}>
+            {badge}
+        </DelayedHoverHint>
     );
 }

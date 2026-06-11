@@ -26,7 +26,20 @@ export type DeploymentItem = {
     remarks: string | null;
     status: string;
     status_label: string;
+    status_hint: string | null;
     current_vessel: string | null;
+    created_at: string | null;
+    updated_at: string | null;
+};
+
+export type DeploymentActivityItem = {
+    id: number;
+    event: string | null;
+    description: string | null;
+    causer: { id: number; name: string; email: string } | null;
+    old_values: Record<string, unknown> | null;
+    new_values: Record<string, unknown> | null;
+    created_at: string;
 };
 
 export type DeploymentSummary = Record<string, number>;

@@ -26,6 +26,7 @@ trait EmployeeDeploymentRules
             'disembarked_date' => ['nullable', 'date', 'after_or_equal:joined_date'],
             'travelled_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:2000'],
+            'redirect_to' => ['nullable', 'string', 'in:show'],
         ];
     }
 }

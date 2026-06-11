@@ -167,6 +167,52 @@ test('deployment status resolves needs update when leave standby ended without t
         ->and($status['label'])->toBe('Needs update');
 });
 
+test('needs update hint explains overdue arrival without join date', function () {
+    $today = CarbonImmutable::parse('2026-06-11');
+
+    $deployment = new EmployeeDeployment([
+        'arrived_date' => $today->subDays(3),
+    ]);
+
+    expect(DeploymentStatus::needsUpdateHint($deployment, $today))
+        ->toBe('Arrived 3d ago — add join date');
+});
+
+test('needs update hint explains overdue disembark without travel', function () {
+    $today = CarbonImmutable::parse('2026-06-11');
+
+    $deployment = new EmployeeDeployment([
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(5),
+    ]);
+
+    expect(DeploymentStatus::needsUpdateHint($deployment, $today))
+        ->toBe('Disembarked 5d ago — add travel or standby');
+});
+
+test('needs update hint explains leave standby ended without travel', function () {
+    $today = CarbonImmutable::parse('2026-06-11');
+
+    $deployment = new EmployeeDeployment([
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(5),
+        'leave_standby_from' => $today->subDays(4),
+        'leave_standby_to' => $today->subDays(2),
+    ]);
+
+    expect(DeploymentStatus::needsUpdateHint($deployment, $today))
+        ->toBe('Leave standby ended 2d ago — add travel date');
+});
+
+test('needs update hint is null when status is not needs update', function () {
+    $deployment = new EmployeeDeployment([
+        'joined_date' => CarbonImmutable::today()->subDays(2),
+        'disembarked_date' => CarbonImmutable::today()->addDays(10),
+    ]);
+
+    expect(DeploymentStatus::needsUpdateHint($deployment))->toBeNull();
+});
+
 test('deployment status calculates vessel days between join and disembark', function () {
     $deployment = new EmployeeDeployment([
         'joined_date' => '2024-01-01',

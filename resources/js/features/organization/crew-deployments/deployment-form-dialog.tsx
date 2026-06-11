@@ -105,6 +105,7 @@ export function DeploymentFormDialog({
     ranks,
     clients,
     companyVisaTypes,
+    redirectToShow = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -113,6 +114,7 @@ export function DeploymentFormDialog({
     ranks: Option[];
     clients: Option[];
     companyVisaTypes: Option[];
+    redirectToShow?: boolean;
 }): ReactElement {
     const form = useForm({
         employee_id: '',
@@ -188,6 +190,7 @@ export function DeploymentFormDialog({
             disembarked_date: data.disembarked_date || null,
             travelled_date: data.travelled_date || null,
             remarks: data.remarks || null,
+            ...(redirectToShow ? { redirect_to: 'show' as const } : {}),
         }));
 
         if (editing) {
@@ -221,6 +224,7 @@ export function DeploymentFormDialog({
                             <DeploymentStatusBadge
                                 status={editing.status}
                                 label={editing.status_label}
+                                hint={editing.status_hint}
                             />
                         ) : null}
                     </div>

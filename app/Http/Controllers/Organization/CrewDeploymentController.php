@@ -12,8 +12,10 @@ use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
+use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
 use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -112,6 +114,37 @@ class CrewDeploymentController extends Controller
         return back()->with('success', 'Deployment record added.');
     }
 
+    public function show(Request $request, EmployeeDeployment $deployment): InertiaResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        abort_unless($deployment->company_id === $companyId, 404);
+
+        return Inertia::render('organization/crew-deployments/show', [
+            'deployment' => EmployeeDeploymentPresenter::toArray($deployment),
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                EmployeeDeployment::class,
+                $deployment->id,
+                limit: 20,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
+            'can' => [
+                'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
+            ],
+            'employees' => Employee::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'employee_no', 'name', 'rank_id']),
+            'ranks' => Rank::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'clients' => Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'company_visa_types' => CompanyVisaType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'back_query' => $this->listBackQuery($request),
+        ]);
+    }
+
     public function update(
         UpdateEmployeeDeploymentRequest $request,
         EmployeeDeployment $deployment,
@@ -132,6 +165,12 @@ class CrewDeploymentController extends Controller
             'rank_id' => $validated['rank_id'] ?? $employee->rank_id,
             ...$this->deploymentAttributes($validated),
         ]);
+
+        if (($validated['redirect_to'] ?? null) === 'show') {
+            return redirect()
+                ->route('organization.crew-deployments.show', $deployment)
+                ->with('success', 'Deployment record updated.');
+        }
 
         return back()->with('success', 'Deployment record updated.');
     }
@@ -215,6 +254,24 @@ class CrewDeploymentController extends Controller
             'crew-deployments.xlsx',
             ExcelWriter::XLSX,
         );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function listBackQuery(Request $request): array
+    {
+        $query = [];
+
+        foreach (['status', 'search', 'rank_id', 'client_id', 'company_visa_type_id', 'sort', 'direction', 'per_page'] as $key) {
+            $value = $request->query($key);
+
+            if ($value !== null && $value !== '') {
+                $query[$key] = (string) $value;
+            }
+        }
+
+        return $query;
     }
 
     /**

@@ -201,6 +201,55 @@ final class DeploymentStatus
         return $today->lte($deployment->leave_standby_to);
     }
 
+    public static function needsUpdateHint(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): ?string
+    {
+        $today ??= CarbonImmutable::today();
+
+        if (self::resolve($deployment, $today)['status'] !== self::UNKNOWN) {
+            return null;
+        }
+
+        if (
+            $deployment->leave_standby_to !== null
+            && $deployment->leave_standby_to->lt($today)
+            && $deployment->travelled_date === null
+            && $deployment->disembarked_date !== null
+            && $deployment->disembarked_date->lte($today)
+        ) {
+            $days = (int) $deployment->leave_standby_to->diffInDays($today);
+
+            return sprintf('Leave standby ended %dd ago — add travel date', $days);
+        }
+
+        if (self::isOverdueAfterDisembark($deployment, $today)) {
+            $days = (int) $deployment->disembarked_date->diffInDays($today);
+
+            return sprintf('Disembarked %dd ago — add travel or standby', $days);
+        }
+
+        if (
+            $deployment->join_standby_to !== null
+            && $deployment->join_standby_to->lt($today)
+            && ($deployment->joined_date === null || $deployment->joined_date->gt($today))
+        ) {
+            $days = (int) $deployment->join_standby_to->diffInDays($today);
+
+            return sprintf('Join standby ended %dd ago — add join date', $days);
+        }
+
+        if (
+            $deployment->arrived_date !== null
+            && $deployment->arrived_date->lt($today)
+            && $deployment->joined_date === null
+        ) {
+            $days = (int) $deployment->arrived_date->diffInDays($today);
+
+            return sprintf('Arrived %dd ago — add join date', $days);
+        }
+
+        return 'Dates incomplete — review record';
+    }
+
     private static function isOverdueAfterDisembark(
         EmployeeDeployment $deployment,
         CarbonImmutable $today,

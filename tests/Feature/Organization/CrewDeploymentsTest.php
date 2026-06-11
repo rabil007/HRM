@@ -17,6 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Spatie\Activitylog\Models\Activity;
 
 function makeCrewDeploymentFixtures(): array
 {
@@ -390,6 +391,7 @@ test('crew deployment board marks overdue arrivals without join date as needs up
         ->assertInertia(fn (Assert $page) => $page
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('deployments.data.0.status_hint', 'Arrived 1d ago — add join date')
             ->where('summary.unknown', 1)
             ->where('summary.awaiting_join', 0));
 });
@@ -435,6 +437,7 @@ test('crew deployment board marks past disembark without follow up dates as need
         ->assertInertia(fn (Assert $page) => $page
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('deployments.data.0.status_hint', 'Disembarked 3d ago — add travel or standby')
             ->where('summary.unknown', 1)
             ->where('summary.disembarked', 0));
 });
@@ -459,8 +462,163 @@ test('crew deployment board marks overdue leave standby without travel as needs 
         ->assertInertia(fn (Assert $page) => $page
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
+            ->where('deployments.data.0.status_hint', 'Leave standby ended 1d ago — add travel date')
             ->where('summary.unknown', 1)
             ->where('summary.disembarked', 0));
+});
+
+test('guests cannot access crew deployment show page', function () {
+    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Guest Vessel',
+    ]);
+
+    $this->get(route('organization.crew-deployments.show', $deployment))
+        ->assertRedirect(route('login'));
+});
+
+test('authorized users can view crew deployment show page', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Detail Vessel',
+        'joined_date' => '2024-11-26',
+        'disembarked_date' => '2025-01-26',
+        'remarks' => 'Detail remark',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.show', $deployment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-deployments/show')
+            ->where('deployment.id', $deployment->id)
+            ->where('deployment.vessel_name', 'Detail Vessel')
+            ->where('deployment.employee_no', '2018')
+            ->where('deployment.remarks', 'Detail remark')
+            ->has('back_query'));
+});
+
+test('users cannot view crew deployment from another company', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Co',
+        'slug' => 'other-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create([
+            'employee_no' => '9999',
+            'name' => 'Other Crew',
+            'rank_id' => $rank->id,
+            'status' => 'active',
+        ]);
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $otherEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Foreign Vessel',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.show', $deployment))
+        ->assertNotFound();
+});
+
+test('deployment show page hides recent activity without audit permission', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Audit Hidden Vessel',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.show', $deployment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', []));
+});
+
+test('deployment show page exposes recent activity with audit permission', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.deployments.view',
+        'crew_operations.deployments.manage',
+        'audit.view',
+    ]);
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Audit Visible Vessel',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.show', $deployment))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', true)
+            ->has('recent_activity', 1)
+            ->where('recent_activity.0.event', 'created'));
+});
+
+test('updating a deployment records activity and can redirect to show page', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Before Update',
+        'joined_date' => '2024-01-01',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_name' => 'After Update',
+            'joined_date' => '2024-02-01',
+            'redirect_to' => 'show',
+        ])
+        ->assertRedirect(route('organization.crew-deployments.show', $deployment));
+
+    expect($deployment->fresh()->vessel_name)->toBe('After Update');
+
+    $activity = Activity::query()
+        ->where('subject_type', EmployeeDeployment::class)
+        ->where('subject_id', $deployment->id)
+        ->where('event', 'updated')
+        ->latest('id')
+        ->first();
+
+    expect($activity)->not->toBeNull()
+        ->and($activity->attribute_changes?->get('attributes'))->toMatchArray([
+            'vessel_name' => 'After Update',
+        ])
+        ->and($activity->attribute_changes?->get('attributes'))->toHaveKey('joined_date');
 });
 
 test('crew deployment board can filter by join standby status', function () {
