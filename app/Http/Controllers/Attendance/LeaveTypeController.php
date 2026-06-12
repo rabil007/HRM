@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreLeaveTypeRequest;
 use App\Http\Requests\Attendance\UpdateLeaveTypeRequest;
+use App\Http\Requests\Attendance\UpdateLeaveTypeStatusRequest;
 use App\Models\LeaveType;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -39,7 +40,6 @@ class LeaveTypeController extends Controller
             'name' => $leaveType->name,
             'code' => $leaveType->code,
             'days_per_year' => $leaveType->days_per_year,
-            'accrual_method' => $leaveType->accrual_method,
             'carry_forward' => $leaveType->carry_forward,
             'max_carry_days' => $leaveType->max_carry_days,
             'color' => $leaveType->color,
@@ -75,6 +75,20 @@ class LeaveTypeController extends Controller
         return redirect()
             ->route('attendance.types.index')
             ->with('success', 'Attendance type updated successfully.');
+    }
+
+    public function updateStatus(UpdateLeaveTypeStatusRequest $request, LeaveType $leaveType): RedirectResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $leaveType->company_id === $companyId, 404);
+
+        $leaveType->update([
+            'status' => $request->validated('status'),
+        ]);
+
+        return redirect()
+            ->route('attendance.types.index')
+            ->with('success', 'Attendance type status updated successfully.');
     }
 
     public function destroy(LeaveType $leaveType): RedirectResponse

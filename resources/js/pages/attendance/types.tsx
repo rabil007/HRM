@@ -14,7 +14,7 @@ export default function AttendanceTypes({
 }) {
     return (
         <>
-            <Head title="Attendance types" />
+            <Head title="Attendance Types Management" />
             <AttendanceTypesContent leave_types={leave_types} pagination={pagination} search={search} />
         </>
     );

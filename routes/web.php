@@ -284,6 +284,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.types.update')
         ->name('attendance.types.update');
 
+    Route::put('attendance/types/{leave_type}/status', [LeaveTypeController::class, 'updateStatus'])
+        ->middleware('can:attendance.types.update')
+        ->name('attendance.types.status');
+
     Route::delete('attendance/types/{leave_type}', [LeaveTypeController::class, 'destroy'])
         ->middleware('can:attendance.types.delete')
         ->name('attendance.types.destroy');

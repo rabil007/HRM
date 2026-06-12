@@ -24,7 +24,6 @@ class LeaveTypeFactory extends Factory
             'name' => 'Leave '.$code,
             'code' => $code,
             'days_per_year' => 30,
-            'accrual_method' => 'upfront',
             'carry_forward' => false,
             'max_carry_days' => 0,
             'color' => '#3b82f6',

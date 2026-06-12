@@ -37,7 +37,6 @@ class LeaveType extends Model
                 'name',
                 'code',
                 'days_per_year',
-                'accrual_method',
                 'carry_forward',
                 'max_carry_days',
                 'color',

@@ -25,7 +25,6 @@ trait LeaveTypeValidationRules
                     ->ignore($leaveType?->id),
             ],
             'days_per_year' => ['required', 'numeric', 'min:0'],
-            'accrual_method' => ['required', 'in:upfront,monthly,none'],
             'carry_forward' => ['sometimes', 'boolean'],
             'max_carry_days' => ['required', 'integer', 'min:0'],
             'color' => ['nullable', 'string', 'max:20'],

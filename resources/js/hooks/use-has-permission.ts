@@ -16,23 +16,6 @@ export function useHasPermission(permission: string): boolean {
     );
 }
 
-export function useAttendanceTypesCan(): {
-    create: boolean;
-    update: boolean;
-    delete: boolean;
-} {
-    const permissions = useAuthPermissions();
-
-    return useMemo(
-        () => ({
-            create: permissions.includes('attendance.types.create'),
-            update: permissions.includes('attendance.types.update'),
-            delete: permissions.includes('attendance.types.delete'),
-        }),
-        [permissions],
-    );
-}
-
 export function useSettingsMasterDataCan(resource: string): {
     create: boolean;
     update: boolean;

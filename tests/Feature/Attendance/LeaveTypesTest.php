@@ -57,7 +57,6 @@ function validLeaveTypePayload(array $overrides = []): array
         'name' => 'Annual Leave',
         'code' => 'AL',
         'days_per_year' => 30,
-        'accrual_method' => 'upfront',
         'carry_forward' => false,
         'max_carry_days' => 0,
         'color' => '#3b82f6',
@@ -105,6 +104,23 @@ test('authorized users can view create update and delete attendance types', func
         ->assertRedirect(route('attendance.types.index'));
 
     $this->assertDatabaseMissing('leave_types', ['id' => $leaveType->id]);
+});
+
+test('authorized users can toggle attendance type status', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.types.update']);
+
+    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+
+    $this->put("/attendance/types/{$leaveType->id}/status", ['status' => 'inactive'])
+        ->assertRedirect(route('attendance.types.index'));
+
+    $this->assertDatabaseHas('leave_types', [
+        'id' => $leaveType->id,
+        'status' => 'inactive',
+    ]);
 });
 
 test('leave type code must be unique per company', function () {

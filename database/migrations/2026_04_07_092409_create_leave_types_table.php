@@ -17,7 +17,6 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('code', 20);
             $table->decimal('days_per_year', 5, 2)->default(0);
-            $table->enum('accrual_method', ['upfront', 'monthly', 'none'])->default('upfront');
             $table->boolean('carry_forward')->default(false);
             $table->unsignedInteger('max_carry_days')->default(0);
             $table->string('color', 20)->nullable();
