@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Attendance;
 
 use App\Http\Requests\Attendance\Concerns\LeaveRequestValidationRules;
+use App\Http\Requests\Attendance\Concerns\ValidatesOverlappingLeaveRequests;
 use App\Http\Requests\Attendance\Concerns\ValidatesOwnLeaveRequestEmployee;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -11,6 +12,7 @@ use Illuminate\Validation\Validator;
 class UpdateLeaveRequestRequest extends FormRequest
 {
     use LeaveRequestValidationRules;
+    use ValidatesOverlappingLeaveRequests;
     use ValidatesOwnLeaveRequestEmployee;
 
     public function authorize(): bool
@@ -30,6 +32,7 @@ class UpdateLeaveRequestRequest extends FormRequest
     {
         $validator->after(function (Validator $validator): void {
             $this->validateOwnLeaveRequestEmployee($validator);
+            $this->validateOverlappingLeaveRequests($validator);
         });
     }
 }

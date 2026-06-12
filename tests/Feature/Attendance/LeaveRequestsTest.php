@@ -592,6 +592,85 @@ test('leave request form exposes all employees with approve permission', functio
             ->has('employees', 2));
 });
 
+test('leave requests cannot overlap pending or approved dates for the same employee', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $otherLeaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.update',
+    ]);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-13',
+        'end_date' => '2026-06-13',
+        'total_days' => 1,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    $response = $this->from('/attendance/leave-requests')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $otherLeaveType, [
+            'start_date' => '2026-06-13',
+            'end_date' => '2026-06-13',
+        ]));
+
+    $response->assertSessionHasErrors('start_date');
+
+    $pendingRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $otherLeaveType->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-05',
+        'total_days' => 5,
+        'status' => 'pending',
+    ]);
+
+    $this->from('/attendance/leave-requests')
+        ->put("/attendance/leave-requests/{$pendingRequest->id}", validLeaveRequestPayload($employee, $otherLeaveType, [
+            'start_date' => '2026-06-12',
+            'end_date' => '2026-06-14',
+        ]))
+        ->assertSessionHasErrors('start_date');
+});
+
+test('leave requests may reuse dates when prior requests are rejected or cancelled', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.create']);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-13',
+        'end_date' => '2026-06-13',
+        'total_days' => 1,
+        'status' => 'cancelled',
+        'cancellation_reason' => 'Plans changed',
+    ]);
+
+    $this->from('/attendance/leave-requests')
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType, [
+            'start_date' => '2026-06-13',
+            'end_date' => '2026-06-13',
+        ]))
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    expect(LeaveRequest::query()->where('employee_id', $employee->id)->where('status', 'pending')->count())->toBe(1);
+});
+
 test('users without approve permission cannot manage other employees leave requests', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
