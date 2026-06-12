@@ -96,6 +96,7 @@ const baseSidebarData: SidebarData = {
             title: 'Attendance',
             items: [
                 { title: 'Attendance types', url: '/attendance/types', icon: IdCard },
+                { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
                 { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
                 { title: 'Public holidays', url: placeholder('attendance.public-holidays'), icon: CalendarDays },
             ],
@@ -113,7 +114,6 @@ const baseSidebarData: SidebarData = {
             title: 'Leave',
             items: [
                 { title: 'Leave balances', url: placeholder('leave.balances'), icon: Wallet },
-                { title: 'Leave requests', url: placeholder('leave.requests'), icon: CalendarCheck2 },
             ],
         },
         {
@@ -203,6 +203,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'hikvision.events.view') ? item : null;
                         case '/attendance/types':
                             return has(permissions, 'attendance.types.view') ? item : null;
+                        case '/attendance/leave-requests':
+                            return has(permissions, 'attendance.leave-requests.view') ? item : null;
                         default:
                             return item;
                     }

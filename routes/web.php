@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\ApplicationLogController;
+use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
+use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
@@ -291,6 +293,38 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('attendance/types/{leave_type}', [LeaveTypeController::class, 'destroy'])
         ->middleware('can:attendance.types.delete')
         ->name('attendance.types.destroy');
+
+    Route::get('attendance/leave-requests', [LeaveRequestController::class, 'index'])
+        ->middleware('can:attendance.leave-requests.view')
+        ->name('attendance.leave-requests.index');
+
+    Route::post('attendance/leave-requests', [LeaveRequestController::class, 'store'])
+        ->middleware('can:attendance.leave-requests.create')
+        ->name('attendance.leave-requests.store');
+
+    Route::put('attendance/leave-requests/{leave_request}', [LeaveRequestController::class, 'update'])
+        ->middleware('can:attendance.leave-requests.update')
+        ->name('attendance.leave-requests.update');
+
+    Route::delete('attendance/leave-requests/{leave_request}', [LeaveRequestController::class, 'destroy'])
+        ->middleware('can:attendance.leave-requests.delete')
+        ->name('attendance.leave-requests.destroy');
+
+    Route::put('attendance/leave-requests/{leave_request}/approve', [LeaveRequestController::class, 'approve'])
+        ->middleware('can:attendance.leave-requests.approve')
+        ->name('attendance.leave-requests.approve');
+
+    Route::put('attendance/leave-requests/{leave_request}/reject', [LeaveRequestController::class, 'reject'])
+        ->middleware('can:attendance.leave-requests.approve')
+        ->name('attendance.leave-requests.reject');
+
+    Route::put('attendance/leave-requests/{leave_request}/cancel', [LeaveRequestController::class, 'cancel'])
+        ->middleware('can:attendance.leave-requests.update')
+        ->name('attendance.leave-requests.cancel');
+
+    Route::get('attendance/leave-requests/{leave_request}/attachment', LeaveRequestAttachmentController::class)
+        ->middleware('can:attendance.leave-requests.view')
+        ->name('attendance.leave-requests.attachment');
 
     Route::get('hikvision/access-events', [HikvisionAccessEventController::class, 'index'])
         ->middleware('can:hikvision.events.view')

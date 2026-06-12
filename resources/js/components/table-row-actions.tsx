@@ -10,13 +10,17 @@ export type TableRowActionItem = {
     href?: string;
     target?: string;
     rel?: string;
-    variant?: 'default' | 'primary' | 'danger';
+    variant?: 'default' | 'primary' | 'danger' | 'success';
     hidden?: boolean;
 };
 
 function ghostIconClass(variant?: TableRowActionItem['variant']): string {
     if (variant === 'danger') {
         return 'size-8 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400';
+    }
+
+    if (variant === 'success') {
+        return 'size-8 rounded-lg text-emerald-600 hover:bg-emerald-500/10 hover:text-emerald-600';
     }
 
     return 'size-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100';

@@ -41,6 +41,12 @@ class PermissionsSeeder extends Seeder
             'attendance.types.create',
             'attendance.types.update',
             'attendance.types.delete',
+
+            'attendance.leave-requests.view',
+            'attendance.leave-requests.create',
+            'attendance.leave-requests.update',
+            'attendance.leave-requests.delete',
+            'attendance.leave-requests.approve',
             'settings.integrations.whatsapp-templates.view',
             'settings.integrations.whatsapp-templates.create',
             'settings.integrations.whatsapp-templates.update',
