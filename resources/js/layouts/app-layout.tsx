@@ -55,8 +55,8 @@ export default function AppLayout({
         },
         {
             title: 'Leave',
-            href: placeholder('leave.requests'),
-            isActive: url.includes('module=leave') || url.includes('leave'),
+            href: '/attendance/leave-requests',
+            isActive: url.startsWith('/attendance/leave-requests'),
             disabled: false,
         },
         {
