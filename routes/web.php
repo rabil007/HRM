@@ -278,6 +278,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.types.view')
         ->name('attendance.types.index');
 
+    Route::get('attendance/types/{leave_type}', [LeaveTypeController::class, 'show'])
+        ->middleware('can:attendance.types.view')
+        ->name('attendance.types.show');
+
     Route::post('attendance/types', [LeaveTypeController::class, 'store'])
         ->middleware('can:attendance.types.create')
         ->name('attendance.types.store');
@@ -297,6 +301,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('attendance/leave-requests', [LeaveRequestController::class, 'index'])
         ->middleware('can:attendance.leave-requests.view')
         ->name('attendance.leave-requests.index');
+
+    Route::get('attendance/leave-requests/{leave_request}', [LeaveRequestController::class, 'show'])
+        ->middleware('can:attendance.leave-requests.view')
+        ->name('attendance.leave-requests.show');
 
     Route::post('attendance/leave-requests', [LeaveRequestController::class, 'store'])
         ->middleware('can:attendance.leave-requests.create')

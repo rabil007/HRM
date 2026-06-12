@@ -183,7 +183,7 @@ export function AttendanceTypesContent({
                                 </TableCell>
                                 <TableCell className={dataTableActionsCellClass()}>
                                     <ListTableCrudActions
-                                        showView={false}
+                                        viewHref={`/attendance/types/${leaveType.id}`}
                                         onEdit={() => handleEdit(leaveType)}
                                         onDelete={() => handleDelete(leaveType)}
                                     />

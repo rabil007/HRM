@@ -8,8 +8,10 @@ use App\Http\Requests\Attendance\UpdateLeaveTypeRequest;
 use App\Http\Requests\Attendance\UpdateLeaveTypeStatusRequest;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -51,6 +53,42 @@ class LeaveTypeController extends Controller
             'leave_types' => $leaveTypes->items(),
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
+        ]);
+    }
+
+    public function show(Request $request, LeaveType $leaveType): Response
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $leaveType->company_id === $companyId, 404);
+
+        $leaveType->loadCount('leaveRequests');
+
+        $user = $request->user();
+
+        return Inertia::render('attendance/type', [
+            'leave_type' => [
+                'id' => $leaveType->id,
+                'name' => $leaveType->name,
+                'code' => $leaveType->code,
+                'days_per_year' => $leaveType->days_per_year,
+                'carry_forward' => $leaveType->carry_forward,
+                'max_carry_days' => $leaveType->max_carry_days,
+                'color' => $leaveType->color,
+                'status' => $leaveType->status,
+                'leave_requests_count' => $leaveType->leave_requests_count,
+                'created_at' => $leaveType->created_at?->toIso8601String(),
+                'updated_at' => $leaveType->updated_at?->toIso8601String(),
+            ],
+            'recent_activity' => RecentActivityQuery::for(
+                $user,
+                $companyId,
+                LeaveType::class,
+                $leaveType->id,
+            ),
+            'can_view_audit' => $user?->can('audit.view') ?? false,
+            'can' => [
+                'update' => $user?->can('attendance.types.update') ?? false,
+            ],
         ]);
     }
 

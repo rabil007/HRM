@@ -1,4 +1,4 @@
-import { Ban, Check, Pencil, Trash2, X } from 'lucide-react';
+import { Ban, Check, Eye, Pencil, Trash2, X } from 'lucide-react';
 import { TableRowActions } from '@/components/table-row-actions';
 import type { TableRowActionItem } from '@/components/table-row-actions';
 import type { LeaveRequest, LeaveRequestPermissions } from '../types';
@@ -29,6 +29,11 @@ export function LeaveRequestRowActions({
     const canRemove = (isPending || leaveRequest.status === 'cancelled') && can.delete;
 
     const actions: TableRowActionItem[] = [
+        {
+            label: 'View',
+            icon: Eye,
+            href: `/attendance/leave-requests/${leaveRequest.id}`,
+        },
         {
             label: 'Approve',
             icon: Check,

@@ -1,4 +1,4 @@
-import { Pencil, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -81,6 +81,18 @@ export function LeaveTypeCard({
                     </div>
 
                     <div className="flex items-center justify-end gap-1">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                            asChild
+                            title="View"
+                        >
+                            <a href={`/attendance/types/${leaveType.id}`}>
+                                <Eye className="h-4 w-4" />
+                            </a>
+                        </Button>
                         <Button
                             type="button"
                             variant="ghost"

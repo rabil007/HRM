@@ -10,6 +10,7 @@ use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * @return array{user: User, company: Company}
@@ -388,6 +389,135 @@ test('users with approve permission see all leave requests', function () {
     $this->get('/attendance/leave-requests')
         ->assertOk()
         ->assertInertia(fn ($page) => $page->has('leave_requests', 2));
+});
+
+test('authorized users can view leave request detail page', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.leave-requests.show', $leaveRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('attendance/leave-request')
+            ->where('leave_request.id', $leaveRequest->id)
+            ->where('leave_request.employee.id', $employee->id));
+});
+
+test('users without approve permission cannot view other employees leave request detail page', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
+
+    $ownEmployee->update(['user_id' => $user->id]);
+
+    $otherLeaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $otherEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $this->get(route('attendance.leave-requests.show', $otherLeaveRequest))->assertNotFound();
+});
+
+test('users with approve permission can view any leave request detail page', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    $this->get(route('attendance.leave-requests.show', $leaveRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('leave_request.id', $leaveRequest->id));
+});
+
+test('leave request show page hides recent activity without audit permission', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.leave-requests.show', $leaveRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', []));
+});
+
+test('leave request show page exposes recent activity with audit permission', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'audit.view',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.leave-requests.show', $leaveRequest))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', true)
+            ->has('recent_activity', 1)
+            ->where('recent_activity.0.event', 'created'));
 });
 
 test('users without approve permission cannot manage other employees leave requests', function () {

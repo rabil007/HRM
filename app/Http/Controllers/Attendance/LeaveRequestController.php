@@ -11,6 +11,7 @@ use App\Http\Requests\Attendance\UpdateLeaveRequestRequest;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestVisibility;
@@ -95,6 +96,60 @@ class LeaveRequestController extends Controller
                 ->where('status', 'active')
                 ->orderBy('name')
                 ->get(['id', 'name', 'code', 'color']),
+            'can' => [
+                'create' => $user?->can('attendance.leave-requests.create') ?? false,
+                'update' => $user?->can('attendance.leave-requests.update') ?? false,
+                'delete' => $user?->can('attendance.leave-requests.delete') ?? false,
+                'approve' => $user?->can('attendance.leave-requests.approve') ?? false,
+            ],
+        ]);
+    }
+
+    public function show(Request $request, LeaveRequest $leaveRequest): Response
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $user = $request->user();
+
+        $this->visibility->assertCanAccess($leaveRequest, $user, $companyId);
+
+        $leaveRequest->load([
+            'employee:id,company_id,employee_no,name',
+            'leaveType:id,company_id,name,code,color',
+            'approver:id,name',
+        ]);
+
+        $canViewAll = $this->visibility->canViewAll($user);
+        $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
+
+        $employeesQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderBy('name');
+
+        if (! $canViewAll) {
+            $employeesQuery->when(
+                $linkedEmployeeId !== null,
+                fn ($query) => $query->whereKey($linkedEmployeeId),
+                fn ($query) => $query->whereRaw('1 = 0'),
+            );
+        }
+
+        return Inertia::render('attendance/leave-request', [
+            'leave_request' => $this->serializeLeaveRequest($leaveRequest),
+            'employees' => $employeesQuery->get(['id', 'employee_no', 'name']),
+            'leave_types' => LeaveType::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'color']),
+            'linked_employee_id' => $linkedEmployeeId,
+            'recent_activity' => RecentActivityQuery::for(
+                $user,
+                $companyId,
+                LeaveRequest::class,
+                $leaveRequest->id,
+            ),
+            'can_view_audit' => $user?->can('audit.view') ?? false,
             'can' => [
                 'create' => $user?->can('attendance.leave-requests.create') ?? false,
                 'update' => $user?->can('attendance.leave-requests.update') ?? false,

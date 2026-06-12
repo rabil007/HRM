@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveType;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * @return array{user: User, company: Company}
@@ -194,6 +195,80 @@ test('delete is blocked when leave type is used in leave balances', function () 
         ->assertSessionHasErrors('leave_type');
 
     $this->assertDatabaseHas('leave_types', ['id' => $leaveType->id]);
+});
+
+test('authorized users can view attendance type detail page', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.types.view']);
+
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'name' => 'Annual Leave',
+        'code' => 'AL',
+    ]);
+
+    $this->get(route('attendance.types.show', $leaveType))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('attendance/type')
+            ->where('leave_type.id', $leaveType->id)
+            ->where('leave_type.name', 'Annual Leave'));
+});
+
+test('users cannot view attendance types from another company', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Co',
+        'slug' => 'other-'.fake()->unique()->numerify('####'),
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $leaveType = LeaveType::factory()->for($otherCompany)->create();
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.types.view']);
+
+    $this->get(route('attendance.types.show', $leaveType))->assertNotFound();
+});
+
+test('attendance type show page hides recent activity without audit permission', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.types.view']);
+
+    $leaveType = LeaveType::factory()->for($company)->create();
+
+    $this->get(route('attendance.types.show', $leaveType))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', []));
+});
+
+test('attendance type show page exposes recent activity with audit permission', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.types.view',
+        'audit.view',
+    ]);
+
+    $leaveType = LeaveType::factory()->for($company)->create();
+
+    $this->get(route('attendance.types.show', $leaveType))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', true)
+            ->has('recent_activity', 1)
+            ->where('recent_activity.0.event', 'created'));
 });
 
 test('delete is blocked when leave type is used in leave requests', function () {
