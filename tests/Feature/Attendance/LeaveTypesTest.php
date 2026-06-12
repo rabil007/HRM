@@ -167,36 +167,6 @@ test('users cannot update leave types from another company', function () {
     ]))->assertNotFound();
 });
 
-test('delete is blocked when leave type is used in leave balances', function () {
-    ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
-    $this->actingAs($user);
-
-    grantCompanyPermissions($user, $company, ['attendance.types.delete']);
-
-    $leaveType = LeaveType::factory()->for($company)->create();
-    $employee = Employee::factory()->create(['company_id' => $company->id]);
-
-    DB::table('leave_balances')->insert([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'leave_type_id' => $leaveType->id,
-        'year' => 2026,
-        'entitled_days' => 30,
-        'used_days' => 0,
-        'pending_days' => 0,
-        'carried_days' => 0,
-        'created_at' => now(),
-        'updated_at' => now(),
-    ]);
-
-    $this->from('/attendance/types')
-        ->delete("/attendance/types/{$leaveType->id}")
-        ->assertRedirect(route('attendance.types.index'))
-        ->assertSessionHasErrors('leave_type');
-
-    $this->assertDatabaseHas('leave_types', ['id' => $leaveType->id]);
-});
-
 test('authorized users can view attendance type detail page', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceTypesFixtures();
     $this->actingAs($user);

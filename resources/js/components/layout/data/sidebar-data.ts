@@ -1,7 +1,6 @@
 import {
     Command,
     Building2,
-    CalendarDays,
     ClipboardList,
     LayoutDashboard,
     Landmark,
@@ -98,7 +97,6 @@ const baseSidebarData: SidebarData = {
                 { title: 'Attendance types', url: '/attendance/types', icon: IdCard },
                 { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
                 { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
-                { title: 'Public holidays', url: placeholder('attendance.public-holidays'), icon: CalendarDays },
             ],
         },
         {
@@ -108,12 +106,6 @@ const baseSidebarData: SidebarData = {
                 { title: 'Candidates', url: placeholder('recruitment.candidates'), icon: Users },
                 { title: 'Interviews', url: placeholder('recruitment.interviews'), icon: NotebookTabs },
                 { title: 'Offers', url: placeholder('recruitment.offers'), icon: ClipboardList },
-            ],
-        },
-        {
-            title: 'Leave',
-            items: [
-                { title: 'Leave balances', url: placeholder('leave.balances'), icon: Wallet },
             ],
         },
         {

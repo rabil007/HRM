@@ -12,7 +12,6 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -134,12 +133,6 @@ class LeaveTypeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $leaveType->company_id === $companyId, 404);
-
-        if (DB::table('leave_balances')->where('leave_type_id', $leaveType->id)->exists()) {
-            return redirect()
-                ->route('attendance.types.index')
-                ->withErrors(['leave_type' => 'This attendance type cannot be deleted because it is used in leave balances.']);
-        }
 
         if (LeaveRequest::query()->where('leave_type_id', $leaveType->id)->exists()) {
             return redirect()
