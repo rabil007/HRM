@@ -392,6 +392,7 @@ test('crew deployment board marks overdue arrivals without join date as needs up
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
             ->where('deployments.data.0.status_hint', 'Arrived 1d ago — add join date')
+            ->where('deployments.data.0.overdue_date_fields', ['arrived_date'])
             ->where('summary.unknown', 1)
             ->where('summary.arrived', 0));
 });
@@ -438,6 +439,7 @@ test('crew deployment board marks past disembark without follow up dates as need
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
             ->where('deployments.data.0.status_hint', 'Disembarked 3d ago — add travel or standby')
+            ->where('deployments.data.0.overdue_date_fields', ['disembarked_date'])
             ->where('summary.unknown', 1)
             ->where('summary.disembarked', 0));
 });
@@ -463,6 +465,7 @@ test('crew deployment board marks overdue leave standby without travel as needs 
             ->where('deployments.data.0.status', DeploymentStatus::UNKNOWN)
             ->where('deployments.data.0.status_label', 'Needs update')
             ->where('deployments.data.0.status_hint', 'Leave standby ended 1d ago — add travel date')
+            ->where('deployments.data.0.overdue_date_fields', ['leave_standby_to'])
             ->where('summary.unknown', 1)
             ->where('summary.disembarked', 0));
 });

@@ -13,25 +13,11 @@ const TOTAL_ITEM = {
 
 const SUMMARY_ITEMS = [
     {
-        key: 'on_vessel',
-        label: 'On vessel',
-        cardClass: 'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
-        activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
-        valueClass: 'text-emerald-400',
-    },
-    {
-        key: 'join_standby',
-        label: 'Join standby',
-        cardClass: 'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
-        activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
-        valueClass: 'text-amber-400',
-    },
-    {
-        key: 'leave_standby',
-        label: 'Leave standby',
-        cardClass: 'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
-        activeClass: 'border-orange-500/40 ring-1 ring-orange-500/25',
-        valueClass: 'text-orange-400',
+        key: 'unknown',
+        label: 'Needs update',
+        cardClass: 'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
+        activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
+        valueClass: 'text-red-400',
     },
     {
         key: 'arrived',
@@ -41,11 +27,18 @@ const SUMMARY_ITEMS = [
         valueClass: 'text-sky-400',
     },
     {
-        key: 'travel',
-        label: 'Travel',
-        cardClass: 'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
-        activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
-        valueClass: 'text-violet-400',
+        key: 'join_standby',
+        label: 'Join standby',
+        cardClass: 'border-amber-500/15 bg-amber-500/[0.04] hover:border-amber-500/30',
+        activeClass: 'border-amber-500/40 ring-1 ring-amber-500/25',
+        valueClass: 'text-amber-400',
+    },
+    {
+        key: 'on_vessel',
+        label: 'On vessel',
+        cardClass: 'border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/30',
+        activeClass: 'border-emerald-500/40 ring-1 ring-emerald-500/25',
+        valueClass: 'text-emerald-400',
     },
     {
         key: 'disembarked',
@@ -55,11 +48,18 @@ const SUMMARY_ITEMS = [
         valueClass: 'text-foreground',
     },
     {
-        key: 'unknown',
-        label: 'Needs update',
-        cardClass: 'border-red-500/15 bg-red-500/[0.04] hover:border-red-500/30',
-        activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
-        valueClass: 'text-red-400',
+        key: 'leave_standby',
+        label: 'Leave standby',
+        cardClass: 'border-orange-500/15 bg-orange-500/[0.04] hover:border-orange-500/30',
+        activeClass: 'border-orange-500/40 ring-1 ring-orange-500/25',
+        valueClass: 'text-orange-400',
+    },
+    {
+        key: 'travel',
+        label: 'Travel',
+        cardClass: 'border-violet-500/15 bg-violet-500/[0.04] hover:border-violet-500/30',
+        activeClass: 'border-violet-500/40 ring-1 ring-violet-500/25',
+        valueClass: 'text-violet-400',
     },
     {
         key: 'in_home',

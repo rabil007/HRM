@@ -168,7 +168,16 @@ function PhaseCard({ phase }: { phase: Phase }): ReactElement {
                 </div>
                 <span className={cn('h-2 w-2 shrink-0 rounded-full', STATE_DOT[phase.state])} />
             </div>
-            <div className="text-sm font-semibold leading-snug text-foreground">{phase.primary}</div>
+            <div
+                className={cn(
+                    'text-sm font-semibold leading-snug',
+                    phase.state === 'warning'
+                        ? 'text-red-500 dark:text-red-400'
+                        : 'text-foreground',
+                )}
+            >
+                {phase.primary}
+            </div>
             {phase.secondary ? (
                 <div className="truncate text-xs text-muted-foreground">{phase.secondary}</div>
             ) : null}

@@ -28,6 +28,7 @@ export type DeploymentItem = {
     status: string;
     status_label: string;
     status_hint: string | null;
+    overdue_date_fields: string[];
     current_vessel: string | null;
     created_at: string | null;
     updated_at: string | null;

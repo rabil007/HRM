@@ -228,6 +228,50 @@ final class DeploymentStatus
         return $today->lte($deployment->leave_standby_to);
     }
 
+    /**
+     * @return list<string>
+     */
+    public static function overdueDateFields(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
+    {
+        $today ??= CarbonImmutable::today();
+
+        if (self::resolve($deployment, $today)['status'] !== self::UNKNOWN) {
+            return [];
+        }
+
+        if (
+            $deployment->leave_standby_to !== null
+            && $deployment->leave_standby_to->lt($today)
+            && $deployment->travelled_date === null
+            && $deployment->disembarked_date !== null
+            && $deployment->disembarked_date->lte($today)
+        ) {
+            return ['leave_standby_to'];
+        }
+
+        if (self::isOverdueAfterDisembark($deployment, $today)) {
+            return ['disembarked_date'];
+        }
+
+        if (
+            $deployment->join_standby_to !== null
+            && $deployment->join_standby_to->lt($today)
+            && ($deployment->joined_date === null || $deployment->joined_date->gt($today))
+        ) {
+            return ['join_standby_to'];
+        }
+
+        if (
+            $deployment->arrived_date !== null
+            && $deployment->arrived_date->lt($today)
+            && $deployment->joined_date === null
+        ) {
+            return ['arrived_date'];
+        }
+
+        return [];
+    }
+
     public static function needsUpdateHint(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): ?string
     {
         $today ??= CarbonImmutable::today();

@@ -169,6 +169,45 @@ test('deployment status resolves needs update when leave standby ended without t
         ->and($status['label'])->toBe('Needs update');
 });
 
+test('overdue date fields highlight the actionable date for needs update records', function () {
+    $today = CarbonImmutable::parse('2026-06-11');
+
+    $arrived = new EmployeeDeployment([
+        'arrived_date' => $today->subDays(3),
+    ]);
+
+    $disembarked = new EmployeeDeployment([
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(5),
+    ]);
+
+    $joinStandby = new EmployeeDeployment([
+        'join_standby_from' => $today->subDays(8),
+        'join_standby_to' => $today->subDays(2),
+    ]);
+
+    $leaveStandby = new EmployeeDeployment([
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(5),
+        'leave_standby_from' => $today->subDays(4),
+        'leave_standby_to' => $today->subDays(2),
+    ]);
+
+    expect(DeploymentStatus::overdueDateFields($arrived, $today))->toBe(['arrived_date'])
+        ->and(DeploymentStatus::overdueDateFields($disembarked, $today))->toBe(['disembarked_date'])
+        ->and(DeploymentStatus::overdueDateFields($joinStandby, $today))->toBe(['join_standby_to'])
+        ->and(DeploymentStatus::overdueDateFields($leaveStandby, $today))->toBe(['leave_standby_to']);
+});
+
+test('overdue date fields are empty when status is not needs update', function () {
+    $deployment = new EmployeeDeployment([
+        'joined_date' => CarbonImmutable::today()->subDays(2),
+        'disembarked_date' => CarbonImmutable::today()->addDays(10),
+    ]);
+
+    expect(DeploymentStatus::overdueDateFields($deployment))->toBe([]);
+});
+
 test('needs update hint explains overdue arrival without join date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 

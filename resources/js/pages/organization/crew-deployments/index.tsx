@@ -28,6 +28,7 @@ import {
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
 import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
+import { DeploymentDateCell } from '@/features/organization/crew-deployments/deployment-date-cell';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
@@ -638,31 +639,63 @@ return;
                                     {formatIsoDateDisplay(deployment.hire_date)}
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.arrived_date)}
+                                    <DeploymentDateCell
+                                        value={deployment.arrived_date}
+                                        field="arrived_date"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.join_standby_from)}
+                                    <DeploymentDateCell
+                                        value={deployment.join_standby_from}
+                                        field="join_standby_from"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.join_standby_to)}
+                                    <DeploymentDateCell
+                                        value={deployment.join_standby_to}
+                                        field="join_standby_to"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.join_standby_days)}</TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.joined_date)}
+                                    <DeploymentDateCell
+                                        value={deployment.joined_date}
+                                        field="joined_date"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.disembarked_date)}
+                                    <DeploymentDateCell
+                                        value={deployment.disembarked_date}
+                                        field="disembarked_date"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.vessel_days)}</TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.leave_standby_from)}
+                                    <DeploymentDateCell
+                                        value={deployment.leave_standby_from}
+                                        field="leave_standby_from"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.leave_standby_to)}
+                                    <DeploymentDateCell
+                                        value={deployment.leave_standby_to}
+                                        field="leave_standby_to"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.leave_standby_days)}</TableCell>
                                 <TableCell>
-                                    {formatIsoDateDisplay(deployment.travelled_date)}
+                                    <DeploymentDateCell
+                                        value={deployment.travelled_date}
+                                        field="travelled_date"
+                                        overdueFields={deployment.overdue_date_fields}
+                                    />
                                 </TableCell>
                                 {showInHomeDaysColumn ? (
                                     <TableCell>{displayNumber(deployment.in_home_days)}</TableCell>

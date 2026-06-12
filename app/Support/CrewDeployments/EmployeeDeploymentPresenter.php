@@ -50,6 +50,7 @@ final class EmployeeDeploymentPresenter
             'status' => $status['status'],
             'status_label' => $status['label'],
             'status_hint' => DeploymentStatus::needsUpdateHint($deployment),
+            'overdue_date_fields' => DeploymentStatus::overdueDateFields($deployment),
             'current_vessel' => $status['current_vessel'],
             'created_at' => $deployment->created_at?->toIso8601String(),
             'updated_at' => $deployment->updated_at?->toIso8601String(),
