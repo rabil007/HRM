@@ -15,7 +15,6 @@ return new class extends Migration
             $table->id();
             $table->foreignId('company_id')->constrained()->cascadeOnDelete();
             $table->foreignId('employee_id')->constrained('employees')->cascadeOnDelete();
-            $table->foreignId('shift_id')->nullable();
             $table->date('date');
             $table->dateTime('clock_in')->nullable();
             $table->dateTime('clock_out')->nullable();

@@ -9,7 +9,6 @@ import {
     MapPin,
     NotebookTabs,
     Receipt,
-    Timer,
     Users,
     Wallet,
     Settings,
@@ -94,21 +93,19 @@ const baseSidebarData: SidebarData = {
             ],
         },
         {
+            title: 'Attendance',
+            items: [
+                { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
+                { title: 'Public holidays', url: placeholder('attendance.public-holidays'), icon: CalendarDays },
+            ],
+        },
+        {
             title: 'Recruitment',
             items: [
                 { title: 'Job postings', url: placeholder('recruitment.job-postings'), icon: BriefcaseBusiness },
                 { title: 'Candidates', url: placeholder('recruitment.candidates'), icon: Users },
                 { title: 'Interviews', url: placeholder('recruitment.interviews'), icon: NotebookTabs },
                 { title: 'Offers', url: placeholder('recruitment.offers'), icon: ClipboardList },
-            ],
-        },
-        {
-            title: 'Attendance',
-            items: [
-                { title: 'Shifts', url: placeholder('attendance.shifts'), icon: Timer },
-                { title: 'Employee shifts', url: placeholder('attendance.employee-shifts'), icon: CalendarDays },
-                { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
-                { title: 'Public holidays', url: placeholder('attendance.public-holidays'), icon: CalendarDays },
             ],
         },
         {
