@@ -20,13 +20,6 @@ return new class extends Migration
             $table->enum('accrual_method', ['upfront', 'monthly', 'none'])->default('upfront');
             $table->boolean('carry_forward')->default(false);
             $table->unsignedInteger('max_carry_days')->default(0);
-            $table->boolean('requires_approval')->default(true);
-            $table->decimal('min_days', 4, 2)->default(0.5);
-            $table->unsignedInteger('max_days')->nullable();
-            $table->boolean('paid')->default(true);
-            $table->boolean('uae_statutory')->default(false);
-            $table->unsignedInteger('applicable_after')->default(0);
-            $table->enum('gender_specific', ['all', 'male', 'female'])->default('all');
             $table->string('color', 20)->nullable();
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();

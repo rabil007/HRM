@@ -36,6 +36,11 @@ class PermissionsSeeder extends Seeder
             'hikvision.devices.sync',
             'hikvision.events.view',
             'hikvision.events.fetch',
+
+            'attendance.types.view',
+            'attendance.types.create',
+            'attendance.types.update',
+            'attendance.types.delete',
             'settings.integrations.whatsapp-templates.view',
             'settings.integrations.whatsapp-templates.create',
             'settings.integrations.whatsapp-templates.update',

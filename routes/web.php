@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApplicationLogController;
+use App\Http\Controllers\Attendance\LeaveTypeController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Organization\ActivityLogController;
@@ -270,6 +271,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('hikvision.persons.employee.link');
 
     Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
+
+    Route::get('attendance/types', [LeaveTypeController::class, 'index'])
+        ->middleware('can:attendance.types.view')
+        ->name('attendance.types.index');
+
+    Route::post('attendance/types', [LeaveTypeController::class, 'store'])
+        ->middleware('can:attendance.types.create')
+        ->name('attendance.types.store');
+
+    Route::put('attendance/types/{leave_type}', [LeaveTypeController::class, 'update'])
+        ->middleware('can:attendance.types.update')
+        ->name('attendance.types.update');
+
+    Route::delete('attendance/types/{leave_type}', [LeaveTypeController::class, 'destroy'])
+        ->middleware('can:attendance.types.delete')
+        ->name('attendance.types.destroy');
 
     Route::get('hikvision/access-events', [HikvisionAccessEventController::class, 'index'])
         ->middleware('can:hikvision.events.view')
