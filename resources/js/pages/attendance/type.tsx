@@ -54,7 +54,7 @@ export default function AttendanceTypeDetails({
                 title={leave_type.name}
                 description={`${leave_type.code} • ${leave_type.days_per_year} days per year`}
                 backHref="/attendance/types"
-                backLabel="Back to attendance types"
+                backLabel="Back to types"
                 actions={
                     can.update ? (
                         <Button className="h-11 rounded-xl px-5" onClick={() => setEditOpen(true)}>
@@ -69,7 +69,7 @@ export default function AttendanceTypeDetails({
                     <CardHeader className="flex flex-row items-start justify-between gap-4">
                         <div className="space-y-1">
                             <CardTitle className="text-xl font-bold tracking-tight">Overview</CardTitle>
-                            <div className="text-sm text-muted-foreground/80">Attendance type configuration.</div>
+                            <div className="text-sm text-muted-foreground/80">Leave type configuration.</div>
                         </div>
                         <Badge className={`border text-[10px] font-bold uppercase tracking-wider ${statusClass}`}>
                             {leave_type.status}
@@ -110,7 +110,7 @@ export default function AttendanceTypeDetails({
             </div>
 
             {can_view_audit ? (
-                <RecentActivityCard items={recent_activity} description="Latest changes for this attendance type." />
+                <RecentActivityCard items={recent_activity} description="Latest changes for this type." />
             ) : null}
 
             {can.update ? (

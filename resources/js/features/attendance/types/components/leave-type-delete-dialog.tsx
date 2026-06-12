@@ -16,11 +16,11 @@ export function LeaveTypeDeleteDialog({
         <ConfirmDeleteDialog
             open={open}
             onOpenChange={onOpenChange}
-            title="Delete attendance type"
+            title="Delete type"
             description={
                 leaveType
                     ? `This will permanently delete “${leaveType.name}”.`
-                    : 'This will permanently delete this attendance type.'
+                    : 'This will permanently delete this type.'
             }
             onConfirm={onConfirm}
         />

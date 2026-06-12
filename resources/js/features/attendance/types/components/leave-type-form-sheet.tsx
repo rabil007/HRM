@@ -27,10 +27,10 @@ export function LeaveTypeFormSheet({
             <SheetContent side="right" className="w-full sm:max-w-md p-0 flex flex-col glass-card rounded-none">
                 <SheetHeader className="p-8 pb-6 border-b border-border/60">
                     <SheetTitle className="text-xl font-bold tracking-tight">
-                        {leaveType ? 'Edit Attendance Type' : 'New Attendance Type'}
+                        {leaveType ? 'Edit Type' : 'New Type'}
                     </SheetTitle>
                     <SheetDescription className="text-sm text-muted-foreground/80 mt-1">
-                        {leaveType ? 'Update attendance type details.' : 'Add a new attendance type.'}
+                        {leaveType ? 'Update type details.' : 'Add a new leave type.'}
                     </SheetDescription>
                 </SheetHeader>
 

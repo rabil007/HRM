@@ -115,18 +115,18 @@ export function AttendanceTypesContent({
     return (
         <Main>
             <PageHeader
-                title="Attendance types"
+                title="Types"
                 description="Manage leave categories such as annual leave and sick leave."
                 right={
                     <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
                         <Plus className="mr-2 h-4 w-4" />
-                        Add Attendance Type
+                        Add Type
                     </Button>
                 }
             />
 
             <SearchBar
-                placeholder="Search attendance types by name or code..."
+                placeholder="Search types by name or code..."
                 value={list.searchInput}
                 onChange={list.onSearchChange}
                 right={<ViewToggle value={view} onChange={setView} />}
@@ -194,9 +194,9 @@ export function AttendanceTypesContent({
                 </OrganizationDataTable>
             )}
 
-            {leave_types.length === 0 ? <EmptyState title="No attendance types found." /> : null}
+            {leave_types.length === 0 ? <EmptyState title="No types found." /> : null}
 
-            <Pagination {...list.paginationProps} label="attendance types" />
+            <Pagination {...list.paginationProps} label="types" />
 
             <LeaveTypeFormSheet
                 open={isSheetOpen}

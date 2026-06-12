@@ -100,7 +100,7 @@ class LeaveTypeController extends Controller
 
         return redirect()
             ->route('attendance.types.index')
-            ->with('success', 'Attendance type created successfully.');
+            ->with('success', 'Type created successfully.');
     }
 
     public function update(UpdateLeaveTypeRequest $request, LeaveType $leaveType): RedirectResponse
@@ -112,7 +112,7 @@ class LeaveTypeController extends Controller
 
         return redirect()
             ->route('attendance.types.index')
-            ->with('success', 'Attendance type updated successfully.');
+            ->with('success', 'Type updated successfully.');
     }
 
     public function updateStatus(UpdateLeaveTypeStatusRequest $request, LeaveType $leaveType): RedirectResponse
@@ -126,7 +126,7 @@ class LeaveTypeController extends Controller
 
         return redirect()
             ->route('attendance.types.index')
-            ->with('success', 'Attendance type status updated successfully.');
+            ->with('success', 'Type status updated successfully.');
     }
 
     public function destroy(LeaveType $leaveType): RedirectResponse
@@ -137,14 +137,14 @@ class LeaveTypeController extends Controller
         if (LeaveRequest::query()->where('leave_type_id', $leaveType->id)->exists()) {
             return redirect()
                 ->route('attendance.types.index')
-                ->withErrors(['leave_type' => 'This attendance type cannot be deleted because it is used in leave requests.']);
+                ->withErrors(['leave_type' => 'This type cannot be deleted because it is used in leave requests.']);
         }
 
         $leaveType->delete();
 
         return redirect()
             ->route('attendance.types.index')
-            ->with('success', 'Attendance type deleted successfully.');
+            ->with('success', 'Type deleted successfully.');
     }
 
     /**

@@ -96,9 +96,9 @@ const baseSidebarData: SidebarData = {
             title: 'Attendance',
             items: [
                 { title: 'Calendar', url: '/attendance/calendar', icon: CalendarDays },
-                { title: 'Attendance types', url: '/attendance/types', icon: IdCard },
                 { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
                 { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
+                { title: 'Types', url: '/attendance/types', icon: IdCard },
             ],
         },
         {
