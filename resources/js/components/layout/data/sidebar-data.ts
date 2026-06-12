@@ -17,6 +17,7 @@ import {
     BadgeCheck,
     Activity,
     CalendarCheck2,
+    CalendarDays,
     PiggyBank,
     Radio,
     Contact,
@@ -94,6 +95,7 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Attendance',
             items: [
+                { title: 'Calendar', url: '/attendance/calendar', icon: CalendarDays },
                 { title: 'Attendance types', url: '/attendance/types', icon: IdCard },
                 { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
                 { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
@@ -193,6 +195,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'hikvision.persons.view') ? item : null;
                         case '/hikvision/access-events':
                             return has(permissions, 'hikvision.events.view') ? item : null;
+                        case '/attendance/calendar':
+                            return has(permissions, 'attendance.leave-requests.view') ? item : null;
                         case '/attendance/types':
                             return has(permissions, 'attendance.types.view') ? item : null;
                         case '/attendance/leave-requests':

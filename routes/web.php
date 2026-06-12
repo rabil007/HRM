@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ApplicationLogController;
+use App\Http\Controllers\Attendance\AttendanceCalendarController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
@@ -273,6 +274,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('hikvision.persons.employee.link');
 
     Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
+
+    Route::get('attendance/calendar', [AttendanceCalendarController::class, 'index'])
+        ->middleware('can:attendance.leave-requests.view')
+        ->name('attendance.calendar.index');
 
     Route::get('attendance/types', [LeaveTypeController::class, 'index'])
         ->middleware('can:attendance.types.view')
