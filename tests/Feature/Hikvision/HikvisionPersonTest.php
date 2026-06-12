@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Employee;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
@@ -193,6 +194,86 @@ test('sync upserts persons and departments from hikvision api', function () {
         ->and(HikvisionPersonGroup::query()->where('group_id', 'group-1')->value('name'))->toBe('Engineering');
 
     expect(HikvisionSetting::current()->persons_last_synced_at)->not->toBeNull();
+});
+
+test('sync removes local persons deleted from hikvision portal', function () {
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/groups/search' => Http::response([
+            'data' => [
+                'personGroupList' => [
+                    [
+                        'groupId' => 'group-1',
+                        'groupName' => 'Engineering',
+                        'parentId' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/persons/list' => Http::response([
+            'data' => [
+                'personList' => [
+                    [
+                        'personInfo' => [
+                            'personId' => 'person-1',
+                            'groupId' => 'group-1',
+                            'firstName' => 'Ahmed',
+                            'lastName' => 'Ali',
+                        ],
+                        'fingerList' => [],
+                        'pinCode' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    configuredHikvisionSettings();
+
+    HikvisionPerson::upsertFromApi([
+        'personInfo' => [
+            'personId' => 'person-1',
+            'groupId' => 'group-1',
+            'firstName' => 'Ahmed',
+            'lastName' => 'Ali',
+        ],
+        'fingerList' => [],
+        'pinCode' => '',
+    ]);
+
+    $removedPerson = HikvisionPerson::query()->create([
+        'person_id' => 'person-removed',
+        'full_name' => 'Removed User',
+    ]);
+
+    $employee = Employee::factory()->create([
+        'hikvision_person_id' => $removedPerson->id,
+    ]);
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.sync',
+    ]);
+
+    postHikvisionPersonsSync($user)
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(HikvisionPerson::query()->count())->toBe(1)
+        ->and(HikvisionPerson::query()->where('person_id', 'person-removed')->exists())->toBeFalse()
+        ->and(HikvisionPerson::query()->where('person_id', 'person-1')->exists())->toBeTrue()
+        ->and($employee->fresh()->hikvision_person_id)->toBeNull();
 });
 
 test('re-sync updates existing hikvision persons', function () {

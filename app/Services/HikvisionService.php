@@ -2,12 +2,14 @@
 
 namespace App\Services;
 
+use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionDevice;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use Carbon\CarbonInterface;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -314,7 +316,7 @@ class HikvisionService
     }
 
     /**
-     * @return array{synced_count: int, group_count: int, message: string}
+     * @return array{synced_count: int, deleted_count: int, group_count: int, message: string}
      */
     public function syncPersons(): array
     {
@@ -324,6 +326,7 @@ class HikvisionService
         $pageIndex = 1;
         $pageSize = (int) config('hikvision.persons_page_size', 100);
         $syncedCount = 0;
+        $apiPersonIds = [];
 
         do {
             $result = $this->getPersons($pageIndex, $pageSize);
@@ -331,11 +334,13 @@ class HikvisionService
 
             foreach ($persons as $apiPerson) {
                 $personInfo = is_array($apiPerson['personInfo'] ?? null) ? $apiPerson['personInfo'] : [];
+                $personId = (string) ($personInfo['personId'] ?? '');
 
-                if ((string) ($personInfo['personId'] ?? '') === '') {
+                if ($personId === '') {
                     continue;
                 }
 
+                $apiPersonIds[] = $personId;
                 HikvisionPerson::upsertFromApi($apiPerson);
                 $syncedCount++;
             }
@@ -343,15 +348,52 @@ class HikvisionService
             $pageIndex++;
         } while (count($persons) === $pageSize);
 
+        $deletedCount = $this->pruneStalePersons($apiPersonIds);
+
         HikvisionSetting::current()->update([
             'persons_last_synced_at' => now(),
         ]);
 
+        $message = $deletedCount > 0
+            ? "Synced {$syncedCount} person(s), removed {$deletedCount} person(s) deleted from Hik-Connect, and {$groupResult['synced_count']} department(s)."
+            : "Synced {$syncedCount} person(s) and {$groupResult['synced_count']} department(s).";
+
         return [
             'synced_count' => $syncedCount,
+            'deleted_count' => $deletedCount,
             'group_count' => $groupResult['synced_count'],
-            'message' => "Synced {$syncedCount} person(s) and {$groupResult['synced_count']} department(s).",
+            'message' => $message,
         ];
+    }
+
+    /**
+     * @param  list<string>  $apiPersonIds
+     */
+    private function pruneStalePersons(array $apiPersonIds): int
+    {
+        $stalePersonsQuery = HikvisionPerson::query();
+
+        if ($apiPersonIds !== []) {
+            $stalePersonsQuery->whereNotIn('person_id', $apiPersonIds);
+        }
+
+        $staleLocalIds = $stalePersonsQuery->pluck('id');
+
+        if ($staleLocalIds->isEmpty()) {
+            return 0;
+        }
+
+        DB::transaction(function () use ($staleLocalIds): void {
+            Employee::query()
+                ->whereIn('hikvision_person_id', $staleLocalIds)
+                ->update(['hikvision_person_id' => null]);
+
+            HikvisionPerson::query()
+                ->whereIn('id', $staleLocalIds)
+                ->delete();
+        });
+
+        return $staleLocalIds->count();
     }
 
     /**
