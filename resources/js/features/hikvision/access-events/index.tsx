@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/input';
 import { Spinner } from '@/components/ui/spinner';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDateTime12h } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import type {
@@ -339,7 +339,7 @@ export function HikvisionAccessEventsContent({
                 <p className="mb-6 text-sm text-muted-foreground">
                     Last fetched:{' '}
                     <span className="font-medium text-foreground">
-                        {lastFetchedAt ? formatDisplayDateTime(lastFetchedAt) : 'Never fetched'}
+                        {lastFetchedAt ? formatDisplayDateTime12h(lastFetchedAt) : 'Never fetched'}
                     </span>
                     {isProcessing ? (
                         <span className="ml-2 text-primary">Fetching in background…</span>
@@ -493,7 +493,7 @@ export function HikvisionAccessEventsContent({
                             {events.map((event) => (
                                 <TableRow key={event.id} className={dataTableBodyRowClass}>
                                     <TableCell className={dataTableCellPrimaryClass}>
-                                        {formatDisplayDateTime(event.occurrence_time)}
+                                        {formatDisplayDateTime12h(event.occurrence_time)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         <div className="flex flex-col gap-0.5">

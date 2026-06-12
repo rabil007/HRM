@@ -41,6 +41,33 @@ export function formatDisplayDateTime(value: string | null | undefined): string 
     return `${day}-${month}-${year} ${hours}:${minutes}`;
 }
 
+export function formatDisplayDateTime12h(value: string | null | undefined): string {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+
+    const parsed = new Date(value.trim());
+
+    if (Number.isNaN(parsed.getTime())) {
+        return value.trim();
+    }
+
+    const day = String(parsed.getDate()).padStart(2, '0');
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const year = parsed.getFullYear();
+    const minutes = String(parsed.getMinutes()).padStart(2, '0');
+
+    let hours = parsed.getHours();
+    const period = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+
+    if (hours === 0) {
+        hours = 12;
+    }
+
+    return `${day}-${month}-${year} ${hours}:${minutes} ${period}`;
+}
+
 export function formatDisplayValue(value: unknown): string {
     if (value === null || value === undefined || value === '') {
         return '—';
