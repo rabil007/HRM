@@ -21,7 +21,7 @@ trait LeaveTypeValidationRules
                 'string',
                 'max:20',
                 Rule::unique('leave_types', 'code')
-                    ->where('company_id', $companyId)
+                    ->where(fn ($query) => $query->where('company_id', $companyId)->whereNull('deleted_at'))
                     ->ignore($leaveType?->id),
             ],
             'days_per_year' => ['required', 'numeric', 'min:0'],

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreLeaveTypeRequest;
 use App\Http\Requests\Attendance\UpdateLeaveTypeRequest;
 use App\Http\Requests\Attendance\UpdateLeaveTypeStatusRequest;
+use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -102,7 +103,7 @@ class LeaveTypeController extends Controller
                 ->withErrors(['leave_type' => 'This attendance type cannot be deleted because it is used in leave balances.']);
         }
 
-        if (DB::table('leave_requests')->where('leave_type_id', $leaveType->id)->exists()) {
+        if (LeaveRequest::query()->where('leave_type_id', $leaveType->id)->exists()) {
             return redirect()
                 ->route('attendance.types.index')
                 ->withErrors(['leave_type' => 'This attendance type cannot be deleted because it is used in leave requests.']);

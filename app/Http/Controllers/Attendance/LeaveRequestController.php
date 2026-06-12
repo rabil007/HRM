@@ -178,8 +178,6 @@ class LeaveRequestController extends Controller
                 ->withErrors(['leave_request' => 'Only pending or cancelled leave requests can be deleted.']);
         }
 
-        $this->attachments->deleteFromStorage($leaveRequest->attachments);
-
         $leaveRequest->delete();
 
         return redirect()

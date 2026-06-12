@@ -115,7 +115,7 @@ test('authorized users can view create update and delete leave requests', functi
     $this->delete("/attendance/leave-requests/{$leaveRequest->id}")
         ->assertRedirect(route('attendance.leave-requests.index'));
 
-    $this->assertDatabaseMissing('leave_requests', ['id' => $leaveRequest->id]);
+    $this->assertSoftDeleted('leave_requests', ['id' => $leaveRequest->id]);
 });
 
 test('leave requests can be approved rejected and cancelled', function () {

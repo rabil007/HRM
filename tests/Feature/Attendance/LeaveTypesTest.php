@@ -103,7 +103,7 @@ test('authorized users can view create update and delete attendance types', func
     $this->delete("/attendance/types/{$leaveType->id}")
         ->assertRedirect(route('attendance.types.index'));
 
-    $this->assertDatabaseMissing('leave_types', ['id' => $leaveType->id]);
+    $this->assertSoftDeleted('leave_types', ['id' => $leaveType->id]);
 });
 
 test('authorized users can toggle attendance type status', function () {
