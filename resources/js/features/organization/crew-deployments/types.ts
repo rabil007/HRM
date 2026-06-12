@@ -22,6 +22,7 @@ export type DeploymentItem = {
     leave_standby_to: string | null;
     leave_standby_days: number | null;
     travelled_date: string | null;
+    in_home_days: number | null;
     vessel_days: number | null;
     remarks: string | null;
     status: string;

@@ -393,7 +393,7 @@ test('crew deployment board marks overdue arrivals without join date as needs up
             ->where('deployments.data.0.status_label', 'Needs update')
             ->where('deployments.data.0.status_hint', 'Arrived 1d ago — add join date')
             ->where('summary.unknown', 1)
-            ->where('summary.awaiting_join', 0));
+            ->where('summary.arrived', 0));
 });
 
 test('crew deployment board treats open ended join standby as join standby status', function () {
@@ -619,6 +619,138 @@ test('updating a deployment records activity and can redirect to show page', fun
             'vessel_name' => 'After Update',
         ])
         ->and($activity->attribute_changes?->get('attributes'))->toHaveKey('joined_date');
+});
+
+test('crew deployment board counts in home from latest travelled record per employee', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'sort_order' => 0,
+        'vessel_name' => 'Old Vessel',
+        'joined_date' => CarbonImmutable::today()->subMonths(6),
+        'disembarked_date' => CarbonImmutable::today()->subMonths(5),
+        'travelled_date' => CarbonImmutable::today()->subMonths(4),
+    ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'sort_order' => 1,
+        'vessel_name' => 'Return Pool',
+        'join_standby_from' => CarbonImmutable::today()->subDay(),
+        'join_standby_to' => CarbonImmutable::today()->addDays(5),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.in_home', 0)
+            ->where('summary.travel', 1));
+});
+
+test('crew deployment board in home filter shows latest travelled record with in home days', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'sort_order' => 0,
+        'vessel_name' => 'At Home Vessel',
+        'joined_date' => CarbonImmutable::today()->subDays(20),
+        'disembarked_date' => CarbonImmutable::today()->subDays(10),
+        'travelled_date' => CarbonImmutable::today()->subDays(4),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.in_home', 1));
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', [
+            'status' => DeploymentStatus::IN_HOME,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 1)
+            ->where('deployments.data.0.status', DeploymentStatus::TRAVEL)
+            ->where('deployments.data.0.in_home_days', 5));
+});
+
+test('crew deployment board excludes needs update and future travel from in home', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Needs Update',
+        'joined_date' => CarbonImmutable::today()->subDays(6),
+        'disembarked_date' => CarbonImmutable::today()->subDays(3),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.in_home', 0));
+
+    $employee->update(['employee_no' => '2019', 'name' => 'Future Travel']);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'Future Travel Vessel',
+        'joined_date' => CarbonImmutable::today()->subDays(6),
+        'disembarked_date' => CarbonImmutable::today()->subDays(2),
+        'travelled_date' => CarbonImmutable::today()->addDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.in_home', 0));
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', [
+            'status' => DeploymentStatus::IN_HOME,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployments.data', 0));
+});
+
+test('crew deployment board in home summary respects rank filter on latest record', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $otherRank = Rank::query()->create(['name' => 'AB', 'is_active' => true]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_name' => 'At Home Vessel',
+        'joined_date' => CarbonImmutable::today()->subDays(20),
+        'disembarked_date' => CarbonImmutable::today()->subDays(10),
+        'travelled_date' => CarbonImmutable::today()->subDays(4),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', [
+            'rank_id' => $otherRank->id,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('summary.in_home', 0));
 });
 
 test('crew deployment board can filter by join standby status', function () {

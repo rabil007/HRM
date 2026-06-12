@@ -75,7 +75,7 @@ function buildPhases(deployment: DeploymentItem): Phase[] {
     const onVesselCurrent = status === 'on_vessel';
     const leaveStandbyCurrent = status === 'leave_standby';
     const travelCurrent = status === 'travel';
-    const awaitingCurrent = status === 'awaiting_join';
+    const arrivedCurrent = status === 'arrived';
     const disembarkedCurrent = status === 'disembarked';
     const needsUpdate = status === 'unknown';
 
@@ -86,7 +86,7 @@ function buildPhases(deployment: DeploymentItem): Phase[] {
             icon: <PlaneLanding className="h-4 w-4" />,
             state: phaseState(
                 hasArrived,
-                awaitingCurrent,
+                arrivedCurrent,
                 needsUpdate && hasArrived && !hasJoinStandby && !hasVesselTour,
             ),
             primary: displayDate(deployment.arrived_date),

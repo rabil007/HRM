@@ -20,6 +20,7 @@ export const DEPLOYMENT_SORT_OPTIONS = [
     { value: 'leave_standby_to', label: 'Leave standby to' },
     { value: 'leave_standby_days', label: 'Leave standby days' },
     { value: 'travelled_date', label: 'Travelled' },
+    { value: 'in_home_days', label: 'In home days' },
     { value: 'sponsor', label: 'Sponsor' },
     { value: 'client', label: 'Client' },
     { value: 'created_at', label: 'Date added' },

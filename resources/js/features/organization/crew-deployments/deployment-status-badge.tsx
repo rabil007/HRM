@@ -7,7 +7,7 @@ const STATUS_STYLES: Record<string, string> = {
     on_vessel: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
     join_standby: 'bg-amber-500/10 text-amber-600 border-amber-500/20',
     leave_standby: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
-    awaiting_join: 'bg-sky-500/10 text-sky-600 border-sky-500/20',
+    arrived: 'bg-sky-500/10 text-sky-600 border-sky-500/20',
     travel: 'bg-violet-500/10 text-violet-600 border-violet-500/20',
     disembarked: 'bg-zinc-500/10 text-muted-foreground border-border/60',
     unknown: 'bg-red-500/10 text-red-600 border-red-500/20',

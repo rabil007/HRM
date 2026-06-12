@@ -34,8 +34,8 @@ const SUMMARY_ITEMS = [
         valueClass: 'text-orange-400',
     },
     {
-        key: 'awaiting_join',
-        label: 'Awaiting join',
+        key: 'arrived',
+        label: 'Arrived',
         cardClass: 'border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30',
         activeClass: 'border-sky-500/40 ring-1 ring-sky-500/25',
         valueClass: 'text-sky-400',
@@ -61,6 +61,13 @@ const SUMMARY_ITEMS = [
         activeClass: 'border-red-500/40 ring-1 ring-red-500/25',
         valueClass: 'text-red-400',
     },
+    {
+        key: 'in_home',
+        label: 'In home',
+        cardClass: 'border-teal-500/15 bg-teal-500/[0.04] hover:border-teal-500/30',
+        activeClass: 'border-teal-500/40 ring-1 ring-teal-500/25',
+        valueClass: 'text-teal-400',
+    },
 ] as const;
 
 export function CrewDeploymentsSummaryCards({
@@ -78,17 +85,19 @@ export function CrewDeploymentsSummaryCards({
 }): ReactElement {
     const isTotalActive = !hasActiveFilters;
 
+    const cardButtonClass = 'min-w-0 flex-1 text-left sm:min-w-[calc(33.333%-0.5rem)] md:min-w-[calc(20%-0.6rem)] lg:min-w-0';
+
     return (
-        <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
+        <div className="mb-6 flex flex-wrap gap-3">
             <button
                 key={TOTAL_ITEM.key}
                 type="button"
                 onClick={onClearFilters}
-                className="text-left"
+                className={cardButtonClass}
             >
                 <Card
                     className={cn(
-                        'h-full transition-colors',
+                        'h-full w-full transition-colors',
                         TOTAL_ITEM.cardClass,
                         isTotalActive && TOTAL_ITEM.activeClass,
                     )}
@@ -117,11 +126,11 @@ export function CrewDeploymentsSummaryCards({
                         key={item.key}
                         type="button"
                         onClick={() => onSelect(isActive ? '' : item.key)}
-                        className="text-left"
+                        className={cardButtonClass}
                     >
                         <Card
                             className={cn(
-                                'h-full transition-colors',
+                                'h-full w-full transition-colors',
                                 item.cardClass,
                                 isActive && item.activeClass,
                             )}

@@ -27,6 +27,11 @@ final class CrewDeploymentBoardQuery
         int $perPage = 25,
     ): array {
         [$sortColumn, $sortDirection] = CrewDeploymentBoardSort::normalize($sort, $direction);
+
+        if ($status === DeploymentStatus::AWAITING_JOIN) {
+            $status = DeploymentStatus::ARRIVED;
+        }
+
         $baseQuery = EmployeeDeployment::query()
             ->where('employee_deployments.company_id', $companyId)
             ->with([
@@ -41,7 +46,15 @@ final class CrewDeploymentBoardQuery
 
         $summary = $this->buildSummary(clone $baseQuery);
 
-        if ($status !== null && $status !== '') {
+        if ($status === DeploymentStatus::IN_HOME) {
+            $inHomeIds = CrewDeploymentLatestRecords::inHomeDeploymentIds((clone $baseQuery)->get());
+
+            if ($inHomeIds->isEmpty()) {
+                $baseQuery->whereRaw('1 = 0');
+            } else {
+                $baseQuery->whereIn('employee_deployments.id', $inHomeIds);
+            }
+        } elseif ($status !== null && $status !== '') {
             $this->applyStatusFilter($baseQuery, $status);
         }
 
@@ -148,7 +161,7 @@ final class CrewDeploymentBoardQuery
                             ->whereNull('travelled_date')
                             ->orWhereDate('travelled_date', '>', $today);
                     }),
-                DeploymentStatus::AWAITING_JOIN => $builder
+                DeploymentStatus::ARRIVED => $builder
                     ->whereNotNull('arrived_date')
                     ->whereDate('arrived_date', '>=', $today)
                     ->whereNull('joined_date'),
@@ -250,8 +263,9 @@ final class CrewDeploymentBoardQuery
             DeploymentStatus::ON_VESSEL => 0,
             DeploymentStatus::JOIN_STANDBY => 0,
             DeploymentStatus::LEAVE_STANDBY => 0,
-            DeploymentStatus::AWAITING_JOIN => 0,
+            DeploymentStatus::ARRIVED => 0,
             DeploymentStatus::TRAVEL => 0,
+            DeploymentStatus::IN_HOME => 0,
             DeploymentStatus::DISEMBARKED => 0,
             DeploymentStatus::UNKNOWN => 0,
         ];
@@ -261,6 +275,7 @@ final class CrewDeploymentBoardQuery
             $summary[$status] = ($summary[$status] ?? 0) + 1;
         }
 
+        $summary[DeploymentStatus::IN_HOME] = CrewDeploymentLatestRecords::inHomeDeploymentIds($deployments)->count();
         $summary['total'] = $deployments->count();
 
         return $summary;

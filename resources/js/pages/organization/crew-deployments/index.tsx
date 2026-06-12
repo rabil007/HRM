@@ -110,6 +110,8 @@ export default function CrewDeploymentsIndex({
 
     const activeSort = filters.sort ?? DEFAULT_DEPLOYMENT_SORT;
     const activeDirection = filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
+    const showInHomeDaysColumn = filters.status === 'in_home';
+    const tableColumnCount = TABLE_COLUMN_COUNT + (showInHomeDaysColumn ? 1 : 0);
 
     const activeFilterCount = useMemo(() => {
         let count = 0;
@@ -501,6 +503,17 @@ return;
                         >
                             Travelled
                         </SortableDeploymentTableHead>
+                        {showInHomeDaysColumn ? (
+                            <SortableDeploymentTableHead
+                                sortKey="in_home_days"
+                                activeSort={activeSort}
+                                direction={activeDirection}
+                                onSort={handleColumnSort}
+                                rowSpan={2}
+                            >
+                                In home days
+                            </SortableDeploymentTableHead>
+                        ) : null}
                         <SortableDeploymentTableHead
                             sortKey="sponsor"
                             activeSort={activeSort}
@@ -581,7 +594,7 @@ return;
                     {deployments.data.length === 0 ? (
                         <TableRow>
                             <TableCell
-                                colSpan={can.manage ? TABLE_COLUMN_COUNT + 1 : TABLE_COLUMN_COUNT}
+                                colSpan={can.manage ? tableColumnCount + 1 : tableColumnCount}
                                 className="py-10 text-center text-muted-foreground"
                             >
                                 No deployment records found.
@@ -651,6 +664,9 @@ return;
                                 <TableCell>
                                     {formatIsoDateDisplay(deployment.travelled_date)}
                                 </TableCell>
+                                {showInHomeDaysColumn ? (
+                                    <TableCell>{displayNumber(deployment.in_home_days)}</TableCell>
+                                ) : null}
                                 <TableCell>
                                     {displayValue(deployment.company_visa_type_name)}
                                 </TableCell>

@@ -16,9 +16,14 @@ final class DeploymentStatus
 
     public const LEAVE_STANDBY = 'leave_standby';
 
-    public const AWAITING_JOIN = 'awaiting_join';
+    public const ARRIVED = 'arrived';
+
+    /** @deprecated Use ARRIVED */
+    public const AWAITING_JOIN = self::ARRIVED;
 
     public const TRAVEL = 'travel';
+
+    public const IN_HOME = 'in_home';
 
     public const DISEMBARKED = 'disembarked';
 
@@ -73,8 +78,8 @@ final class DeploymentStatus
             && $deployment->arrived_date->gte($today)
         ) {
             return [
-                'status' => self::AWAITING_JOIN,
-                'label' => 'Awaiting join',
+                'status' => self::ARRIVED,
+                'label' => 'Arrived',
                 'current_vessel' => $deployment->vessel_name,
             ];
         }
@@ -125,6 +130,28 @@ final class DeploymentStatus
     public static function vesselDays(EmployeeDeployment $deployment): ?int
     {
         return self::daysBetween($deployment->joined_date, $deployment->disembarked_date);
+    }
+
+    public static function isInHome(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): bool
+    {
+        $today ??= CarbonImmutable::today();
+
+        if ($deployment->travelled_date === null || $deployment->travelled_date->gt($today)) {
+            return false;
+        }
+
+        return self::resolve($deployment, $today)['status'] === self::TRAVEL;
+    }
+
+    public static function inHomeDays(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): ?int
+    {
+        if (! self::isInHome($deployment, $today)) {
+            return null;
+        }
+
+        $today ??= CarbonImmutable::today();
+
+        return (int) $deployment->travelled_date->diffInDays($today) + 1;
     }
 
     /** @deprecated Use vesselDays() */

@@ -88,7 +88,7 @@ test('deployment status resolves travel after disembarkation', function () {
         ->and($status['label'])->toBe('Travelled');
 });
 
-test('deployment status resolves awaiting join when arrived today or later without join date', function () {
+test('deployment status resolves arrived when arrived today or later without join date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 
     $awaitingToday = new EmployeeDeployment([
@@ -102,9 +102,11 @@ test('deployment status resolves awaiting join when arrived today or later witho
     ]);
 
     expect(DeploymentStatus::resolve($awaitingToday, $today)['status'])
-        ->toBe(DeploymentStatus::AWAITING_JOIN)
+        ->toBe(DeploymentStatus::ARRIVED)
+        ->and(DeploymentStatus::resolve($awaitingToday, $today)['label'])
+        ->toBe('Arrived')
         ->and(DeploymentStatus::resolve($awaitingFuture, $today)['status'])
-        ->toBe(DeploymentStatus::AWAITING_JOIN);
+        ->toBe(DeploymentStatus::ARRIVED);
 });
 
 test('deployment status resolves needs update when arrival passed without join date', function () {
@@ -220,4 +222,53 @@ test('deployment status calculates vessel days between join and disembark', func
     ]);
 
     expect(DeploymentStatus::vesselDays($deployment))->toBe(31);
+});
+
+test('deployment status resolves in home when travelled on or before today', function () {
+    $today = CarbonImmutable::parse('2026-06-12');
+
+    $deployment = new EmployeeDeployment([
+        'disembarked_date' => $today->subDays(5),
+        'travelled_date' => $today->subDays(2),
+    ]);
+
+    expect(DeploymentStatus::isInHome($deployment, $today))->toBeTrue()
+        ->and(DeploymentStatus::inHomeDays($deployment, $today))->toBe(3);
+});
+
+test('deployment status is not in home without travelled date', function () {
+    $today = CarbonImmutable::parse('2026-06-12');
+
+    $deployment = new EmployeeDeployment([
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(3),
+    ]);
+
+    expect(DeploymentStatus::isInHome($deployment, $today))->toBeFalse()
+        ->and(DeploymentStatus::inHomeDays($deployment, $today))->toBeNull();
+});
+
+test('deployment status is not in home when travelled date is in the future', function () {
+    $today = CarbonImmutable::parse('2026-06-12');
+
+    $deployment = new EmployeeDeployment([
+        'disembarked_date' => $today->subDays(2),
+        'travelled_date' => $today->addDay(),
+    ]);
+
+    expect(DeploymentStatus::isInHome($deployment, $today))->toBeFalse()
+        ->and(DeploymentStatus::inHomeDays($deployment, $today))->toBeNull();
+});
+
+test('deployment status is not in home when latest record needs update', function () {
+    $today = CarbonImmutable::parse('2026-06-12');
+
+    $deployment = new EmployeeDeployment([
+        'vessel_name' => 'Vessel A',
+        'joined_date' => $today->subDays(6),
+        'disembarked_date' => $today->subDays(3),
+        'travelled_date' => null,
+    ]);
+
+    expect(DeploymentStatus::isInHome($deployment, $today))->toBeFalse();
 });

@@ -44,6 +44,7 @@ final class EmployeeDeploymentPresenter
             'joined_date' => $deployment->joined_date?->toDateString(),
             'disembarked_date' => $deployment->disembarked_date?->toDateString(),
             'travelled_date' => $deployment->travelled_date?->toDateString(),
+            'in_home_days' => DeploymentStatus::inHomeDays($deployment),
             'vessel_days' => DeploymentStatus::vesselDays($deployment),
             'remarks' => $deployment->remarks,
             'status' => $status['status'],

@@ -32,6 +32,7 @@ final class CrewDeploymentBoardSort
         'leave_standby_to',
         'leave_standby_days',
         'travelled_date',
+        'in_home_days',
         'sponsor',
         'client',
         'created_at',
@@ -98,6 +99,10 @@ final class CrewDeploymentBoardSort
                 'employee_deployments.joined_date',
                 'employee_deployments.disembarked_date',
                 $direction,
+            ),
+            'in_home_days' => $query->orderBy(
+                'employee_deployments.travelled_date',
+                $direction === 'desc' ? 'asc' : 'desc',
             ),
             default => $query->orderBy('employee_deployments.'.$sort, $direction),
         };
