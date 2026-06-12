@@ -3,6 +3,10 @@ export type CalendarLeaveType = {
     name: string;
     code: string;
     color: string | null;
+    entitled_days: number | null;
+    used_days: number | null;
+    pending_days: number | null;
+    remaining_days: number | null;
 };
 
 export type CalendarLeave = {

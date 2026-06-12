@@ -1,6 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
+import { Link } from '@inertiajs/react';
+import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { buildMonthGrid, getIsoWeekNumber } from '../lib/build-month-grid';
@@ -9,24 +10,32 @@ import type { CalendarLeave } from '../types';
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 const FALLBACK_LEAVE_COLOR = '#8b5cf6';
 
-function LeaveTooltip({ leaves }: { leaves: CalendarLeave[] }) {
+function LeaveDayDetails({ leaves }: { leaves: CalendarLeave[] }) {
     return (
-        <div className="space-y-2 py-0.5">
+        <div className="space-y-3">
             {leaves.map((leave) => (
-                <div key={leave.id} className="space-y-1">
+                <div key={leave.id} className="space-y-2 rounded-lg border border-border/60 bg-muted/30 p-3 dark:border-white/8 dark:bg-white/5">
                     <div className="flex items-center gap-2">
                         <span
-                            className="size-2.5 shrink-0 rounded-full"
+                            className="size-2.5 shrink-0 rounded-full ring-2 ring-white/10"
                             style={{ backgroundColor: leave.leave_type?.color ?? FALLBACK_LEAVE_COLOR }}
                         />
-                        <span className="font-semibold">{leave.employee?.name ?? 'Unknown employee'}</span>
+                        <span className="text-sm font-semibold text-foreground">
+                            {leave.employee?.name ?? 'Unknown employee'}
+                        </span>
                     </div>
-                    <div className="pl-5 text-[11px] leading-relaxed text-primary-foreground/85">
-                        <div>{leave.leave_type?.name ?? 'Leave'}</div>
+                    <div className="space-y-1 pl-4 text-xs text-muted-foreground">
+                        <div className="font-medium text-foreground/90">{leave.leave_type?.name ?? 'Leave'}</div>
                         <div>
                             {formatDisplayDate(leave.start_date)} — {formatDisplayDate(leave.end_date)}
                         </div>
                     </div>
+                    <Link
+                        href={`/attendance/leave-requests/${leave.id}`}
+                        className="inline-flex text-xs font-semibold text-primary hover:underline"
+                    >
+                        View request
+                    </Link>
                 </div>
             ))}
         </div>
@@ -88,19 +97,19 @@ function DayCell({
     }
 
     return (
-        <Tooltip>
-            <TooltipTrigger asChild>
+        <Popover>
+            <PopoverTrigger asChild>
                 <button
                     type="button"
                     className="w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                     {cell}
                 </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" className="max-w-xs border-border/60 bg-popover px-3 py-2 text-popover-foreground shadow-xl">
-                <LeaveTooltip leaves={leaves} />
-            </TooltipContent>
-        </Tooltip>
+            </PopoverTrigger>
+            <PopoverContent side="top" align="center" className="w-64 p-3">
+                <LeaveDayDetails leaves={leaves} />
+            </PopoverContent>
+        </Popover>
     );
 }
 
@@ -215,6 +224,3 @@ export function MonthMiniCalendar({
     );
 }
 
-export function MonthMiniCalendarProvider({ children }: { children: ReactNode }) {
-    return <TooltipProvider delayDuration={120}>{children}</TooltipProvider>;
-}

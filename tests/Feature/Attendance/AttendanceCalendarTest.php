@@ -95,6 +95,79 @@ test('authorized users can view attendance calendar page', function () {
             ->where('approved_leaves.0.leave_type.id', $leaveType->id));
 });
 
+test('attendance calendar legend includes leave type balance for linked employee', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $employee->update(['user_id' => $user->id]);
+    $leaveType->update(['days_per_year' => 30]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', $employee->id)
+            ->has('leave_types', 1)
+            ->where('leave_types.0.id', $leaveType->id)
+            ->where('leave_types.0.entitled_days', 30)
+            ->where('leave_types.0.used_days', 3)
+            ->where('leave_types.0.pending_days', 2)
+            ->where('leave_types.0.remaining_days', 25));
+});
+
+test('attendance calendar legend omits balance without linked employee', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-10',
+        'end_date' => '2026-06-12',
+        'total_days' => 3,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', null)
+            ->has('leave_types', 1)
+            ->where('leave_types.0.remaining_days', null));
+});
+
 test('attendance calendar exposes pending request count for selected year', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);

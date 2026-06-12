@@ -8,12 +8,14 @@ export default function AttendanceCalendar({
     approved_leaves,
     leave_types,
     pending_request_count,
+    linked_employee_id,
 }: {
     year: number;
     today: string;
     approved_leaves: CalendarLeave[];
     leave_types: CalendarLeaveType[];
     pending_request_count: number;
+    linked_employee_id: number | null;
 }) {
     return (
         <>
@@ -24,6 +26,7 @@ export default function AttendanceCalendar({
                 approved_leaves={approved_leaves}
                 leave_types={leave_types}
                 pending_request_count={pending_request_count}
+                linked_employee_id={linked_employee_id}
             />
         </>
     );

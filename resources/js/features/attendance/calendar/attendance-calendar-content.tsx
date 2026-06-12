@@ -14,12 +14,14 @@ export function AttendanceCalendarContent({
     approved_leaves,
     leave_types,
     pending_request_count,
+    linked_employee_id,
 }: {
     year: number;
     today: string;
     approved_leaves: CalendarLeave[];
     leave_types: CalendarLeaveType[];
     pending_request_count: number;
+    linked_employee_id: number | null;
 }) {
     const currentYear = new Date(`${today}T00:00:00`).getFullYear();
     const stats = useMemo(() => getCalendarStats(approved_leaves, year), [approved_leaves, year]);
@@ -32,21 +34,24 @@ export function AttendanceCalendarContent({
                 description="A year-at-a-glance view of approved leave across your team."
             />
 
-            <div className="mb-6 space-y-4">
-                <CalendarToolbar year={year} currentYear={currentYear} />
+            <div className="mb-6">
                 <CalendarSummaryStats
                     year={year}
                     requestCount={stats.requestCount}
                     pendingRequestCount={pending_request_count}
                     leaveDays={stats.leaveDays}
-                    typeCount={stats.typeCount}
                 />
             </div>
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_18rem]">
                 <YearCalendarGrid year={year} today={today} approvedLeaves={approved_leaves} />
-                <div className="xl:sticky xl:top-6 xl:self-start">
-                    <LeaveTypeLegend leaveTypes={leave_types} year={year} />
+                <div className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+                    <CalendarToolbar year={year} currentYear={currentYear} />
+                    <LeaveTypeLegend
+                        leaveTypes={leave_types}
+                        year={year}
+                        showBalance={linked_employee_id !== null}
+                    />
                 </div>
             </div>
         </Main>

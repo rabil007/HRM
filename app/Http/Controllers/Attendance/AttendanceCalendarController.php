@@ -4,8 +4,11 @@ namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeaveRequest;
+use App\Models\LeaveType;
 use App\Support\Attendance\LeaveRequestVisibility;
+use App\Support\Attendance\LeaveTypeYearBalance;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -13,6 +16,7 @@ class AttendanceCalendarController extends Controller
 {
     public function __construct(
         private LeaveRequestVisibility $visibility,
+        private LeaveTypeYearBalance $leaveTypeYearBalance,
     ) {}
 
     public function index(Request $request): Response
@@ -20,6 +24,7 @@ class AttendanceCalendarController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $user = $request->user();
         $year = $this->resolveYear($request);
+        $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
 
         $leaveRequests = LeaveRequest::query()
             ->where('company_id', $companyId)
@@ -39,19 +44,7 @@ class AttendanceCalendarController extends Controller
             ->values()
             ->all();
 
-        $leaveTypes = $leaveRequests
-            ->pluck('leaveType')
-            ->filter()
-            ->unique('id')
-            ->sortBy('name')
-            ->values()
-            ->map(fn ($leaveType) => [
-                'id' => $leaveType->id,
-                'name' => $leaveType->name,
-                'code' => $leaveType->code,
-                'color' => $leaveType->color,
-            ])
-            ->all();
+        $leaveTypes = $this->resolveLegendLeaveTypes($companyId, $linkedEmployeeId, $year, $leaveRequests);
 
         $pendingRequestCount = LeaveRequest::query()
             ->where('company_id', $companyId)
@@ -67,7 +60,37 @@ class AttendanceCalendarController extends Controller
             'approved_leaves' => $approvedLeaves,
             'leave_types' => $leaveTypes,
             'pending_request_count' => $pendingRequestCount,
+            'linked_employee_id' => $linkedEmployeeId,
         ]);
+    }
+
+    /**
+     * @param  Collection<int, LeaveRequest>  $approvedLeaveRequests
+     * @return list<array<string, mixed>>
+     */
+    private function resolveLegendLeaveTypes(int $companyId, ?int $linkedEmployeeId, int $year, $approvedLeaveRequests): array
+    {
+        if ($linkedEmployeeId !== null) {
+            return $this->leaveTypeYearBalance->forEmployee($companyId, $linkedEmployeeId, $year);
+        }
+
+        return $approvedLeaveRequests
+            ->pluck('leaveType')
+            ->filter()
+            ->unique('id')
+            ->sortBy('name')
+            ->values()
+            ->map(fn (LeaveType $leaveType) => [
+                'id' => $leaveType->id,
+                'name' => $leaveType->name,
+                'code' => $leaveType->code,
+                'color' => $leaveType->color,
+                'entitled_days' => null,
+                'used_days' => null,
+                'pending_days' => null,
+                'remaining_days' => null,
+            ])
+            ->all();
     }
 
     private function resolveYear(Request $request): int

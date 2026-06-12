@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { CalendarCheck2, CalendarDays, Clock3, Layers3 } from 'lucide-react';
+import { CalendarCheck2, CalendarDays, Clock3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 function StatCard({
@@ -18,7 +18,12 @@ function StatCard({
     href?: string;
 }) {
     const content = (
-        <div className="glass-card group relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-lg dark:border-white/6 dark:bg-white/4 dark:hover:border-white/10">
+        <div
+            className={cn(
+                'glass-card group relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 transition-all duration-300',
+                href && 'cursor-pointer hover:-translate-y-0.5 hover:border-border hover:shadow-lg dark:hover:border-white/10',
+            )}
+        >
             <div
                 className={cn(
                     'pointer-events-none absolute -right-4 -top-4 size-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-30',
@@ -54,22 +59,21 @@ export function CalendarSummaryStats({
     requestCount,
     pendingRequestCount,
     leaveDays,
-    typeCount,
 }: {
     year: number;
     requestCount: number;
     pendingRequestCount: number;
     leaveDays: number;
-    typeCount: number;
 }) {
     return (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <StatCard
                 label="Approved requests"
                 value={requestCount}
                 hint={`In ${year}`}
                 icon={CalendarCheck2}
                 accent="bg-emerald-500"
+                href="/attendance/leave-requests?status=approved"
             />
             <StatCard
                 label="Pending requests"
@@ -77,7 +81,7 @@ export function CalendarSummaryStats({
                 hint="Awaiting approval"
                 icon={Clock3}
                 accent="bg-amber-500"
-                href={`/attendance/leave-requests?status=pending`}
+                href="/attendance/leave-requests?status=pending"
             />
             <StatCard
                 label="Leave days"
@@ -85,13 +89,7 @@ export function CalendarSummaryStats({
                 hint="Marked on calendar"
                 icon={CalendarDays}
                 accent="bg-violet-500"
-            />
-            <StatCard
-                label="Leave types"
-                value={typeCount}
-                hint="Used this year"
-                icon={Layers3}
-                accent="bg-sky-500"
+                href="/attendance/leave-requests?status=approved"
             />
         </div>
     );
