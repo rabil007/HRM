@@ -12,6 +12,17 @@ class RejectLeaveRequestRequest extends FormRequest
         return (bool) $this->user();
     }
 
+    protected function prepareForValidation(): void
+    {
+        $reason = $this->input('rejection_reason');
+
+        if (is_string($reason)) {
+            $this->merge([
+                'rejection_reason' => trim($reason),
+            ]);
+        }
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */

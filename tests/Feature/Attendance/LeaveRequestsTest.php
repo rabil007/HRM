@@ -164,10 +164,42 @@ test('leave requests can be approved rejected and cancelled', function () {
 
     $cancellable = LeaveRequest::query()->where('status', 'pending')->latest('id')->firstOrFail();
 
-    $this->put("/attendance/leave-requests/{$cancellable->id}/cancel")
+    $this->from('/attendance/leave-requests')
+        ->put("/attendance/leave-requests/{$cancellable->id}/cancel", [
+            'cancellation_reason' => 'Plans changed',
+        ])
         ->assertRedirect(route('attendance.leave-requests.index'));
 
-    expect($cancellable->fresh()->status)->toBe('cancelled');
+    expect($cancellable->fresh()->status)->toBe('cancelled')
+        ->and($cancellable->fresh()->cancellation_reason)->toBe('Plans changed');
+});
+
+test('reject and cancel require a reason', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.update',
+        'attendance.leave-requests.approve',
+    ]);
+
+    $this->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType));
+
+    $leaveRequest = LeaveRequest::query()->where('employee_id', $employee->id)->firstOrFail();
+
+    $this->from('/attendance/leave-requests')
+        ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
+            'rejection_reason' => '',
+        ])
+        ->assertSessionHasErrors('rejection_reason');
+
+    $this->from('/attendance/leave-requests')
+        ->put("/attendance/leave-requests/{$leaveRequest->id}/cancel", [
+            'cancellation_reason' => '   ',
+        ])
+        ->assertSessionHasErrors('cancellation_reason');
 });
 
 test('approved leave requests cannot be updated', function () {

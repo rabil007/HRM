@@ -256,6 +256,7 @@ class LeaveRequestController extends Controller
             'approved_by' => $request->user()?->id,
             'decided_at' => now(),
             'rejection_reason' => null,
+            'cancellation_reason' => null,
         ]);
 
         return redirect()
@@ -299,6 +300,9 @@ class LeaveRequestController extends Controller
 
         $leaveRequest->update([
             'status' => 'cancelled',
+            'approved_by' => $request->user()?->id,
+            'decided_at' => now(),
+            'cancellation_reason' => $request->validated('cancellation_reason'),
         ]);
 
         return redirect()
@@ -330,6 +334,7 @@ class LeaveRequestController extends Controller
             'reason' => $leaveRequest->reason,
             'status' => $leaveRequest->status,
             'rejection_reason' => $leaveRequest->rejection_reason,
+            'cancellation_reason' => $leaveRequest->cancellation_reason,
             'decided_at' => $leaveRequest->decided_at?->toIso8601String(),
             'approver' => $leaveRequest->approver ? [
                 'id' => $leaveRequest->approver->id,

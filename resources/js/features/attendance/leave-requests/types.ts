@@ -31,6 +31,7 @@ export type LeaveRequest = {
     reason: string | null;
     status: LeaveRequestStatus;
     rejection_reason: string | null;
+    cancellation_reason: string | null;
     decided_at: string | null;
     approver: { id: number; name: string } | null;
     created_at: string | null;

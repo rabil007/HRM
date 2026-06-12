@@ -27,6 +27,7 @@ import { LeaveRequestCard } from './components/leave-request-card';
 import { LeaveRequestDeleteDialog } from './components/leave-request-delete-dialog';
 import { LeaveRequestFiltersSheet } from './components/leave-request-filters-sheet';
 import { LeaveRequestFormSheet } from './components/leave-request-form-sheet';
+import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
@@ -70,6 +71,7 @@ export function LeaveRequestsContent({
     const [isSheetOpen, setIsSheetOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [currentLeaveRequest, setCurrentLeaveRequest] = useState<LeaveRequest | null>(null);
 
@@ -112,6 +114,11 @@ export function LeaveRequestsContent({
         setIsRejectOpen(true);
     };
 
+    const handleCancel = (leaveRequest: LeaveRequest) => {
+        setCurrentLeaveRequest(leaveRequest);
+        setIsCancelOpen(true);
+    };
+
     const confirmDelete = () => {
         if (!currentLeaveRequest) {
             return;
@@ -129,13 +136,6 @@ export function LeaveRequestsContent({
         router.put(`/attendance/leave-requests/${leaveRequest.id}/approve`, {}, {
             preserveScroll: true,
             onError: () => toast.error('Failed to approve leave request. Please try again.'),
-        });
-    };
-
-    const cancel = (leaveRequest: LeaveRequest) => {
-        router.put(`/attendance/leave-requests/${leaveRequest.id}/cancel`, {}, {
-            preserveScroll: true,
-            onError: () => toast.error('Failed to cancel leave request. Please try again.'),
         });
     };
 
@@ -232,7 +232,7 @@ export function LeaveRequestsContent({
                             onDelete={handleDelete}
                             onApprove={approve}
                             onReject={handleReject}
-                            onCancel={cancel}
+                            onCancel={handleCancel}
                         />
                     ))}
                 </div>
@@ -268,7 +268,7 @@ export function LeaveRequestsContent({
                                         onDelete={handleDelete}
                                         onApprove={approve}
                                         onReject={handleReject}
-                                        onCancel={cancel}
+                                        onCancel={handleCancel}
                                     />
                                 </TableCell>
                             </TableRow>
@@ -313,6 +313,13 @@ export function LeaveRequestsContent({
             <LeaveRequestRejectDialog
                 open={isRejectOpen}
                 onOpenChange={setIsRejectOpen}
+                leaveRequest={currentLeaveRequest}
+                onSuccess={() => setCurrentLeaveRequest(null)}
+            />
+
+            <LeaveRequestCancelDialog
+                open={isCancelOpen}
+                onOpenChange={setIsCancelOpen}
                 leaveRequest={currentLeaveRequest}
                 onSuccess={() => setCurrentLeaveRequest(null)}
             />

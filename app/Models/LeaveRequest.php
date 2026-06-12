@@ -48,6 +48,7 @@ class LeaveRequest extends Model
                 'reason',
                 'status',
                 'rejection_reason',
+                'cancellation_reason',
                 'decided_at',
             ])
             ->logOnlyDirty();

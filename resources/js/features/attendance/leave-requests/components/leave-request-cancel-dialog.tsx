@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import type { LeaveRequest } from '../types';
 
-export function LeaveRequestRejectDialog({
+export function LeaveRequestCancelDialog({
     open,
     onOpenChange,
     leaveRequest,
@@ -25,15 +25,15 @@ export function LeaveRequestRejectDialog({
     onSuccess: () => void;
 }) {
     const form = useForm({
-        rejection_reason: '',
+        cancellation_reason: '',
     });
 
     const submit = () => {
-        if (!leaveRequest || !form.data.rejection_reason.trim()) {
+        if (!leaveRequest || !form.data.cancellation_reason.trim()) {
             return;
         }
 
-        form.put(`/attendance/leave-requests/${leaveRequest.id}/reject`, {
+        form.put(`/attendance/leave-requests/${leaveRequest.id}/cancel`, {
             preserveScroll: true,
             onSuccess: () => {
                 form.reset();
@@ -48,27 +48,27 @@ export function LeaveRequestRejectDialog({
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Reject leave request</AlertDialogTitle>
+                    <AlertDialogTitle>Cancel leave request</AlertDialogTitle>
                     <AlertDialogDescription>
                         {leaveRequest?.employee?.name
-                            ? `Provide a reason for rejecting ${leaveRequest.employee.name}'s leave request.`
-                            : 'Provide a reason for rejecting this leave request.'}
+                            ? `Provide a reason for cancelling ${leaveRequest.employee.name}'s leave request.`
+                            : 'Provide a reason for cancelling this leave request.'}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 
                 <div className="space-y-2">
-                    <Label htmlFor="rejection_reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Rejection reason
+                    <Label htmlFor="cancellation_reason" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Cancellation reason
                     </Label>
                     <Textarea
-                        id="rejection_reason"
-                        value={form.data.rejection_reason}
-                        onChange={(e) => form.setData('rejection_reason', e.target.value)}
+                        id="cancellation_reason"
+                        value={form.data.cancellation_reason}
+                        onChange={(e) => form.setData('cancellation_reason', e.target.value)}
                         className="min-h-24 rounded-xl border-border bg-card"
-                        placeholder="Reason for rejection..."
+                        placeholder="Reason for cancellation..."
                     />
-                    {form.errors.rejection_reason ? (
-                        <div className="text-xs font-medium text-destructive">{form.errors.rejection_reason}</div>
+                    {form.errors.cancellation_reason ? (
+                        <div className="text-xs font-medium text-destructive">{form.errors.cancellation_reason}</div>
                     ) : null}
                 </div>
 
@@ -77,9 +77,9 @@ export function LeaveRequestRejectDialog({
                     <Button
                         className="rounded-xl"
                         onClick={submit}
-                        disabled={form.processing || !form.data.rejection_reason.trim()}
+                        disabled={form.processing || !form.data.cancellation_reason.trim()}
                     >
-                        Reject request
+                        Cancel request
                     </Button>
                 </AlertDialogFooter>
             </AlertDialogContent>

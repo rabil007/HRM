@@ -8,6 +8,7 @@ import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaveRequestDeleteDialog } from '@/features/attendance/leave-requests/components/leave-request-delete-dialog';
 import { LeaveRequestFormSheet } from '@/features/attendance/leave-requests/components/leave-request-form-sheet';
+import { LeaveRequestCancelDialog } from '@/features/attendance/leave-requests/components/leave-request-cancel-dialog';
 import { LeaveRequestRejectDialog } from '@/features/attendance/leave-requests/components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from '@/features/attendance/leave-requests/components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from '@/features/attendance/leave-requests/components/leave-request-status-badge';
@@ -48,6 +49,7 @@ export default function LeaveRequestDetails({
     const [editOpen, setEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isRejectOpen, setIsRejectOpen] = useState(false);
+    const [isCancelOpen, setIsCancelOpen] = useState(false);
     const form = useForm(leaveRequestToFormData(leave_request));
 
     const canModify = leave_request.status === 'pending' && can.update;
@@ -84,10 +86,7 @@ export default function LeaveRequestDetails({
     };
 
     const cancel = () => {
-        router.put(`/attendance/leave-requests/${leave_request.id}/cancel`, {}, {
-            preserveScroll: true,
-            onError: () => toast.error('Failed to cancel leave request. Please try again.'),
-        });
+        setIsCancelOpen(true);
     };
 
     return (
@@ -148,6 +147,10 @@ export default function LeaveRequestDetails({
                                 label="Rejection reason"
                                 value={leave_request.rejection_reason?.trim() ? leave_request.rejection_reason : '—'}
                             />
+                            <Field
+                                label="Cancellation reason"
+                                value={leave_request.cancellation_reason?.trim() ? leave_request.cancellation_reason : '—'}
+                            />
                             <Field label="Created" value={leave_request.created_at ? formatDisplayDate(leave_request.created_at) : '—'} />
                         </div>
 
@@ -199,6 +202,13 @@ export default function LeaveRequestDetails({
                 onOpenChange={setIsRejectOpen}
                 leaveRequest={leave_request}
                 onSuccess={() => setIsRejectOpen(false)}
+            />
+
+            <LeaveRequestCancelDialog
+                open={isCancelOpen}
+                onOpenChange={setIsCancelOpen}
+                leaveRequest={leave_request}
+                onSuccess={() => setIsCancelOpen(false)}
             />
         </Main>
     );
