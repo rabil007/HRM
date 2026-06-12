@@ -752,3 +752,264 @@ test('user without fetch permission cannot fetch hikvision access events', funct
         ->post(route('hikvision.access-events.fetch'), ['_token' => csrf_token()])
         ->assertForbidden();
 });
+
+function fakeHikvisionEveningScheduledFetchJune11(): void
+{
+    $acsPayload = json_encode([
+        'AcsEvent' => [
+            'searchID' => '1',
+            'totalMatches' => 1,
+            'InfoList' => [
+                [
+                    'major' => 5,
+                    'minor' => 38,
+                    'time' => '2026-06-11T08:28:00+04:00',
+                    'name' => 'Employee One',
+                    'doorNo' => 1,
+                    'cardReaderNo' => 1,
+                    'currentVerifyMode' => 'faceOrFpOrCardOrPw',
+                    'attendanceStatus' => 'checkIn',
+                ],
+            ],
+        ],
+    ]);
+
+    $june11MobileRow = [
+        'fullName' => 'Employee Two',
+        'personCode' => '42',
+        'clockInDate' => '2026/06/11',
+        'clockInTime' => '09:00:00',
+        'clockInSource' => 3,
+        'clockInDevice' => '',
+        'clockOutDate' => '2026/06/11',
+        'clockOutTime' => '18:00:00',
+        'clockOutSource' => 3,
+        'clockOutDevice' => '',
+    ];
+
+    Http::fake(function ($request) use ($acsPayload, $june11MobileRow) {
+        $url = $request->url();
+
+        if (str_contains($url, '/token/get')) {
+            return Http::response([
+                'data' => [
+                    'accessToken' => 'hcc.test-token',
+                    'expireTime' => 1781256540,
+                    'userId' => 'user-123',
+                    'areaDomain' => 'https://isgp.hikcentralconnect.com',
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/devices/get')) {
+            return Http::response([
+                'data' => [
+                    'totalCount' => 1,
+                    'pageIndex' => 1,
+                    'pageSize' => 50,
+                    'device' => [
+                        [
+                            'id' => 'device-acs-1',
+                            'name' => 'OMS-Door',
+                            'serialNo' => 'FZ4480436',
+                        ],
+                    ],
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/isapi/proxypass')) {
+            return Http::response([
+                'data' => $acsPayload,
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/totaltimecard/list')) {
+            $beginTime = (string) ($request->data()['beginTime'] ?? '');
+            $reportDataList = str_contains($beginTime, '2026-06-11') ? [] : [$june11MobileRow];
+
+            return Http::response([
+                'data' => [
+                    'pageIndex' => 1,
+                    'pageSize' => 200,
+                    'moreData' => 0,
+                    'reportDataList' => $reportDataList,
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/certificaterecords/search')) {
+            return Http::response([
+                'data' => [
+                    'recordList' => [],
+                    'totalNum' => 0,
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        return Http::response(['errorCode' => '404'], 404);
+    });
+}
+
+test('scheduled evening fetch stores door events but zero mobile when hikconnect has not published same day mobile', function () {
+    Carbon::setTestNow('2026-06-11 20:01:00', 'Asia/Dubai');
+
+    fakeHikvisionEveningScheduledFetchJune11();
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob();
+
+    expect(HikvisionAccessEvent::query()->where('transaction_source', 'device')->count())->toBe(1)
+        ->and(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(0)
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('Scheduled fetch:')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('1 device, 0 mobile app')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('for today');
+});
+
+test('scheduled fetch backfills yesterdays mobile on the next evenings run', function () {
+    Carbon::setTestNow('2026-06-12 20:01:00', 'Asia/Dubai');
+
+    $acsPayload = json_encode([
+        'AcsEvent' => [
+            'searchID' => '1',
+            'totalMatches' => 1,
+            'InfoList' => [
+                [
+                    'major' => 5,
+                    'minor' => 38,
+                    'time' => '2026-06-12T08:28:00+04:00',
+                    'name' => 'Employee One',
+                    'doorNo' => 1,
+                    'cardReaderNo' => 1,
+                    'currentVerifyMode' => 'faceOrFpOrCardOrPw',
+                    'attendanceStatus' => 'checkIn',
+                ],
+            ],
+        ],
+    ]);
+
+    $june11MobileRow = [
+        'fullName' => 'Employee Two',
+        'personCode' => '42',
+        'clockInDate' => '2026/06/11',
+        'clockInTime' => '09:00:00',
+        'clockInSource' => 3,
+        'clockInDevice' => '',
+        'clockOutDate' => '2026/06/11',
+        'clockOutTime' => '18:00:00',
+        'clockOutSource' => 3,
+        'clockOutDevice' => '',
+    ];
+
+    Http::fake(function ($request) use ($acsPayload, $june11MobileRow) {
+        $url = $request->url();
+
+        if (str_contains($url, '/token/get')) {
+            return Http::response([
+                'data' => [
+                    'accessToken' => 'hcc.test-token',
+                    'expireTime' => 1781256540,
+                    'userId' => 'user-123',
+                    'areaDomain' => 'https://isgp.hikcentralconnect.com',
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/devices/get')) {
+            return Http::response([
+                'data' => [
+                    'totalCount' => 1,
+                    'pageIndex' => 1,
+                    'pageSize' => 50,
+                    'device' => [
+                        [
+                            'id' => 'device-acs-1',
+                            'name' => 'OMS-Door',
+                            'serialNo' => 'FZ4480436',
+                        ],
+                    ],
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/isapi/proxypass')) {
+            return Http::response([
+                'data' => $acsPayload,
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/totaltimecard/list')) {
+            $beginTime = (string) ($request->data()['beginTime'] ?? '');
+            $reportDataList = str_contains($beginTime, '2026-06-11') ? [$june11MobileRow] : [];
+
+            return Http::response([
+                'data' => [
+                    'pageIndex' => 1,
+                    'pageSize' => 200,
+                    'moreData' => 0,
+                    'reportDataList' => $reportDataList,
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        if (str_contains($url, '/certificaterecords/search')) {
+            return Http::response([
+                'data' => [
+                    'recordList' => [],
+                    'totalNum' => 0,
+                ],
+                'errorCode' => '0',
+            ], 200);
+        }
+
+        return Http::response(['errorCode' => '404'], 404);
+    });
+
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob();
+
+    expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
+        ->and(HikvisionAccessEvent::query()->where('transaction_source', 'device')->count())->toBe(1)
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('Scheduled fetch:')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2 mobile app');
+});
+
+test('manual fetch for a specific date stores mobile once hikconnect publishes that days records', function () {
+    Carbon::setTestNow('2026-06-12 09:38:00', 'Asia/Dubai');
+
+    fakeHikvisionAcsEventsFetch([
+        [
+            'fullName' => 'Employee Two',
+            'personCode' => '42',
+            'clockInDate' => '2026/06/11',
+            'clockInTime' => '09:00:00',
+            'clockInSource' => 3,
+            'clockInDevice' => '',
+            'clockOutDate' => '2026/06/11',
+            'clockOutTime' => '18:00:00',
+            'clockOutSource' => 3,
+            'clockOutDevice' => '',
+        ],
+    ]);
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob('2026-06-11');
+
+    expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2 mobile app')
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11');
+});

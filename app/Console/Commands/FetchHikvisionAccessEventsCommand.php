@@ -11,7 +11,7 @@ class FetchHikvisionAccessEventsCommand extends Command
 {
     protected $signature = 'hikvision:fetch-access-events {--force : Run even when scheduled fetch is disabled}';
 
-    protected $description = 'Dispatch the background job to fetch today\'s Hikvision access events';
+    protected $description = 'Dispatch the background job to fetch yesterday and today\'s Hikvision access events';
 
     public function handle(): int
     {

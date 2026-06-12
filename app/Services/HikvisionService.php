@@ -599,11 +599,43 @@ class HikvisionService
             }
 
             if (! $hasInWindowRecord && $rows !== []) {
+                // #region agent log
+                @file_put_contents(base_path('.cursor/debug-e1f1d0.log'), json_encode([
+                    'sessionId' => 'e1f1d0',
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                    'location' => 'HikvisionService::fetchAttendanceMobileEvents',
+                    'message' => 'early pagination break',
+                    'data' => [
+                        'pageIndex' => $pageIndex,
+                        'rowsInPage' => count($rows),
+                        'storedSoFar' => $storedCount,
+                        'windowStart' => $startTime->toIso8601String(),
+                        'windowEnd' => $endTime->toIso8601String(),
+                    ],
+                    'hypothesisId' => 'D',
+                ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+                // #endregion
+
                 break;
             }
 
             $pageIndex++;
         } while ($moreData === 1 && $rows !== []);
+
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-e1f1d0.log'), json_encode([
+            'sessionId' => 'e1f1d0',
+            'timestamp' => (int) round(microtime(true) * 1000),
+            'location' => 'HikvisionService::fetchAttendanceMobileEvents',
+            'message' => 'mobile fetch complete',
+            'data' => [
+                'storedCount' => $storedCount,
+                'windowStart' => $startTime->toIso8601String(),
+                'windowEnd' => $endTime->toIso8601String(),
+            ],
+            'hypothesisId' => 'A',
+        ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
 
         return $storedCount;
     }
@@ -649,9 +681,43 @@ class HikvisionService
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
 
+        // #region agent log
+        @file_put_contents(base_path('.cursor/debug-e1f1d0.log'), json_encode([
+            'sessionId' => 'e1f1d0',
+            'timestamp' => (int) round(microtime(true) * 1000),
+            'location' => 'HikvisionService::fetchAccessEvents',
+            'message' => 'fetch complete',
+            'data' => [
+                'dateLabel' => $dateLabel,
+                'dateParamWasNull' => $date === null,
+                'deviceCount' => $fetchedCount,
+                'mobileCount' => $mobileCount,
+                'windowStart' => $startTime->toIso8601String(),
+                'windowEnd' => $endTime->toIso8601String(),
+            ],
+            'hypothesisId' => 'A,B,C',
+        ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
+        // #endregion
+
         return [
             'fetched_count' => $totalCount,
             'message' => "Fetched {$totalCount} access record(s) for {$dateLabel} ({$fetchedCount} device, {$mobileCount} mobile app).",
+        ];
+    }
+
+    /**
+     * @return array{fetched_count: int, message: string}
+     */
+    public function fetchScheduledAccessEvents(): array
+    {
+        $timezone = (string) config('app.timezone', 'UTC');
+        $yesterday = now($timezone)->copy()->subDay()->startOfDay();
+        $yesterdayResult = $this->fetchAccessEvents($yesterday);
+        $todayResult = $this->fetchAccessEvents(null);
+
+        return [
+            'fetched_count' => $yesterdayResult['fetched_count'] + $todayResult['fetched_count'],
+            'message' => "Scheduled fetch: {$yesterdayResult['message']} {$todayResult['message']}",
         ];
     }
 

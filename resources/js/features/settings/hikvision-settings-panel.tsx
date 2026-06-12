@@ -409,7 +409,8 @@ export function HikvisionSettingsPanel({
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">Automatic daily fetch</h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Pull today&apos;s door and mobile app access records from Hik-Connect on a schedule.
+                                    Pull yesterday and today&apos;s door and mobile app access records from Hik-Connect on a
+                                    schedule.
                                 </p>
                             </div>
                         </div>
@@ -440,7 +441,7 @@ export function HikvisionSettingsPanel({
                                 </span>
                             </StatusItem>
                             <StatusItem label="Fetch scope">
-                                <span className="text-sm">Today only</span>
+                                <span className="text-sm">Yesterday and today</span>
                             </StatusItem>
                         </div>
 
@@ -448,7 +449,8 @@ export function HikvisionSettingsPanel({
                             <div>
                                 <p className="text-sm font-medium">Enable daily fetch</p>
                                 <p className="text-xs text-muted-foreground">
-                                    Runs the same job as Fetch today on the Access Events page.
+                                    Fetches yesterday (mobile backfill) and today (door + mobile). Manual fetch on Access
+                                    Events can target a single date.
                                 </p>
                             </div>
                             <Switch
@@ -473,8 +475,8 @@ export function HikvisionSettingsPanel({
                                     disabled={!can.update}
                                 />
                                 <p className="text-xs text-muted-foreground">
-                                    Uses application timezone ({scheduler_timezone}). Mobile app records may
-                                    appear later in the day after Hik-Connect processes them.
+                                    Uses application timezone ({scheduler_timezone}). Mobile app records are usually
+                                    available the next day; yesterday is included on each run for backfill.
                                 </p>
                                 <InputError message={form.errors.events_fetch_schedule_at} />
                             </div>
