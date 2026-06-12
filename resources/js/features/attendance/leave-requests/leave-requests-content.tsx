@@ -91,7 +91,7 @@ export function LeaveRequestsContent({
         form.clearErrors();
         form.setData({
             ...defaultLeaveRequestFormData(),
-            employee_id: !can.approve && linkedEmployeeId ? linkedEmployeeId : '',
+            employee_id: linkedEmployeeId ?? '',
         });
         setIsSheetOpen(true);
     };
@@ -287,7 +287,8 @@ export function LeaveRequestsContent({
                 leaveRequest={currentLeaveRequest}
                 employees={employees}
                 leaveTypes={leave_types}
-                employeeLocked={!can.approve}
+                canApprove={can.approve}
+                linkedEmployeeId={linkedEmployeeId}
                 form={form}
                 onSubmit={submit}
             />

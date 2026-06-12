@@ -38,6 +38,7 @@ export default function LeaveRequestDetails({
     recent_activity,
     can_view_audit,
     can,
+    linked_employee_id,
 }: {
     leave_request: LeaveRequest;
     employees: LeaveRequestEmployeeOption[];
@@ -45,6 +46,7 @@ export default function LeaveRequestDetails({
     recent_activity: RecentActivityItem[];
     can_view_audit: boolean;
     can: LeaveRequestPermissions;
+    linked_employee_id: number | null;
 }) {
     const [editOpen, setEditOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -180,7 +182,8 @@ export default function LeaveRequestDetails({
                     leaveRequest={leave_request}
                     employees={employees}
                     leaveTypes={leave_types}
-                    employeeLocked={!can.approve}
+                    canApprove={can.approve}
+                    linkedEmployeeId={linked_employee_id}
                     form={form}
                     onSubmit={submit}
                 />

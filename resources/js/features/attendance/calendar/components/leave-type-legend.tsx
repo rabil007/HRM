@@ -58,13 +58,6 @@ export function LeaveTypeLegend({
                 </div>
             </CardHeader>
             <CardContent className="space-y-2 pt-4">
-                <div className="flex items-center gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2.5 dark:border-white/6 dark:bg-white/4">
-                    <span
-                        className="size-3.5 shrink-0 rounded-full ring-2 ring-white/20"
-                        style={{ backgroundColor: FALLBACK_COLOR }}
-                    />
-                    <span className="text-sm font-semibold">Approved leave day</span>
-                </div>
                 {leaveTypes.map((leaveType) => (
                     <div
                         key={leaveType.id}

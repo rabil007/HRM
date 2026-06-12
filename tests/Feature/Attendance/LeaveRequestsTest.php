@@ -552,6 +552,46 @@ test('leave request show page exposes recent activity with audit permission', fu
             ->where('recent_activity.0.event', 'created'));
 });
 
+test('leave request form only exposes linked employee without approve permission', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    ['employee' => $otherEmployee] = makeLeaveRequestActors($company);
+
+    $ownEmployee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->get('/attendance/leave-requests')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('linked_employee_id', $ownEmployee->id)
+            ->has('employees', 1)
+            ->where('employees.0.id', $ownEmployee->id)
+            ->where('can.approve', false));
+});
+
+test('leave request form exposes all employees with approve permission', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    makeLeaveRequestActors($company);
+    makeLeaveRequestActors($company);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    $this->get('/attendance/leave-requests')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.approve', true)
+            ->has('employees', 2));
+});
+
 test('users without approve permission cannot manage other employees leave requests', function () {
     ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);

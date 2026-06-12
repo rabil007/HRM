@@ -1,5 +1,5 @@
-import type { InertiaFormProps } from '@inertiajs/react';
-import { FileText, Trash2, Upload } from 'lucide-react';
+import { Link, type InertiaFormProps } from '@inertiajs/react';
+import { AlertCircle, FileText, Trash2, Upload } from 'lucide-react';
 import { useId } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,8 @@ export function LeaveRequestFormSheet({
     leaveRequest,
     employees,
     leaveTypes,
-    employeeLocked = false,
+    canApprove,
+    linkedEmployeeId,
     form,
     onSubmit,
 }: {
@@ -27,10 +28,13 @@ export function LeaveRequestFormSheet({
     leaveRequest: LeaveRequest | null;
     employees: LeaveRequestEmployeeOption[];
     leaveTypes: LeaveRequestTypeOption[];
-    employeeLocked?: boolean;
+    canApprove: boolean;
+    linkedEmployeeId: number | null;
     form: InertiaFormProps<LeaveRequestFormData>;
     onSubmit: () => void;
 }) {
+    const employeeLocked = !canApprove && linkedEmployeeId !== null;
+    const employeeUnavailable = !canApprove && linkedEmployeeId === null;
     const attachmentId = useId();
     const existingAttachment = leaveRequest?.attachments[0] ?? null;
     const pendingAttachment = form.data.attachment;
@@ -77,8 +81,8 @@ export function LeaveRequestFormSheet({
                                 value={String(form.data.employee_id ?? '')}
                                 onValueChange={(v) => form.setData('employee_id', v ? Number(v) : '')}
                                 variant="card"
-                                placeholder="Select employee"
-                                disabled={employeeLocked}
+                                placeholder={employeeUnavailable ? 'No employee profile linked' : 'Select employee'}
+                                disabled={employeeLocked || employeeUnavailable}
                             >
                                 {employees.map((employee) => (
                                     <AppSelectItem key={employee.id} value={String(employee.id)}>
@@ -86,6 +90,20 @@ export function LeaveRequestFormSheet({
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
+                            {employeeUnavailable ? (
+                                <div className="flex gap-2 rounded-xl border border-amber-500/25 bg-amber-500/10 px-3 py-2.5 text-xs text-amber-800 dark:text-amber-200">
+                                    <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                                    <div className="space-y-1">
+                                        <p className="font-semibold">Your user account is not linked to an employee profile.</p>
+                                        <p className="text-amber-900/80 dark:text-amber-100/80">
+                                            Ask an administrator to link your user to an employee record before submitting leave requests.
+                                        </p>
+                                        <Link href="/organization/users" className="inline-flex font-semibold text-primary hover:underline">
+                                            Go to users
+                                        </Link>
+                                    </div>
+                                </div>
+                            ) : null}
                             {form.errors.employee_id ? <div className="text-xs font-medium text-destructive">{form.errors.employee_id}</div> : null}
                         </div>
 
@@ -249,7 +267,12 @@ export function LeaveRequestFormSheet({
                     >
                         Cancel
                     </Button>
-                    <Button className="rounded-xl h-11 px-6 flex-1 font-semibold" type="button" onClick={onSubmit} disabled={form.processing}>
+                    <Button
+                        className="rounded-xl h-11 px-6 flex-1 font-semibold"
+                        type="button"
+                        onClick={onSubmit}
+                        disabled={form.processing || employeeUnavailable}
+                    >
                         {leaveRequest ? 'Save' : 'Create'}
                     </Button>
                 </div>
