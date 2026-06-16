@@ -13,8 +13,6 @@ use Illuminate\Support\Collection;
 
 final class SyncAttendanceRecordsFromHikvision
 {
-    private const DEBUG_LOG_PATH = '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-c72436.log';
-
     public function syncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
         $timezone = (string) config('app.timezone', 'UTC');
@@ -291,18 +289,29 @@ final class SyncAttendanceRecordsFromHikvision
     private function debugLog(string $hypothesisId, string $location, string $message, array $data = []): void
     {
         // #region agent log
-        file_put_contents(
-            self::DEBUG_LOG_PATH,
-            json_encode([
-                'sessionId' => 'c72436',
-                'hypothesisId' => $hypothesisId,
-                'location' => $location,
-                'message' => $message,
-                'data' => $data,
-                'timestamp' => (int) round(microtime(true) * 1000),
-            ], JSON_UNESCAPED_UNICODE)."\n",
-            FILE_APPEND | LOCK_EX,
-        );
+        try {
+            $logPath = base_path('.cursor/debug-c72436.log');
+            $directory = dirname($logPath);
+
+            if (! is_dir($directory)) {
+                mkdir($directory, 0755, true);
+            }
+
+            file_put_contents(
+                $logPath,
+                json_encode([
+                    'sessionId' => 'c72436',
+                    'hypothesisId' => $hypothesisId,
+                    'location' => $location,
+                    'message' => $message,
+                    'data' => $data,
+                    'timestamp' => (int) round(microtime(true) * 1000),
+                ], JSON_UNESCAPED_UNICODE)."\n",
+                FILE_APPEND | LOCK_EX,
+            );
+        } catch (\Throwable) {
+            // Never break attendance sync when debug logging fails.
+        }
         // #endregion
     }
 }
