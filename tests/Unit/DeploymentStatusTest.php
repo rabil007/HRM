@@ -208,6 +208,35 @@ test('overdue date fields are empty when status is not needs update', function (
     expect(DeploymentStatus::overdueDateFields($deployment))->toBe([]);
 });
 
+test('due soon date fields highlight upcoming dates within two days only', function () {
+    $today = CarbonImmutable::parse('2026-06-11');
+
+    $arrivedYesterday = new EmployeeDeployment([
+        'arrived_date' => $today->subDay(),
+    ]);
+
+    $disembarkedToday = new EmployeeDeployment([
+        'joined_date' => $today->subDays(5),
+        'disembarked_date' => $today,
+    ]);
+
+    $joinStandbyEndingSoon = new EmployeeDeployment([
+        'join_standby_from' => $today->subDays(5),
+        'join_standby_to' => $today->addDay(),
+    ]);
+
+    $vesselDisembarkSoon = new EmployeeDeployment([
+        'joined_date' => $today->subDays(10),
+        'disembarked_date' => $today->addDays(2),
+    ]);
+
+    expect(DeploymentStatus::overdueDateFields($arrivedYesterday, $today))->toBe(['arrived_date'])
+        ->and(DeploymentStatus::dueSoonDateFields($arrivedYesterday, $today))->toBe([])
+        ->and(DeploymentStatus::dueSoonDateFields($disembarkedToday, $today))->toBe([])
+        ->and(DeploymentStatus::dueSoonDateFields($joinStandbyEndingSoon, $today))->toBe(['join_standby_to'])
+        ->and(DeploymentStatus::dueSoonDateFields($vesselDisembarkSoon, $today))->toBe(['disembarked_date']);
+});
+
 test('needs update hint explains overdue arrival without join date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 

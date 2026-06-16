@@ -643,6 +643,7 @@ return;
                                         value={deployment.arrived_date}
                                         field="arrived_date"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>
@@ -650,6 +651,7 @@ return;
                                         value={deployment.join_standby_from}
                                         field="join_standby_from"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>
@@ -657,6 +659,7 @@ return;
                                         value={deployment.join_standby_to}
                                         field="join_standby_to"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.join_standby_days)}</TableCell>
@@ -665,6 +668,7 @@ return;
                                         value={deployment.joined_date}
                                         field="joined_date"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>
@@ -672,6 +676,7 @@ return;
                                         value={deployment.disembarked_date}
                                         field="disembarked_date"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.vessel_days)}</TableCell>
@@ -680,6 +685,7 @@ return;
                                         value={deployment.leave_standby_from}
                                         field="leave_standby_from"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>
@@ -687,6 +693,7 @@ return;
                                         value={deployment.leave_standby_to}
                                         field="leave_standby_to"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 <TableCell>{displayNumber(deployment.leave_standby_days)}</TableCell>
@@ -695,6 +702,7 @@ return;
                                         value={deployment.travelled_date}
                                         field="travelled_date"
                                         overdueFields={deployment.overdue_date_fields}
+                                        dueSoonFields={deployment.due_soon_date_fields}
                                     />
                                 </TableCell>
                                 {showInHomeDaysColumn ? (

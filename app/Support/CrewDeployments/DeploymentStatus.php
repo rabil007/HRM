@@ -7,6 +7,8 @@ use Carbon\CarbonImmutable;
 
 final class DeploymentStatus
 {
+    private const DUE_SOON_WINDOW_DAYS = 2;
+
     public const ON_VESSEL = 'on_vessel';
 
     public const JOIN_STANDBY = 'join_standby';
@@ -229,14 +231,60 @@ final class DeploymentStatus
     }
 
     /**
-     * @return list<string>
+     * @return array<string, 'overdue'|'warning'>
      */
-    public static function overdueDateFields(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
+    public static function dateFieldHighlights(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
     {
         $today ??= CarbonImmutable::today();
+        $highlights = [];
+        $status = self::resolve($deployment, $today)['status'];
 
-        if (self::resolve($deployment, $today)['status'] !== self::UNKNOWN) {
-            return [];
+        if (
+            $deployment->join_standby_to !== null
+            && self::isJoinStandby($deployment, $today)
+            && ($deployment->joined_date === null || $deployment->joined_date->gt($today))
+        ) {
+            self::applyDateHighlight(
+                $highlights,
+                'join_standby_to',
+                self::highlightLevelForDueDate($deployment->join_standby_to, $today),
+            );
+        }
+
+        if (
+            self::isOnVessel($deployment, $today)
+            && $deployment->disembarked_date !== null
+            && $deployment->disembarked_date->gte($today)
+        ) {
+            self::applyDateHighlight(
+                $highlights,
+                'disembarked_date',
+                self::highlightLevelForDueDate($deployment->disembarked_date, $today),
+            );
+        }
+
+        if (
+            $deployment->leave_standby_to !== null
+            && self::isLeaveStandby($deployment, $today)
+            && $deployment->travelled_date === null
+        ) {
+            self::applyDateHighlight(
+                $highlights,
+                'leave_standby_to',
+                self::highlightLevelForDueDate($deployment->leave_standby_to, $today),
+            );
+        }
+
+        if ($status === self::DISEMBARKED) {
+            self::applyDateHighlight(
+                $highlights,
+                'disembarked_date',
+                self::highlightLevelForDueDate($deployment->disembarked_date, $today),
+            );
+        }
+
+        if ($status !== self::UNKNOWN) {
+            return $highlights;
         }
 
         if (
@@ -246,11 +294,23 @@ final class DeploymentStatus
             && $deployment->disembarked_date !== null
             && $deployment->disembarked_date->lte($today)
         ) {
-            return ['leave_standby_to'];
+            self::applyDateHighlight(
+                $highlights,
+                'leave_standby_to',
+                self::highlightLevelForDueDate($deployment->leave_standby_to, $today),
+            );
+
+            return $highlights;
         }
 
         if (self::isOverdueAfterDisembark($deployment, $today)) {
-            return ['disembarked_date'];
+            self::applyDateHighlight(
+                $highlights,
+                'disembarked_date',
+                self::highlightLevelForDueDate($deployment->disembarked_date, $today),
+            );
+
+            return $highlights;
         }
 
         if (
@@ -258,18 +318,89 @@ final class DeploymentStatus
             && $deployment->join_standby_to->lt($today)
             && ($deployment->joined_date === null || $deployment->joined_date->gt($today))
         ) {
-            return ['join_standby_to'];
+            self::applyDateHighlight(
+                $highlights,
+                'join_standby_to',
+                self::highlightLevelForDueDate($deployment->join_standby_to, $today),
+            );
+
+            return $highlights;
         }
 
         if (
             $deployment->arrived_date !== null
-            && $deployment->arrived_date->lt($today)
+            && $deployment->arrived_date->lte($today)
             && $deployment->joined_date === null
         ) {
-            return ['arrived_date'];
+            self::applyDateHighlight(
+                $highlights,
+                'arrived_date',
+                self::highlightLevelForDueDate($deployment->arrived_date, $today),
+            );
         }
 
-        return [];
+        return $highlights;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function overdueDateFields(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
+    {
+        return array_keys(array_filter(
+            self::dateFieldHighlights($deployment, $today),
+            fn (string $level): bool => $level === 'overdue',
+        ));
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function dueSoonDateFields(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
+    {
+        return array_keys(array_filter(
+            self::dateFieldHighlights($deployment, $today),
+            fn (string $level): bool => $level === 'warning',
+        ));
+    }
+
+    private static function highlightLevelForDueDate(
+        ?CarbonImmutable $dueDate,
+        CarbonImmutable $today,
+    ): ?string {
+        if ($dueDate === null) {
+            return null;
+        }
+
+        if ($dueDate->lt($today)) {
+            return 'overdue';
+        }
+
+        if ($dueDate->gt($today) && $dueDate->lte($today->addDays(self::DUE_SOON_WINDOW_DAYS))) {
+            return 'warning';
+        }
+
+        return null;
+    }
+
+    /**
+     * @param  array<string, 'overdue'|'warning'>  $highlights
+     */
+    private static function applyDateHighlight(
+        array &$highlights,
+        string $field,
+        ?string $level,
+    ): void {
+        if ($level === null) {
+            return;
+        }
+
+        if (
+            ! array_key_exists($field, $highlights)
+            || ($highlights[$field] === 'warning' && $level === 'overdue')
+        ) {
+            $highlights[$field] = $level;
+        }
     }
 
     public static function needsUpdateHint(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): ?string
