@@ -26,6 +26,14 @@ export type AttendanceRecordFilters = {
     source: string;
 };
 
+export const EMPTY_ATTENDANCE_RECORD_FILTERS: AttendanceRecordFilters = {
+    date_from: '',
+    date_to: '',
+    employee_id: '',
+    status: '',
+    source: '',
+};
+
 export type AttendanceRecordPermissions = {
     create: boolean;
     update: boolean;
