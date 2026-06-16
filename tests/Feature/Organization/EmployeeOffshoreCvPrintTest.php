@@ -230,7 +230,7 @@ test('offshore cv data includes all sea service rows in project history', functi
     expect($data['offshore_projects'])->toHaveCount(2)
         ->and(collect($data['offshore_projects'])->pluck('vessel_name')->all())
         ->toContain('Offshore Alpha', 'Seagoing Beta')
-        ->and($data['experience_offshore_ymd'])->not->toBe('0Y/0M/0D');
+    expect($data['experience_offshore_ymd'])->toBe($data['experience_rank_ymd']);
 });
 
 test('offshore cv experience in applied rank uses employee rank id', function () {
@@ -297,5 +297,5 @@ test('offshore cv experience in applied rank uses employee rank id', function ()
     $data = OffshoreCvData::for($employee, $company->id);
 
     expect($data['experience_rank_ymd'])->toBe('1Y/0M/0D')
-        ->and($data['experience_offshore_ymd'])->toBe('0Y/0M/0D');
+        ->and($data['experience_offshore_ymd'])->toBe('1Y/0M/0D');
 });

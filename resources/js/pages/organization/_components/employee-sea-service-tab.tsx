@@ -266,9 +266,7 @@ export function EmployeeSeaServiceTab({
               )
             : formatSeaServiceTotalsYmd(sea_services);
 
-    const offshoreTotals = formatSeaServiceTotalsYmd(sea_services, (r) => {
-        return r.is_offshore;
-    });
+    const offshoreTotals = formatSeaServiceTotalsYmd(sea_services);
 
     return (
         <TabsContent value="sea_service" className="mt-6">

@@ -59,10 +59,8 @@ final class OffshoreCvData
                 ? $seaServices->filter(fn (EmployeeSeaService $row) => strcasecmp((string) $row->rank?->name, $rankApplied) === 0)
                 : $seaServices);
 
-        $offshoreRows = $seaServices->filter(fn (EmployeeSeaService $row) => $row->is_offshore);
-
         $experienceRankYmd = self::formatExperienceYmd($rankSeaServices);
-        $experienceOffshoreYmd = self::formatExperienceYmd($offshoreRows);
+        $experienceOffshoreYmd = self::formatExperienceYmd($seaServices);
         $experienceYears = self::yearsFromSeaServices($rankSeaServices);
         $fullName = trim((string) $employee->name);
 
