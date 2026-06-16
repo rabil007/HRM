@@ -3,6 +3,7 @@ import { AlertTriangle } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import printEmployeeCv from '@/actions/App/Http/Controllers/Organization/EmployeeCvPrintController';
+import printEmployeeSalaryCertificate from '@/actions/App/Http/Controllers/Organization/EmployeeSalaryCertificatePrintController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Main } from '@/components/layout/main';
 import {
@@ -519,6 +520,10 @@ function EmployeeDetailsPage({
                         ) : (
                             <EmployeeProfileActionBar
                                 printCvUrl={printEmployeeCv.url(
+                                    { employee: localEmployee.id as number },
+                                    { query: { format: 'pdf', inline: 1 } },
+                                )}
+                                printSalaryCertificateUrl={printEmployeeSalaryCertificate.url(
                                     { employee: localEmployee.id as number },
                                     { query: { format: 'pdf', inline: 1 } },
                                 )}

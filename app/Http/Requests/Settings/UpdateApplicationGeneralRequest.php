@@ -4,6 +4,7 @@ namespace App\Http\Requests\Settings;
 
 use App\Support\Settings\SettingKey;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Validation\Rule;
 
 class UpdateApplicationGeneralRequest extends FormRequest
@@ -25,6 +26,8 @@ class UpdateApplicationGeneralRequest extends FormRequest
             'timezone' => ['required', 'string', Rule::in(timezone_identifiers_list())],
             'currency' => ['required', 'string', 'max:10'],
             'date_format' => ['required', 'string', Rule::in(['Y-m-d', 'd/m/Y', 'm/d/Y', 'd-m-Y', 'M d, Y'])],
+            'salary_certificate_signature' => ['nullable', 'file', 'max:2048', 'mimes:png,jpg,jpeg'],
+            'salary_certificate_stamp' => ['nullable', 'file', 'max:2048', 'mimes:png,jpg,jpeg'],
         ];
     }
 
@@ -43,5 +46,24 @@ class UpdateApplicationGeneralRequest extends FormRequest
             SettingKey::Currency => $validated['currency'],
             SettingKey::DateFormat => $validated['date_format'],
         ];
+    }
+
+    /** @return array<string, UploadedFile> */
+    public function uploadFiles(): array
+    {
+        $map = [
+            'salary_certificate_signature' => SettingKey::SalaryCertificateSignature,
+            'salary_certificate_stamp' => SettingKey::SalaryCertificateStamp,
+        ];
+
+        $files = [];
+
+        foreach ($map as $input => $key) {
+            if ($this->hasFile($input)) {
+                $files[$key] = $this->file($input);
+            }
+        }
+
+        return $files;
     }
 }

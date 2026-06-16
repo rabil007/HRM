@@ -10,6 +10,7 @@ import {
     Palette,
     Send,
     Settings2,
+    ScrollText,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { BrandingUploadField } from '@/components/settings/branding-upload-field';
@@ -53,6 +54,8 @@ type Props = {
         timezone: string;
         currency: string;
         date_format: string;
+        salary_certificate_signature_url: string | null;
+        salary_certificate_stamp_url: string | null;
     };
     branding: {
         main_logo_url: string | null;
@@ -271,6 +274,8 @@ export default function ApplicationSettings({
         timezone: general.timezone ?? 'UTC',
         currency: general.currency ?? 'USD',
         date_format: general.date_format ?? 'Y-m-d',
+        salary_certificate_signature: null as File | null,
+        salary_certificate_stamp: null as File | null,
     });
 
     const smtpForm = useForm({
@@ -307,7 +312,10 @@ export default function ApplicationSettings({
             return;
         }
 
-        generalForm.put('/settings/application/general', { preserveScroll: true });
+        generalForm.post('/settings/application/general', {
+            preserveScroll: true,
+            forceFormData: true,
+        });
     }
 
     function submitBranding(e: React.FormEvent) {
@@ -623,6 +631,39 @@ export default function ApplicationSettings({
                                             </SelectContent>
                                         </Select>
                                     </div>
+                                </div>
+                            </SettingsCard>
+
+                            <SettingsCard>
+                                <SectionHeading
+                                    icon={ScrollText}
+                                    title="Salary certificate"
+                                    description="Signature and company stamp shown on printed employee salary certificates."
+                                    color="bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                                />
+                                <div className="space-y-6">
+                                    <BrandingUploadField
+                                        label="Authorized signature"
+                                        assetKey="salary_certificate_signature"
+                                        currentUrl={general.salary_certificate_signature_url}
+                                        accept="image/png,image/jpeg,image/jpg"
+                                        hint="PNG or JPG — max 2 MB"
+                                        onFileChange={(file) =>
+                                            generalForm.setData('salary_certificate_signature', file)
+                                        }
+                                        error={generalForm.errors.salary_certificate_signature}
+                                    />
+                                    <BrandingUploadField
+                                        label="Company stamp"
+                                        assetKey="salary_certificate_stamp"
+                                        currentUrl={general.salary_certificate_stamp_url}
+                                        accept="image/png,image/jpeg,image/jpg"
+                                        hint="PNG or JPG — max 2 MB"
+                                        onFileChange={(file) =>
+                                            generalForm.setData('salary_certificate_stamp', file)
+                                        }
+                                        error={generalForm.errors.salary_certificate_stamp}
+                                    />
                                 </div>
                             </SettingsCard>
 

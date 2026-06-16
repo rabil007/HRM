@@ -54,6 +54,8 @@ class ApplicationSettingsController extends Controller
                 'timezone' => $this->settings->get(SettingKey::Timezone, 'UTC'),
                 'currency' => $this->settings->get(SettingKey::Currency, 'USD'),
                 'date_format' => $this->settings->get(SettingKey::DateFormat, 'Y-m-d'),
+                'salary_certificate_signature_url' => $this->settings->fileUrl(SettingKey::SalaryCertificateSignature),
+                'salary_certificate_stamp_url' => $this->settings->fileUrl(SettingKey::SalaryCertificateStamp),
             ],
             'branding' => $this->settings->brandingUrls(),
             'preferences' => [
@@ -78,6 +80,10 @@ class ApplicationSettingsController extends Controller
 
     public function updateGeneral(UpdateApplicationGeneralRequest $request): RedirectResponse
     {
+        foreach ($request->uploadFiles() as $key => $file) {
+            $this->settings->storeUpload($key, $file);
+        }
+
         $this->settings->setMany($request->settingPayload());
 
         return back()->with('success', 'General settings saved.');

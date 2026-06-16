@@ -32,7 +32,7 @@ test('general settings can be updated and are cached', function () {
     ]);
 
     $this->actingAs($user)
-        ->put(route('application.general.update'), [
+        ->post(route('application.general.update'), [
             'app_name' => 'Herd OMS',
             'company_name' => 'Herd OMS LLC',
             'support_email' => 'support@herd.test',
@@ -50,6 +50,50 @@ test('general settings can be updated and are cached', function () {
 
     Cache::forget('app.settings.all');
     expect(setting(SettingKey::AppName))->toBe('Herd OMS');
+});
+
+test('salary certificate signature and stamp can be uploaded via general settings', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    setupCompanyWithApplicationSettingsPermissions($user, [
+        'settings.application.view',
+        'settings.application.update',
+    ]);
+
+    $payload = [
+        'app_name' => 'Herd OMS',
+        'company_name' => 'Herd OMS LLC',
+        'support_email' => 'hr@example.com',
+        'support_phone' => '',
+        'company_address' => '',
+        'timezone' => 'Asia/Dubai',
+        'currency' => 'USD',
+        'date_format' => 'Y-m-d',
+        'salary_certificate_signature' => UploadedFile::fake()->image('signature.png', 400, 120),
+        'salary_certificate_stamp' => UploadedFile::fake()->image('stamp.png', 500, 200),
+    ];
+
+    $this->actingAs($user)
+        ->post(route('application.general.update'), $payload)
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $signaturePath = setting(SettingKey::SalaryCertificateSignature);
+    $stampPath = setting(SettingKey::SalaryCertificateStamp);
+
+    expect($signaturePath)->not->toBeNull()
+        ->and($stampPath)->not->toBeNull();
+
+    Storage::disk('public')->assertExists((string) $signaturePath);
+    Storage::disk('public')->assertExists((string) $stampPath);
+
+    $this->actingAs($user)
+        ->delete(route('application.branding.remove', ['asset' => SettingKey::SalaryCertificateSignature]))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(setting(SettingKey::SalaryCertificateSignature))->toBeNull();
 });
 
 test('branding logo can be uploaded and removed', function () {

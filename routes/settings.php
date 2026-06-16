@@ -41,7 +41,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('settings/application', [ApplicationSettingsController::class, 'edit'])
         ->name('application.edit');
 
-    Route::put('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
+    Route::post('settings/application/general', [ApplicationSettingsController::class, 'updateGeneral'])
         ->middleware('can:settings.application.update')
         ->name('application.general.update');
 

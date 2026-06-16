@@ -38,6 +38,10 @@ final class SettingKey
 
     public const EmailBrandingLogo = 'email_branding_logo';
 
+    public const SalaryCertificateSignature = 'salary_certificate_signature';
+
+    public const SalaryCertificateStamp = 'salary_certificate_stamp';
+
     public const MailHost = 'mail_host';
 
     public const MailPort = 'mail_port';
@@ -76,6 +80,8 @@ final class SettingKey
             self::Favicon,
             self::LoginBackground,
             self::EmailBrandingLogo,
+            self::SalaryCertificateSignature,
+            self::SalaryCertificateStamp,
         ];
     }
 
