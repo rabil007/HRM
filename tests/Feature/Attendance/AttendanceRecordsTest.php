@@ -341,3 +341,113 @@ test('hikvision sync marks non working days as weekend when no punches', functio
         ->and($record->status)->toBe(AttendanceRecord::STATUS_WEEKEND)
         ->and($record->source)->toBe(AttendanceRecord::SOURCE_WEB);
 });
+
+test('hikvision sync matches events using linked hikvision full name when employee name differs', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'alias-person-1',
+        'full_name' => 'Mohammed Rabil',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohammed Rabil T',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'alias:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-12 08:00:00',
+        'person_name' => 'Mohammed Rabil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'alias:checkout',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-12 17:39:00',
+        'person_name' => 'Mohammed Rabil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-12 00:00:00'),
+        Carbon::parse('2026-06-12 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->clock_in)->not->toBeNull()
+        ->and($record->clock_out)->not->toBeNull()
+        ->and((float) $record->hours_worked)->toBe(9.65);
+});
+
+test('hikvision sync matches events when access event name omits trailing initial from linked full name', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'suffix-person-1',
+        'full_name' => 'Mohammed Rabil T',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'rabil',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'suffix:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-12 08:53:53',
+        'person_name' => 'Mohammed Rabil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'suffix:checkout',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-12 17:39:44',
+        'person_name' => 'Mohammed Rabil',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-12 00:00:00'),
+        Carbon::parse('2026-06-12 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-12')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->clock_in)->not->toBeNull()
+        ->and($record->clock_out)->not->toBeNull()
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
+});

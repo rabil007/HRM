@@ -661,36 +661,6 @@ class HikvisionService
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
 
-        // #region agent log
-        try {
-            $logPath = base_path('.cursor/debug-c72436.log');
-            $directory = dirname($logPath);
-
-            if (! is_dir($directory)) {
-                mkdir($directory, 0755, true);
-            }
-
-            file_put_contents(
-                $logPath,
-                json_encode([
-                    'sessionId' => 'c72436',
-                    'hypothesisId' => 'D',
-                    'location' => 'HikvisionService::fetchAccessEvents',
-                    'message' => 'Fetch completed, starting attendance sync',
-                    'data' => [
-                        'date_from' => $startTime->toDateString(),
-                        'date_to' => $endTime->toDateString(),
-                        'fetched_count' => $totalCount,
-                    ],
-                    'timestamp' => (int) round(microtime(true) * 1000),
-                ], JSON_UNESCAPED_UNICODE)."\n",
-                FILE_APPEND | LOCK_EX,
-            );
-        } catch (\Throwable) {
-            // Never break fetch when debug logging fails.
-        }
-        // #endregion
-
         $this->syncAttendanceRecordsForWindow($startTime, $endTime);
 
         return [
