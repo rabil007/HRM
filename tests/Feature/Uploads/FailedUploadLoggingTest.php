@@ -249,7 +249,7 @@ test('training certificate storage failures include employee context', function 
     );
 });
 
-test('successful training certificate upload is logged with module context', function () {
+test('successful training certificate upload does not log success messages', function () {
     Event::fake([MessageLogged::class]);
     Storage::fake('public');
 
@@ -316,16 +316,6 @@ test('successful training certificate upload is logged with module context', fun
         'certificate' => UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf'),
     ])->assertRedirect();
 
-    Event::assertDispatched(
-        MessageLogged::class,
-        fn (MessageLogged $event) => $event->level === 'info'
-            && $event->message === FailedUploadLogger::SUCCESS_LOG_MESSAGE
-            && ($event->context['outcome'] ?? null) === 'success'
-            && ($event->context['upload_module'] ?? null) === 'employee_training_certificate'
-            && ($event->context['employee_id'] ?? null) === $employee->id
-            && is_string($event->context['stored_path'] ?? null),
-    );
-
     Event::assertNotDispatched(
         MessageLogged::class,
         fn (MessageLogged $event) => $event->level === 'error'
@@ -333,7 +323,7 @@ test('successful training certificate upload is logged with module context', fun
     );
 });
 
-test('successful training bulk certificate uploads are logged per file', function () {
+test('successful training bulk certificate uploads do not log success messages', function () {
     Event::fake([MessageLogged::class]);
     Storage::fake('public');
 
@@ -415,15 +405,11 @@ test('successful training bulk certificate uploads are logged per file', functio
         ],
     ])->assertRedirect();
 
-    $successLogs = collect(Event::dispatched(MessageLogged::class))
-        ->flatten()
-        ->filter(
-            fn (MessageLogged $event) => $event->level === 'info'
-                && $event->message === FailedUploadLogger::SUCCESS_LOG_MESSAGE
-                && ($event->context['upload_module'] ?? null) === 'employee_training_certificate',
-        );
-
-    expect($successLogs)->toHaveCount(2);
+    Event::assertNotDispatched(
+        MessageLogged::class,
+        fn (MessageLogged $event) => $event->level === 'error'
+            && $event->message === FailedUploadLogger::LOG_MESSAGE,
+    );
 });
 
 test('uploaded file storage failures are logged with file context', function () {
