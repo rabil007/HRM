@@ -240,10 +240,10 @@ final class SyncAttendanceRecordsFromHikvision
     /**
      * @param  Collection<int, HikvisionAccessEvent>  $dayEvents
      */
-    private function resolveSourceForDay(Collection $dayEvents): string
+    private function resolveSourceForDay(Collection $dayEvents): ?string
     {
         if ($dayEvents->isEmpty()) {
-            return AttendanceRecord::SOURCE_WEB;
+            return null;
         }
 
         return $dayEvents->contains(

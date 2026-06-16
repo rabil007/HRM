@@ -13,7 +13,7 @@ export type AttendanceRecord = {
     hours_worked: string | number | null;
     overtime_hours: string | number | null;
     late_minutes: number;
-    source: string;
+    source: string | null;
     status: string;
     notes: string | null;
 };

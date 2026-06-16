@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { TableRowActions } from '@/components/table-row-actions';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayTime12h } from '@/lib/format-date';
 import type { PaginationMeta } from '@/types/pagination';
 import { RecordDeleteDialog } from './components/record-delete-dialog';
 import { RecordFiltersSheet } from './components/record-filters-sheet';
@@ -212,10 +212,10 @@ export function AttendanceRecordsContent({
                                         {formatDisplayDate(record.date)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayDateTime(record.clock_in)}
+                                        {formatDisplayTime12h(record.clock_in)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayDateTime(record.clock_out)}
+                                        {formatDisplayTime12h(record.clock_out)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {record.hours_worked ?? '—'}
@@ -223,7 +223,9 @@ export function AttendanceRecordsContent({
                                     <TableCell className={dataTableCellClass}>
                                         <RecordStatusBadge status={record.status} />
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>{record.source}</TableCell>
+                                    <TableCell className={dataTableCellClass}>
+                                        {record.clock_in || record.clock_out ? (record.source ?? '—') : '—'}
+                                    </TableCell>
                                     <TableCell className={dataTableActionsCellClass}>
                                         <TableRowActions
                                             actions={[
