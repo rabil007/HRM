@@ -14,6 +14,13 @@ type SearchProviderProps = {
 
 export function SearchProvider({ children }: SearchProviderProps) {
     const [open, setOpen] = useState(false);
+    const [commandMenuMounted, setCommandMenuMounted] = useState(false);
+
+    useEffect(() => {
+        if (open) {
+            setCommandMenuMounted(true);
+        }
+    }, [open]);
 
     useEffect(() => {
         const down = (e: KeyboardEvent) => {
@@ -30,7 +37,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
     return (
         <SearchContext value={{ open, setOpen }}>
             {children}
-            <CommandMenu />
+            {commandMenuMounted ? <CommandMenu /> : null}
         </SearchContext>
     );
 }

@@ -17,7 +17,6 @@ import {
     SheetContent,
     SheetDescription,
     SheetFooter,
-    SheetHeader,
     SheetTitle,
     SheetTrigger,
 } from '@/components/ui/sheet';
@@ -46,20 +45,16 @@ export function ConfigDrawer() {
                     size="icon"
                     variant="ghost"
                     aria-label="Open theme settings"
-                    aria-describedby="config-drawer-description"
                     className="rounded-full"
                 >
                     <Settings aria-hidden="true" />
                 </Button>
             </SheetTrigger>
             <SheetContent className="flex flex-col">
-                <SheetHeader className="pb-0 text-start">
-                    <SheetTitle>Theme Settings</SheetTitle>
-                    <SheetDescription id="config-drawer-description">
-                        Adjust the appearance and layout to suit your
-                        preferences.
-                    </SheetDescription>
-                </SheetHeader>
+                <SheetTitle className="px-4 pt-4 text-start">Theme Settings</SheetTitle>
+                <SheetDescription className="px-4 pb-0 text-start">
+                    Adjust the appearance and layout to suit your preferences.
+                </SheetDescription>
                 <div className="space-y-6 overflow-y-auto px-4">
                     <ThemeConfig />
                     <SidebarConfig />
@@ -137,7 +132,6 @@ function RadioGroupItem({
                 'transition duration-200 ease-in',
             )}
             aria-label={`Select ${item.label.toLowerCase()}`}
-            aria-describedby={`${item.value}-description`}
         >
             <div
                 className={cn(
@@ -145,9 +139,7 @@ function RadioGroupItem({
                     'group-data-[state=checked]:shadow-2xl group-data-[state=checked]:ring-primary',
                     'group-focus-visible:ring-2',
                 )}
-                role="img"
-                aria-hidden="false"
-                aria-label={`${item.label} option preview`}
+                aria-hidden="true"
             >
                 <CircleCheck
                     className={cn(
@@ -165,13 +157,7 @@ function RadioGroupItem({
                     aria-hidden="true"
                 />
             </div>
-            <div
-                className="mt-1 text-xs"
-                id={`${item.value}-description`}
-                aria-live="polite"
-            >
-                {item.label}
-            </div>
+            <div className="mt-1 text-xs">{item.label}</div>
         </Item>
     );
 }
