@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Attendance;
 
+use App\Exports\AttendanceRecordsExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\StoreAttendanceRecordRequest;
 use App\Http\Requests\Attendance\UpdateAttendanceRecordRequest;
@@ -10,10 +11,14 @@ use App\Models\Employee;
 use App\Support\Attendance\AttendanceRecordVisibility;
 use App\Support\Pagination\ResolvesPerPage;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AttendanceRecordController extends Controller
 {
@@ -30,42 +35,9 @@ class AttendanceRecordController extends Controller
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
 
-        $status = $request->string('status')->toString();
+        $filters = $this->filtersFromRequest($request, $search);
 
-        if ($status !== '' && ! in_array($status, AttendanceRecord::statusOptions(), true)) {
-            $status = '';
-        }
-
-        $source = $request->string('source')->toString();
-
-        if ($source !== '' && ! in_array($source, AttendanceRecord::sourceOptions(), true)) {
-            $source = '';
-        }
-
-        $dateFrom = $request->string('date_from')->toString();
-        $dateTo = $request->string('date_to')->toString();
-
-        if ($dateFrom === '' && $dateTo === '') {
-            $dateFrom = now()->startOfMonth()->toDateString();
-            $dateTo = now()->endOfMonth()->toDateString();
-        }
-
-        $filters = [
-            'search' => $search,
-            'date_from' => $dateFrom,
-            'date_to' => $dateTo,
-            'employee_id' => $request->string('employee_id')->toString(),
-            'status' => $status,
-            'source' => $source,
-        ];
-
-        $paginator = AttendanceRecord::query()
-            ->with(['employee:id,company_id,employee_no,name'])
-            ->where('company_id', $companyId)
-            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
-            ->filtered($filters)
-            ->orderByDesc('date')
-            ->orderByDesc('id')
+        $paginator = $this->filteredRecordsQuery($request, $filters)
             ->paginate($perPage)
             ->withQueryString();
 
@@ -171,6 +143,25 @@ class AttendanceRecordController extends Controller
             ->with('success', 'Attendance record updated successfully.');
     }
 
+    public function export(Request $request): BinaryFileResponse
+    {
+        $search = trim((string) $request->query('search', ''));
+        $filters = $this->filtersFromRequest($request, $search);
+        $records = $this->filteredRecordsQuery($request, $filters)->get();
+
+        $filename = sprintf(
+            'attendance-records_%s_to_%s.xlsx',
+            $filters['date_from'],
+            $filters['date_to'],
+        );
+
+        return Excel::download(
+            new AttendanceRecordsExport($records),
+            $filename,
+            ExcelWriter::XLSX,
+        );
+    }
+
     public function destroy(Request $request, AttendanceRecord $attendanceRecord): RedirectResponse
     {
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -183,6 +174,58 @@ class AttendanceRecordController extends Controller
         return redirect()
             ->route('attendance.records.index', $request->only(['search', 'date_from', 'date_to', 'employee_id', 'status', 'source', 'page', 'per_page']))
             ->with('success', 'Attendance record deleted successfully.');
+    }
+
+    /**
+     * @return array{search: string, date_from: string, date_to: string, employee_id: string, status: string, source: string}
+     */
+    private function filtersFromRequest(Request $request, string $search = ''): array
+    {
+        $status = $request->string('status')->toString();
+
+        if ($status !== '' && ! in_array($status, AttendanceRecord::statusOptions(), true)) {
+            $status = '';
+        }
+
+        $source = $request->string('source')->toString();
+
+        if ($source !== '' && ! in_array($source, AttendanceRecord::sourceOptions(), true)) {
+            $source = '';
+        }
+
+        $dateFrom = $request->string('date_from')->toString();
+        $dateTo = $request->string('date_to')->toString();
+
+        if ($dateFrom === '' && $dateTo === '') {
+            $dateFrom = now()->startOfMonth()->toDateString();
+            $dateTo = now()->endOfMonth()->toDateString();
+        }
+
+        return [
+            'search' => $search,
+            'date_from' => $dateFrom,
+            'date_to' => $dateTo,
+            'employee_id' => $request->string('employee_id')->toString(),
+            'status' => $status,
+            'source' => $source,
+        ];
+    }
+
+    /**
+     * @param  array{search: string, date_from: string, date_to: string, employee_id: string, status: string, source: string}  $filters
+     * @return Builder<AttendanceRecord>
+     */
+    private function filteredRecordsQuery(Request $request, array $filters): Builder
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        return AttendanceRecord::query()
+            ->with(['employee:id,company_id,employee_no,name'])
+            ->where('company_id', $companyId)
+            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $request->user(), $companyId))
+            ->filtered($filters)
+            ->orderByDesc('date')
+            ->orderByDesc('id');
     }
 
     /**

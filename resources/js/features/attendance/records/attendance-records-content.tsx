@@ -1,5 +1,5 @@
 import { useForm } from '@inertiajs/react';
-import { Filter, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
+import { Download, Filter, Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
@@ -121,6 +121,38 @@ export function AttendanceRecordsContent({
         });
     };
 
+    const exportUrl = useMemo(() => {
+        const params = new URLSearchParams();
+
+        if (initialSearch) {
+            params.set('search', initialSearch);
+        }
+
+        if (filters.date_from) {
+            params.set('date_from', filters.date_from);
+        }
+
+        if (filters.date_to) {
+            params.set('date_to', filters.date_to);
+        }
+
+        if (filters.employee_id) {
+            params.set('employee_id', filters.employee_id);
+        }
+
+        if (filters.status) {
+            params.set('status', filters.status);
+        }
+
+        if (filters.source) {
+            params.set('source', filters.source);
+        }
+
+        const query = params.toString();
+
+        return query ? `/attendance/records/export?${query}` : '/attendance/records/export';
+    }, [filters, initialSearch]);
+
     const handleAdd = () => {
         setCurrentRecord(null);
         form.reset();
@@ -170,6 +202,14 @@ export function AttendanceRecordsContent({
                 description="View and manage daily attendance entries."
                 right={
                     <div className="flex flex-wrap items-center gap-2">
+                        {can.manage ? (
+                            <Button variant="outline" className="rounded-xl h-12 px-5" asChild>
+                                <a href={exportUrl}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Export
+                                </a>
+                            </Button>
+                        ) : null}
                         {can.create ? (
                             <Button onClick={handleAdd} className="rounded-xl shadow-lg shadow-primary/20 h-12 px-6">
                                 <Plus className="mr-2 h-4 w-4" />

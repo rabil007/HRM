@@ -501,3 +501,50 @@ test('cannot update attendance record to duplicate another day for the same empl
 
     expect($laterRecord->fresh()->date?->toDateString())->toBe('2026-06-13');
 });
+
+test('users without manage permission cannot export attendance records', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, ['attendance.records.view']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/records/export')
+        ->assertForbidden();
+});
+
+test('users with manage permission can export filtered attendance records', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Export Employee',
+        'employee_no' => 'EXP001',
+    ]);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create([
+        'date' => '2026-06-12',
+        'clock_in' => '2026-06-12 08:00:00',
+        'clock_out' => '2026-06-12 17:00:00',
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_BIOMETRIC,
+    ]);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create([
+        'date' => '2026-06-15',
+        'status' => AttendanceRecord::STATUS_ABSENT,
+        'source' => null,
+        'clock_in' => null,
+        'clock_out' => null,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.manage',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get('/attendance/records/export?date_from=2026-06-12&date_to=2026-06-12&search=Export')
+        ->assertOk()
+        ->assertDownload('attendance-records_2026-06-12_to_2026-06-12.xlsx');
+});

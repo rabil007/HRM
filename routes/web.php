@@ -280,6 +280,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:attendance.records.view')
         ->name('attendance.records.index');
 
+    Route::get('attendance/records/export', [AttendanceRecordController::class, 'export'])
+        ->middleware('can:attendance.records.manage')
+        ->name('attendance.records.export');
+
     Route::post('attendance/records', [AttendanceRecordController::class, 'store'])
         ->middleware('can:attendance.records.create')
         ->name('attendance.records.store');
