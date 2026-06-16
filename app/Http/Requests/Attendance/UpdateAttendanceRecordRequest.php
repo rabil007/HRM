@@ -3,13 +3,16 @@
 namespace App\Http\Requests\Attendance;
 
 use App\Http\Requests\Attendance\Concerns\AttendanceRecordValidationRules;
+use App\Http\Requests\Attendance\Concerns\ValidatesUniqueAttendanceRecord;
 use App\Models\AttendanceRecord;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Validator;
 
 class UpdateAttendanceRecordRequest extends FormRequest
 {
     use AttendanceRecordValidationRules;
+    use ValidatesUniqueAttendanceRecord;
 
     public function authorize(): bool
     {
@@ -26,6 +29,13 @@ class UpdateAttendanceRecordRequest extends FormRequest
                 ? $this->route('attendance_record')->id
                 : null,
         );
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            $this->validateUniqueAttendanceRecord($validator);
+        });
     }
 
     protected function prepareForValidation(): void

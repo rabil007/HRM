@@ -19,7 +19,7 @@ import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { TableRowActions } from '@/components/table-row-actions';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDate, formatDisplayTime12h } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayDateTime12h } from '@/lib/format-date';
 import type { PaginationMeta } from '@/types/pagination';
 import { RecordDeleteDialog } from './components/record-delete-dialog';
 import { RecordFiltersSheet } from './components/record-filters-sheet';
@@ -212,10 +212,10 @@ export function AttendanceRecordsContent({
                                         {formatDisplayDate(record.date)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayTime12h(record.clock_in)}
+                                        {formatDisplayDateTime12h(record.clock_in)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
-                                        {formatDisplayTime12h(record.clock_out)}
+                                        {formatDisplayDateTime12h(record.clock_out)}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {record.hours_worked ?? '—'}

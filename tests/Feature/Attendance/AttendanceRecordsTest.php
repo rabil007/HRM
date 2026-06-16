@@ -451,3 +451,53 @@ test('hikvision sync matches events when access event name omits trailing initia
         ->and($record->clock_out)->not->toBeNull()
         ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
 });
+
+test('cannot create duplicate attendance record for same employee and date', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.create',
+        'attendance.records.manage',
+    ]);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create(['date' => '2026-06-12']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/records')
+        ->post('/attendance/records', validAttendanceRecordPayload($employee, ['date' => '2026-06-12']))
+        ->assertSessionHasErrors([
+            'date' => 'An attendance record already exists for this employee on this date. Edit the existing record instead.',
+        ]);
+
+    expect(AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-12')
+        ->count())->toBe(1);
+});
+
+test('cannot update attendance record to duplicate another day for the same employee', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.records.view',
+        'attendance.records.update',
+        'attendance.records.manage',
+    ]);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create(['date' => '2026-06-12']);
+    $laterRecord = AttendanceRecord::factory()->forEmployee($employee)->create(['date' => '2026-06-13']);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->from('/attendance/records')
+        ->put("/attendance/records/{$laterRecord->id}", validAttendanceRecordPayload($employee, ['date' => '2026-06-12']))
+        ->assertSessionHasErrors([
+            'date' => 'An attendance record already exists for this employee on this date. Edit the existing record instead.',
+        ]);
+
+    expect($laterRecord->fresh()->date?->toDateString())->toBe('2026-06-13');
+});
