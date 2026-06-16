@@ -78,13 +78,22 @@ export function AttendanceRecordsContent({
 
     const form = useForm(defaultAttendanceRecordFormData());
 
-    const filters: AttendanceRecordFilters = {
-        date_from: initialFilters.date_from,
-        date_to: initialFilters.date_to,
-        employee_id: initialFilters.employee_id,
-        status: initialFilters.status,
-        source: initialFilters.source,
-    };
+    const filters: AttendanceRecordFilters = useMemo(
+        () => ({
+            date_from: initialFilters.date_from,
+            date_to: initialFilters.date_to,
+            employee_id: initialFilters.employee_id,
+            status: initialFilters.status,
+            source: initialFilters.source,
+        }),
+        [
+            initialFilters.date_from,
+            initialFilters.date_to,
+            initialFilters.employee_id,
+            initialFilters.status,
+            initialFilters.source,
+        ],
+    );
 
     const activeFilterCount = useMemo(
         () =>
