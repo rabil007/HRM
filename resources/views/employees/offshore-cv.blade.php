@@ -189,6 +189,31 @@
             font-style: italic;
             padding: 6px;
         }
+
+        table.experience-summary {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 6px;
+        }
+
+        table.experience-summary td {
+            border: 1px solid #94a3b8;
+            padding: 4px 6px;
+            font-size: 7.5pt;
+            vertical-align: middle;
+        }
+
+        table.experience-summary .lbl {
+            font-weight: 700;
+            background: #f1f5f9;
+            width: 42%;
+        }
+
+        table.experience-summary .val {
+            text-align: center;
+            font-weight: 700;
+            width: 8%;
+        }
     </style>
 </head>
 <body class="{{ !empty($is_pdf) ? 'pdf-output' : '' }}">
@@ -322,6 +347,15 @@
                             </tr>
                         @endforelse
                     </tbody>
+                </table>
+
+                <table class="experience-summary">
+                    <tr>
+                        <td class="lbl">Total experience in the applied rank (in years)</td>
+                        <td class="val">{{ $experience_rank_ymd }}</td>
+                        <td class="lbl">Offshore experience (in years)</td>
+                        <td class="val">{{ $experience_offshore_ymd }}</td>
+                    </tr>
                 </table>
             </div>
 

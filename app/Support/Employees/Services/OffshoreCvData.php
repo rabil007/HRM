@@ -45,7 +45,6 @@ final class OffshoreCvData
         $seaServices = EmployeeSeaService::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->where('is_offshore', true)
             ->with(['vesselType:id,name', 'rank:id,name', 'client:id,name'])
             ->orderBy('sort_order')
             ->orderByDesc('start_date')
@@ -53,14 +52,17 @@ final class OffshoreCvData
             ->get();
 
         $rankApplied = $employee->rank?->name ?? $employee->position?->title ?? '';
-        $rankSeaServices = EmployeeSeaService::query()
-            ->where('company_id', $companyId)
-            ->where('employee_id', $employee->id)
-            ->when($rankApplied !== '', function ($query) use ($rankApplied): void {
-                $query->whereHas('rank', fn ($rankQuery) => $rankQuery->where('name', $rankApplied));
-            })
-            ->get();
 
+        $rankSeaServices = $employee->rank_id
+            ? $seaServices->filter(fn (EmployeeSeaService $row) => (int) $row->rank_id === (int) $employee->rank_id)
+            : ($rankApplied !== ''
+                ? $seaServices->filter(fn (EmployeeSeaService $row) => strcasecmp((string) $row->rank?->name, $rankApplied) === 0)
+                : $seaServices);
+
+        $offshoreRows = $seaServices->filter(fn (EmployeeSeaService $row) => $row->is_offshore);
+
+        $experienceRankYmd = self::formatExperienceYmd($rankSeaServices);
+        $experienceOffshoreYmd = self::formatExperienceYmd($offshoreRows);
         $experienceYears = self::yearsFromSeaServices($rankSeaServices);
         $fullName = trim((string) $employee->name);
 
@@ -72,7 +74,7 @@ final class OffshoreCvData
             'visa_status' => (string) ($employee->companyVisaTypeRef?->name ?? $employee->visaTypeRef?->name ?? ''),
             'phone' => (string) ($employee->phone ?? ''),
             'email' => (string) ($employee->work_email ?? $employee->personal_email ?? ''),
-            'professional_summary' => self::professionalSummary($fullName, $experienceYears),
+            'professional_summary' => self::professionalSummary($fullName, $experienceRankYmd, $experienceYears),
             'trade_skills' => '—',
             'safety_competencies' => '—',
             'operations_competencies' => '—',
@@ -93,19 +95,42 @@ final class OffshoreCvData
                 'bhp' => $row->bhp !== null ? (string) $row->bhp : '',
                 'company_name' => (string) ($row->client?->name ?? ''),
             ])->values()->all(),
+            'experience_rank_ymd' => $experienceRankYmd,
+            'experience_offshore_ymd' => $experienceOffshoreYmd,
             'generated_at' => now(),
         ];
     }
 
-    private static function professionalSummary(string $fullName, string $experienceYears): string
+    private static function professionalSummary(string $fullName, string $experienceRankYmd, string $experienceYears): string
     {
-        $yearsLabel = $experienceYears !== '' ? $experienceYears : '0';
+        $experienceLabel = $experienceRankYmd !== '0Y/0M/0D' && $experienceRankYmd !== ''
+            ? $experienceRankYmd
+            : ($experienceYears !== '' ? "{$experienceYears} years" : '0Y/0M/0D');
 
         return sprintf(
-            'Dedicated %s with %s years of experience in the applied rank in the Arabian Gulf. Skilled in maintaining high safety and operational standards, ensuring project efficiency and compliance with ADNOC safety standards.',
+            'Dedicated %s with %s of experience in the applied rank in the Arabian Gulf. Skilled in maintaining high safety and operational standards, ensuring project efficiency and compliance with ADNOC safety standards.',
             $fullName,
-            $yearsLabel,
+            $experienceLabel,
         );
+    }
+
+    /**
+     * @param  Collection<int, EmployeeSeaService>  $services
+     */
+    private static function formatExperienceYmd(Collection $services): string
+    {
+        if ($services->isEmpty()) {
+            return '0Y/0M/0D';
+        }
+
+        $rows = $services->map(fn (EmployeeSeaService $row) => [
+            'total_months' => $row->total_months,
+            'total_days' => $row->total_days,
+            'start_date' => $row->start_date?->toDateString(),
+            'end_date' => $row->end_date?->toDateString(),
+        ])->all();
+
+        return SummarizeSeaServiceExperience::formatYmd($rows);
     }
 
     /**

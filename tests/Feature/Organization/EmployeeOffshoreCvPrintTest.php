@@ -130,7 +130,9 @@ test('authenticated users can open printable offshore cv', function () {
         ->assertSee('BOSIET', false)
         ->assertSee('Najeeb 3000', false)
         ->assertSee('ADNOC Offshore', false)
-        ->assertDontSee('Onshore Vessel', false);
+        ->assertSee('Onshore Vessel', false)
+        ->assertSee('Total experience in the applied rank (in years)', false)
+        ->assertSee('Offshore experience (in years)', false);
 });
 
 test('authenticated users can download offshore cv as pdf', function () {
@@ -176,7 +178,7 @@ test('authenticated users can download offshore cv as pdf', function () {
         ->assertHeader('content-type', 'application/pdf');
 });
 
-test('offshore cv data only includes offshore sea service rows', function () {
+test('offshore cv data includes all sea service rows in project history', function () {
     $country = Country::query()->create([
         'code' => 'OCD',
         'name' => 'Offshore CV Data Land',
@@ -225,6 +227,75 @@ test('offshore cv data only includes offshore sea service rows', function () {
 
     $data = OffshoreCvData::for($employee, $company->id);
 
-    expect($data['offshore_projects'])->toHaveCount(1)
-        ->and($data['offshore_projects'][0]['vessel_name'])->toBe('Offshore Alpha');
+    expect($data['offshore_projects'])->toHaveCount(2)
+        ->and(collect($data['offshore_projects'])->pluck('vessel_name')->all())
+        ->toContain('Offshore Alpha', 'Seagoing Beta')
+        ->and($data['experience_offshore_ymd'])->not->toBe('0Y/0M/0D');
+});
+
+test('offshore cv experience in applied rank uses employee rank id', function () {
+    $country = Country::query()->create([
+        'code' => 'OCR',
+        'name' => 'Offshore CV Rank Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'OCR',
+        'name' => 'Offshore CV Rank Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Rank Offshore Co',
+        'slug' => 'rank-offshore-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $masterRank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
+    $shadowRank = Rank::query()->create(['name' => 'Shadow Master', 'is_active' => true]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Rank Worker',
+            'rank_id' => $masterRank->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeSeaService::factory()
+        ->forEmployee($employee)
+        ->create([
+            'vessel_name' => 'Master Vessel',
+            'rank_id' => $masterRank->id,
+            'start_date' => null,
+            'end_date' => null,
+            'total_months' => 11,
+            'total_days' => 30,
+            'is_offshore' => false,
+        ]);
+
+    EmployeeSeaService::factory()
+        ->forEmployee($employee)
+        ->create([
+            'vessel_name' => 'Shadow Vessel',
+            'rank_id' => $shadowRank->id,
+            'start_date' => '2023-01-01',
+            'end_date' => '2023-12-31',
+            'total_months' => 12,
+            'total_days' => 0,
+            'is_offshore' => false,
+        ]);
+
+    $data = OffshoreCvData::for($employee, $company->id);
+
+    expect($data['experience_rank_ymd'])->toBe('1Y/0M/0D')
+        ->and($data['experience_offshore_ymd'])->toBe('0Y/0M/0D');
 });
