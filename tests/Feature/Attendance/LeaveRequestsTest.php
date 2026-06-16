@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -55,10 +56,15 @@ function makeLeaveRequestsFixtures(): array
 /**
  * @return array{employee: Employee, leaveType: LeaveType}
  */
-function makeLeaveRequestActors(Company $company): array
+function makeLeaveRequestActors(Company $company, int $year = 2026): array
 {
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
-    $leaveType = LeaveType::factory()->for($company)->create(['status' => 'active']);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'status' => 'active',
+        'days_per_year' => 30,
+    ]);
+
+    app(LeaveBalanceManager::class)->ensureEmployeeYear((int) $company->id, (int) $employee->id, $year);
 
     return ['employee' => $employee, 'leaveType' => $leaveType];
 }

@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\Attendance\LeaveBalanceManager;
 use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -125,6 +126,8 @@ test('attendance calendar legend includes leave type balance for linked employee
         'total_days' => 2,
         'status' => 'pending',
     ]);
+
+    app(LeaveBalanceManager::class)->syncEmployeeYear($company->id, $employee->id, 2026);
 
     $this->get(route('attendance.calendar.index', ['year' => 2026]))
         ->assertOk()

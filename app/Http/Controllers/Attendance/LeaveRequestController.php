@@ -13,6 +13,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\Attendance\CalculateLeaveRequestDays;
+use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Pagination\ResolvesPerPage;
@@ -28,6 +29,7 @@ class LeaveRequestController extends Controller
     public function __construct(
         private LeaveRequestAttachments $attachments,
         private LeaveRequestVisibility $visibility,
+        private LeaveBalanceManager $leaveBalances,
     ) {}
 
     public function index(Request $request): Response
@@ -185,6 +187,8 @@ class LeaveRequestController extends Controller
             ]);
         }
 
+        $this->leaveBalances->reserveLeaveRequest($leaveRequest->fresh());
+
         return redirect()
             ->route('attendance.leave-requests.index')
             ->with('success', 'Leave request created successfully.');
@@ -207,6 +211,13 @@ class LeaveRequestController extends Controller
         $data = $request->validated();
 
         $attachmentPayload = $this->resolveAttachmentUpdate($request, $leaveRequest, $companyId);
+
+        $this->leaveBalances->replacePendingLeaveRequest($leaveRequest, [
+            'employee_id' => $data['employee_id'],
+            'leave_type_id' => $data['leave_type_id'],
+            'start_date' => $data['start_date'],
+            'end_date' => $data['end_date'],
+        ]);
 
         $leaveRequest->update(array_merge([
             'employee_id' => $data['employee_id'],
@@ -233,6 +244,10 @@ class LeaveRequestController extends Controller
                 ->withErrors(['leave_request' => 'Only pending or cancelled leave requests can be deleted.']);
         }
 
+        if ($leaveRequest->status === 'pending') {
+            $this->leaveBalances->releaseLeaveRequest($leaveRequest);
+        }
+
         $leaveRequest->delete();
 
         return redirect()
@@ -250,6 +265,8 @@ class LeaveRequestController extends Controller
                 ->route('attendance.leave-requests.index')
                 ->withErrors(['leave_request' => 'Only pending leave requests can be approved.']);
         }
+
+        $this->leaveBalances->approveLeaveRequest($leaveRequest);
 
         $leaveRequest->update([
             'status' => 'approved',
@@ -275,6 +292,8 @@ class LeaveRequestController extends Controller
                 ->withErrors(['leave_request' => 'Only pending leave requests can be rejected.']);
         }
 
+        $this->leaveBalances->releaseLeaveRequest($leaveRequest);
+
         $leaveRequest->update([
             'status' => 'rejected',
             'approved_by' => $request->user()?->id,
@@ -297,6 +316,8 @@ class LeaveRequestController extends Controller
                 ->route('attendance.leave-requests.index')
                 ->withErrors(['leave_request' => 'Only pending leave requests can be cancelled.']);
         }
+
+        $this->leaveBalances->releaseLeaveRequest($leaveRequest);
 
         $leaveRequest->update([
             'status' => 'cancelled',

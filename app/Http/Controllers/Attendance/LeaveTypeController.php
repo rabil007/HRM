@@ -9,6 +9,7 @@ use App\Http\Requests\Attendance\UpdateLeaveTypeStatusRequest;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -18,6 +19,10 @@ use Inertia\Response;
 class LeaveTypeController extends Controller
 {
     use ResolvesPerPage;
+
+    public function __construct(
+        private LeaveBalanceManager $leaveBalances,
+    ) {}
 
     public function index(): Response
     {
@@ -96,7 +101,9 @@ class LeaveTypeController extends Controller
         $data = $this->normalizeLeaveTypeData($request->validated());
         $data['company_id'] = (int) $request->attributes->get('current_company_id');
 
-        LeaveType::query()->create($data);
+        $leaveType = LeaveType::query()->create($data);
+
+        $this->leaveBalances->provisionLeaveType($leaveType);
 
         return redirect()
             ->route('attendance.types.index')

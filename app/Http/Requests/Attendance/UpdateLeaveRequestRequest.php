@@ -3,8 +3,10 @@
 namespace App\Http\Requests\Attendance;
 
 use App\Http\Requests\Attendance\Concerns\LeaveRequestValidationRules;
+use App\Http\Requests\Attendance\Concerns\ValidatesLeaveRequestBalance;
 use App\Http\Requests\Attendance\Concerns\ValidatesOverlappingLeaveRequests;
 use App\Http\Requests\Attendance\Concerns\ValidatesOwnLeaveRequestEmployee;
+use App\Models\LeaveRequest;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Validator;
@@ -12,6 +14,7 @@ use Illuminate\Validation\Validator;
 class UpdateLeaveRequestRequest extends FormRequest
 {
     use LeaveRequestValidationRules;
+    use ValidatesLeaveRequestBalance;
     use ValidatesOverlappingLeaveRequests;
     use ValidatesOwnLeaveRequestEmployee;
 
@@ -33,6 +36,12 @@ class UpdateLeaveRequestRequest extends FormRequest
         $validator->after(function (Validator $validator): void {
             $this->validateOwnLeaveRequestEmployee($validator);
             $this->validateOverlappingLeaveRequests($validator);
+
+            $leaveRequest = $this->route('leave_request');
+
+            if ($leaveRequest instanceof LeaveRequest && $leaveRequest->status === 'pending') {
+                $this->validateLeaveRequestBalance($validator, $leaveRequest->id);
+            }
         });
     }
 }

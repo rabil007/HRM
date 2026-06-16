@@ -6,6 +6,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
+use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\EmployeeDocuments\StoresEmployeeDocument;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Http\UploadedFile;
@@ -162,6 +163,10 @@ final class CreateEmployee
 
         if (is_array($documents) && count($documents) > 0) {
             $this->storeOnboardingDocuments($employee, $documents, $companyId, $userId);
+        }
+
+        if ($employee->status === 'active') {
+            app(LeaveBalanceManager::class)->provisionEmployee($employee);
         }
 
         return $employee;
