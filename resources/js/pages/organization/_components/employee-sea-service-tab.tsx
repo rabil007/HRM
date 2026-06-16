@@ -148,7 +148,6 @@ export type EmployeeSeaServiceTabProps = {
     vessel_types: VesselTypeOption[];
     ranks: RankOption[];
     clients: ClientOption[];
-    employeeRankId: number | null;
     canManage: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -160,7 +159,6 @@ export function EmployeeSeaServiceTab({
     vessel_types,
     ranks,
     clients,
-    employeeRankId,
     canManage,
     templateFields = null,
 }: EmployeeSeaServiceTabProps): ReactElement {
