@@ -5,6 +5,7 @@ use App\Models\HikvisionPerson;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 function fakeHikvisionPersonCrudApi(string $personId = 'new-person-1'): void
 {
@@ -122,12 +123,16 @@ test('user with permission can update hikvision person', function () {
 });
 
 test('user with permission can delete hikvision person and clear employee link', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('hikvision/persons/person-delete-1.jpg', 'cached-image');
+
     configuredHikvisionSettings();
     fakeHikvisionPersonCrudApi('person-delete-1');
 
     $person = HikvisionPerson::query()->create([
         'person_id' => 'person-delete-1',
         'full_name' => 'Delete Me',
+        'photo_path' => 'hikvision/persons/person-delete-1.jpg',
     ]);
 
     $employee = Employee::factory()->create([
@@ -144,7 +149,8 @@ test('user with permission can delete hikvision person and clear employee link',
         ->assertSessionHas('success');
 
     expect(HikvisionPerson::query()->whereKey($person->id)->exists())->toBeFalse()
-        ->and($employee->fresh()->hikvision_person_id)->toBeNull();
+        ->and($employee->fresh()->hikvision_person_id)->toBeNull()
+        ->and(Storage::disk('public')->exists('hikvision/persons/person-delete-1.jpg'))->toBeFalse();
 });
 
 test('user without create permission cannot store hikvision person', function () {
@@ -159,6 +165,8 @@ test('user without create permission cannot store hikvision person', function ()
 });
 
 test('user with permission can upload hikvision person photo', function () {
+    Storage::fake('public');
+
     configuredHikvisionSettings();
     fakeHikvisionPersonCrudApi('person-photo-1');
 
@@ -177,4 +185,10 @@ test('user with permission can upload hikvision person photo', function () {
         ])
         ->assertRedirect()
         ->assertSessionHas('success');
+
+    $person = $person->fresh();
+
+    expect($person->photo_path)->toBe('hikvision/persons/person-photo-1.jpg')
+        ->and($person->photo_url)->toBe('/storage/hikvision/persons/person-photo-1.jpg')
+        ->and(Storage::disk('public')->exists($person->photo_path))->toBeTrue();
 });

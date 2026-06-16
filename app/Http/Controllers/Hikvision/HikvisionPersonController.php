@@ -12,6 +12,7 @@ use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Services\HikvisionService;
 use App\Support\Employees\Actions\SyncEmployeeHikvisionPersonLink;
+use App\Support\Hikvision\HikvisionPersonPhotoStorage;
 use App\Support\Hikvision\HikvisionPersonWritePayload;
 use App\Support\Pagination\ResolvesPerPage;
 use Illuminate\Http\RedirectResponse;
@@ -216,6 +217,8 @@ class HikvisionPersonController extends Controller
                     ->where('hikvision_person_id', $person->id)
                     ->update(['hikvision_person_id' => null]);
 
+                HikvisionPersonPhotoStorage::delete($person);
+
                 $person->delete();
             });
 
@@ -240,11 +243,17 @@ class HikvisionPersonController extends Controller
             $this->hikvision->uploadPersonPhoto($person->person_id, $photoBase64);
             $detail = $this->hikvision->getPersonDetail($person->person_id);
 
-            HikvisionPerson::upsertFromApi([
+            $person = HikvisionPerson::upsertFromApi([
                 'personInfo' => $detail,
                 'fingerList' => [],
                 'pinCode' => '',
             ], $person);
+
+            HikvisionPersonPhotoStorage::applyUploadedFile(
+                $person,
+                $request->file('photo'),
+                filled($detail['headPicUrl'] ?? null) ? (string) $detail['headPicUrl'] : null,
+            );
 
             return back()->with('success', 'Person photo uploaded.');
         } catch (RuntimeException $exception) {

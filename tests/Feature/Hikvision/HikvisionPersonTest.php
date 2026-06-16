@@ -6,6 +6,7 @@ use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 
 function postHikvisionPersonsSync(User $user): TestResponse
@@ -538,8 +539,11 @@ test('persons index supports credential filter', function () {
         );
 });
 
-test('sync stores long signed photo urls', function () {
+test('sync caches person photos locally from signed urls', function () {
+    Storage::fake('public');
+
     $longPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com/GDPR001/be2e21fbf43340c881fdcf8a80d224f8/705076685447887872/0/picture.data?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=LTAI5tQckMpJxMb4qoHXJySP%2F20260606%2Foss-ap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260606T190055Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=04a9f6f4d49d6638fd69432884766d9efdad1af6f48561a7162d2ad16b263b85';
+    $imageBody = file_get_contents(__DIR__.'/../../Fixtures/hikvision-person-photo.jpg');
 
     Http::fake([
         'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
@@ -571,6 +575,7 @@ test('sync stores long signed photo urls', function () {
             ],
             'errorCode' => '0',
         ], 200),
+        $longPhotoUrl => Http::response($imageBody, 200, ['Content-Type' => 'image/jpeg']),
     ]);
 
     configuredHikvisionSettings();
@@ -583,8 +588,256 @@ test('sync stores long signed photo urls', function () {
 
     postHikvisionPersonsSync($user)->assertRedirect();
 
-    expect(HikvisionPerson::query()->where('person_id', 'person-long-url')->value('photo_url'))
-        ->toBe($longPhotoUrl);
+    $person = HikvisionPerson::query()->where('person_id', 'person-long-url')->first();
+
+    expect($person)->not->toBeNull()
+        ->and($person->photo_path)->toBe('hikvision/persons/person-long-url.jpg')
+        ->and($person->photo_remote_key)->toBe('/GDPR001/be2e21fbf43340c881fdcf8a80d224f8/705076685447887872/0/picture.data')
+        ->and($person->photo_url)->toBe('/storage/hikvision/persons/person-long-url.jpg')
+        ->and(Storage::disk('public')->exists($person->photo_path))->toBeTrue();
+});
+
+test('sync skips re-downloading photo when remote object key is unchanged', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('hikvision/persons/person-long-url.jpg', 'cached-image');
+
+    $remoteKey = '/GDPR001/be2e21fbf43340c881fdcf8a80d224f8/705076685447887872/0/picture.data';
+    $firstPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com'.$remoteKey.'?sig=first';
+    $secondPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com'.$remoteKey.'?sig=second';
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-long-url',
+        'full_name' => 'Syam',
+        'photo_path' => 'hikvision/persons/person-long-url.jpg',
+        'photo_remote_key' => $remoteKey,
+        'synced_at' => now()->subDay(),
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/groups/search' => Http::response([
+            'data' => ['personGroupList' => []],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/persons/list' => Http::response([
+            'data' => [
+                'personList' => [
+                    [
+                        'personInfo' => [
+                            'personId' => 'person-long-url',
+                            'firstName' => 'Syam',
+                            'headPicUrl' => $secondPhotoUrl,
+                        ],
+                        'fingerList' => [],
+                        'pinCode' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        $secondPhotoUrl => Http::response('new-image', 200, ['Content-Type' => 'image/jpeg']),
+    ]);
+
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.sync',
+    ]);
+
+    postHikvisionPersonsSync($user)->assertRedirect();
+
+    expect(Storage::disk('public')->get('hikvision/persons/person-long-url.jpg'))->toBe('cached-image');
+});
+
+test('sync replaces cached photo when remote object key changes', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('hikvision/persons/person-long-url.jpg', 'old-image');
+
+    $oldPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com/GDPR001/old/picture.data?sig=old';
+    $newPhotoUrl = 'https://hpc-sgp-prod-s3-person-data-storage.oss-ap-southeast-1.aliyuncs.com/GDPR001/new/picture.data?sig=new';
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-long-url',
+        'full_name' => 'Syam',
+        'photo_path' => 'hikvision/persons/person-long-url.jpg',
+        'photo_remote_key' => '/GDPR001/old/picture.data',
+        'synced_at' => now()->subDay(),
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/groups/search' => Http::response([
+            'data' => ['personGroupList' => []],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/persons/list' => Http::response([
+            'data' => [
+                'personList' => [
+                    [
+                        'personInfo' => [
+                            'personId' => 'person-long-url',
+                            'firstName' => 'Syam',
+                            'headPicUrl' => $newPhotoUrl,
+                        ],
+                        'fingerList' => [],
+                        'pinCode' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        $newPhotoUrl => Http::response('new-image', 200, ['Content-Type' => 'image/jpeg']),
+    ]);
+
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.sync',
+    ]);
+
+    postHikvisionPersonsSync($user)->assertRedirect();
+
+    expect(Storage::disk('public')->get('hikvision/persons/person-long-url.jpg'))->toBe('new-image')
+        ->and(HikvisionPerson::query()->where('person_id', 'person-long-url')->value('photo_remote_key'))
+        ->toBe('/GDPR001/new/picture.data');
+});
+
+test('sync removes cached photo when hikvision clears headPicUrl', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('hikvision/persons/person-long-url.jpg', 'old-image');
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-long-url',
+        'full_name' => 'Syam',
+        'photo_path' => 'hikvision/persons/person-long-url.jpg',
+        'photo_remote_key' => '/GDPR001/old/picture.data',
+        'synced_at' => now()->subDay(),
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/groups/search' => Http::response([
+            'data' => ['personGroupList' => []],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/persons/list' => Http::response([
+            'data' => [
+                'personList' => [
+                    [
+                        'personInfo' => [
+                            'personId' => 'person-long-url',
+                            'firstName' => 'Syam',
+                            'headPicUrl' => '',
+                        ],
+                        'fingerList' => [],
+                        'pinCode' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.sync',
+    ]);
+
+    postHikvisionPersonsSync($user)->assertRedirect();
+
+    $person = HikvisionPerson::query()->where('person_id', 'person-long-url')->first();
+
+    expect($person?->photo_path)->toBeNull()
+        ->and($person?->photo_remote_key)->toBeNull()
+        ->and(Storage::disk('public')->exists('hikvision/persons/person-long-url.jpg'))->toBeFalse();
+});
+
+test('sync prunes stale persons and deletes cached photos', function () {
+    Storage::fake('public');
+    Storage::disk('public')->put('hikvision/persons/person-stale.jpg', 'stale-image');
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'person-stale',
+        'full_name' => 'Stale User',
+        'photo_path' => 'hikvision/persons/person-stale.jpg',
+        'photo_remote_key' => '/GDPR001/stale/picture.data',
+        'synced_at' => now()->subDay(),
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/groups/search' => Http::response([
+            'data' => ['personGroupList' => []],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/person/v1/persons/list' => Http::response([
+            'data' => [
+                'personList' => [
+                    [
+                        'personInfo' => [
+                            'personId' => 'person-active',
+                            'firstName' => 'Active',
+                        ],
+                        'fingerList' => [],
+                        'pinCode' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+
+    configuredHikvisionSettings();
+
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'hikvision.persons.view',
+        'hikvision.persons.sync',
+    ]);
+
+    postHikvisionPersonsSync($user)->assertRedirect();
+
+    expect(HikvisionPerson::query()->where('person_id', 'person-stale')->exists())->toBeFalse()
+        ->and(Storage::disk('public')->exists('hikvision/persons/person-stale.jpg'))->toBeFalse();
 });
 
 test('sync fails when hikvision is not configured', function () {

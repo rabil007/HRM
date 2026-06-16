@@ -8,6 +8,7 @@ use App\Models\HikvisionDevice;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
+use App\Support\Hikvision\HikvisionPersonPhotoStorage;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -377,16 +378,22 @@ class HikvisionService
             $stalePersonsQuery->whereNotIn('person_id', $apiPersonIds);
         }
 
-        $staleLocalIds = $stalePersonsQuery->pluck('id');
+        $stalePersons = $stalePersonsQuery->get();
 
-        if ($staleLocalIds->isEmpty()) {
+        if ($stalePersons->isEmpty()) {
             return 0;
         }
 
-        DB::transaction(function () use ($staleLocalIds): void {
+        $staleLocalIds = $stalePersons->pluck('id');
+
+        DB::transaction(function () use ($stalePersons, $staleLocalIds): void {
             Employee::query()
                 ->whereIn('hikvision_person_id', $staleLocalIds)
                 ->update(['hikvision_person_id' => null]);
+
+            foreach ($stalePersons as $stalePerson) {
+                HikvisionPersonPhotoStorage::delete($stalePerson);
+            }
 
             HikvisionPerson::query()
                 ->whereIn('id', $staleLocalIds)

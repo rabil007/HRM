@@ -145,7 +145,7 @@ test('access events page resolves hikvision person photo by name when person id 
     HikvisionPerson::query()->create([
         'person_id' => 'person-maher-id',
         'full_name' => 'Maher',
-        'photo_url' => 'https://example.com/maher-headshot.jpg',
+        'photo_path' => 'https://example.com/maher-headshot.jpg',
     ]);
 
     HikvisionAccessEvent::query()->create([
@@ -178,7 +178,7 @@ test('access events page falls back to hikvision person photo when snap url is m
     HikvisionPerson::query()->create([
         'person_id' => 'person-photo-fallback',
         'full_name' => 'Maysa',
-        'photo_url' => 'https://example.com/person-headshot.jpg',
+        'photo_path' => 'https://example.com/person-headshot.jpg',
     ]);
 
     HikvisionAccessEvent::query()->create([

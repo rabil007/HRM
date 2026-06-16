@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Support\Hikvision\HikvisionPersonPhotoStorage;
+use App\Support\Users\UserAvatar;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -26,7 +28,8 @@ class HikvisionPerson extends Model
         'full_name',
         'phone',
         'email',
-        'photo_url',
+        'photo_path',
+        'photo_remote_key',
         'has_fingerprint',
         'has_pin',
         'raw_payload',
@@ -74,7 +77,15 @@ class HikvisionPerson extends Model
             $fullName = $firstName !== '' ? $firstName : $lastName;
         }
 
-        return self::query()->updateOrCreate(
+        $headPicUrl = null;
+        $shouldSyncPhoto = false;
+
+        if (array_key_exists('headPicUrl', $personInfo)) {
+            $shouldSyncPhoto = true;
+            $headPicUrl = filled($personInfo['headPicUrl']) ? (string) $personInfo['headPicUrl'] : null;
+        }
+
+        $person = self::query()->updateOrCreate(
             ['person_id' => (string) ($personInfo['personId'] ?? '')],
             [
                 'group_id' => filled($personInfo['groupId'] ?? null) ? (string) $personInfo['groupId'] : null,
@@ -84,7 +95,6 @@ class HikvisionPerson extends Model
                 'full_name' => $fullName !== '' ? $fullName : null,
                 'phone' => filled($personInfo['phone'] ?? null) ? (string) $personInfo['phone'] : null,
                 'email' => filled($personInfo['email'] ?? null) ? (string) $personInfo['email'] : null,
-                'photo_url' => filled($personInfo['headPicUrl'] ?? null) ? (string) $personInfo['headPicUrl'] : null,
                 'has_fingerprint' => $hasFingerprint,
                 'has_pin' => $hasPin,
                 'raw_payload' => [
@@ -95,6 +105,17 @@ class HikvisionPerson extends Model
                 'synced_at' => now(),
             ],
         );
+
+        if ($shouldSyncPhoto) {
+            HikvisionPersonPhotoStorage::syncFromRemoteUrl($person, $headPicUrl);
+        }
+
+        return $person->fresh() ?? $person;
+    }
+
+    public function getPhotoUrlAttribute(): ?string
+    {
+        return UserAvatar::url($this->photo_path);
     }
 
     /**

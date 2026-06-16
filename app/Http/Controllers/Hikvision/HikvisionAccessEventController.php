@@ -77,9 +77,9 @@ class HikvisionAccessEventController extends Controller
                 ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
 
         $personsWithPhotos = HikvisionPerson::query()
-            ->whereNotNull('photo_url')
-            ->where('photo_url', '!=', '')
-            ->get(['person_id', 'full_name', 'photo_url']);
+            ->whereNotNull('photo_path')
+            ->where('photo_path', '!=', '')
+            ->get(['person_id', 'full_name', 'photo_path']);
 
         $personsByHikvisionId = $personsWithPhotos->keyBy('person_id');
 
