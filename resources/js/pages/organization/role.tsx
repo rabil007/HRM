@@ -26,6 +26,10 @@ function formatPermissionGroupLabel(segment: string): string {
     return segment.replace(/[-_]/g, ' ').toUpperCase();
 }
 
+const PERMISSION_LABEL_OVERRIDES: Record<string, string> = {
+    'attendance.records.manage': 'Records: View All Employees',
+};
+
 export default function RoleDetails({
     role,
     company,
@@ -47,6 +51,10 @@ export default function RoleDetails({
     const selectedSet = useMemo(() => new Set(selectedPermissions), [selectedPermissions]);
 
     const formatPermissionName = (name: string) => {
+        if (PERMISSION_LABEL_OVERRIDES[name]) {
+            return PERMISSION_LABEL_OVERRIDES[name];
+        }
+
         const parts = name.split('.');
 
         if (parts.length <= 1) {
