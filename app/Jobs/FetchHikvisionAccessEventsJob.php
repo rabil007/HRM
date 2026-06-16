@@ -31,22 +31,6 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
                 ? Carbon::parse($this->date, $timezone)->startOfDay()
                 : null;
 
-            // #region agent log
-            @file_put_contents(base_path('.cursor/debug-e1f1d0.log'), json_encode([
-                'sessionId' => 'e1f1d0',
-                'timestamp' => (int) round(microtime(true) * 1000),
-                'location' => 'FetchHikvisionAccessEventsJob::handle',
-                'message' => 'job started',
-                'data' => [
-                    'dateParam' => $this->date,
-                    'isScheduledFetch' => ! filled($this->date),
-                    'timezone' => $timezone,
-                    'now' => now($timezone)->toIso8601String(),
-                ],
-                'hypothesisId' => 'B',
-            ], JSON_UNESCAPED_SLASHES)."\n", FILE_APPEND);
-            // #endregion
-
             $result = filled($this->date)
                 ? $hikvision->fetchAccessEvents($date)
                 : $hikvision->fetchScheduledAccessEvents();
