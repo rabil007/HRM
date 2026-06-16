@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, FileText, Printer, ScrollText, User, UserPlus } from 'lucide-react';
+import { Anchor, ChevronLeft, ChevronRight, FileText, Printer, ScrollText, User, UserPlus } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { cn } from '@/lib/utils';
@@ -163,6 +163,7 @@ function InlineNavigation({
 
 export function EmployeeProfileActionBar({
     printCvUrl,
+    printOffshoreCvUrl,
     printSalaryCertificateUrl,
     employeeNavigation,
     onNavigateEmployee,
@@ -175,6 +176,7 @@ export function EmployeeProfileActionBar({
     showLinkedUserButton = false,
 }: {
     printCvUrl: string;
+    printOffshoreCvUrl: string;
     printSalaryCertificateUrl: string;
     employeeNavigation?: EmployeeNavigation | null;
     onNavigateEmployee?: (employeeId: number) => void;
@@ -201,6 +203,15 @@ export function EmployeeProfileActionBar({
                     target="_blank"
                     iconColor="text-primary"
                     iconBg="bg-primary/10"
+                />
+
+                <SmartButton
+                    icon={Anchor}
+                    label="Print Offshore CV"
+                    href={printOffshoreCvUrl}
+                    target="_blank"
+                    iconColor="text-sky-600 dark:text-sky-400"
+                    iconBg="bg-sky-500/10"
                 />
 
                 <SmartButton

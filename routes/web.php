@@ -37,6 +37,7 @@ use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeExportController;
 use App\Http\Controllers\Organization\EmployeeImportController;
 use App\Http\Controllers\Organization\EmployeeLanguageController;
+use App\Http\Controllers\Organization\EmployeeOffshoreCvPrintController;
 use App\Http\Controllers\Organization\EmployeeProfileTemplateController;
 use App\Http\Controllers\Organization\EmployeeSalaryCertificatePrintController;
 use App\Http\Controllers\Organization\EmployeeSeaServiceController;
@@ -142,6 +143,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('organization/employees/import/preview', [EmployeeImportController::class, 'importPreview'])->middleware('can:employees.import')->name('organization.employees.import.preview');
     Route::post('organization/employees/import', [EmployeeImportController::class, 'import'])->middleware('can:employees.import')->name('organization.employees.import');
     Route::get('organization/employees/{employee}/cv', EmployeeCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.cv');
+    Route::get('organization/employees/{employee}/offshore-cv', EmployeeOffshoreCvPrintController::class)->middleware('can:employees.view')->name('organization.employees.offshore-cv');
     Route::get('organization/employees/{employee}/salary-certificate', EmployeeSalaryCertificatePrintController::class)->middleware('can:employees.view')->name('organization.employees.salary-certificate');
     Route::post('organization/employees/{employee}/user', [EmployeeUserController::class, 'store'])->middleware('can:users.create')->name('organization.employees.user.store');
     Route::get('organization/employees/{employee}', [EmployeeController::class, 'show'])->middleware('can:employees.view')->name('organization.employees.show');
