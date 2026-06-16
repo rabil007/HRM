@@ -8,16 +8,6 @@
 
         * { box-sizing: border-box; }
 
-        html, body {
-            font-family: DejaVu Sans, Arial, Helvetica, sans-serif;
-            font-size: 8.5pt;
-            line-height: 1.4;
-            color: #1a1a1a;
-            margin: 0;
-            padding: 0;
-            background: #fff;
-        }
-
         @media screen {
             body:not(.pdf-output) {
                 padding: 16px;
@@ -53,8 +43,8 @@
 
         /* ─── Main content wrapper ─── */
         .cv-body {
-            padding: 14mm 14mm 12mm 14mm;
-        }
+            padding: 15mm 15mm 15mm 15mm;
+        } */
 
         /* ─── Header ─── */
         .header-wrap {
@@ -65,7 +55,7 @@
 
         .header-wrap td { vertical-align: top; padding: 0; }
 
-        .header-info { padding-right: 10px; }
+        .header-info { padding-right: 10px; } */
 
         .emp-name {
             font-size: 20pt;
