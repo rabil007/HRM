@@ -307,7 +307,8 @@ test('hikvision sync creates absent records when no punches on a working day', f
     expect($record)->not->toBeNull()
         ->and($record->clock_in)->toBeNull()
         ->and($record->clock_out)->toBeNull()
-        ->and($record->status)->toBe(AttendanceRecord::STATUS_ABSENT);
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_ABSENT)
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_WEB);
 });
 
 test('hikvision sync marks non working days as weekend when no punches', function () {
@@ -337,5 +338,6 @@ test('hikvision sync marks non working days as weekend when no punches', functio
     expect($record)->not->toBeNull()
         ->and($record->clock_in)->toBeNull()
         ->and($record->clock_out)->toBeNull()
-        ->and($record->status)->toBe(AttendanceRecord::STATUS_WEEKEND);
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_WEEKEND)
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_WEB);
 });

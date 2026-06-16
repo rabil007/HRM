@@ -660,6 +660,26 @@ class HikvisionService
 
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
+
+        // #region agent log
+        file_put_contents(
+            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-c72436.log',
+            json_encode([
+                'sessionId' => 'c72436',
+                'hypothesisId' => 'D',
+                'location' => 'HikvisionService::fetchAccessEvents',
+                'message' => 'Fetch completed, starting attendance sync',
+                'data' => [
+                    'date_from' => $startTime->toDateString(),
+                    'date_to' => $endTime->toDateString(),
+                    'fetched_count' => $totalCount,
+                ],
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ], JSON_UNESCAPED_UNICODE)."\n",
+            FILE_APPEND | LOCK_EX,
+        );
+        // #endregion
+
         $this->syncAttendanceRecordsForWindow($startTime, $endTime);
 
         return [

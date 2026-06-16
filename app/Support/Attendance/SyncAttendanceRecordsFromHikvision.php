@@ -13,6 +13,8 @@ use Illuminate\Support\Collection;
 
 final class SyncAttendanceRecordsFromHikvision
 {
+    private const DEBUG_LOG_PATH = '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-c72436.log';
+
     public function syncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
         $timezone = (string) config('app.timezone', 'UTC');
@@ -20,7 +22,7 @@ final class SyncAttendanceRecordsFromHikvision
         $synced = 0;
 
         $employees = Employee::query()
-            ->with('hikvisionPerson:id,person_id')
+            ->with('hikvisionPerson:id,person_id,full_name')
             ->where('company_id', $companyId)
             ->where('status', 'active')
             ->whereNotNull('hikvision_person_id')
@@ -30,7 +32,68 @@ final class SyncAttendanceRecordsFromHikvision
             $synced += $this->syncEmployee($employee, $from, $to, $timezone, $workingDays);
         }
 
+        $this->logUnmatchedCheckoutEvents($companyId, $employees, $from, $to, $timezone);
+
         return $synced;
+    }
+
+    /**
+     * @param  Collection<int, Employee>  $employees
+     */
+    private function logUnmatchedCheckoutEvents(
+        int $companyId,
+        Collection $employees,
+        CarbonInterface $from,
+        CarbonInterface $to,
+        string $timezone,
+    ): void {
+        $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
+        $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
+
+        $checkoutEvents = HikvisionAccessEvent::query()
+            ->accessRecords()
+            ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
+            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
+            ->get(['id', 'person_name', 'person_hikvision_id', 'occurrence_time', 'transaction_source']);
+
+        $matchedNames = [];
+        $matchedPersonIds = [];
+
+        foreach ($employees as $employee) {
+            $matchedNames[] = $employee->name;
+            $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
+
+            if ($personId !== '') {
+                $matchedPersonIds[] = $personId;
+            }
+        }
+
+        $unmatched = $checkoutEvents->filter(function (HikvisionAccessEvent $event) use ($matchedNames, $matchedPersonIds): bool {
+            $personId = (string) ($event->person_hikvision_id ?? '');
+            $personName = (string) ($event->person_name ?? '');
+
+            if ($personId !== '' && in_array($personId, $matchedPersonIds, true)) {
+                return false;
+            }
+
+            return ! in_array($personName, $matchedNames, true);
+        })->map(fn (HikvisionAccessEvent $event): array => [
+            'event_id' => $event->id,
+            'person_name' => $event->person_name,
+            'person_hikvision_id' => $event->person_hikvision_id,
+            'occurrence_time' => $event->occurrence_time?->toIso8601String(),
+            'transaction_source' => $event->transaction_source,
+        ])->values()->all();
+
+        $this->debugLog('E', 'SyncAttendanceRecordsFromHikvision::logUnmatchedCheckoutEvents', 'Checkout events not matched to any linked employee', [
+            'company_id' => $companyId,
+            'date_from' => $rangeStart->toDateString(),
+            'date_to' => $rangeEnd->toDateString(),
+            'total_checkout_events' => $checkoutEvents->count(),
+            'unmatched_count' => count($unmatched),
+            'unmatched' => $unmatched,
+            'linked_employee_names' => $matchedNames,
+        ]);
     }
 
     /**
@@ -121,11 +184,34 @@ final class SyncAttendanceRecordsFromHikvision
                 ->sortByDesc('occurrence_time')
                 ->first()?->occurrence_time;
 
-            $source = $dayEvents->contains(
-                fn (HikvisionAccessEvent $event): bool => $event->transaction_source === HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
-            )
-                ? AttendanceRecord::SOURCE_MOBILE
-                : AttendanceRecord::SOURCE_BIOMETRIC;
+            $source = $this->resolveSourceForDay($dayEvents);
+
+            $this->debugLog('A', 'SyncAttendanceRecordsFromHikvision::syncEmployee', 'Daily sync snapshot', [
+                'company_id' => $employee->company_id,
+                'employee_id' => $employee->id,
+                'employee_name' => $employee->name,
+                'hikvision_person_id' => $personId,
+                'hikvision_full_name' => $employee->hikvisionPerson?->full_name,
+                'date' => $date,
+                'day_event_count' => $dayEvents->count(),
+                'check_in_events' => $dayEvents
+                    ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+                    ->map(fn (HikvisionAccessEvent $event): array => [
+                        'person_name' => $event->person_name,
+                        'person_hikvision_id' => $event->person_hikvision_id,
+                        'transaction_source' => $event->transaction_source,
+                    ])->values()->all(),
+                'check_out_events' => $dayEvents
+                    ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
+                    ->map(fn (HikvisionAccessEvent $event): array => [
+                        'person_name' => $event->person_name,
+                        'person_hikvision_id' => $event->person_hikvision_id,
+                        'transaction_source' => $event->transaction_source,
+                    ])->values()->all(),
+                'resolved_clock_in' => $clockIn?->toIso8601String(),
+                'resolved_clock_out' => $clockOut?->toIso8601String(),
+                'resolved_source' => $source,
+            ]);
 
             AttendanceRecord::query()->updateOrCreate(
                 [
@@ -181,5 +267,42 @@ final class SyncAttendanceRecordsFromHikvision
         }
 
         return AttendanceRecord::STATUS_ABSENT;
+    }
+
+    /**
+     * @param  Collection<int, HikvisionAccessEvent>  $dayEvents
+     */
+    private function resolveSourceForDay(Collection $dayEvents): string
+    {
+        if ($dayEvents->isEmpty()) {
+            return AttendanceRecord::SOURCE_WEB;
+        }
+
+        return $dayEvents->contains(
+            fn (HikvisionAccessEvent $event): bool => $event->transaction_source === HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        )
+            ? AttendanceRecord::SOURCE_MOBILE
+            : AttendanceRecord::SOURCE_BIOMETRIC;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private function debugLog(string $hypothesisId, string $location, string $message, array $data = []): void
+    {
+        // #region agent log
+        file_put_contents(
+            self::DEBUG_LOG_PATH,
+            json_encode([
+                'sessionId' => 'c72436',
+                'hypothesisId' => $hypothesisId,
+                'location' => $location,
+                'message' => $message,
+                'data' => $data,
+                'timestamp' => (int) round(microtime(true) * 1000),
+            ], JSON_UNESCAPED_UNICODE)."\n",
+            FILE_APPEND | LOCK_EX,
+        );
+        // #endregion
     }
 }
