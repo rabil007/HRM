@@ -97,7 +97,7 @@ const baseSidebarData: SidebarData = {
             items: [
                 { title: 'Calendar', url: '/attendance/calendar', icon: CalendarDays },
                 { title: 'Leave requests', url: '/attendance/leave-requests', icon: CalendarCheck2 },
-                { title: 'Attendance records', url: placeholder('attendance.records'), icon: CalendarCheck2 },
+                { title: 'Attendance records', url: '/attendance/records', icon: CalendarCheck2 },
                 { title: 'Types', url: '/attendance/types', icon: IdCard },
             ],
         },
@@ -201,6 +201,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'attendance.types.view') ? item : null;
                         case '/attendance/leave-requests':
                             return has(permissions, 'attendance.leave-requests.view') ? item : null;
+                        case '/attendance/records':
+                            return has(permissions, 'attendance.records.view') ? item : null;
                         default:
                             return item;
                     }

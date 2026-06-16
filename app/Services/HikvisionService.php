@@ -8,6 +8,7 @@ use App\Models\HikvisionDevice;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
+use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use App\Support\Hikvision\HikvisionPersonPhotoStorage;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,10 @@ use RuntimeException;
 
 class HikvisionService
 {
+    public function __construct(
+        private readonly SyncAttendanceRecordsFromHikvision $attendanceSync,
+    ) {}
+
     /**
      * @var array{access_token: string, expire_time: int, user_id: string, area_domain: string}|null
      */
@@ -655,11 +660,25 @@ class HikvisionService
 
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
+        $this->syncAttendanceRecordsForWindow($startTime, $endTime);
 
         return [
             'fetched_count' => $totalCount,
             'message' => "Fetched {$totalCount} access record(s) for {$dateLabel} ({$fetchedCount} device, {$mobileCount} mobile app).",
         ];
+    }
+
+    private function syncAttendanceRecordsForWindow(CarbonInterface $startTime, CarbonInterface $endTime): void
+    {
+        $companyIds = Employee::query()
+            ->where('status', 'active')
+            ->whereNotNull('hikvision_person_id')
+            ->distinct()
+            ->pluck('company_id');
+
+        foreach ($companyIds as $companyId) {
+            $this->attendanceSync->syncCompany((int) $companyId, $startTime, $endTime);
+        }
     }
 
     /**

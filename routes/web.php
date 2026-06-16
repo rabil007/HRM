@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\ApplicationLogController;
 use App\Http\Controllers\Attendance\AttendanceCalendarController;
+use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
@@ -274,6 +275,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('hikvision.persons.employee.link');
 
     Route::redirect('hikvision/devices', '/settings/application?tab=hikvision');
+
+    Route::get('attendance/records', [AttendanceRecordController::class, 'index'])
+        ->middleware('can:attendance.records.view')
+        ->name('attendance.records.index');
+
+    Route::post('attendance/records', [AttendanceRecordController::class, 'store'])
+        ->middleware('can:attendance.records.create')
+        ->name('attendance.records.store');
+
+    Route::put('attendance/records/{attendance_record}', [AttendanceRecordController::class, 'update'])
+        ->middleware('can:attendance.records.update')
+        ->name('attendance.records.update');
+
+    Route::delete('attendance/records/{attendance_record}', [AttendanceRecordController::class, 'destroy'])
+        ->middleware('can:attendance.records.delete')
+        ->name('attendance.records.destroy');
 
     Route::get('attendance/calendar', [AttendanceCalendarController::class, 'index'])
         ->middleware('can:attendance.leave-requests.view')
