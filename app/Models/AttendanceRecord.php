@@ -19,8 +19,6 @@ class AttendanceRecord extends Model
 
     public const SOURCE_MOBILE = 'mobile';
 
-    public const SOURCE_WEB = 'web';
-
     public const STATUS_PRESENT = 'present';
 
     public const STATUS_ABSENT = 'absent';
@@ -78,7 +76,6 @@ class AttendanceRecord extends Model
             self::SOURCE_MANUAL,
             self::SOURCE_BIOMETRIC,
             self::SOURCE_MOBILE,
-            self::SOURCE_WEB,
         ];
     }
 
