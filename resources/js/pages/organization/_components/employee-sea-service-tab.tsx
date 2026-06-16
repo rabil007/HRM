@@ -148,6 +148,7 @@ export type EmployeeSeaServiceTabProps = {
     vessel_types: VesselTypeOption[];
     ranks: RankOption[];
     clients: ClientOption[];
+    employeeRankId: number | null;
     canManage: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
 };
@@ -159,6 +160,7 @@ export function EmployeeSeaServiceTab({
     vessel_types,
     ranks,
     clients,
+    employeeRankId,
     canManage,
     templateFields = null,
 }: EmployeeSeaServiceTabProps): ReactElement {
@@ -256,7 +258,13 @@ export function EmployeeSeaServiceTab({
     );
     const canImportRecords = employeeId !== null && employeeId > 0;
 
-    const appliedRankTotals = formatSeaServiceTotalsYmd(sea_services);
+    const appliedRankTotals =
+        employeeRankId != null
+            ? formatSeaServiceTotalsYmd(
+                  sea_services,
+                  (r) => r.rank_id === employeeRankId,
+              )
+            : formatSeaServiceTotalsYmd(sea_services);
 
     const offshoreTotals = formatSeaServiceTotalsYmd(sea_services);
 

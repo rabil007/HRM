@@ -233,7 +233,7 @@ test('offshore cv data includes all sea service rows in project history', functi
         ->and($data['experience_offshore_ymd'])->not->toBe('0Y/0M/0D');
 });
 
-test('offshore cv offshore experience totals all sea service rows', function () {
+test('offshore cv applied rank and offshore experience use different filters', function () {
     $country = Country::query()->create([
         'code' => 'OCR',
         'name' => 'Offshore CV Rank Land',
@@ -298,4 +298,59 @@ test('offshore cv offshore experience totals all sea service rows', function () 
 
     expect($data['experience_rank_ymd'])->toBe('1Y/0M/0D')
         ->and($data['experience_offshore_ymd'])->toBe('1Y/0M/0D');
+});
+
+test('offshore cv applied rank is zero when no sea service matches employee rank', function () {
+    $country = Country::query()->create([
+        'code' => 'OCZ',
+        'name' => 'Offshore CV Zero Rank Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'OCZ',
+        'name' => 'Offshore CV Zero Rank Currency',
+        'symbol' => 'Z$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Zero Rank Offshore Co',
+        'slug' => 'zero-rank-offshore-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $masterRank = Rank::query()->create(['name' => 'Master', 'is_active' => true]);
+    $shadowRank = Rank::query()->create(['name' => 'Shadow Master', 'is_active' => true]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'name' => 'Zero Rank Worker',
+            'rank_id' => $masterRank->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeSeaService::factory()
+        ->forEmployee($employee)
+        ->create([
+            'vessel_name' => 'Shadow Vessel',
+            'rank_id' => $shadowRank->id,
+            'start_date' => null,
+            'end_date' => null,
+            'total_months' => 6,
+            'total_days' => 15,
+            'is_offshore' => false,
+        ]);
+
+    $data = OffshoreCvData::for($employee, $company->id);
+
+    expect($data['experience_rank_ymd'])->toBe('0Y/0M/0D')
+        ->and($data['experience_offshore_ymd'])->toBe('0Y/6M/15D');
 });

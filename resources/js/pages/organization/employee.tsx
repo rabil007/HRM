@@ -785,6 +785,7 @@ function EmployeeDetailsPage({
                                                 vessel_types={vessel_types ?? []}
                                                 ranks={ranks}
                                                 clients={clients ?? []}
+                                                employeeRankId={localEmployee.rank_id ?? null}
                                                 canManage={can?.sea_service_manage ?? false}
                                                 ensureEmployee={
                                                     isCreateMode
