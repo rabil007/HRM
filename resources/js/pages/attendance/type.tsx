@@ -8,7 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LeaveTypeFormSheet } from '@/features/attendance/types/components/leave-type-form-sheet';
-import { leaveTypeToFormData, type LeaveType } from '@/features/attendance/types/types';
+import { leaveTypeToFormData  } from '@/features/attendance/types/types';
+import type {LeaveType} from '@/features/attendance/types/types';
 import { formatDisplayDate } from '@/lib/format-date';
 
 type LeaveTypeDetail = LeaveType & {

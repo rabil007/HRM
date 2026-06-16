@@ -1,7 +1,4 @@
 import { useForm } from '@inertiajs/react';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import {
     AlertDialog,
     AlertDialogCancel,
@@ -11,6 +8,9 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import type { LeaveRequest } from '../types';
 
 export function LeaveRequestRejectDialog({

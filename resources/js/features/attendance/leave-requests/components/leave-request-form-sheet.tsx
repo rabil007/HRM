@@ -1,4 +1,5 @@
-import { Link, type InertiaFormProps } from '@inertiajs/react';
+import { Link  } from '@inertiajs/react';
+import type {InertiaFormProps} from '@inertiajs/react';
 import { AlertCircle, FileText, Trash2, Upload } from 'lucide-react';
 import { useId } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';

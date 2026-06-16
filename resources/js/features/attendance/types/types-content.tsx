@@ -27,7 +27,8 @@ import type { PaginationMeta } from '@/types/pagination';
 import { LeaveTypeCard } from './components/leave-type-card';
 import { LeaveTypeDeleteDialog } from './components/leave-type-delete-dialog';
 import { LeaveTypeFormSheet } from './components/leave-type-form-sheet';
-import { defaultLeaveTypeFormData, leaveTypeToFormData, type LeaveType } from './types';
+import { defaultLeaveTypeFormData, leaveTypeToFormData  } from './types';
+import type {LeaveType} from './types';
 
 export function AttendanceTypesContent({
     leave_types,
