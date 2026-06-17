@@ -5,6 +5,7 @@ use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\EmployeeDocuments\DocumentBulkActionService;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Process;
 use Illuminate\Support\Facades\Storage;
 
 test('guests cannot merge employee pdfs', function () {
@@ -229,6 +230,9 @@ test('users cannot merge documents belonging to another employee', function () {
 
 test('merge returns validation error for unsupported pdf compression instead of server error', function () {
     Storage::fake('public');
+    Process::fake([
+        '*' => Process::result(exitCode: 1),
+    ]);
 
     $user = User::factory()->create();
     $this->actingAs($user);
