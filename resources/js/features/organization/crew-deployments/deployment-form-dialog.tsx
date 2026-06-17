@@ -1,4 +1,13 @@
 import { useForm } from '@inertiajs/react';
+import {
+    Anchor,
+    BadgeCheck,
+    Building2,
+    CalendarDays,
+    FileText,
+    Ship,
+    User,
+} from 'lucide-react';
 import type { ReactElement, ReactNode } from 'react';
 import { useEffect } from 'react';
 import {
@@ -11,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import {
     Dialog,
     DialogContent,
-    DialogDescription,
     DialogFooter,
     DialogHeader,
     DialogTitle,
@@ -21,7 +29,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import type { DeploymentItem } from '@/features/organization/crew-deployments/types';
-import { actions, typography } from '@/lib/design-system';
+import { actions } from '@/lib/design-system';
 import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { cn } from '@/lib/utils';
@@ -30,43 +38,48 @@ type Option = { id: number; name: string };
 type EmployeeOption = { id: number; employee_no: string; name: string; rank_id: number | null };
 
 const fieldInputClass =
-    'h-10 rounded-xl border-border/60 bg-muted/50 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5';
+    'h-10 rounded-xl border-border/60 bg-background text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5';
 
-const DATE_FIELDS = [
-    { field: 'arrived_date', label: 'Arrived' },
-    { field: 'join_standby_from', label: 'Join standby from' },
-    { field: 'join_standby_to', label: 'Join standby to' },
-    { field: 'joined_date', label: 'Joined' },
-    { field: 'disembarked_date', label: 'Disembarked' },
-    { field: 'leave_standby_from', label: 'Leave standby from' },
-    { field: 'leave_standby_to', label: 'Leave standby to' },
-    { field: 'travelled_date', label: 'Travelled' },
-] as const;
+// ─── helpers ──────────────────────────────────────────────────────────────────
 
-type DateField = (typeof DATE_FIELDS)[number]['field'];
+function todayIso(): string {
+    return new Date().toISOString().slice(0, 10);
+}
 
-function FormSection({
+function getInitials(name: string): string {
+    return name
+        .split(' ')
+        .slice(0, 2)
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase();
+}
+
+// ─── sub-components ───────────────────────────────────────────────────────────
+
+function SectionHeader({
+    icon,
     title,
     description,
-    children,
 }: {
+    icon: ReactNode;
     title: string;
     description?: string;
-    children: ReactNode;
 }): ReactElement {
     return (
-        <section className="space-y-3">
-            <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                    <span className={typography.sectionLabel}>{title}</span>
-                    <div className="h-px flex-1 bg-border/60 dark:bg-white/10" />
-                </div>
+        <div className="flex items-start gap-3 pb-3">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                {icon}
+            </div>
+            <div>
+                <div className="text-sm font-semibold">{title}</div>
                 {description ? (
-                    <p className="text-[11px] text-muted-foreground">{description}</p>
+                    <p className="mt-0.5 text-[11px] leading-relaxed text-muted-foreground">
+                        {description}
+                    </p>
                 ) : null}
             </div>
-            {children}
-        </section>
+        </div>
     );
 }
 
@@ -75,6 +88,7 @@ function FormField({
     htmlFor,
     error,
     hint,
+    required,
     className,
     children,
 }: {
@@ -82,13 +96,15 @@ function FormField({
     htmlFor?: string;
     error?: string;
     hint?: string;
+    required?: boolean;
     className?: string;
     children: ReactNode;
 }): ReactElement {
     return (
         <div className={cn('space-y-1.5', className)}>
-            <Label htmlFor={htmlFor} className="text-xs font-medium text-foreground/90">
+            <Label htmlFor={htmlFor} className="flex items-center gap-1 text-xs font-medium">
                 {label}
+                {required ? <span className="text-destructive">*</span> : null}
             </Label>
             {children}
             {error ? (
@@ -99,6 +115,102 @@ function FormField({
         </div>
     );
 }
+
+function DateInput({
+    id,
+    value,
+    onChange,
+    error,
+    disabled,
+}: {
+    id: string;
+    value: string;
+    onChange: (v: string) => void;
+    error?: string;
+    disabled?: boolean;
+}): ReactElement {
+    return (
+        <div className="space-y-1">
+            <div className="flex gap-1.5">
+                <Input
+                    id={id}
+                    type="date"
+                    value={value}
+                    onChange={(e) => onChange(e.target.value)}
+                    disabled={disabled}
+                    className={cn(fieldInputClass, 'flex-1')}
+                />
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={disabled}
+                    onClick={() => onChange(todayIso())}
+                    className="h-10 shrink-0 rounded-xl border-border/60 px-2.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground hover:text-foreground dark:border-white/10"
+                >
+                    Today
+                </Button>
+                {value ? (
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={disabled}
+                        onClick={() => onChange('')}
+                        className="h-10 shrink-0 rounded-xl px-2.5 text-[10px] text-muted-foreground/50 hover:text-muted-foreground"
+                    >
+                        ✕
+                    </Button>
+                ) : null}
+            </div>
+            {error ? <p className="text-xs text-destructive">{error}</p> : null}
+        </div>
+    );
+}
+
+/** A visual step in the deployment timeline */
+function TimelineStep({
+    icon,
+    label,
+    accent,
+    children,
+    isLast,
+}: {
+    icon: string;
+    label: string;
+    accent: string;
+    children: ReactNode;
+    isLast?: boolean;
+}): ReactElement {
+    return (
+        <div className="relative flex gap-4">
+            {/* Connector line */}
+            {!isLast ? (
+                <div className="absolute left-4 top-9 h-full w-px bg-border/60" />
+            ) : null}
+
+            {/* Icon */}
+            <div
+                className={cn(
+                    'relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 bg-background text-base',
+                    accent,
+                )}
+            >
+                {icon}
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 pb-6">
+                <div className="mb-2 mt-0.5 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                    {label}
+                </div>
+                {children}
+            </div>
+        </div>
+    );
+}
+
+// ─── main dialog ──────────────────────────────────────────────────────────────
 
 export function DeploymentFormDialog({
     open,
@@ -174,7 +286,7 @@ export function DeploymentFormDialog({
 
         form.reset();
         form.clearErrors();
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- reset when dialog opens for create
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [editing, open]);
 
     const submit = (): void => {
@@ -212,23 +324,35 @@ export function DeploymentFormDialog({
         form.post(storeDeployment.url(), options);
     };
 
-    const fieldError = (key: string): string | undefined =>
+    const err = (key: string): string | undefined =>
         form.errors[key as keyof typeof form.errors];
+
+    const selectedEmployee = employees.find((e) => String(e.id) === form.data.employee_id);
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90vh] gap-0 overflow-hidden p-0 sm:max-w-3xl">
-                <DialogHeader className="border-b border-border/60 px-6 py-5 dark:border-white/10">
-                    <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
-                        <div className="space-y-1">
-                            <DialogTitle className="text-lg">
-                                {editing ? 'Edit deployment' : 'Add deployment'}
-                            </DialogTitle>
-                            <DialogDescription>
-                                {editing
-                                    ? 'Update assignment dates, vessel, sponsor, and ops notes.'
-                                    : 'Record a crew assignment with join/leave standby and vessel dates.'}
-                            </DialogDescription>
+            <DialogContent className="max-h-[92vh] gap-0 overflow-hidden p-0 sm:max-w-2xl">
+                {/* ── Header ───────────────────────────────────────── */}
+                <DialogHeader className="border-b border-border/60 px-6 py-4 dark:border-white/10">
+                    <div className="flex items-center justify-between gap-4 pr-8">
+                        <div className="flex items-center gap-3">
+                            {editing ? (
+                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-bold uppercase text-muted-foreground">
+                                    {getInitials(editing.employee_name ?? '?')}
+                                </div>
+                            ) : null}
+                            <div>
+                                <DialogTitle className="text-base font-bold">
+                                    {editing
+                                        ? (editing.employee_name ?? 'Edit deployment')
+                                        : 'New deployment'}
+                                </DialogTitle>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    {editing
+                                        ? `${editing.employee_no ?? ''}${editing.employee_no ? ' · ' : ''}${editing.vessel_name ?? 'No vessel'}`
+                                        : 'Record a new crew assignment'}
+                                </p>
+                            </div>
                         </div>
                         {editing ? (
                             <DeploymentStatusBadge
@@ -240,13 +364,21 @@ export function DeploymentFormDialog({
                     </div>
                 </DialogHeader>
 
-                <div className="max-h-[min(60vh,640px)] space-y-6 overflow-y-auto px-6 py-5">
-                    <FormSection title="Crew">
-                        <div className="grid gap-4 sm:grid-cols-2">
+                {/* ── Body ─────────────────────────────────────────── */}
+                <div className="max-h-[calc(92vh-140px)] overflow-y-auto">
+                    {/* Crew section */}
+                    <div className="border-b border-border/40 px-6 py-5">
+                        <SectionHeader
+                            icon={<User className="h-4 w-4" />}
+                            title="Crew"
+                        />
+
+                        <div className="space-y-4">
+                            {/* Employee */}
                             <FormField
                                 label="Employee"
-                                error={fieldError('employee_id')}
-                                className="sm:col-span-2"
+                                error={err('employee_id')}
+                                required
                             >
                                 <AppSelect
                                     value={form.data.employee_id}
@@ -261,7 +393,7 @@ export function DeploymentFormDialog({
                                             form.setData('rank_id', String(employee.rank_id));
                                         }
                                     }}
-                                    placeholder="Select employee"
+                                    placeholder="Search and select employee…"
                                     className={fieldInputClass}
                                 >
                                     {employees.map((employee) => (
@@ -275,55 +407,90 @@ export function DeploymentFormDialog({
                                 </AppSelect>
                             </FormField>
 
-                            <FormField label="Rank" error={fieldError('rank_id')}>
-                                <AppSelect
-                                    value={form.data.rank_id}
-                                    onValueChange={(value) => form.setData('rank_id', value)}
-                                    placeholder="Select rank"
-                                    className={fieldInputClass}
+                            {/* Employee mini-card — shown after selection */}
+                            {selectedEmployee ? (
+                                <div className="flex items-center gap-3 rounded-xl border border-border/40 bg-muted/30 px-3.5 py-2.5">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold uppercase text-muted-foreground">
+                                        {getInitials(selectedEmployee.name)}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="truncate text-sm font-semibold">
+                                            {selectedEmployee.name}
+                                        </div>
+                                        <div className="text-[10px] font-mono text-muted-foreground">
+                                            {selectedEmployee.employee_no}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {/* Rank + Vessel */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <FormField
+                                    label="Rank"
+                                    error={err('rank_id')}
                                 >
-                                    {ranks.map((rank) => (
-                                        <AppSelectItem key={rank.id} value={String(rank.id)}>
-                                            {rank.name}
-                                        </AppSelectItem>
-                                    ))}
-                                </AppSelect>
-                            </FormField>
+                                    <AppSelect
+                                        value={form.data.rank_id}
+                                        onValueChange={(value) => form.setData('rank_id', value)}
+                                        placeholder="Select rank"
+                                        className={fieldInputClass}
+                                    >
+                                        {ranks.map((rank) => (
+                                            <AppSelectItem key={rank.id} value={String(rank.id)}>
+                                                {rank.name}
+                                            </AppSelectItem>
+                                        ))}
+                                    </AppSelect>
+                                </FormField>
 
-                            <FormField label="Vessel" error={fieldError('vessel_id')}>
-                                <CreatableSelect
-                                    value={form.data.vessel_id}
-                                    onValueChange={(value) => form.setData('vessel_id', value)}
-                                    variant="dark"
-                                    placeholder="Select vessel"
-                                    options={vesselSelectOptions}
-                                    onOptionsChange={(next) => {
-                                        const added = next.find(
-                                            (option) =>
-                                                !vesselSelectOptions.some(
-                                                    (existing) => existing.value === option.value,
-                                                ),
-                                        );
-
-                                        if (added) {
-                                            appendVesselOption({
-                                                id: added.id,
-                                                label: added.label,
-                                            });
+                                <FormField
+                                    label="Vessel"
+                                    error={err('vessel_id')}
+                                >
+                                    <CreatableSelect
+                                        value={form.data.vessel_id}
+                                        onValueChange={(value) =>
+                                            form.setData('vessel_id', value)
                                         }
-                                    }}
-                                    creatable
-                                    canCreate={canCreateVessel}
-                                    createConfig={vesselCreateConfig}
-                                    className={fieldInputClass}
-                                />
-                            </FormField>
-                        </div>
-                    </FormSection>
+                                        variant="dark"
+                                        placeholder="Select vessel"
+                                        options={vesselSelectOptions}
+                                        onOptionsChange={(next) => {
+                                            const added = next.find(
+                                                (option) =>
+                                                    !vesselSelectOptions.some(
+                                                        (existing) =>
+                                                            existing.value === option.value,
+                                                    ),
+                                            );
 
-                    <FormSection title="Assignment">
-                        <div className="grid gap-4 sm:grid-cols-2">
-                            <FormField label="Sponsor" error={fieldError('company_visa_type_id')}>
+                                            if (added) {
+                                                appendVesselOption({
+                                                    id: added.id,
+                                                    label: added.label,
+                                                });
+                                            }
+                                        }}
+                                        creatable
+                                        canCreate={canCreateVessel}
+                                        createConfig={vesselCreateConfig}
+                                        className={fieldInputClass}
+                                    />
+                                </FormField>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Assignment section */}
+                    <div className="border-b border-border/40 px-6 py-5">
+                        <SectionHeader
+                            icon={<Building2 className="h-4 w-4" />}
+                            title="Assignment"
+                        />
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField label="Sponsor" error={err('company_visa_type_id')}>
                                 <AppSelect
                                     value={form.data.company_visa_type_id}
                                     onValueChange={(value) =>
@@ -332,79 +499,209 @@ export function DeploymentFormDialog({
                                     placeholder="Select sponsor"
                                     className={fieldInputClass}
                                 >
-                                    {companyVisaTypes.map((companyVisaType) => (
-                                        <AppSelectItem
-                                            key={companyVisaType.id}
-                                            value={String(companyVisaType.id)}
-                                        >
-                                            {companyVisaType.name}
+                                    {companyVisaTypes.map((cvt) => (
+                                        <AppSelectItem key={cvt.id} value={String(cvt.id)}>
+                                            {cvt.name}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
                             </FormField>
 
-                            <FormField label="Client" error={fieldError('client_id')}>
+                            <FormField label="Client" error={err('client_id')}>
                                 <AppSelect
                                     value={form.data.client_id}
-                                    onValueChange={(value) => form.setData('client_id', value)}
+                                    onValueChange={(value) =>
+                                        form.setData('client_id', value)
+                                    }
                                     placeholder="Select client"
                                     className={fieldInputClass}
                                 >
                                     {clients.map((client) => (
-                                        <AppSelectItem key={client.id} value={String(client.id)}>
+                                        <AppSelectItem
+                                            key={client.id}
+                                            value={String(client.id)}
+                                        >
                                             {client.name}
                                         </AppSelectItem>
                                     ))}
                                 </AppSelect>
                             </FormField>
                         </div>
-                    </FormSection>
+                    </div>
 
-                    <FormSection
-                        title="Dates"
-                        description="Date of hire comes from the employee profile. Join standby is before joining; leave standby is after disembarkation and before travel."
-                    >
-                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            {DATE_FIELDS.map(({ field, label }) => (
-                                <FormField
-                                    key={field}
-                                    label={label}
-                                    htmlFor={field}
-                                    error={fieldError(field)}
-                                >
-                                    <Input
-                                        id={field}
-                                        type="date"
-                                        value={form.data[field as DateField]}
-                                        onChange={(event) =>
-                                            form.setData(field as DateField, event.target.value)
-                                        }
-                                        className={fieldInputClass}
-                                    />
-                                </FormField>
-                            ))}
+                    {/* Dates section — timeline style */}
+                    <div className="border-b border-border/40 px-6 py-5">
+                        <SectionHeader
+                            icon={<CalendarDays className="h-4 w-4" />}
+                            title="Deployment timeline"
+                            description="Fill in dates as the crew member progresses through each stage. Leave future stages blank."
+                        />
+
+                        <div className="pl-1">
+                            {/* 1. Arrived */}
+                            <TimelineStep
+                                icon="📍"
+                                label="Arrived"
+                                accent="border-sky-500/40"
+                            >
+                                <DateInput
+                                    id="arrived_date"
+                                    value={form.data.arrived_date}
+                                    onChange={(v) => form.setData('arrived_date', v)}
+                                    error={err('arrived_date')}
+                                />
+                            </TimelineStep>
+
+                            {/* 2. Join standby */}
+                            <TimelineStep
+                                icon="⏳"
+                                label="Join standby"
+                                accent="border-amber-500/40"
+                            >
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            From
+                                        </Label>
+                                        <DateInput
+                                            id="join_standby_from"
+                                            value={form.data.join_standby_from}
+                                            onChange={(v) =>
+                                                form.setData('join_standby_from', v)
+                                            }
+                                            error={err('join_standby_from')}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            To
+                                        </Label>
+                                        <DateInput
+                                            id="join_standby_to"
+                                            value={form.data.join_standby_to}
+                                            onChange={(v) =>
+                                                form.setData('join_standby_to', v)
+                                            }
+                                            error={err('join_standby_to')}
+                                        />
+                                    </div>
+                                </div>
+                            </TimelineStep>
+
+                            {/* 3. On vessel */}
+                            <TimelineStep
+                                icon="⚓"
+                                label="On vessel"
+                                accent="border-emerald-500/40"
+                            >
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            Joined
+                                        </Label>
+                                        <DateInput
+                                            id="joined_date"
+                                            value={form.data.joined_date}
+                                            onChange={(v) => form.setData('joined_date', v)}
+                                            error={err('joined_date')}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            Disembarked
+                                        </Label>
+                                        <DateInput
+                                            id="disembarked_date"
+                                            value={form.data.disembarked_date}
+                                            onChange={(v) =>
+                                                form.setData('disembarked_date', v)
+                                            }
+                                            error={err('disembarked_date')}
+                                        />
+                                    </div>
+                                </div>
+                            </TimelineStep>
+
+                            {/* 4. Leave standby */}
+                            <TimelineStep
+                                icon="⏳"
+                                label="Leave standby"
+                                accent="border-orange-500/40"
+                            >
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            From
+                                        </Label>
+                                        <DateInput
+                                            id="leave_standby_from"
+                                            value={form.data.leave_standby_from}
+                                            onChange={(v) =>
+                                                form.setData('leave_standby_from', v)
+                                            }
+                                            error={err('leave_standby_from')}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                            To
+                                        </Label>
+                                        <DateInput
+                                            id="leave_standby_to"
+                                            value={form.data.leave_standby_to}
+                                            onChange={(v) =>
+                                                form.setData('leave_standby_to', v)
+                                            }
+                                            error={err('leave_standby_to')}
+                                        />
+                                    </div>
+                                </div>
+                            </TimelineStep>
+
+                            {/* 5. Travel */}
+                            <TimelineStep
+                                icon="✈️"
+                                label="Travel"
+                                accent="border-violet-500/40"
+                                isLast
+                            >
+                                <DateInput
+                                    id="travelled_date"
+                                    value={form.data.travelled_date}
+                                    onChange={(v) => form.setData('travelled_date', v)}
+                                    error={err('travelled_date')}
+                                />
+                            </TimelineStep>
                         </div>
-                    </FormSection>
+                    </div>
 
-                    <FormSection title="Remarks">
-                        <FormField
-                            label="Ops notes"
-                            error={fieldError('remarks')}
-                            hint="Standby details, travel plans, or handover notes."
-                        >
+                    {/* Remarks section */}
+                    <div className="px-6 py-5">
+                        <SectionHeader
+                            icon={<FileText className="h-4 w-4" />}
+                            title="Ops notes"
+                        />
+
+                        <div className="space-y-1.5">
                             <Textarea
                                 value={form.data.remarks}
-                                onChange={(event) =>
-                                    form.setData('remarks', event.target.value)
-                                }
-                                placeholder="Standby pool until join, travel booked, etc."
-                                rows={4}
-                                className="min-h-[100px] resize-y rounded-xl border-border/60 bg-muted/50 px-4 py-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
+                                onChange={(event) => form.setData('remarks', event.target.value)}
+                                placeholder="Standby pool until join, travel booked, visa pending…"
+                                rows={3}
+                                className="resize-y rounded-xl border-border/60 bg-background px-4 py-3 text-sm focus-visible:ring-primary/40 dark:border-white/10 dark:bg-white/5"
                             />
-                        </FormField>
-                    </FormSection>
+                            {err('remarks') ? (
+                                <p className="text-xs text-destructive">{err('remarks')}</p>
+                            ) : (
+                                <p className="text-[11px] text-muted-foreground">
+                                    Standby details, travel plans, or handover notes.
+                                </p>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
+                {/* ── Footer ───────────────────────────────────────── */}
                 <DialogFooter className="border-t border-border/60 px-6 py-4 dark:border-white/10">
                     <Button
                         type="button"
@@ -420,7 +717,11 @@ export function DeploymentFormDialog({
                         disabled={!form.data.employee_id || form.processing}
                         onClick={submit}
                     >
-                        {form.processing ? 'Saving…' : editing ? 'Save changes' : 'Add deployment'}
+                        {form.processing
+                            ? 'Saving…'
+                            : editing
+                              ? 'Save changes'
+                              : 'Add deployment'}
                     </Button>
                 </DialogFooter>
             </DialogContent>

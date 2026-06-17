@@ -56,6 +56,8 @@ class CrewDeploymentController extends Controller
 
         $paginator = $result['paginator'];
 
+        $view = $request->string('view')->toString() ?: null;
+
         return Inertia::render('organization/crew-deployments/index', [
             'deployments' => [
                 'data' => $paginator->items(),
@@ -75,6 +77,7 @@ class CrewDeploymentController extends Controller
                 'company_visa_type_id' => $request->integer('company_visa_type_id') ?: null,
                 'sort' => $sort,
                 'direction' => $direction,
+                'view' => $view,
             ],
             'employees' => Employee::query()
                 ->where('company_id', $companyId)

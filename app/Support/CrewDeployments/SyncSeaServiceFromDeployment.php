@@ -14,11 +14,12 @@ final class SyncSeaServiceFromDeployment
         $deployment->loadMissing(['employee', 'vessel']);
 
         $linked = EmployeeSeaService::query()
+            ->withTrashed()
             ->where('employee_deployment_id', $deployment->id)
             ->first();
 
         if (! $this->canSync($deployment)) {
-            $linked?->delete();
+            $linked?->forceDelete();
 
             return null;
         }
@@ -46,6 +47,10 @@ final class SyncSeaServiceFromDeployment
         ];
 
         if ($linked !== null) {
+            if ($linked->trashed()) {
+                $linked->restore();
+            }
+
             $linked->update($attributes);
 
             return $linked->fresh();
@@ -65,8 +70,9 @@ final class SyncSeaServiceFromDeployment
     public function removeLinked(EmployeeDeployment $deployment): void
     {
         EmployeeSeaService::query()
+            ->withTrashed()
             ->where('employee_deployment_id', $deployment->id)
-            ->delete();
+            ->forceDelete();
     }
 
     private function canSync(EmployeeDeployment $deployment): bool

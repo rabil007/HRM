@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Download, Filter, Plus, Search, Upload, X } from 'lucide-react';
+import { Download, Filter, LayoutDashboard, LayoutList, Plus, Search, Upload, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
@@ -27,6 +27,7 @@ import {
     DEFAULT_DEPLOYMENT_SORT,
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
+import { CrewDeploymentsBoard } from '@/features/organization/crew-deployments/crew-deployments-board';
 import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
 import { DeploymentDateCell } from '@/features/organization/crew-deployments/deployment-date-cell';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
@@ -39,6 +40,7 @@ import type {
 } from '@/features/organization/crew-deployments/types';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { actions } from '@/lib/design-system';
+import { cn } from '@/lib/utils';
 import { formatIsoDateDisplay } from '@/pages/organization/_lib/format-iso-date-display';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -61,6 +63,7 @@ type Props = {
         company_visa_type_id: number | null;
         sort: string;
         direction: string;
+        view: 'table' | 'board' | null;
     };
     employees: EmployeeOption[];
     ranks: Option[];
@@ -95,6 +98,8 @@ export default function CrewDeploymentsIndex({
     const [editing, setEditing] = useState<DeploymentItem | null>(null);
     const [deleting, setDeleting] = useState<DeploymentItem | null>(null);
 
+    const view = (filters.view ?? 'table') as 'table' | 'board';
+
     const list = useServerPaginationFilters({
         url: '/organization/crew-deployments',
         search: filters.search ?? '',
@@ -107,9 +112,14 @@ export default function CrewDeploymentsIndex({
                 : '',
             sort: filters.sort,
             direction: filters.direction,
+            view: filters.view ?? 'table',
         },
         pagination: deployments,
     });
+
+    const setView = (newView: 'table' | 'board'): void => {
+        list.applyFilters({ view: newView });
+    };
 
     const activeSort = filters.sort ?? DEFAULT_DEPLOYMENT_SORT;
     const activeDirection = filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
@@ -151,6 +161,7 @@ count++;
             search: '',
             sort: DEFAULT_DEPLOYMENT_SORT,
             direction: DEFAULT_DEPLOYMENT_SORT_DIRECTION,
+            view: filters.view ?? 'table',
             page: null,
         });
     };
@@ -184,6 +195,10 @@ query.sort = filters.sort;
 
         if (filters.direction) {
 query.direction = filters.direction;
+}
+
+        if (filters.view) {
+query.view = filters.view;
 }
 
         if (deployments.per_page) {
@@ -234,8 +249,8 @@ query.per_page = String(deployments.per_page);
         <Main>
             <Head title="Deployments" />
 
-            <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
+            <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
                     <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
                         Crew Operations
                     </p>
@@ -247,8 +262,31 @@ query.per_page = String(deployments.per_page);
                         assignment history.
                     </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" asChild>
+                <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+                    <div className="inline-flex h-9 items-stretch overflow-hidden rounded-lg border border-border bg-muted/40">
+                        <Button
+                            variant={view === 'table' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setView('table')}
+                            className="h-9 rounded-none px-3 shadow-none"
+                        >
+                            <LayoutList className="mr-1.5 h-4 w-4" />
+                            Table
+                        </Button>
+                        <Button
+                            variant={view === 'board' ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setView('board')}
+                            className="h-9 rounded-none border-l border-border/60 px-3 shadow-none"
+                        >
+                            <LayoutDashboard className="mr-1.5 h-4 w-4" />
+                            Board
+                        </Button>
+                    </div>
+
+                    <div className="hidden h-6 w-px bg-border/60 sm:block" aria-hidden />
+
+                    <Button variant="outline" size="sm" className="h-9" asChild>
                         <a href="/organization/crew-deployments/export">
                             <Download className="mr-2 h-4 w-4" />
                             Export
@@ -256,13 +294,13 @@ query.per_page = String(deployments.per_page);
                     </Button>
                     {can.manage ? (
                         <>
-                            <Button variant="outline" size="sm" asChild>
+                            <Button variant="outline" size="sm" className="h-9" asChild>
                                 <a href="/organization/crew-deployments/import/template">
                                     Template
                                 </a>
                             </Button>
-                            <label className="inline-flex cursor-pointer">
-                                <Button variant="outline" size="sm" asChild>
+                            <label className="inline-flex h-9 cursor-pointer items-center">
+                                <Button variant="outline" size="sm" className="h-9" asChild>
                                     <span>
                                         <Upload className="mr-2 h-4 w-4" />
                                         Import
@@ -291,7 +329,11 @@ return;
                                     }}
                                 />
                             </label>
-                            <Button size="sm" className={actions.primary} onClick={openCreate}>
+                            <Button
+                                size="sm"
+                                className={cn(actions.primary, 'h-9')}
+                                onClick={openCreate}
+                            >
                                 <Plus className="mr-2 h-4 w-4" />
                                 Add deployment
                             </Button>
@@ -300,13 +342,15 @@ return;
                 </div>
             </div>
 
-            <CrewDeploymentsSummaryCards
-                summary={summary}
-                activeStatus={filters.status ?? ''}
-                hasActiveFilters={activeFilterCount > 0}
-                onSelect={(status) => list.applyFilters({ status })}
-                onClearFilters={clearFilters}
-            />
+            {view === 'table' ? (
+                <CrewDeploymentsSummaryCards
+                    summary={summary}
+                    activeStatus={filters.status ?? ''}
+                    hasActiveFilters={activeFilterCount > 0}
+                    onSelect={(status) => list.applyFilters({ status })}
+                    onClearFilters={clearFilters}
+                />
+            ) : null}
 
             <Card className="mb-6 border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
                 <CardContent className="p-5">
@@ -406,10 +450,11 @@ return;
                 </CardContent>
             </Card>
 
-            <OrganizationDataTable minWidth="min-w-[2600px]">
-                <TableHeader>
-                    <DataTableHeaderRow>
-                        <DataTableHead rowSpan={2}>Where now</DataTableHead>
+            {view === 'table' ? (
+                <OrganizationDataTable minWidth="min-w-[2600px]">
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead rowSpan={2}>Where now</DataTableHead>
                         <SortableDeploymentTableHead
                             sortKey="employee_no"
                             activeSort={activeSort}
@@ -739,6 +784,17 @@ return;
                     )}
                 </TableBody>
             </OrganizationDataTable>
+            ) : (
+                <CrewDeploymentsBoard
+                    deployments={deployments.data}
+                    summary={summary}
+                    can={can}
+                    vessels={vessels}
+                    onEdit={openEdit}
+                    onDelete={setDeleting}
+                    backQuery={listBackQuery}
+                />
+            )}
 
             <Pagination {...list.paginationProps} className="mt-4" label="deployments" />
 

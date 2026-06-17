@@ -131,6 +131,34 @@ test('authorized users can view crew deployment board', function () {
             ->where('summary.total', 1));
 });
 
+test('crew deployment board accepts view parameter', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeCrewDeploymentVessel('View Test Vessel')->id,
+        'joined_date' => CarbonImmutable::today(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', ['view' => 'board']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-deployments/index')
+            ->where('filters.view', 'board')
+            ->has('deployments.data', 1));
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-deployments.index', ['view' => 'table']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/crew-deployments/index')
+            ->where('filters.view', 'table')
+            ->has('deployments.data', 1));
+});
+
 test('crew deployment board shows hire date from employee record', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
