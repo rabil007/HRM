@@ -263,6 +263,7 @@ query.per_page = String(deployments.per_page);
                     </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:shrink-0 lg:justify-end">
+                    {/* Board view toggle — hidden until board is ready to ship
                     <div className="inline-flex h-9 items-stretch overflow-hidden rounded-lg border border-border bg-muted/40">
                         <Button
                             variant={view === 'table' ? 'default' : 'ghost'}
@@ -285,6 +286,7 @@ query.per_page = String(deployments.per_page);
                     </div>
 
                     <div className="hidden h-6 w-px bg-border/60 sm:block" aria-hidden />
+                    */}
 
                     <Button variant="outline" size="sm" className="h-9" asChild>
                         <a href="/organization/crew-deployments/export">
@@ -413,7 +415,8 @@ query.per_page = String(deployments.per_page);
                 </CardContent>
             </Card>
 
-            {view === 'table' ? (
+            {/* Board view disabled — uncomment the ternary below when ready to ship
+            {view === 'table' ? ( */}
                 <OrganizationDataTable minWidth="min-w-[2600px]">
                     <TableHeader>
                         <DataTableHeaderRow>
@@ -747,7 +750,7 @@ query.per_page = String(deployments.per_page);
                     )}
                 </TableBody>
             </OrganizationDataTable>
-            ) : (
+            {/* ) : (
                 <CrewDeploymentsBoard
                     deployments={deployments.data}
                     summary={summary}
@@ -757,7 +760,7 @@ query.per_page = String(deployments.per_page);
                     onDelete={setDeleting}
                     backQuery={listBackQuery}
                 />
-            )}
+            )} */}
 
             <Pagination {...list.paginationProps} className="mt-4" label="deployments" />
 
