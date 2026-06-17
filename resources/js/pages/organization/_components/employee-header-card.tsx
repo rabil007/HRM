@@ -1,7 +1,9 @@
 import { Briefcase, Building2, Camera, ClipboardList, UserRound, X } from 'lucide-react';
+import { Link } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { EditableCommandSelectCell } from '@/features/organization/employees/profile/components/editable-command-select-cell';
@@ -17,7 +19,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/assign-employee-profile-template';
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
-import type { ProfileTemplateOption } from '@/pages/organization/employee-page.types';
+import type { EmployeeCrewStatus, ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
 
 function optionLabel(
@@ -28,6 +30,39 @@ function optionLabel(
     const found = options.find((option) => String(option.id) === String(id ?? ''));
 
     return found?.name ?? fallback ?? '—';
+}
+
+function EmployeeCrewStatusBadge({
+    crewStatus,
+    canViewDeployments,
+}: {
+    crewStatus: EmployeeCrewStatus;
+    canViewDeployments: boolean;
+}) {
+    const badge = (
+        <DeploymentStatusBadge
+            status={crewStatus.status}
+            label={crewStatus.label}
+            hint={crewStatus.hint}
+        />
+    );
+
+    if (
+        canViewDeployments
+        && crewStatus.deployment_id !== null
+        && crewStatus.status !== 'available'
+    ) {
+        return (
+            <Link
+                href={`/organization/crew-deployments/${crewStatus.deployment_id}`}
+                className="inline-flex"
+            >
+                {badge}
+            </Link>
+        );
+    }
+
+    return badge;
 }
 
 export function EmployeeHeaderCard({
@@ -53,6 +88,7 @@ export function EmployeeHeaderCard({
     isMissingRequired = () => false,
     canAssignProfileTemplate = false,
     profileTemplates = [],
+    canViewDeployments = false,
 }: {
     canUpdate: boolean;
     employee: any;
@@ -77,6 +113,7 @@ export function EmployeeHeaderCard({
     isMissingRequired?: (field: string) => boolean;
     canAssignProfileTemplate?: boolean;
     profileTemplates?: ProfileTemplateOption[];
+    canViewDeployments?: boolean;
 }) {
     const showField = (key: string) =>
         !templateProfileFields || templateProfileFields.includes(key);
@@ -385,6 +422,13 @@ export function EmployeeHeaderCard({
                                     <div className={`h-1.5 w-1.5 animate-pulse rounded-full ${statusBadge.dot}`} />
                                     {employee.status?.replace('_', ' ')}
                                 </div>
+
+                                {employee.crew_status ? (
+                                    <EmployeeCrewStatusBadge
+                                        crewStatus={employee.crew_status}
+                                        canViewDeployments={canViewDeployments}
+                                    />
+                                ) : null}
                             </div>
                             {employee.employee_profile_template?.name ? (
                                 <Badge

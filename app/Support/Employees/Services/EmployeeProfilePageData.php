@@ -8,6 +8,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
+use App\Models\EmployeeDeployment;
 use App\Models\EmployeeDocument;
 use App\Models\EmployeeEducationQualification;
 use App\Models\EmployeeLanguage;
@@ -19,6 +20,7 @@ use App\Models\EmployeeWorkExperience;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
+use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeFormOptions;
@@ -84,10 +86,15 @@ final class EmployeeProfilePageData
         $canUpdateEmployee = $authUser?->can('employees.update') ?? false;
         $needsProfileTemplate = $employee->employee_profile_template_id === null;
 
+        $employeePayload = EmployeeDetailResource::toArray($employee);
+        $employeePayload['crew_status'] = EmployeeCrewStatusPresenter::fromDeployment(
+            self::latestDeploymentForEmployee($companyId, $employee->id),
+        );
+
         return [
             'mode' => 'edit',
             'employee_navigation' => $employeeNavigation,
-            'employee' => EmployeeDetailResource::toArray($employee),
+            'employee' => $employeePayload,
             'resolved_template' => EmployeeProfileTemplateResolver::resolve($employee->employeeProfileTemplate),
             'profile_templates' => $needsProfileTemplate
                 ? self::activeProfileTemplates($companyId)
@@ -108,6 +115,7 @@ final class EmployeeProfilePageData
                 'bank_accounts_manage' => $authUser?->can('employees.bank_accounts.manage'),
                 'sea_service_manage' => $authUser?->can('employees.sea_service.manage'),
                 'training_manage' => $authUser?->can('employees.training.manage'),
+                'deployments_view' => $authUser?->can('crew_operations.deployments.view') ?? false,
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
@@ -205,7 +213,14 @@ final class EmployeeProfilePageData
 
         $employeeId = $employee?->id;
         $employeePayload = $employee !== null
-            ? EmployeeDetailResource::toArray($employee)
+            ? array_merge(
+                EmployeeDetailResource::toArray($employee),
+                [
+                    'crew_status' => EmployeeCrewStatusPresenter::fromDeployment(
+                        self::latestDeploymentForEmployee($companyId, $employee->id),
+                    ),
+                ],
+            )
             : self::placeholderEmployee();
 
         $base = [
@@ -307,7 +322,19 @@ final class EmployeeProfilePageData
             'bank_accounts_manage' => $authUser?->can('employees.bank_accounts.manage') ?? false,
             'sea_service_manage' => $authUser?->can('employees.sea_service.manage') ?? false,
             'training_manage' => $authUser?->can('employees.training.manage') ?? false,
+            'deployments_view' => $authUser?->can('crew_operations.deployments.view') ?? false,
         ];
+    }
+
+    private static function latestDeploymentForEmployee(int $companyId, int $employeeId): ?EmployeeDeployment
+    {
+        return EmployeeDeployment::query()
+            ->where('company_id', $companyId)
+            ->where('employee_id', $employeeId)
+            ->with('vessel:id,name')
+            ->orderByDesc('sort_order')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**

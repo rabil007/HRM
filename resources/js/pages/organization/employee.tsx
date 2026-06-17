@@ -588,6 +588,7 @@ function EmployeeDetailsPage({
                             onPhotoRemove={removePhoto}
                             templateProfileFields={employee_tabs.profile_fields}
                             isMissingRequired={isMissingRequired}
+                            canViewDeployments={can?.deployments_view ?? false}
                         />
 
                         <EmployeeProfileShell

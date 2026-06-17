@@ -30,6 +30,16 @@ export type ResolvedEmployeeTemplate = {
     employee_tabs: EmployeeProfileTabVisibility;
 };
 
+export type EmployeeCrewStatus = {
+    deployment_id: number | null;
+    status: string;
+    label: string;
+    hint?: string | null;
+    current_vessel?: string | null;
+    in_home_days?: number | null;
+    vessel_name?: string | null;
+};
+
 export type EmployeeDetails = {
     id: number | null;
     user: { id: number; name: string | null; email: string | null; avatar: string | null } | null;
@@ -97,6 +107,7 @@ export type EmployeeDetails = {
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
+    crew_status?: EmployeeCrewStatus | null;
     employee_profile_template?: { id: number; name: string | null } | null;
     employee_profile_template_id?: number | null;
     address?: string | null;
@@ -317,6 +328,7 @@ export type EmployeePageProps = {
         bank_accounts_manage: boolean;
         sea_service_manage: boolean;
         training_manage: boolean;
+        deployments_view: boolean;
     };
     branches: BranchOption[];
     departments: DepartmentOption[];

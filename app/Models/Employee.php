@@ -125,6 +125,11 @@ class Employee extends Model
         return $this->hasMany(EmployeeContract::class);
     }
 
+    public function deployments(): HasMany
+    {
+        return $this->hasMany(EmployeeDeployment::class);
+    }
+
     public function currentContract(): HasOne
     {
         return $this->hasOne(EmployeeContract::class)->ofMany(
