@@ -14,13 +14,11 @@ export function DeploymentDateCell({
     dueSoonFields: string[];
 }): ReactElement {
     const isOverdue = overdueFields.includes(field);
-    const isDueSoon = ! isOverdue && dueSoonFields.includes(field);
 
     return (
         <span
             className={cn(
                 isOverdue && 'font-semibold text-red-500 dark:text-red-400',
-                isDueSoon && 'font-semibold text-amber-500 dark:text-amber-400',
             )}
         >
             {formatIsoDateDisplay(value)}
