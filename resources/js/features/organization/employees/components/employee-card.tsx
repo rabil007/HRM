@@ -7,29 +7,6 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { Employee } from '../types';
 
-const STATUS_CONFIG = {
-    active: {
-        dot: 'bg-emerald-500 dark:bg-emerald-400',
-        badge: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 dark:border-emerald-500/30 dark:bg-emerald-500/15',
-        label: 'Active',
-    },
-    inactive: {
-        dot: 'bg-muted-foreground',
-        badge: 'border-border bg-muted/50 text-muted-foreground',
-        label: 'Inactive',
-    },
-    on_leave: {
-        dot: 'bg-amber-500 dark:bg-amber-400 animate-pulse',
-        badge: 'border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-400 dark:border-amber-500/30 dark:bg-amber-500/15',
-        label: 'On Leave',
-    },
-    terminated: {
-        dot: 'bg-rose-500 dark:bg-rose-400',
-        badge: 'border-rose-500/20 bg-rose-500/10 text-rose-600 dark:text-rose-400 dark:border-rose-500/30 dark:bg-rose-500/15',
-        label: 'Terminated',
-    },
-} as const;
-
 const POSITION_COLORS = [
     'border-primary/20 bg-primary/10 text-primary',
     'border-accent/20 bg-accent/10 text-accent',
@@ -48,7 +25,6 @@ export function EmployeeCard({
     showUrl: string;
     onDelete?: (employee: Employee) => void;
 }) {
-    const statusCfg = STATUS_CONFIG[employee.status] ?? STATUS_CONFIG.inactive;
     const positionColor = POSITION_COLORS[employee.name.length % POSITION_COLORS.length];
     const birthdayDisplay = formatDisplayDate(employee.date_of_birth);
     const birthday = birthdayDisplay !== '—' ? birthdayDisplay : null;
@@ -82,23 +58,14 @@ export function EmployeeCard({
                             {employee.employee_no}
                         </span>
                     </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1">
-                        <div
-                            className={cn(
-                                'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                                statusCfg.badge,
-                            )}
-                        >
-                            <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
-                            {statusCfg.label}
-                        </div>
-                        {employee.crew_status ? (
+                    {employee.crew_status ? (
+                        <div className="shrink-0">
                             <DeploymentStatusBadge
                                 status={employee.crew_status.status}
                                 label={employee.crew_status.label}
                             />
-                        ) : null}
-                    </div>
+                        </div>
+                    ) : null}
                 </div>
 
                 {/* Contact rows */}
