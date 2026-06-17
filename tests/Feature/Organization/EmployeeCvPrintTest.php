@@ -9,6 +9,8 @@ use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\User;
+use App\Models\Vessel;
+use App\Models\VesselType;
 use App\Support\Employees\Services\AdnocSeafarerCvData;
 use App\Support\Settings\SettingKey;
 use Illuminate\Support\Facades\Cache;
@@ -270,10 +272,18 @@ test('adnoc cv includes sea service rows', function () {
             'status' => 'active',
         ]);
 
+    $vesselType = VesselType::query()->create(['name' => 'Test Type', 'is_active' => true]);
+    $vessel = Vessel::query()->create([
+        'name' => 'MV Test Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
-        'vessel_name' => 'MV Test Vessel',
+        'vessel_id' => $vessel->id,
+        'vessel_type_id' => $vesselType->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-06-01',
         'total_months' => 5,
@@ -493,11 +503,20 @@ test('adnoc cv closing sections render after many sea service rows', function ()
             'status' => 'active',
         ]);
 
+    $vesselType = VesselType::query()->create(['name' => 'Many Sea Type', 'is_active' => true]);
+
     foreach (range(1, 20) as $i) {
+        $vessel = Vessel::query()->create([
+            'name' => "MV Vessel {$i}",
+            'vessel_type_id' => $vesselType->id,
+            'is_active' => true,
+        ]);
+
         EmployeeSeaService::factory()->create([
             'company_id' => $company->id,
             'employee_id' => $employee->id,
-            'vessel_name' => "MV Vessel {$i}",
+            'vessel_id' => $vessel->id,
+            'vessel_type_id' => $vesselType->id,
             'start_date' => '2020-01-01',
             'end_date' => '2020-06-01',
             'total_months' => 5,

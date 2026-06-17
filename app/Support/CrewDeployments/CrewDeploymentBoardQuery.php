@@ -39,6 +39,7 @@ final class CrewDeploymentBoardQuery
                 'rank',
                 'client',
                 'companyVisaType',
+                'vessel',
             ]);
 
         $this->applySearch($baseQuery, $search);
@@ -89,7 +90,9 @@ final class CrewDeploymentBoardQuery
                         ->whereRaw('LOWER(employee_no) LIKE ?', [$term])
                         ->orWhereRaw('LOWER(name) LIKE ?', [$term]);
                 })
-                ->orWhereRaw('LOWER(vessel_name) LIKE ?', [$term])
+                ->orWhereHas('vessel', function (Builder $vesselQuery) use ($term) {
+                    $vesselQuery->whereRaw('LOWER(name) LIKE ?', [$term]);
+                })
                 ->orWhereRaw('LOWER(remarks) LIKE ?', [$term]);
         });
     }

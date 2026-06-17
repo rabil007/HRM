@@ -7,6 +7,8 @@ use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
+use App\Models\Vessel;
+use App\Models\VesselType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -45,7 +47,16 @@ class EmployeeDeploymentFactory extends Factory
                     'is_active' => true,
                 ])->id;
             },
-            'vessel_name' => fake()->words(2, true).' OSV',
+            'vessel_id' => static function (): int {
+                return Vessel::query()->create([
+                    'name' => fake()->unique()->words(2, true).' OSV',
+                    'vessel_type_id' => VesselType::query()->create([
+                        'name' => 'V '.Str::uuid()->toString(),
+                        'is_active' => true,
+                    ])->id,
+                    'is_active' => true,
+                ])->id;
+            },
             'arrived_date' => fake()->optional()->date(),
             'join_standby_from' => null,
             'join_standby_to' => null,

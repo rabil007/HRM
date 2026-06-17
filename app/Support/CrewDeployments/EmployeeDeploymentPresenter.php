@@ -16,6 +16,7 @@ final class EmployeeDeploymentPresenter
             'rank',
             'client',
             'companyVisaType',
+            'vessel',
         ]);
 
         $status = DeploymentStatus::resolve($deployment);
@@ -32,7 +33,8 @@ final class EmployeeDeploymentPresenter
             'client_name' => $deployment->client?->name,
             'company_visa_type_id' => $deployment->company_visa_type_id,
             'company_visa_type_name' => $deployment->companyVisaType?->name,
-            'vessel_name' => $deployment->vessel_name,
+            'vessel_id' => $deployment->vessel_id,
+            'vessel_name' => $deployment->vessel?->name,
             'hire_date' => $deployment->employee?->hire_date?->toDateString(),
             'arrived_date' => $deployment->arrived_date?->toDateString(),
             'join_standby_from' => $deployment->join_standby_from?->toDateString(),

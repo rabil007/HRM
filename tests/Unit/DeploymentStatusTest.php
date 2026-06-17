@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\EmployeeDeployment;
+use App\Models\Vessel;
 use App\Support\CrewDeployments\DeploymentStatus;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -8,9 +9,16 @@ use Tests\TestCase;
 
 uses(TestCase::class, RefreshDatabase::class);
 
+function deploymentWithVessel(string $name, array $attributes = []): EmployeeDeployment
+{
+    $deployment = new EmployeeDeployment($attributes);
+    $deployment->setRelation('vessel', new Vessel(['name' => $name]));
+
+    return $deployment;
+}
+
 test('deployment status resolves on vessel for open tour', function () {
-    $deployment = new EmployeeDeployment([
-        'vessel_name' => 'L Etoile',
+    $deployment = deploymentWithVessel('L Etoile', [
         'joined_date' => CarbonImmutable::today()->subDays(10),
         'disembarked_date' => CarbonImmutable::today()->addDays(20),
     ]);
@@ -91,13 +99,11 @@ test('deployment status resolves travel after disembarkation', function () {
 test('deployment status resolves arrived when arrived today or later without join date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 
-    $awaitingToday = new EmployeeDeployment([
-        'vessel_name' => 'Vessel A',
+    $awaitingToday = deploymentWithVessel('Vessel A', [
         'arrived_date' => $today,
     ]);
 
-    $awaitingFuture = new EmployeeDeployment([
-        'vessel_name' => 'Vessel A',
+    $awaitingFuture = deploymentWithVessel('Vessel A', [
         'arrived_date' => $today->addDay(),
     ]);
 
@@ -112,8 +118,7 @@ test('deployment status resolves arrived when arrived today or later without joi
 test('deployment status resolves needs update when arrival passed without join date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 
-    $deployment = new EmployeeDeployment([
-        'vessel_name' => 'Vessel A',
+    $deployment = deploymentWithVessel('Vessel A', [
         'arrived_date' => $today->subDay(),
     ]);
 
@@ -154,8 +159,7 @@ test('deployment status resolves needs update when disembarked in past without t
 test('deployment status resolves needs update when leave standby ended without travel date', function () {
     $today = CarbonImmutable::parse('2026-06-11');
 
-    $deployment = new EmployeeDeployment([
-        'vessel_name' => 'Vessel A',
+    $deployment = deploymentWithVessel('Vessel A', [
         'joined_date' => $today->subDays(4),
         'disembarked_date' => $today->subDays(3),
         'leave_standby_from' => $today->subDays(2),
@@ -331,8 +335,7 @@ test('deployment status is not in home when travelled date is in the future', fu
 test('deployment status is not in home when latest record needs update', function () {
     $today = CarbonImmutable::parse('2026-06-12');
 
-    $deployment = new EmployeeDeployment([
-        'vessel_name' => 'Vessel A',
+    $deployment = deploymentWithVessel('Vessel A', [
         'joined_date' => $today->subDays(6),
         'disembarked_date' => $today->subDays(3),
         'travelled_date' => null,

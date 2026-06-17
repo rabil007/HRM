@@ -11,6 +11,7 @@ use App\Models\EmployeeSeaService;
 use App\Models\EmployeeTraining;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\Services\OffshoreCvData;
 
@@ -94,10 +95,18 @@ test('authenticated users can open printable offshore cv', function () {
         'is_active' => true,
     ]);
 
+    $offshoreVessel = Vessel::query()->create([
+        'name' => 'Najeeb 3000',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 4500,
+        'bhp' => 12000,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Najeeb 3000',
+            'vessel_id' => $offshoreVessel->id,
             'vessel_type_id' => $vesselType->id,
             'rank_id' => $rank->id,
             'client_id' => $client->id,
@@ -105,15 +114,20 @@ test('authenticated users can open printable offshore cv', function () {
             'end_date' => '2023-12-20',
             'total_months' => 11,
             'total_days' => 10,
-            'grt' => 4500,
-            'bhp' => 12000,
             'is_offshore' => true,
         ]);
+
+    $onshoreVessel = Vessel::query()->create([
+        'name' => 'Onshore Vessel',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
 
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Onshore Vessel',
+            'vessel_id' => $onshoreVessel->id,
+            'vessel_type_id' => $vesselType->id,
             'is_offshore' => false,
         ]);
 
@@ -211,17 +225,31 @@ test('offshore cv data includes all sea service rows in project history', functi
             'status' => 'active',
         ]);
 
-    EmployeeSeaService::factory()
-        ->forEmployee($employee)
-        ->create([
-            'vessel_name' => 'Offshore Alpha',
-            'is_offshore' => true,
-        ]);
+    $vessel = Vessel::query()->create([
+        'name' => 'Offshore Alpha',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Type Offshore Alpha', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
 
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Seagoing Beta',
+            'vessel_id' => $vessel->id,
+            'vessel_type_id' => $vessel->vessel_type_id,
+            'is_offshore' => true,
+        ]);
+
+    $vessel = Vessel::query()->create([
+        'name' => 'Seagoing Beta',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Type Seagoing Beta', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
+
+    EmployeeSeaService::factory()
+        ->forEmployee($employee)
+        ->create([
+            'vessel_id' => $vessel->id,
+            'vessel_type_id' => $vessel->vessel_type_id,
             'is_offshore' => false,
         ]);
 
@@ -270,10 +298,17 @@ test('offshore cv applied rank and offshore experience use different filters', f
             'status' => 'active',
         ]);
 
+    $masterVessel = Vessel::query()->create([
+        'name' => 'Master Vessel',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Master Type', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Master Vessel',
+            'vessel_id' => $masterVessel->id,
+            'vessel_type_id' => $masterVessel->vessel_type_id,
             'rank_id' => $masterRank->id,
             'start_date' => null,
             'end_date' => null,
@@ -282,10 +317,17 @@ test('offshore cv applied rank and offshore experience use different filters', f
             'is_offshore' => false,
         ]);
 
+    $shadowVessel = Vessel::query()->create([
+        'name' => 'Shadow Vessel',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Shadow Type', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Shadow Vessel',
+            'vessel_id' => $shadowVessel->id,
+            'vessel_type_id' => $shadowVessel->vessel_type_id,
             'rank_id' => $shadowRank->id,
             'start_date' => '2023-01-01',
             'end_date' => '2023-12-31',
@@ -337,10 +379,17 @@ test('offshore cv applied rank is zero when no sea service matches employee rank
             'status' => 'active',
         ]);
 
+    $shadowVessel = Vessel::query()->create([
+        'name' => 'Shadow Vessel',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Zero Rank Offshore Type', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
-            'vessel_name' => 'Shadow Vessel',
+            'vessel_id' => $shadowVessel->id,
+            'vessel_type_id' => $shadowVessel->vessel_type_id,
             'rank_id' => $shadowRank->id,
             'start_date' => null,
             'end_date' => null,

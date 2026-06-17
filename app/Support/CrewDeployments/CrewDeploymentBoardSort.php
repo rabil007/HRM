@@ -82,6 +82,9 @@ final class CrewDeploymentBoardSort
             'client' => $query
                 ->leftJoin('clients', 'clients.id', '=', 'employee_deployments.client_id')
                 ->orderBy('clients.name', $direction),
+            'vessel_name' => $query
+                ->leftJoin('vessels', 'vessels.id', '=', 'employee_deployments.vessel_id')
+                ->orderBy('vessels.name', $direction),
             'join_standby_days' => self::orderByComputedDays(
                 $query,
                 'employee_deployments.join_standby_from',

@@ -8,6 +8,7 @@ import { store as storeDocumentType } from '@/actions/App/Http/Controllers/Setti
 import { store as storeGender } from '@/actions/App/Http/Controllers/Settings/MasterData/GenderController';
 import { store as storeRank } from '@/actions/App/Http/Controllers/Settings/MasterData/RankController';
 import { store as storeReligion } from '@/actions/App/Http/Controllers/Settings/MasterData/ReligionController';
+import { store as storeVessel } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselController';
 import { store as storeVesselType } from '@/actions/App/Http/Controllers/Settings/MasterData/VesselTypeController';
 import { store as storeVisaType } from '@/actions/App/Http/Controllers/Settings/MasterData/VisaTypeController';
 
@@ -21,12 +22,14 @@ export type CreatableMasterDataKey =
     | 'rank'
     | 'client'
     | 'vesselType'
+    | 'vessel'
     | 'documentType'
     | 'department'
     | 'position';
 
 export type CreatableMasterDataContext = {
     departmentId?: string | number | null;
+    vesselTypeId?: string | number | null;
 };
 
 type CreatableRegistryEntry = {
@@ -90,6 +93,23 @@ export const creatableRegistry: Record<CreatableMasterDataKey, CreatableRegistry
         labelField: 'name',
         url: () => storeVesselType.url(),
         body: (query) => ({ name: query, is_active: true }),
+    },
+    vessel: {
+        permission: 'settings.master-data.vessels.create',
+        labelField: 'name',
+        url: () => storeVessel.url(),
+        body: (query, context) => {
+            const body: Record<string, unknown> = {
+                name: query,
+                is_active: true,
+            };
+
+            if (context?.vesselTypeId) {
+                body.vessel_type_id = Number(context.vesselTypeId);
+            }
+
+            return body;
+        },
     },
     documentType: {
         permission: 'settings.master-data.document-types.create',

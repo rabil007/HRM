@@ -115,6 +115,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.vessel-types.update',
             'settings.master-data.vessel-types.delete',
 
+            'settings.master-data.vessels.view',
+            'settings.master-data.vessels.create',
+            'settings.master-data.vessels.update',
+            'settings.master-data.vessels.delete',
+
             'settings.master-data.ranks.view',
             'settings.master-data.ranks.create',
             'settings.master-data.ranks.update',

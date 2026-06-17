@@ -22,14 +22,13 @@ class EmployeeSeaService extends Model
         return [
             'sort_order' => 'integer',
             'vessel_type_id' => 'integer',
+            'vessel_id' => 'integer',
             'rank_id' => 'integer',
             'start_date' => 'date',
             'end_date' => 'date',
             'client_id' => 'integer',
             'total_months' => 'integer',
             'total_days' => 'integer',
-            'grt' => 'decimal:2',
-            'bhp' => 'integer',
             'is_offshore' => 'boolean',
         ];
     }
@@ -47,6 +46,11 @@ class EmployeeSeaService extends Model
     public function vesselType(): BelongsTo
     {
         return $this->belongsTo(VesselType::class);
+    }
+
+    public function vessel(): BelongsTo
+    {
+        return $this->belongsTo(Vessel::class);
     }
 
     public function rank(): BelongsTo

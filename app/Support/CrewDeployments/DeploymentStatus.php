@@ -31,18 +31,24 @@ final class DeploymentStatus
 
     public const UNKNOWN = 'unknown';
 
+    private static function vesselDisplayName(EmployeeDeployment $deployment): ?string
+    {
+        return $deployment->vessel?->name;
+    }
+
     /**
      * @return array{status: string, label: string, current_vessel: string|null}
      */
     public static function resolve(EmployeeDeployment $deployment, ?CarbonImmutable $today = null): array
     {
         $today ??= CarbonImmutable::today();
+        $vesselName = self::vesselDisplayName($deployment);
 
         if (self::isOnVessel($deployment, $today)) {
             return [
                 'status' => self::ON_VESSEL,
-                'label' => 'On '.($deployment->vessel_name ?: 'vessel'),
-                'current_vessel' => $deployment->vessel_name,
+                'label' => 'On '.($vesselName ?: 'vessel'),
+                'current_vessel' => $vesselName,
             ];
         }
 
@@ -82,7 +88,7 @@ final class DeploymentStatus
             return [
                 'status' => self::ARRIVED,
                 'label' => 'Arrived',
-                'current_vessel' => $deployment->vessel_name,
+                'current_vessel' => $vesselName,
             ];
         }
 
@@ -90,7 +96,7 @@ final class DeploymentStatus
             return [
                 'status' => self::UNKNOWN,
                 'label' => 'Needs update',
-                'current_vessel' => $deployment->vessel_name,
+                'current_vessel' => $vesselName,
             ];
         }
 
@@ -109,7 +115,7 @@ final class DeploymentStatus
         return [
             'status' => self::UNKNOWN,
             'label' => 'Needs update',
-            'current_vessel' => $deployment->vessel_name,
+            'current_vessel' => $vesselName,
         ];
     }
 

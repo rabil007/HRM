@@ -126,12 +126,10 @@ export function seaServiceImportConfig(employeeId: number | null): RecordImportC
         templateUrl: (id) => seaServiceImportTemplate.url({ employee: id }),
         columnHelp: columnList([
             columnItem('vessel_type', 'required (aliases: Vessel type, Type)'),
-            columnItem('vessel_name', 'required (aliases: Vessel name, Vessel)'),
+            columnItem('vessel', 'required (aliases: Vessel name, Vessel)'),
             columnItem('rank', 'required (aliases: Rank name, Position)'),
             columnItem('start_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
             columnItem('end_date', 'required — DD/MM/YYYY or YYYY-MM-DD'),
-            columnItem('grt', 'optional'),
-            columnItem('bhp', 'optional'),
             columnItem('client', 'optional (must match an active client name)'),
             columnItem('is_offshore', 'optional (yes / no / true / false / 1 / 0)'),
         ]),

@@ -45,7 +45,7 @@ final class OffshoreCvData
         $seaServices = EmployeeSeaService::query()
             ->where('company_id', $companyId)
             ->where('employee_id', $employee->id)
-            ->with(['vesselType:id,name', 'rank:id,name', 'client:id,name'])
+            ->with(['vessel:id,name,grt,bhp', 'vesselType:id,name', 'rank:id,name', 'client:id,name'])
             ->orderBy('sort_order')
             ->orderByDesc('start_date')
             ->orderByDesc('id')
@@ -82,15 +82,15 @@ final class OffshoreCvData
                 'expiry_date' => self::formatCvDate($training->expiry_date),
             ])->values()->all(),
             'offshore_projects' => $seaServices->map(fn (EmployeeSeaService $row) => [
-                'vessel_name' => (string) $row->vessel_name,
+                'vessel_name' => (string) ($row->vessel?->name ?? ''),
                 'vessel_type' => (string) ($row->vesselType?->name ?? ''),
                 'rank' => (string) ($row->rank?->name ?? ''),
                 'from' => self::formatCvDate($row->start_date),
                 'to' => self::formatCvDate($row->end_date),
                 'total_months' => (string) ($row->total_months ?? 0),
                 'total_days' => (string) ($row->total_days ?? 0),
-                'grt' => $row->grt !== null ? (string) $row->grt : '',
-                'bhp' => $row->bhp !== null ? (string) $row->bhp : '',
+                'grt' => $row->vessel?->grt !== null ? (string) $row->vessel->grt : '',
+                'bhp' => $row->vessel?->bhp !== null ? (string) $row->vessel->bhp : '',
                 'company_name' => (string) ($row->client?->name ?? ''),
             ])->values()->all(),
             'experience_rank_ymd' => $experienceRankYmd,

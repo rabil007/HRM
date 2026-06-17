@@ -10,6 +10,7 @@ export type DeploymentItem = {
     client_name: string | null;
     company_visa_type_id: number | null;
     company_visa_type_name: string | null;
+    vessel_id: number | null;
     vessel_name: string | null;
     hire_date: string | null;
     arrived_date: string | null;

@@ -110,6 +110,7 @@ function EmployeeDetailsPage({
     banks,
     ranks,
     vessel_types,
+    vessels,
     clients,
     employee_tabs,
 }: EmployeePageProps) {
@@ -783,6 +784,7 @@ function EmployeeDetailsPage({
                                                 employeeId={effectiveEmployeeId}
                                                 sea_services={sea_services ?? []}
                                                 vessel_types={vessel_types ?? []}
+                                                vessels={vessels ?? []}
                                                 ranks={ranks}
                                                 clients={clients ?? []}
                                                 employeeRankId={localEmployee.rank_id ?? null}

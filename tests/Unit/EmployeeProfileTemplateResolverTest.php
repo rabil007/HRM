@@ -13,7 +13,7 @@ test('defaults expose all tabs and require name and employee number', function (
         ->and($resolved['fields']['employees'])->not->toHaveKey('user_id')
         ->and($resolved['fields']['employees']['name']['required'])->toBeTrue()
         ->and($resolved['fields']['employees']['employee_no']['required'])->toBeTrue()
-        ->and($resolved['fields']['employee_sea_services']['vessel_name']['required'])->toBeTrue()
+        ->and($resolved['fields']['employee_sea_services']['vessel_id']['required'])->toBeTrue()
         ->and($resolved['fields']['employee_education_qualifications']['certificate']['required'])->toBeTrue();
 });
 

@@ -6,6 +6,7 @@ import {
     update as updateDeployment,
 } from '@/actions/App/Http/Controllers/Organization/CrewDeploymentController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
+import { CreatableSelect } from '@/components/ui/creatable-select';
 import { Button } from '@/components/ui/button';
 import {
     Dialog,
@@ -21,6 +22,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import type { DeploymentItem } from '@/features/organization/crew-deployments/types';
 import { actions, typography } from '@/lib/design-system';
+import { useCreatableMasterData } from '@/hooks/use-creatable-master-data';
+import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { cn } from '@/lib/utils';
 
 type Option = { id: number; name: string };
@@ -105,6 +108,7 @@ export function DeploymentFormDialog({
     ranks,
     clients,
     companyVisaTypes,
+    vessels,
     redirectToShow = false,
 }: {
     open: boolean;
@@ -114,14 +118,20 @@ export function DeploymentFormDialog({
     ranks: Option[];
     clients: Option[];
     companyVisaTypes: Option[];
+    vessels: Option[];
     redirectToShow?: boolean;
 }): ReactElement {
+    const { selectOptions: vesselSelectOptions, appendOption: appendVesselOption } =
+        useMutableSelectOptions(vessels);
+    const { canCreate: canCreateVessel, createConfig: vesselCreateConfig } =
+        useCreatableMasterData('vessel');
+
     const form = useForm({
         employee_id: '',
         rank_id: '',
         client_id: '',
         company_visa_type_id: '',
-        vessel_name: '',
+        vessel_id: '',
         arrived_date: '',
         join_standby_from: '',
         join_standby_to: '',
@@ -146,7 +156,7 @@ export function DeploymentFormDialog({
                 company_visa_type_id: editing.company_visa_type_id
                     ? String(editing.company_visa_type_id)
                     : '',
-                vessel_name: editing.vessel_name ?? '',
+                vessel_id: editing.vessel_id ? String(editing.vessel_id) : '',
                 arrived_date: editing.arrived_date ?? '',
                 join_standby_from: editing.join_standby_from ?? '',
                 join_standby_to: editing.join_standby_to ?? '',
@@ -180,7 +190,7 @@ export function DeploymentFormDialog({
             company_visa_type_id: data.company_visa_type_id
                 ? Number(data.company_visa_type_id)
                 : null,
-            vessel_name: data.vessel_name || null,
+            vessel_id: data.vessel_id ? Number(data.vessel_id) : null,
             arrived_date: data.arrived_date || null,
             join_standby_from: data.join_standby_from || null,
             join_standby_to: data.join_standby_to || null,
@@ -280,13 +290,31 @@ export function DeploymentFormDialog({
                                 </AppSelect>
                             </FormField>
 
-                            <FormField label="Vessel" error={fieldError('vessel_name')}>
-                                <Input
-                                    value={form.data.vessel_name}
-                                    onChange={(event) =>
-                                        form.setData('vessel_name', event.target.value)
-                                    }
-                                    placeholder="e.g. Safeen OSV Pearl"
+                            <FormField label="Vessel" error={fieldError('vessel_id')}>
+                                <CreatableSelect
+                                    value={form.data.vessel_id}
+                                    onValueChange={(value) => form.setData('vessel_id', value)}
+                                    variant="dark"
+                                    placeholder="Select vessel"
+                                    options={vesselSelectOptions}
+                                    onOptionsChange={(next) => {
+                                        const added = next.find(
+                                            (option) =>
+                                                !vesselSelectOptions.some(
+                                                    (existing) => existing.value === option.value,
+                                                ),
+                                        );
+
+                                        if (added) {
+                                            appendVesselOption({
+                                                id: added.id,
+                                                label: added.label,
+                                            });
+                                        }
+                                    }}
+                                    creatable
+                                    canCreate={canCreateVessel}
+                                    createConfig={vesselCreateConfig}
                                     className={fieldInputClass}
                                 />
                             </FormField>

@@ -57,7 +57,7 @@ class CrewDeploymentsExport implements FromCollection, WithHeadings, WithMapping
      */
     public function map($deployment): array
     {
-        $deployment->loadMissing(['employee.nationalityRef', 'rank', 'client', 'companyVisaType']);
+        $deployment->loadMissing(['employee.nationalityRef', 'rank', 'client', 'companyVisaType', 'vessel']);
         $status = DeploymentStatus::resolve($deployment);
 
         return [
@@ -66,7 +66,7 @@ class CrewDeploymentsExport implements FromCollection, WithHeadings, WithMapping
             $deployment->rank?->name,
             $deployment->employee?->nationalityRef?->name,
             $status['label'],
-            $deployment->vessel_name,
+            $deployment->vessel?->name,
             $deployment->employee?->hire_date?->format('Y-m-d'),
             $deployment->arrived_date?->format('Y-m-d'),
             $deployment->join_standby_from?->format('Y-m-d'),

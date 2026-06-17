@@ -17,6 +17,7 @@ use App\Models\EmployeeTraining;
 use App\Models\EmployeeVaccination;
 use App\Models\EmployeeWorkExperience;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
 use App\Support\Employees\EmployeeDirectoryFilters;
@@ -162,6 +163,10 @@ final class EmployeeProfilePageData
                 fn () => self::seaServiceBundle($companyId, $employee->id)['vessel_types'],
                 self::DEFER_GROUP,
             ),
+            'vessels' => Inertia::defer(
+                fn () => self::seaServiceBundle($companyId, $employee->id)['vessels'],
+                self::DEFER_GROUP,
+            ),
             'clients' => Inertia::defer(
                 fn () => self::seaServiceBundle($companyId, $employee->id)['clients'],
                 self::DEFER_GROUP,
@@ -236,6 +241,13 @@ final class EmployeeProfilePageData
             'sea_services' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['sea_services'] : [],
             'document_types' => self::documentTypes($companyId),
             'vessel_types' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessel_types'] : VesselType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (VesselType $v) => ['id' => $v->id, 'name' => $v->name])->all(),
+            'vessels' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['vessels'] : Vessel::query()->where('is_active', true)->with('vesselType:id,name')->orderBy('name')->get(['id', 'name', 'vessel_type_id', 'grt', 'bhp'])->map(fn (Vessel $v) => [
+                'id' => $v->id,
+                'name' => $v->name,
+                'vessel_type_id' => $v->vessel_type_id,
+                'grt' => $v->grt !== null ? (string) $v->grt : null,
+                'bhp' => $v->bhp,
+            ])->all(),
             'clients' => $employeeId ? self::seaServiceBundle($companyId, $employeeId)['clients'] : Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name'])->map(fn (Client $c) => ['id' => $c->id, 'name' => $c->name])->all(),
             'trainings' => $employeeId ? self::trainings($companyId, $employeeId) : [],
             'courses' => self::courseOptions(),
@@ -517,7 +529,7 @@ final class EmployeeProfilePageData
     }
 
     /**
-     * @return array{sea_services: list<array<string, mixed>>, vessel_types: list<array<string, mixed>>, clients: list<array<string, mixed>>}
+     * @return array{sea_services: list<array<string, mixed>>, vessel_types: list<array<string, mixed>>, vessels: list<array<string, mixed>>, clients: list<array<string, mixed>>}
      */
     private static function seaServiceBundle(int $companyId, int $employeeId): array
     {
@@ -527,6 +539,7 @@ final class EmployeeProfilePageData
                 ->where('employee_id', $employeeId)
                 ->with([
                     'vesselType:id,name',
+                    'vessel:id,name,vessel_type_id,grt,bhp',
                     'rank:id,name',
                     'client:id,name',
                 ])
@@ -549,6 +562,28 @@ final class EmployeeProfilePageData
                 ->map(fn (VesselType $vesselType) => [
                     'id' => $vesselType->id,
                     'name' => $vesselType->name,
+                ])
+                ->all();
+
+            $referencedVesselIds = $seaServiceModels->pluck('vessel_id')->unique()->filter()->values()->all();
+
+            $vessels = Vessel::query()
+                ->with('vesselType:id,name')
+                ->where(function ($query) use ($referencedVesselIds): void {
+                    $query->where('is_active', true);
+
+                    if ($referencedVesselIds !== []) {
+                        $query->orWhereIn('id', $referencedVesselIds);
+                    }
+                })
+                ->orderBy('name')
+                ->get(['id', 'name', 'vessel_type_id', 'grt', 'bhp'])
+                ->map(fn (Vessel $vessel) => [
+                    'id' => $vessel->id,
+                    'name' => $vessel->name,
+                    'vessel_type_id' => $vessel->vessel_type_id,
+                    'grt' => $vessel->grt !== null ? (string) $vessel->grt : null,
+                    'bhp' => $vessel->bhp,
                 ])
                 ->all();
 
@@ -575,15 +610,16 @@ final class EmployeeProfilePageData
                     'id' => $row->id,
                     'vessel_type_id' => $row->vessel_type_id,
                     'vessel_type_name' => $row->vesselType?->name,
-                    'vessel_name' => $row->vessel_name,
+                    'vessel_id' => $row->vessel_id,
+                    'vessel_name' => $row->vessel?->name,
                     'rank_id' => $row->rank_id,
                     'rank_name' => $row->rank?->name,
                     'start_date' => $row->start_date?->toDateString(),
                     'end_date' => $row->end_date?->toDateString(),
                     'total_months' => $row->total_months,
                     'total_days' => $row->total_days,
-                    'grt' => $row->grt !== null ? (string) $row->grt : null,
-                    'bhp' => $row->bhp,
+                    'grt' => $row->vessel?->grt !== null ? (string) $row->vessel->grt : null,
+                    'bhp' => $row->vessel?->bhp,
                     'client_id' => $row->client_id,
                     'client_name' => $row->client?->name,
                     'is_offshore' => $row->is_offshore,
@@ -594,6 +630,7 @@ final class EmployeeProfilePageData
             return [
                 'sea_services' => $seaServices,
                 'vessel_types' => $vesselTypes,
+                'vessels' => $vessels,
                 'clients' => $clients,
             ];
         });

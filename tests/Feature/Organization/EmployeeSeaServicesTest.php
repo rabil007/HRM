@@ -9,6 +9,7 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Http\UploadedFile;
@@ -19,7 +20,7 @@ test('guests cannot manage sea services', function () {
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
-        'vessel_name' => 'Test Vessel',
+        'vessel_id' => 1,
         'rank_id' => 1,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
@@ -84,7 +85,7 @@ test('users without permission cannot manage sea services', function () {
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => 1,
-        'vessel_name' => 'Test Vessel',
+        'vessel_id' => 1,
         'rank_id' => 1,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
@@ -156,11 +157,17 @@ test('employee show page includes sea services', function () {
 
     $showDuration = SeaServiceDuration::fromDates('2020-01-01', '2020-06-22');
 
+    $vessel = Vessel::query()->create([
+        'name' => 'MV Horizon',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
+
     EmployeeSeaService::factory()
         ->forEmployee($employee)
         ->create([
             'vessel_type_id' => $vesselType->id,
-            'vessel_name' => 'MV Horizon',
+            'vessel_id' => $vessel->id,
             'rank_id' => $rank->id,
             'client_id' => $client->id,
             'start_date' => '2020-01-01',
@@ -257,14 +264,26 @@ test('users with permission can add update delete and reorder sea services', fun
         'is_active' => true,
     ]);
 
+    $vesselAlpha = Vessel::query()->create([
+        'name' => 'MV Alpha',
+        'vessel_type_id' => $vesselA->id,
+        'grt' => 1500.5,
+        'bhp' => 5000,
+        'is_active' => true,
+    ]);
+
+    $vesselAlphaPlus = Vessel::query()->create([
+        'name' => 'MV Alpha Plus',
+        'vessel_type_id' => $vesselAPlus->id,
+        'is_active' => true,
+    ]);
+
     $this->post(route('organization.employees.sea-services.store', $employee), [
         'vessel_type_id' => $vesselA->id,
-        'vessel_name' => 'MV Alpha',
+        'vessel_id' => $vesselAlpha->id,
         'rank_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-03-11',
-        'grt' => '1500.5',
-        'bhp' => 5000,
         'client_id' => $clientX->id,
         'is_offshore' => true,
     ])->assertRedirect();
@@ -273,7 +292,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $expectedDuration = SeaServiceDuration::fromDates('2024-01-01', '2024-03-11');
 
     expect($row)->not->toBeNull();
-    expect($row->vessel_name)->toBe('MV Alpha');
+    expect($row->load('vessel')->vessel?->name)->toBe('MV Alpha');
     expect($row->is_offshore)->toBeTrue();
     expect($row->client_id)->toBe($clientX->id);
     expect($row->start_date?->toDateString())->toBe('2024-01-01');
@@ -289,7 +308,7 @@ test('users with permission can add update delete and reorder sea services', fun
 
     $this->put(route('organization.employees.sea-services.update', [$employee, $row]), [
         'vessel_type_id' => $vesselAPlus->id,
-        'vessel_name' => 'MV Alpha Plus',
+        'vessel_id' => $vesselAlphaPlus->id,
         'rank_id' => $rankCaptain->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-04-02',
@@ -299,7 +318,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $updatedDuration = SeaServiceDuration::fromDates('2024-01-01', '2024-04-02');
 
     expect($row->fresh()->vessel_type_id)->toBe($vesselAPlus->id)
-        ->and($row->fresh()->vessel_name)->toBe('MV Alpha Plus')
+        ->and($row->fresh()->load('vessel')->vessel?->name)->toBe('MV Alpha Plus')
         ->and($row->fresh()->total_months)->toBe($updatedDuration['months'])
         ->and($row->fresh()->total_days)->toBe($updatedDuration['days'])
         ->and($row->fresh()->is_offshore)->toBeFalse();
@@ -321,7 +340,7 @@ test('users with permission can add update delete and reorder sea services', fun
     $this->delete(route('organization.employees.sea-services.destroy', [$employee, $second]))->assertRedirect();
 });
 
-test('store requires vessel name and rejects inactive vessel type', function () {
+test('store requires vessel id and rejects inactive vessel type', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
 
@@ -370,7 +389,7 @@ test('store requires vessel name and rejects inactive vessel type', function () 
 
     grantCompanyPermissions($user, $company, ['employees.view', 'employees.sea_service.manage']);
 
-    $inactiveVessel = VesselType::query()->create([
+    $inactiveVesselType = VesselType::query()->create([
         'name' => 'Inactive Vessel',
         'is_active' => false,
     ]);
@@ -380,29 +399,41 @@ test('store requires vessel name and rejects inactive vessel type', function () 
         'is_active' => true,
     ]);
 
+    $inactiveTypeVessel = Vessel::query()->create([
+        'name' => 'MV Inactive Type',
+        'vessel_type_id' => $inactiveVesselType->id,
+        'is_active' => true,
+    ]);
+
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_type_id' => $inactiveVessel->id,
-        'vessel_name' => 'MV Test',
+        'vessel_type_id' => $inactiveVesselType->id,
+        'vessel_id' => $inactiveTypeVessel->id,
         'rank_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
     ])->assertSessionHasErrors('vessel_type_id');
 
-    $activeVessel = VesselType::query()->create([
+    $activeVesselType = VesselType::query()->create([
         'name' => 'Active Vessel',
         'is_active' => true,
     ]);
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_type_id' => $activeVessel->id,
+        'vessel_type_id' => $activeVesselType->id,
         'rank_id' => $rank->id,
         'start_date' => '2024-01-01',
         'end_date' => '2024-02-01',
-    ])->assertSessionHasErrors('vessel_name');
+    ])->assertSessionHasErrors('vessel_id');
+
+    $activeVessel = Vessel::query()->create([
+        'name' => 'MV Test',
+        'vessel_type_id' => $activeVesselType->id,
+        'is_active' => true,
+    ]);
 
     $this->post(route('organization.employees.sea-services.store', $employee), [
-        'vessel_type_id' => $activeVessel->id,
-        'vessel_name' => 'MV Test',
+        'vessel_type_id' => $activeVesselType->id,
+        'vessel_id' => $activeVessel->id,
         'rank_id' => $rank->id,
         'start_date' => '2024-03-01',
         'end_date' => '2024-01-01',
@@ -526,11 +557,19 @@ test('csv import appends sea service rows for the employee', function () {
         'is_active' => true,
     ]);
 
+    Vessel::query()->create([
+        'name' => 'MV North Star',
+        'vessel_type_id' => $vesselType->id,
+        'grt' => 42000,
+        'bhp' => 6500,
+        'is_active' => true,
+    ]);
+
     grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
 
     $csv = <<<'CSV'
-vessel type,vessel name,rank,start date,end date,grt,bhp,client,is offshore
-Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,42000,6500,Offshore Logistics,yes
+vessel type,vessel,rank,start date,end date,client,is offshore
+Bulk Carrier,MV North Star,Second Officer,2023-01-01,2023-09-11,Offshore Logistics,yes
 
 CSV;
 
@@ -545,7 +584,7 @@ CSV;
     $importedRow = EmployeeSeaService::query()->where('employee_id', $employee->id)->first();
 
     expect($importedRow)->not->toBeNull()
-        ->and($importedRow->vessel_name)->toBe('MV North Star')
+        ->and($importedRow->load('vessel')->vessel?->name)->toBe('MV North Star')
         ->and($importedRow->vessel_type_id)->toBe($vesselType->id)
         ->and($importedRow->rank_id)->toBe($rank->id)
         ->and($importedRow->client_id)->toBe($client->id)
@@ -603,13 +642,21 @@ test('csv import accepts day-first date formats for multiple rows', function () 
         'status' => 'active',
     ]);
 
-    VesselType::query()->create(['name' => 'new', 'is_active' => true]);
+    $vesselType = VesselType::query()->create(['name' => 'new', 'is_active' => true]);
     Rank::query()->create(['name' => 'rank', 'is_active' => true]);
+
+    foreach (['BES SINCERE', 'CREST MARS', 'BES SAVVY'] as $vesselName) {
+        Vessel::query()->create([
+            'name' => $vesselName,
+            'vessel_type_id' => $vesselType->id,
+            'is_active' => true,
+        ]);
+    }
 
     grantCompanyPermissions($user, $company, ['employees.sea_service.manage']);
 
     $csv = <<<'CSV'
-vessel_type,vessel_name,rank,start_date,end_date
+vessel_type,vessel,rank,start_date,end_date
 new,BES SINCERE,rank,18/10/2024,23/12/2024
 new,CREST MARS,rank,31/01/2025,25/03/2025
 new,BES SAVVY,rank,3/1/26,10/2/26
@@ -626,10 +673,12 @@ CSV;
 
     expect(EmployeeSeaService::query()->where('employee_id', $employee->id)->count())->toBe(3);
 
+    $besSincereVesselId = Vessel::query()->where('name', 'BES SINCERE')->value('id');
+
     expect(
         EmployeeSeaService::query()
             ->where('employee_id', $employee->id)
-            ->where('vessel_name', 'BES SINCERE')
+            ->where('vessel_id', $besSincereVesselId)
             ->whereDate('start_date', '2024-10-18')
             ->whereDate('end_date', '2024-12-23')
             ->exists(),
@@ -651,9 +700,15 @@ test('sea service import returns a clear error when vessel type is missing', fun
         'is_active' => true,
     ]);
 
+    Vessel::query()->create([
+        'name' => 'CREST MARS',
+        'vessel_type_id' => VesselType::query()->create(['name' => 'Placeholder Type', 'is_active' => true])->id,
+        'is_active' => true,
+    ]);
+
     $csv = <<<'CSV'
-vessel_type,vessel_name,rank,start_date,end_date,grt,bhp,client,is_offshore
-,CREST MARS,Appointed Person,2024-01-01,2024-03-15,,,EL HAIL,
+vessel_type,vessel,rank,start_date,end_date,client,is_offshore
+,CREST MARS,Appointed Person,2024-01-01,2024-03-15,EL HAIL,
 
 CSV;
 

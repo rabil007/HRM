@@ -66,6 +66,7 @@ type Props = {
     ranks: Option[];
     clients: Option[];
     company_visa_types: Option[];
+    vessels: Option[];
     can: { manage: boolean };
 };
 
@@ -87,6 +88,7 @@ export default function CrewDeploymentsIndex({
     ranks,
     clients,
     company_visa_types,
+    vessels,
     can,
 }: Props): ReactElement {
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -748,6 +750,7 @@ return;
                 ranks={ranks}
                 clients={clients}
                 companyVisaTypes={company_visa_types}
+                vessels={vessels}
             />
 
             <ConfirmDeleteDialog

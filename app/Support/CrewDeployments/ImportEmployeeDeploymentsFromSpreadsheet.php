@@ -7,6 +7,7 @@ use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
+use App\Models\Vessel;
 use Carbon\CarbonImmutable;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
@@ -58,6 +59,12 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
             ->mapWithKeys(fn (CompanyVisaType $companyVisaType) => [$this->normalizeKey($companyVisaType->name) => $companyVisaType->id])
             ->all();
 
+        $vesselsByName = Vessel::query()
+            ->where('is_active', true)
+            ->get(['id', 'name'])
+            ->mapWithKeys(fn (Vessel $vessel) => [Vessel::normalizeName($vessel->name) => $vessel->id])
+            ->all();
+
         $imported = 0;
         $skipped = 0;
         $errors = [];
@@ -102,6 +109,15 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 $errors[] = 'Row '.($index + 1).": sponsor \"{$companyVisaTypeName}\" not found.";
             }
 
+            $vesselName = $this->stringValue($row, $map, 'vessel');
+            $vesselId = $vesselName !== null
+                ? ($vesselsByName[Vessel::normalizeName($vesselName)] ?? null)
+                : null;
+
+            if ($vesselName !== null && $vesselId === null) {
+                $errors[] = 'Row '.($index + 1).": vessel \"{$vesselName}\" not found.";
+            }
+
             $maxSort = EmployeeDeployment::query()
                 ->where('employee_id', $employee->id)
                 ->where('company_id', $companyId)
@@ -116,7 +132,7 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                     : $employee->rank_id,
                 'client_id' => $clientId,
                 'company_visa_type_id' => $companyVisaTypeId,
-                'vessel_name' => $this->stringValue($row, $map, 'vessel'),
+                'vessel_id' => $vesselId,
                 'arrived_date' => $this->dateValue($row, $map, 'arrived_date'),
                 'join_standby_from' => $this->dateValue($row, $map, 'join_standby_from'),
                 'join_standby_to' => $this->dateValue($row, $map, 'join_standby_to'),

@@ -8,6 +8,7 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use Illuminate\Http\UploadedFile;
 
@@ -191,9 +192,61 @@ test('cannot delete vessel type used on employee sea service records', function 
         ->forEmployee($employee)
         ->create([
             'vessel_type_id' => $vesselType->id,
-            'vessel_name' => 'MV In Use',
             'rank_id' => $rank->id,
         ]);
+
+    $this->from(route('settings.master-data.vessel-types.index'))
+        ->delete("/settings/master-data/vessel-types/{$vesselType->id}")
+        ->assertRedirect(route('settings.master-data.vessel-types.index'))
+        ->assertSessionHasErrors('name');
+
+    expect(VesselType::query()->whereKey($vesselType->id)->exists())->toBeTrue();
+});
+
+test('cannot delete vessel type used by vessels in master data', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'VTV',
+        'name' => 'Vessel Type Vessels',
+        'dial_code' => '+994',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'VTV',
+        'name' => 'Vessel Type Vessels Currency',
+        'symbol' => 'M$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Master Vessel Co',
+        'slug' => 'master-vessel-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.vessel-types.view',
+        'settings.master-data.vessel-types.delete',
+    ]);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'Linked Vessel Type',
+        'is_active' => true,
+    ]);
+
+    Vessel::query()->create([
+        'name' => 'MV Linked',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ]);
 
     $this->from(route('settings.master-data.vessel-types.index'))
         ->delete("/settings/master-data/vessel-types/{$vesselType->id}")

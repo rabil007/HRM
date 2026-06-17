@@ -9,6 +9,7 @@ use App\Models\Client;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Employees\SeaServiceDuration;
@@ -38,7 +39,7 @@ class EmployeeSeaServiceController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['vessel_type_id', 'vessel_name', 'rank_id', 'start_date', 'end_date', 'grt', 'bhp', 'client_id'],
+            ['vessel_type_id', 'vessel_id', 'rank_id', 'start_date', 'end_date', 'client_id'],
             'Enter at least one sea service field before saving.',
         );
 
@@ -79,7 +80,7 @@ class EmployeeSeaServiceController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['vessel_type_id', 'vessel_name', 'rank_id', 'start_date', 'end_date', 'grt', 'bhp', 'client_id'],
+            ['vessel_type_id', 'vessel_id', 'rank_id', 'start_date', 'end_date', 'client_id'],
             'Enter at least one sea service field before saving.',
         );
 
@@ -170,8 +171,8 @@ class EmployeeSeaServiceController extends Controller
 
         abort_unless($employee->company_id === $companyId, 403);
 
-        $csv = "vessel_type,vessel_name,rank,start_date,end_date,grt,bhp,client,is_offshore\n";
-        $csv .= "Tanker,MT Example,Chief Officer,2022-01-01,2023-04-15,50000,8000,Acme Corp,yes\n";
+        $csv = "vessel_type,vessel,rank,start_date,end_date,client,is_offshore\n";
+        $csv .= "Tanker,MT Example,Chief Officer,2022-01-01,2023-04-15,Acme Corp,yes\n";
 
         return response($csv, 200, [
             'Content-Type' => 'text/csv; charset=UTF-8',
@@ -202,11 +203,11 @@ class EmployeeSeaServiceController extends Controller
 
         $map = $this->resolveSeaServiceCsvHeaderMap($header);
 
-        if (! isset($map['vessel_type'], $map['vessel_name'], $map['rank'], $map['start_date'], $map['end_date'])) {
+        if (! isset($map['vessel_type'], $map['vessel'], $map['rank'], $map['start_date'], $map['end_date'])) {
             fclose($handle);
 
             return back()->withErrors([
-                'file' => 'The CSV must include vessel_type, vessel_name, rank, start_date, and end_date columns.',
+                'file' => 'The CSV must include vessel_type, vessel, rank, start_date, and end_date columns.',
             ]);
         }
 
@@ -214,6 +215,14 @@ class EmployeeSeaServiceController extends Controller
             ->where('is_active', true)
             ->get(['id', 'name'])
             ->mapWithKeys(fn (VesselType $row) => [mb_strtolower(trim($row->name)) => $row->id]);
+
+        $vesselsByTypeAndName = Vessel::query()
+            ->where('is_active', true)
+            ->get(['id', 'name', 'vessel_type_id'])
+            ->groupBy('vessel_type_id')
+            ->map(fn ($group) => $group->mapWithKeys(
+                fn (Vessel $row) => [Vessel::normalizeName($row->name) => $row->id],
+            ));
 
         $rankIdsByName = Rank::query()
             ->where('is_active', true)
@@ -237,12 +246,14 @@ class EmployeeSeaServiceController extends Controller
             'missing_vessel_type' => 0,
             'missing_required_fields' => 0,
             'unknown_vessel_type' => 0,
+            'unknown_vessel' => 0,
             'unknown_rank' => 0,
             'invalid_start_date' => 0,
             'invalid_end_date' => 0,
             'invalid_date_range' => 0,
         ];
         $unknownVesselTypes = [];
+        $unknownVessels = [];
         $unknownRanks = [];
 
         while (($row = fgetcsv($handle)) !== false) {
@@ -251,7 +262,7 @@ class EmployeeSeaServiceController extends Controller
             }
 
             $vesselTypeName = trim((string) ($row[$map['vessel_type']] ?? ''));
-            $vesselName = trim((string) ($row[$map['vessel_name']] ?? ''));
+            $vesselName = trim((string) ($row[$map['vessel']] ?? ''));
             $rankName = trim((string) ($row[$map['rank']] ?? ''));
             $startDateRaw = trim((string) ($row[$map['start_date']] ?? ''));
             $endDateRaw = trim((string) ($row[$map['end_date']] ?? ''));
@@ -280,6 +291,15 @@ class EmployeeSeaServiceController extends Controller
             if ($vesselTypeId === null) {
                 $skipped['unknown_vessel_type']++;
                 $unknownVesselTypes[$vesselTypeName] = true;
+
+                continue;
+            }
+
+            $vesselId = $vesselsByTypeAndName->get($vesselTypeId)?->get(Vessel::normalizeName($vesselName));
+
+            if ($vesselId === null) {
+                $skipped['unknown_vessel']++;
+                $unknownVessels[$vesselName] = true;
 
                 continue;
             }
@@ -316,22 +336,6 @@ class EmployeeSeaServiceController extends Controller
                 $parsedEnd->toDateString(),
             );
 
-            $grt = null;
-            if (isset($map['grt'])) {
-                $grtRaw = trim((string) ($row[$map['grt']] ?? ''));
-                if ($grtRaw !== '' && is_numeric($grtRaw)) {
-                    $grt = (float) $grtRaw;
-                }
-            }
-
-            $bhp = null;
-            if (isset($map['bhp'])) {
-                $bhpRaw = trim((string) ($row[$map['bhp']] ?? ''));
-                if ($bhpRaw !== '' && is_numeric($bhpRaw)) {
-                    $bhp = (int) $bhpRaw;
-                }
-            }
-
             $clientId = null;
             if (isset($map['client'])) {
                 $clientName = trim((string) ($row[$map['client']] ?? ''));
@@ -350,14 +354,12 @@ class EmployeeSeaServiceController extends Controller
                 'employee_id' => $employee->id,
                 'sort_order' => $nextSort,
                 'vessel_type_id' => $vesselTypeId,
-                'vessel_name' => $vesselName,
+                'vessel_id' => $vesselId,
                 'rank_id' => $rankId,
                 'start_date' => $parsedStart->toDateString(),
                 'end_date' => $parsedEnd->toDateString(),
                 'total_months' => $duration['months'],
                 'total_days' => $duration['days'],
-                'grt' => $grt,
-                'bhp' => $bhp,
                 'client_id' => $clientId,
                 'is_offshore' => $isOffshore,
             ]);
@@ -374,7 +376,7 @@ class EmployeeSeaServiceController extends Controller
 
         if ($imported === 0) {
             return back()->withErrors([
-                'file' => $this->formatSeaServiceImportFailureMessage($skipped, $unknownVesselTypes, $unknownRanks),
+                'file' => $this->formatSeaServiceImportFailureMessage($skipped, $unknownVesselTypes, $unknownVessels, $unknownRanks),
             ]);
         }
 
@@ -382,7 +384,7 @@ class EmployeeSeaServiceController extends Controller
         $message = "Imported {$imported} sea service row(s).";
 
         if ($totalSkipped > 0) {
-            $message .= ' '.$this->formatSeaServiceImportSkippedSummary($skipped, $unknownVesselTypes, $unknownRanks);
+            $message .= ' '.$this->formatSeaServiceImportSkippedSummary($skipped, $unknownVesselTypes, $unknownVessels, $unknownRanks);
         }
 
         return back()->with('success', $message);
@@ -396,6 +398,7 @@ class EmployeeSeaServiceController extends Controller
     private function formatSeaServiceImportFailureMessage(
         array $skipped,
         array $unknownVesselTypes,
+        array $unknownVessels,
         array $unknownRanks,
     ): string {
         $details = [];
@@ -405,12 +408,17 @@ class EmployeeSeaServiceController extends Controller
         }
 
         if ($skipped['missing_required_fields'] > 0) {
-            $details[] = "missing vessel_name, rank, start_date, or end_date ({$skipped['missing_required_fields']} row(s))";
+            $details[] = "missing vessel, rank, start_date, or end_date ({$skipped['missing_required_fields']} row(s))";
         }
 
         if ($skipped['unknown_vessel_type'] > 0) {
             $names = implode(', ', array_keys($unknownVesselTypes));
             $details[] = "unknown vessel type(s): {$names}";
+        }
+
+        if ($skipped['unknown_vessel'] > 0) {
+            $names = implode(', ', array_keys($unknownVessels));
+            $details[] = "unknown vessel(s): {$names} — add them in Settings → Master Data → Vessels";
         }
 
         if ($skipped['unknown_rank'] > 0) {
@@ -445,6 +453,7 @@ class EmployeeSeaServiceController extends Controller
     private function formatSeaServiceImportSkippedSummary(
         array $skipped,
         array $unknownVesselTypes,
+        array $unknownVessels,
         array $unknownRanks,
     ): string {
         $details = [];
@@ -461,6 +470,11 @@ class EmployeeSeaServiceController extends Controller
         if ($skipped['unknown_vessel_type'] > 0) {
             $names = implode(', ', array_keys($unknownVesselTypes));
             $details[] = "unknown vessel type: {$names}";
+        }
+
+        if ($skipped['unknown_vessel'] > 0) {
+            $names = implode(', ', array_keys($unknownVessels));
+            $details[] = "unknown vessel: {$names}";
         }
 
         if ($skipped['unknown_rank'] > 0) {
@@ -493,17 +507,13 @@ class EmployeeSeaServiceController extends Controller
             if (in_array($normalized, ['vessel type', 'vessel_type', 'type', 'vessel category'], true)) {
                 $map['vessel_type'] = (int) $index;
             } elseif (in_array($normalized, ['vessel name', 'vessel_name', 'vessel', 'ship name', 'ship'], true)) {
-                $map['vessel_name'] = (int) $index;
+                $map['vessel'] = (int) $index;
             } elseif (in_array($normalized, ['rank', 'rank_name', 'position', 'job title', 'job_title'], true)) {
                 $map['rank'] = (int) $index;
             } elseif (in_array($normalized, ['start date', 'start_date', 'date from', 'date_from', 'from', 'started'], true)) {
                 $map['start_date'] = (int) $index;
             } elseif (in_array($normalized, ['end date', 'end_date', 'date to', 'date_to', 'to', 'finished', 'ended'], true)) {
                 $map['end_date'] = (int) $index;
-            } elseif (in_array($normalized, ['grt', 'gross tonnage', 'gross_tonnage'], true)) {
-                $map['grt'] = (int) $index;
-            } elseif (in_array($normalized, ['bhp', 'brake horsepower', 'horsepower'], true)) {
-                $map['bhp'] = (int) $index;
             } elseif (in_array($normalized, ['client', 'client name', 'client_name', 'company', 'employer'], true)) {
                 $map['client'] = (int) $index;
             } elseif (in_array($normalized, ['is offshore', 'is_offshore', 'offshore', 'off shore'], true)) {
@@ -532,12 +542,10 @@ class EmployeeSeaServiceController extends Controller
     {
         return [
             'vessel_type_id' => ['required', Rule::exists('vessel_types', 'id')->where('is_active', true)],
-            'vessel_name' => ['required', 'string', 'max:255'],
+            'vessel_id' => ['required', Rule::exists('vessels', 'id')->where('is_active', true)],
             'rank_id' => ['required', Rule::exists('ranks', 'id')->where('is_active', true)],
             'start_date' => ['required', 'date'],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
-            'grt' => ['nullable', 'numeric', 'min:0', 'max:999999999.99'],
-            'bhp' => ['nullable', 'integer', 'min:0', 'max:2147483647'],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'is_offshore' => ['sometimes', 'boolean'],
         ];
@@ -576,18 +584,30 @@ class EmployeeSeaServiceController extends Controller
             ];
         }
 
+        $vesselId = EmployeeProfileTemplateRequestRules::persistedNullableValue(
+            $validated,
+            'vessel_id',
+            $existing?->vessel_id,
+            asInteger: true,
+        );
+
+        $vesselTypeId = EmployeeProfileTemplateRequestRules::persistedNullableValue(
+            $validated,
+            'vessel_type_id',
+            $existing?->vessel_type_id,
+            asInteger: true,
+        );
+
+        if ($vesselId !== null) {
+            $vessel = Vessel::query()->find($vesselId);
+            if ($vessel !== null) {
+                $vesselTypeId = $vessel->vessel_type_id;
+            }
+        }
+
         return [
-            'vessel_type_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
-                $validated,
-                'vessel_type_id',
-                $existing?->vessel_type_id,
-                asInteger: true,
-            ),
-            'vessel_name' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
-                $validated,
-                'vessel_name',
-                $existing?->vessel_name,
-            ),
+            'vessel_type_id' => $vesselTypeId,
+            'vessel_id' => $vesselId,
             'rank_id' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
                 $validated,
                 'rank_id',
@@ -598,12 +618,6 @@ class EmployeeSeaServiceController extends Controller
             'end_date' => $endDate,
             'total_months' => $duration['months'],
             'total_days' => $duration['days'],
-            'grt' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'grt')
-                ? ($validated['grt'] ?? null)
-                : $existing?->grt,
-            'bhp' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'bhp')
-                ? (isset($validated['bhp']) ? (int) $validated['bhp'] : null)
-                : $existing?->bhp,
             'client_id' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'client_id')
                 ? (isset($validated['client_id']) ? (int) $validated['client_id'] : null)
                 : $existing?->client_id,

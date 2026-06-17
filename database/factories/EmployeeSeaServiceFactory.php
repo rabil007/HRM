@@ -5,6 +5,7 @@ namespace Database\Factories;
 use App\Models\Employee;
 use App\Models\EmployeeSeaService;
 use App\Models\Rank;
+use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\Employees\SeaServiceDuration;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -36,7 +37,15 @@ class EmployeeSeaServiceFactory extends Factory
                     'is_active' => true,
                 ])->id;
             },
-            'vessel_name' => fake()->words(3, true),
+            'vessel_id' => static function (array $attributes): int {
+                return Vessel::query()->create([
+                    'name' => fake()->unique()->words(3, true),
+                    'vessel_type_id' => $attributes['vessel_type_id'],
+                    'grt' => fake()->optional(0.7)->randomFloat(2, 100, 50000),
+                    'bhp' => fake()->optional(0.7)->numberBetween(500, 20000),
+                    'is_active' => true,
+                ])->id;
+            },
             'rank_id' => static function (): int {
                 return Rank::query()->create([
                     'name' => 'R '.Str::uuid()->toString(),
@@ -47,8 +56,6 @@ class EmployeeSeaServiceFactory extends Factory
             'end_date' => $end,
             'total_months' => $duration['months'],
             'total_days' => $duration['days'],
-            'grt' => null,
-            'bhp' => null,
             'client_id' => null,
             'is_offshore' => fake()->boolean(40),
         ];

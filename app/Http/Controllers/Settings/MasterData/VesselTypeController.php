@@ -60,6 +60,14 @@ class VesselTypeController extends Controller
                 ]);
         }
 
+        if ($vesselType->vessels()->exists()) {
+            return redirect()
+                ->route('settings.master-data.vessel-types.index')
+                ->withErrors([
+                    'name' => 'This vessel type is used by vessels in master data and cannot be deleted.',
+                ]);
+        }
+
         $vesselType->delete();
 
         return redirect()->route('settings.master-data.vessel-types.index');

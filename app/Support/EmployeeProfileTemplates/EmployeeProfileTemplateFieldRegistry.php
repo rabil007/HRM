@@ -146,12 +146,10 @@ final class EmployeeProfileTemplateFieldRegistry
             ],
             'employee_sea_services' => [
                 'vessel_type_id' => 'Vessel type',
-                'vessel_name' => 'Vessel name',
+                'vessel_id' => 'Vessel',
                 'rank_id' => 'Rank',
                 'start_date' => 'Start date',
                 'end_date' => 'End date',
-                'grt' => 'GRT',
-                'bhp' => 'BHP',
                 'client_id' => 'Client',
                 'is_offshore' => 'Offshore',
             ],

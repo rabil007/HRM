@@ -195,6 +195,14 @@ export type VesselTypeOption = {
     name: string;
 };
 
+export type VesselOption = {
+    id: number;
+    name: string;
+    vessel_type_id: number;
+    grt: string | null;
+    bhp: number | null;
+};
+
 export type CourseOption = {
     id: number;
     name: string;
@@ -217,6 +225,7 @@ export type SeaServiceItem = {
     id: number;
     vessel_type_id: number;
     vessel_type_name: string | null;
+    vessel_id: number | null;
     vessel_name: string | null;
     rank_id: number;
     rank_name: string | null;
@@ -323,6 +332,7 @@ export type EmployeePageProps = {
     banks: BankOption[];
     ranks: RankOption[];
     vessel_types?: VesselTypeOption[];
+    vessels?: VesselOption[];
     clients?: ClientOption[];
     employee_tabs: EmployeeProfileTabVisibility;
 };

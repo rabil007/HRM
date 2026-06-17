@@ -10,6 +10,8 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
 use App\Models\User;
+use App\Models\Vessel;
+use App\Models\VesselType;
 use App\Support\CrewDeployments\DeploymentStatus;
 use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
 use Carbon\CarbonImmutable;
@@ -18,6 +20,19 @@ use Inertia\Testing\AssertableInertia as Assert;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Spatie\Activitylog\Models\Activity;
+
+function makeCrewDeploymentVessel(string $name): Vessel
+{
+    $vesselType = VesselType::query()->firstOrCreate(
+        ['name' => 'Crew Deployment Test Type'],
+        ['is_active' => true],
+    );
+
+    return Vessel::query()->firstOrCreate(
+        ['name' => $name],
+        ['vessel_type_id' => $vesselType->id, 'is_active' => true],
+    );
+}
 
 function makeCrewDeploymentFixtures(): array
 {
@@ -97,7 +112,7 @@ test('authorized users can view crew deployment board', function () {
         'rank_id' => $rank->id,
         'client_id' => $client->id,
         'company_visa_type_id' => $companyVisaType->id,
-        'vessel_name' => 'JDL',
+        'vessel_id' => makeCrewDeploymentVessel('JDL')->id,
         'joined_date' => CarbonImmutable::today()->subDays(5),
         'disembarked_date' => CarbonImmutable::today()->addDays(25),
     ]);
@@ -123,7 +138,7 @@ test('crew deployment board shows hire date from employee record', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Hire Date Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Hire Date Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDay(),
     ]);
 
@@ -146,7 +161,7 @@ test('authorized users can store update and destroy crew deployments', function 
             'rank_id' => $rank->id,
             'client_id' => $client->id,
             'company_visa_type_id' => $companyVisaType->id,
-            'vessel_name' => 'Safeen OSV Pearl',
+            'vessel_id' => makeCrewDeploymentVessel('Safeen OSV Pearl')->id,
             'joined_date' => '2024-11-26',
             'disembarked_date' => '2025-01-26',
             'remarks' => 'Test remark',
@@ -156,7 +171,7 @@ test('authorized users can store update and destroy crew deployments', function 
     $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
 
     expect($deployment)->not->toBeNull()
-        ->and($deployment->vessel_name)->toBe('Safeen OSV Pearl');
+        ->and($deployment->vessel?->name)->toBe('Safeen OSV Pearl');
 
     $this->actingAs($user)
         ->put(route('organization.crew-deployments.update', $deployment), [
@@ -164,14 +179,14 @@ test('authorized users can store update and destroy crew deployments', function 
             'rank_id' => $rank->id,
             'client_id' => $client->id,
             'company_visa_type_id' => $companyVisaType->id,
-            'vessel_name' => 'Cecilie K',
+            'vessel_id' => makeCrewDeploymentVessel('Cecilie K')->id,
             'joined_date' => '2024-11-26',
             'disembarked_date' => '2025-02-26',
         ])
         ->assertRedirect();
 
     $deployment->refresh();
-    expect($deployment->vessel_name)->toBe('Cecilie K');
+    expect($deployment->vessel?->name)->toBe('Cecilie K');
 
     $this->actingAs($user)
         ->delete(route('organization.crew-deployments.destroy', $deployment))
@@ -187,7 +202,7 @@ test('deployment board shows all assignment records per employee', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Old Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Old Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subMonths(6),
         'disembarked_date' => CarbonImmutable::today()->subMonths(4),
     ]);
@@ -196,7 +211,7 @@ test('deployment board shows all assignment records per employee', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Current Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Current Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDays(3),
         'disembarked_date' => CarbonImmutable::today()->addDays(30),
     ]);
@@ -217,7 +232,7 @@ test('authorized users can download crew deployment export', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Export Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Export Vessel')->id,
         'joined_date' => '2024-01-01',
         'disembarked_date' => '2024-03-01',
     ]);
@@ -234,6 +249,7 @@ test('authorized users can import crew deployments from spreadsheet', function (
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 
     CompanyVisaType::query()->create(['name' => 'EXPERTS', 'is_active' => true]);
+    makeCrewDeploymentVessel('JDL');
 
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
@@ -255,7 +271,7 @@ test('authorized users can import crew deployments from spreadsheet', function (
     $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
 
     expect($deployment)->not->toBeNull()
-        ->and($deployment->vessel_name)->toBe('JDL')
+        ->and($deployment->vessel?->name)->toBe('JDL')
         ->and($deployment->remarks)->toBe('Imported row');
 
     expect($deployment->company_visa_type_id)->toBe(
@@ -267,6 +283,7 @@ test('authorized users can import crew deployments from spreadsheet', function (
 
 test('import service skips rows with unknown employee numbers', function () {
     ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+    makeCrewDeploymentVessel('Known Vessel');
 
     $spreadsheet = new Spreadsheet;
     $sheet = $spreadsheet->getActiveSheet();
@@ -313,7 +330,7 @@ test('crew deployment board can sort assignments by employee name', function () 
         'company_id' => $company->id,
         'employee_id' => $employeeZulu->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Zulu Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Zulu Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDay(),
     ]);
 
@@ -321,7 +338,7 @@ test('crew deployment board can sort assignments by employee name', function () 
         'company_id' => $company->id,
         'employee_id' => $employeeAlpha->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Alpha Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Alpha Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDays(2),
     ]);
 
@@ -346,7 +363,7 @@ test('crew deployment board can sort assignments by vessel days', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Short Tour',
+        'vessel_id' => makeCrewDeploymentVessel('Short Tour')->id,
         'joined_date' => '2024-01-01',
         'disembarked_date' => '2024-01-10',
     ]);
@@ -355,7 +372,7 @@ test('crew deployment board can sort assignments by vessel days', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Long Tour',
+        'vessel_id' => makeCrewDeploymentVessel('Long Tour')->id,
         'joined_date' => '2024-02-01',
         'disembarked_date' => '2024-03-01',
     ]);
@@ -381,7 +398,7 @@ test('crew deployment board marks overdue arrivals without join date as needs up
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Vessel A',
+        'vessel_id' => makeCrewDeploymentVessel('Vessel A')->id,
         'arrived_date' => CarbonImmutable::today()->subDay(),
     ]);
 
@@ -405,7 +422,7 @@ test('crew deployment board treats open ended join standby as join standby statu
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Vessel A',
+        'vessel_id' => makeCrewDeploymentVessel('Vessel A')->id,
         'arrived_date' => CarbonImmutable::today()->subDays(10),
         'join_standby_from' => CarbonImmutable::today()->subDays(9),
         'join_standby_to' => null,
@@ -428,7 +445,7 @@ test('crew deployment board marks past disembark without follow up dates as need
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Vessel A',
+        'vessel_id' => makeCrewDeploymentVessel('Vessel A')->id,
         'joined_date' => CarbonImmutable::today()->subDays(4),
         'disembarked_date' => CarbonImmutable::today()->subDays(3),
     ]);
@@ -452,7 +469,7 @@ test('crew deployment board marks overdue leave standby without travel as needs 
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Vessel A',
+        'vessel_id' => makeCrewDeploymentVessel('Vessel A')->id,
         'joined_date' => CarbonImmutable::today()->subDays(4),
         'disembarked_date' => CarbonImmutable::today()->subDays(3),
         'leave_standby_from' => CarbonImmutable::today()->subDays(2),
@@ -479,7 +496,7 @@ test('guests cannot access crew deployment show page', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Guest Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Guest Vessel')->id,
     ]);
 
     $this->get(route('organization.crew-deployments.show', $deployment))
@@ -493,7 +510,7 @@ test('authorized users can view crew deployment show page', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Detail Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Detail Vessel')->id,
         'joined_date' => '2024-11-26',
         'disembarked_date' => '2025-01-26',
         'remarks' => 'Detail remark',
@@ -538,7 +555,7 @@ test('users cannot view crew deployment from another company', function () {
         'company_id' => $otherCompany->id,
         'employee_id' => $otherEmployee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Foreign Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Foreign Vessel')->id,
     ]);
 
     $this->actingAs($user)
@@ -553,7 +570,7 @@ test('deployment show page hides recent activity without audit permission', func
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Audit Hidden Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Audit Hidden Vessel')->id,
     ]);
 
     $this->actingAs($user)
@@ -577,7 +594,7 @@ test('deployment show page exposes recent activity with audit permission', funct
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Audit Visible Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Audit Visible Vessel')->id,
     ]);
 
     $this->actingAs($user)
@@ -596,7 +613,7 @@ test('updating a deployment records activity and can redirect to show page', fun
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Before Update',
+        'vessel_id' => makeCrewDeploymentVessel('Before Update')->id,
         'joined_date' => '2024-01-01',
     ]);
 
@@ -604,13 +621,13 @@ test('updating a deployment records activity and can redirect to show page', fun
         ->put(route('organization.crew-deployments.update', $deployment), [
             'employee_id' => $employee->id,
             'rank_id' => $rank->id,
-            'vessel_name' => 'After Update',
+            'vessel_id' => makeCrewDeploymentVessel('After Update')->id,
             'joined_date' => '2024-02-01',
             'redirect_to' => 'show',
         ])
         ->assertRedirect(route('organization.crew-deployments.show', $deployment));
 
-    expect($deployment->fresh()->vessel_name)->toBe('After Update');
+    expect($deployment->fresh()->load('vessel')->vessel?->name)->toBe('After Update');
 
     $activity = Activity::query()
         ->where('subject_type', EmployeeDeployment::class)
@@ -621,7 +638,7 @@ test('updating a deployment records activity and can redirect to show page', fun
 
     expect($activity)->not->toBeNull()
         ->and($activity->attribute_changes?->get('attributes'))->toMatchArray([
-            'vessel_name' => 'After Update',
+            'vessel_id' => makeCrewDeploymentVessel('After Update')->id,
         ])
         ->and($activity->attribute_changes?->get('attributes'))->toHaveKey('joined_date');
 });
@@ -634,7 +651,7 @@ test('crew deployment board counts in home from latest travelled record per empl
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
         'sort_order' => 0,
-        'vessel_name' => 'Old Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Old Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subMonths(6),
         'disembarked_date' => CarbonImmutable::today()->subMonths(5),
         'travelled_date' => CarbonImmutable::today()->subMonths(4),
@@ -645,7 +662,7 @@ test('crew deployment board counts in home from latest travelled record per empl
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
         'sort_order' => 1,
-        'vessel_name' => 'Return Pool',
+        'vessel_id' => makeCrewDeploymentVessel('Return Pool')->id,
         'join_standby_from' => CarbonImmutable::today()->subDay(),
         'join_standby_to' => CarbonImmutable::today()->addDays(5),
     ]);
@@ -666,7 +683,7 @@ test('crew deployment board in home filter shows latest travelled record with in
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
         'sort_order' => 0,
-        'vessel_name' => 'At Home Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('At Home Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDays(20),
         'disembarked_date' => CarbonImmutable::today()->subDays(10),
         'travelled_date' => CarbonImmutable::today()->subDays(4),
@@ -696,7 +713,7 @@ test('crew deployment board excludes needs update and future travel from in home
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Needs Update',
+        'vessel_id' => makeCrewDeploymentVessel('Needs Update')->id,
         'joined_date' => CarbonImmutable::today()->subDays(6),
         'disembarked_date' => CarbonImmutable::today()->subDays(3),
     ]);
@@ -713,7 +730,7 @@ test('crew deployment board excludes needs update and future travel from in home
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Future Travel Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('Future Travel Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDays(6),
         'disembarked_date' => CarbonImmutable::today()->subDays(2),
         'travelled_date' => CarbonImmutable::today()->addDay(),
@@ -743,7 +760,7 @@ test('crew deployment board in home summary respects rank filter on latest recor
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'At Home Vessel',
+        'vessel_id' => makeCrewDeploymentVessel('At Home Vessel')->id,
         'joined_date' => CarbonImmutable::today()->subDays(20),
         'disembarked_date' => CarbonImmutable::today()->subDays(10),
         'travelled_date' => CarbonImmutable::today()->subDays(4),
@@ -765,7 +782,7 @@ test('crew deployment board can filter by join standby status', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'rank_id' => $rank->id,
-        'vessel_name' => 'Join Standby Pool',
+        'vessel_id' => makeCrewDeploymentVessel('Join Standby Pool')->id,
         'join_standby_from' => CarbonImmutable::today()->subDay(),
         'join_standby_to' => CarbonImmutable::today()->addDays(5),
     ]);

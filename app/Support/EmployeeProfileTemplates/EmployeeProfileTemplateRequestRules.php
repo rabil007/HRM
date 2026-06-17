@@ -19,7 +19,7 @@ final class EmployeeProfileTemplateRequestRules
         'employee_trainings' => ['course_id', 'issue_date', 'institute_center'],
         'employee_sea_services' => [
             'vessel_type_id',
-            'vessel_name',
+            'vessel_id',
             'rank_id',
             'start_date',
             'end_date',

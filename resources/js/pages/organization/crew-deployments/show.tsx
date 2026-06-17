@@ -78,6 +78,7 @@ export default function CrewDeploymentShow({
     ranks,
     clients,
     company_visa_types,
+    vessels,
     back_query,
 }: {
     deployment: DeploymentItem;
@@ -88,6 +89,7 @@ export default function CrewDeploymentShow({
     ranks: Option[];
     clients: Option[];
     company_visa_types: Option[];
+    vessels: Option[];
     back_query: Record<string, string>;
 }): ReactElement {
     const [editOpen, setEditOpen] = useState(false);
@@ -359,6 +361,7 @@ export default function CrewDeploymentShow({
                     ranks={ranks}
                     clients={clients}
                     companyVisaTypes={company_visa_types}
+                    vessels={vessels}
                     redirectToShow
                 />
             </Main>

@@ -8,6 +8,8 @@ use App\Models\Currency;
 use App\Models\Department;
 use App\Models\DocumentType;
 use App\Models\User;
+use App\Models\Vessel;
+use App\Models\VesselType;
 use App\Models\VisaType;
 
 /**
@@ -217,6 +219,36 @@ test('json quick-create returns id and title for document types', function () {
         ]);
 
     expect(DocumentType::query()->where('title', 'Seaman Book')->exists())->toBeTrue();
+});
+
+test('json quick-create returns id and label for vessels with vessel type context', function () {
+    ['user' => $user, 'company' => $company] = quickCreateMasterDataUser();
+    $this->actingAs($user);
+
+    $vesselType = VesselType::query()->create([
+        'name' => 'AHTS',
+        'is_active' => true,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'settings.master-data.vessels.create',
+    ]);
+
+    $this->postJson('/settings/master-data/vessels', [
+        'name' => 'MV Horizon',
+        'vessel_type_id' => $vesselType->id,
+        'is_active' => true,
+    ])
+        ->assertSuccessful()
+        ->assertJson([
+            'label' => 'MV Horizon',
+            'name' => 'MV Horizon',
+        ]);
+
+    expect(Vessel::query()
+        ->where('name', 'MV Horizon')
+        ->where('vessel_type_id', $vesselType->id)
+        ->exists())->toBeTrue();
 });
 
 test('json quick-create returns id and label for departments', function () {

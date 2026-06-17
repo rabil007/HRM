@@ -28,7 +28,7 @@ class EmployeeDeployment extends Model
                 'rank_id',
                 'client_id',
                 'company_visa_type_id',
-                'vessel_name',
+                'vessel_id',
                 'arrived_date',
                 'join_standby_from',
                 'join_standby_to',
@@ -50,6 +50,7 @@ class EmployeeDeployment extends Model
             'rank_id' => 'integer',
             'client_id' => 'integer',
             'company_visa_type_id' => 'integer',
+            'vessel_id' => 'integer',
             'arrived_date' => 'date',
             'join_standby_from' => 'date',
             'join_standby_to' => 'date',
@@ -84,5 +85,10 @@ class EmployeeDeployment extends Model
     public function companyVisaType(): BelongsTo
     {
         return $this->belongsTo(CompanyVisaType::class);
+    }
+
+    public function vessel(): BelongsTo
+    {
+        return $this->belongsTo(Vessel::class);
     }
 }

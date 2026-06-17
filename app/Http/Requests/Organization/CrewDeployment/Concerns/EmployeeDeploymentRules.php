@@ -16,7 +16,7 @@ trait EmployeeDeploymentRules
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)],
-            'vessel_name' => ['nullable', 'string', 'max:255'],
+            'vessel_id' => ['nullable', 'integer', Rule::exists('vessels', 'id')->where('is_active', true)],
             'arrived_date' => ['nullable', 'date'],
             'join_standby_from' => ['nullable', 'date'],
             'join_standby_to' => ['nullable', 'date', 'after_or_equal:join_standby_from'],

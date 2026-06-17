@@ -12,6 +12,7 @@ use App\Models\CompanyVisaType;
 use App\Models\Employee;
 use App\Models\EmployeeDeployment;
 use App\Models\Rank;
+use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
@@ -82,6 +83,7 @@ class CrewDeploymentController extends Controller
             'ranks' => Rank::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'clients' => Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'company_visa_types' => CompanyVisaType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'vessels' => Vessel::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'can' => [
                 'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
             ],
@@ -141,6 +143,7 @@ class CrewDeploymentController extends Controller
             'ranks' => Rank::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'clients' => Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'company_visa_types' => CompanyVisaType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'vessels' => Vessel::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'back_query' => $this->listBackQuery($request),
         ]);
     }
@@ -244,7 +247,7 @@ class CrewDeploymentController extends Controller
 
         $deployments = EmployeeDeployment::query()
             ->where('company_id', $companyId)
-            ->with(['employee.nationalityRef', 'rank', 'client', 'companyVisaType'])
+            ->with(['employee.nationalityRef', 'rank', 'client', 'companyVisaType', 'vessel'])
             ->orderByDesc('joined_date')
             ->orderByDesc('created_at')
             ->get();
@@ -283,7 +286,7 @@ class CrewDeploymentController extends Controller
         return [
             'client_id' => $validated['client_id'] ?? null,
             'company_visa_type_id' => $validated['company_visa_type_id'] ?? null,
-            'vessel_name' => $validated['vessel_name'] ?? null,
+            'vessel_id' => $validated['vessel_id'] ?? null,
             'arrived_date' => $validated['arrived_date'] ?? null,
             'join_standby_from' => $validated['join_standby_from'] ?? null,
             'join_standby_to' => $validated['join_standby_to'] ?? null,
