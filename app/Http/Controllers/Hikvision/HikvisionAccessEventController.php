@@ -22,6 +22,7 @@ class HikvisionAccessEventController extends Controller
 
     public function index(Request $request): Response
     {
+        $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
 
         $attendanceStatus = $request->string('attendance_status')->toString();
@@ -68,9 +69,10 @@ class HikvisionAccessEventController extends Controller
             ->values()
             ->all();
 
-        $employeesByPersonId = $personHikvisionIds === []
+        $employeesByPersonId = $personHikvisionIds === [] || $companyId <= 0
             ? collect()
             : Employee::query()
+                ->where('company_id', $companyId)
                 ->with('hikvisionPerson:id,person_id')
                 ->whereHas('hikvisionPerson', fn ($query) => $query->whereIn('person_id', $personHikvisionIds))
                 ->get()

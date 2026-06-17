@@ -1,6 +1,8 @@
 <?php
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Models\Company;
+use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionSetting;
@@ -751,6 +753,55 @@ test('user without fetch permission cannot fetch hikvision access events', funct
     test()->actingAs($user)
         ->post(route('hikvision.access-events.fetch'), ['_token' => csrf_token()])
         ->assertForbidden();
+});
+
+test('access events page does not expose employees linked in another company', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.events.view']);
+
+    $viewerCompany = $user->companies()->first();
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Events Co',
+        'slug' => 'other-events-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $viewerCompany->country_id,
+        'currency_id' => $viewerCompany->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create([
+            'name' => 'Secret Other Co Employee',
+        ]);
+
+    linkHikvisionPersonToUserCompany($otherEmployee, 'cross-company-person-id');
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'acs:cross-company',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-08 09:00:00',
+        'person_name' => 'Secret Other Co Employee',
+        'person_hikvision_id' => 'cross-company-person-id',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => 'checkIn',
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('hikvision.access-events.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('events', 1)
+            ->where('events.0.person_name', 'Secret Other Co Employee')
+            ->where('events.0.employee_name', null)
+            ->where('events.0.employee_id', null),
+        );
 });
 
 function fakeHikvisionEveningScheduledFetchJune11(): void

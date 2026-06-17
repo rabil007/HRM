@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionPerson;
 use App\Models\HikvisionPersonGroup;
@@ -142,6 +143,42 @@ test('user with permission can view hikvision persons page', function () {
             ->has('group_options')
             ->has('credential_options')
             ->has('can'),
+        );
+});
+
+test('persons page does not expose employees linked in another company', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['hikvision.persons.view']);
+
+    $viewerCompany = $user->companies()->first();
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Persons Co',
+        'slug' => 'other-persons-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $viewerCompany->country_id,
+        'currency_id' => $viewerCompany->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create([
+            'name' => 'Hidden Linked Employee',
+            'employee_no' => 'OTH-001',
+        ]);
+
+    linkHikvisionPersonToUserCompany($otherEmployee, 'person-other-co');
+
+    $this->actingAs($user)
+        ->get(route('hikvision.persons.index'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('persons', 1)
+            ->where('persons.0.full_name', 'Hidden Linked Employee')
+            ->where('persons.0.linked_employee', null),
         );
 });
 

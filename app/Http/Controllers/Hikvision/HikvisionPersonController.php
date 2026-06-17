@@ -53,7 +53,7 @@ class HikvisionPersonController extends Controller
         ];
 
         $paginator = HikvisionPerson::query()
-            ->with(['group', 'employee:id,name,employee_no,hikvision_person_id'])
+            ->with(['group', 'employee:id,company_id,name,employee_no,hikvision_person_id'])
             ->filtered($filters)
             ->orderBy('full_name')
             ->paginate($perPage)
@@ -81,11 +81,13 @@ class HikvisionPersonController extends Controller
                     'photo_url' => $person->photo_url,
                     'has_fingerprint' => $person->has_fingerprint,
                     'has_pin' => $person->has_pin,
-                    'linked_employee' => $person->employee ? [
-                        'id' => $person->employee->id,
-                        'name' => $person->employee->name,
-                        'employee_no' => $person->employee->employee_no,
-                    ] : null,
+                    'linked_employee' => $person->employee && (int) $person->employee->company_id === $companyId
+                        ? [
+                            'id' => $person->employee->id,
+                            'name' => $person->employee->name,
+                            'employee_no' => $person->employee->employee_no,
+                        ]
+                        : null,
                     'synced_at' => $person->synced_at?->toIso8601String(),
                 ])
                 ->values()

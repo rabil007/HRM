@@ -197,6 +197,36 @@ test('authorized users can store update and destroy crew deployments', function 
     expect(EmployeeDeployment::query()->find($deployment->id))->toBeNull();
 });
 
+test('store rejects employees from another company during validation', function () {
+    ['user' => $user, 'company' => $company, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $otherCompany = Company::query()->create([
+        'name' => 'Other Deployment Co',
+        'slug' => 'other-deployment-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $company->country_id,
+        'currency_id' => $company->currency_id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $otherEmployee = Employee::factory()
+        ->forCompany($otherCompany)
+        ->create(['status' => 'active']);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $otherEmployee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Rejected Vessel')->id,
+            'joined_date' => '2024-11-26',
+        ])
+        ->assertSessionHasErrors('employee_id');
+
+    expect(EmployeeDeployment::query()->where('employee_id', $otherEmployee->id)->exists())->toBeFalse();
+});
+
 test('deployment board shows all assignment records per employee', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 

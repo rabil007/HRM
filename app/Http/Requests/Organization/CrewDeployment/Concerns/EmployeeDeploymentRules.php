@@ -11,8 +11,14 @@ trait EmployeeDeploymentRules
      */
     protected function deploymentFieldRules(): array
     {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
         return [
-            'employee_id' => ['required', 'integer', 'exists:employees,id'],
+            'employee_id' => [
+                'required',
+                'integer',
+                Rule::exists('employees', 'id')->where(fn ($query) => $query->where('company_id', $companyId)),
+            ],
             'rank_id' => ['nullable', 'integer', Rule::exists('ranks', 'id')->where('is_active', true)],
             'client_id' => ['nullable', 'integer', Rule::exists('clients', 'id')->where('is_active', true)],
             'company_visa_type_id' => ['nullable', 'integer', Rule::exists('company_visa_types', 'id')->where('is_active', true)],
