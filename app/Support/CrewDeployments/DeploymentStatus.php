@@ -83,7 +83,13 @@ final class DeploymentStatus
         if (
             $deployment->arrived_date !== null
             && $deployment->joined_date === null
-            && $deployment->arrived_date->gte($today)
+            && (
+                $deployment->arrived_date->gte($today)
+                || (
+                    $deployment->join_standby_from !== null
+                    && $deployment->join_standby_from->gt($today)
+                )
+            )
         ) {
             return [
                 'status' => self::ARRIVED,
