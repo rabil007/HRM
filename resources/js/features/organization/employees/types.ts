@@ -130,6 +130,15 @@ export type Employee = {
     supplementary_allowance?: number | null;
     site_allowance?: number | null;
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
+    crew_status?: {
+        deployment_id: number | null;
+        status: string;
+        label: string;
+        hint?: string | null;
+        current_vessel?: string | null;
+        in_home_days?: number | null;
+        vessel_name?: string | null;
+    } | null;
     start_date?: string | null;
     end_date?: string | null;
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';

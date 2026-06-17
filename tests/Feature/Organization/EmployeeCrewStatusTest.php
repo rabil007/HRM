@@ -12,6 +12,7 @@ use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewDeployments\DeploymentStatus;
 use App\Support\CrewDeployments\EmployeeCrewStatusPresenter;
+use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateFieldRegistry;
 use Carbon\CarbonImmutable;
 
 function makeEmployeeCrewStatusVessel(string $name): Vessel
@@ -242,4 +243,131 @@ test('employee profile exposes deployments view permission in can payload', func
         ->assertOk()
         ->assertInertia(fn ($page) => $page
             ->where('can.deployments_view', true));
+});
+
+test('employee profile hides crew status when disabled in profile template', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Office',
+        employeeProfileTemplateWithVisibleEmployeeFields(['employee_no', 'name', 'work_email']),
+    );
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.employees.show', $employee));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('employee.crew_status.status', DeploymentStatus::ON_VESSEL));
+
+    $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
+
+    expect($profileFields)->toBeArray()
+        ->and($profileFields)->not->toContain('crew_status');
+});
+
+test('employee profile includes crew status in profile fields when enabled in template', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['fields']['employees']['crew_status']['visible'] = true;
+
+    $template = createEmployeeProfileTemplate($company, 'Marine', $configuration);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->actingAs($user)
+        ->get(route('organization.employees.show', $employee));
+
+    $response->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('employee.crew_status.status', DeploymentStatus::ON_VESSEL));
+
+    $profileFields = $response->inertiaProps('employee_tabs.profile_fields');
+
+    expect($profileFields)->toBeArray()
+        ->and($profileFields)->toContain('crew_status');
+});
+
+test('employee directory includes crew status on cards when enabled in profile template', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $configuration = EmployeeProfileTemplateFieldRegistry::defaultConfiguration();
+    $configuration['fields']['employees']['crew_status']['visible'] = true;
+
+    $template = createEmployeeProfileTemplate($company, 'Marine', $configuration);
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $employee->id)
+            ->where('employees.0.crew_status.status', DeploymentStatus::ON_VESSEL)
+            ->where('employees.0.crew_status.label', 'On vessel'));
+});
+
+test('employee directory omits crew status when disabled in profile template', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $template = createEmployeeProfileTemplate(
+        $company,
+        'Office',
+        employeeProfileTemplateWithVisibleEmployeeFields(['employee_no', 'name']),
+    );
+
+    $employee->update(['employee_profile_template_id' => $template->id]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeEmployeeCrewStatusVessel('Vessel A')->id,
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $employee->id)
+            ->missing('employees.0.crew_status'));
 });

@@ -125,6 +125,17 @@ final class EmployeeProfileTemplateResolver
         ];
     }
 
+    public static function employeeFieldVisible(?EmployeeProfileTemplate $template, string $fieldKey): bool
+    {
+        $profileFields = self::resolve($template)['employee_tabs']['profile_fields'] ?? null;
+
+        if ($profileFields === null) {
+            return true;
+        }
+
+        return in_array($fieldKey, $profileFields, true);
+    }
+
     /**
      * @param  array<string, mixed>  $configuration
      */

@@ -15,6 +15,7 @@ use App\Support\Employees\Actions\CreateEmployee;
 use App\Support\Employees\Actions\CreateEmployeeFromName;
 use App\Support\Employees\Actions\SyncEmployeeWorkAssignments;
 use App\Support\Employees\BuildDepartmentEmployeeTree;
+use App\Support\Employees\EmployeeDirectoryCrewStatusData;
 use App\Support\Employees\EmployeeDirectoryFilters;
 use App\Support\Employees\EmployeeDirectoryQuery;
 use App\Support\Employees\EmployeeFormOptions;
@@ -49,13 +50,22 @@ class EmployeeController extends Controller
                     'nationalityRef:id,name,code',
                     'primaryBankAccount.bank:id,name',
                     'currentContract',
+                    'employeeProfileTemplate:id,name,configuration_json',
                 ]),
             )
             ->paginate($perPage)
             ->withQueryString();
 
+        $latestDeployments = EmployeeDirectoryCrewStatusData::latestDeploymentsFor(
+            $paginator->getCollection(),
+            $companyId,
+        );
+
         $employees = $paginator->through(
-            fn (Employee $employee) => EmployeeListResource::toArray($employee),
+            fn (Employee $employee) => EmployeeListResource::toArray(
+                $employee,
+                $latestDeployments->get($employee->id),
+            ),
         );
 
         return Inertia::render('organization/employees', [

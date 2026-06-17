@@ -4,6 +4,15 @@ namespace App\Support\EmployeeProfileTemplates;
 
 final class EmployeeProfileTemplateFieldRegistry
 {
+    /**
+     * Employee fields hidden until enabled on a specific profile template.
+     *
+     * @var array<string, list<string>>
+     */
+    private const FIELDS_HIDDEN_BY_DEFAULT = [
+        'employees' => ['crew_status'],
+    ];
+
     /** @var list<string> */
     public const TAB_ORDER = [
         'personal',
@@ -95,6 +104,7 @@ final class EmployeeProfileTemplateFieldRegistry
                 'passport_number' => 'Passport number',
                 'labor_card_number' => 'Labor card number',
                 'status' => 'Status',
+                'crew_status' => 'Crew status',
             ],
             'employee_contracts' => [
                 'contract_type' => 'Contract type',
@@ -187,8 +197,10 @@ final class EmployeeProfileTemplateFieldRegistry
             $defaultRequired = EmployeeProfileTemplateRequestRules::DEFAULT_REQUIRED_BY_TABLE[$table] ?? [];
 
             foreach (array_keys($tableFields) as $fieldKey) {
+                $hiddenByDefault = in_array($fieldKey, self::FIELDS_HIDDEN_BY_DEFAULT[$table] ?? [], true);
+
                 $fields[$table][$fieldKey] = [
-                    'visible' => true,
+                    'visible' => ! $hiddenByDefault,
                     'required' => in_array($fieldKey, $defaultRequired, true),
                 ];
             }

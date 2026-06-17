@@ -423,7 +423,7 @@ export function EmployeeHeaderCard({
                                     {employee.status?.replace('_', ' ')}
                                 </div>
 
-                                {employee.crew_status ? (
+                                {employee.crew_status && showField('crew_status') ? (
                                     <EmployeeCrewStatusBadge
                                         crewStatus={employee.crew_status}
                                         canViewDeployments={canViewDeployments}

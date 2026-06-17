@@ -31,6 +31,7 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     passport_number: 'Passport number',
     labor_card_number: 'Labor card number',
     status: 'Status',
+    crew_status: 'Crew status',
     contract_type: 'Contract type',
     start_date: 'Start date',
     end_date: 'End date',

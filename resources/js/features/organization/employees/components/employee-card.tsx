@@ -1,6 +1,7 @@
 import { router } from '@inertiajs/react';
 import { Cake, CalendarDays, Eye, Mail, Phone, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -81,14 +82,22 @@ export function EmployeeCard({
                             {employee.employee_no}
                         </span>
                     </div>
-                    <div
-                        className={cn(
-                            'flex shrink-0 items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
-                            statusCfg.badge,
-                        )}
-                    >
-                        <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
-                        {statusCfg.label}
+                    <div className="flex shrink-0 flex-col items-end gap-1">
+                        <div
+                            className={cn(
+                                'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold',
+                                statusCfg.badge,
+                            )}
+                        >
+                            <span className={cn('h-1.5 w-1.5 rounded-full', statusCfg.dot)} />
+                            {statusCfg.label}
+                        </div>
+                        {employee.crew_status ? (
+                            <DeploymentStatusBadge
+                                status={employee.crew_status.status}
+                                label={employee.crew_status.label}
+                            />
+                        ) : null}
                     </div>
                 </div>
 
