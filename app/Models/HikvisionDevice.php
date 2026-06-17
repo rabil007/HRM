@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionDevice extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'hikvision_id',
         'serial_no',
@@ -79,9 +82,15 @@ class HikvisionDevice extends Model
             $attributes['raw_detail_payload'] = $apiDetail;
         }
 
-        return self::query()->updateOrCreate(
+        $device = self::withTrashed()->updateOrCreate(
             ['serial_no' => (string) ($apiDevice['serialNo'] ?? '')],
             $attributes,
         );
+
+        if ($device->trashed()) {
+            $device->restore();
+        }
+
+        return $device;
     }
 }

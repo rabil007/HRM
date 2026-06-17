@@ -7,9 +7,12 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionAccessEvent extends Model
 {
+    use SoftDeletes;
+
     public const ATTENDANCE_CHECK_IN = 'checkIn';
 
     public const ATTENDANCE_CHECK_OUT = 'checkOut';
@@ -365,7 +368,7 @@ class HikvisionAccessEvent extends Model
             $attendanceStatus,
         ]);
 
-        return self::query()->updateOrCreate(
+        return self::updateOrCreateIncludingTrashed(
             [
                 'system_id' => $systemId,
                 'occurrence_time' => $occurrenceTime,
@@ -456,7 +459,7 @@ class HikvisionAccessEvent extends Model
             $personName,
         ]);
 
-        return self::query()->updateOrCreate(
+        return self::updateOrCreateIncludingTrashed(
             [
                 'system_id' => $systemId,
                 'occurrence_time' => $occurrenceTime,
@@ -559,7 +562,7 @@ class HikvisionAccessEvent extends Model
 
         $snapUrls = self::extractSnapUrls($record);
 
-        return self::query()->updateOrCreate(
+        return self::updateOrCreateIncludingTrashed(
             [
                 'system_id' => $systemId,
                 'occurrence_time' => $occurrenceTime,
@@ -678,7 +681,7 @@ class HikvisionAccessEvent extends Model
                 : 'webhook:'.hash('sha256', json_encode($item));
         }
 
-        return self::query()->updateOrCreate(
+        return self::updateOrCreateIncludingTrashed(
             [
                 'system_id' => $systemId,
                 'occurrence_time' => $occurrenceTime,
@@ -918,7 +921,7 @@ class HikvisionAccessEvent extends Model
             return null;
         }
 
-        return self::query()->updateOrCreate(
+        return self::updateOrCreateIncludingTrashed(
             [
                 'system_id' => $systemId,
                 'occurrence_time' => $occurrenceTime,
@@ -996,5 +999,20 @@ class HikvisionAccessEvent extends Model
             ->where('attendance_status', $attendanceStatus !== '' ? $attendanceStatus : null)
             ->where('transaction_source', $transactionSource)
             ->exists();
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $values
+     */
+    protected static function updateOrCreateIncludingTrashed(array $attributes, array $values): self
+    {
+        $event = self::withTrashed()->updateOrCreate($attributes, $values);
+
+        if ($event->trashed()) {
+            $event->restore();
+        }
+
+        return $event;
     }
 }

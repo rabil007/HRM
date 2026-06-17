@@ -4,9 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionPersonGroup extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'hikvision_person_groups';
 
     public const UNASSIGNED_GROUP_VALUE = '__unassigned__';
@@ -35,7 +38,7 @@ class HikvisionPersonGroup extends Model
      */
     public static function upsertFromApi(array $apiGroup): self
     {
-        return self::query()->updateOrCreate(
+        $group = self::withTrashed()->updateOrCreate(
             ['group_id' => (string) ($apiGroup['groupId'] ?? '')],
             [
                 'name' => (string) ($apiGroup['groupName'] ?? ''),
@@ -44,6 +47,12 @@ class HikvisionPersonGroup extends Model
                 'synced_at' => now(),
             ],
         );
+
+        if ($group->trashed()) {
+            $group->restore();
+        }
+
+        return $group;
     }
 
     /**

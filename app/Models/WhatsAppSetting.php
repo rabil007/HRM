@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class WhatsAppSetting extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'whatsapp_settings';
 
     protected $fillable = [
@@ -32,13 +35,19 @@ class WhatsAppSetting extends Model
 
     public static function current(): self
     {
-        return self::query()->firstOrCreate(
+        $setting = self::withTrashed()->firstOrCreate(
             ['id' => 1],
             [
                 'enabled' => false,
                 'webhook_verify_token' => 'HERD_OMS_WHATSAPP_VERIFY_TOKEN',
             ],
         );
+
+        if ($setting->trashed()) {
+            $setting->restore();
+        }
+
+        return $setting;
     }
 
     public function isConfigured(): bool

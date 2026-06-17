@@ -8,9 +8,12 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionPerson extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'hikvision_persons';
 
     public const CREDENTIAL_FINGERPRINT = 'fingerprint';
@@ -85,7 +88,7 @@ class HikvisionPerson extends Model
             $headPicUrl = filled($personInfo['headPicUrl']) ? (string) $personInfo['headPicUrl'] : null;
         }
 
-        $person = self::query()->updateOrCreate(
+        $person = self::withTrashed()->updateOrCreate(
             ['person_id' => (string) ($personInfo['personId'] ?? '')],
             [
                 'group_id' => filled($personInfo['groupId'] ?? null) ? (string) $personInfo['groupId'] : null,
@@ -105,6 +108,10 @@ class HikvisionPerson extends Model
                 'synced_at' => now(),
             ],
         );
+
+        if ($person->trashed()) {
+            $person->restore();
+        }
 
         if ($shouldSyncPhoto) {
             HikvisionPersonPhotoStorage::syncFromRemoteUrl($person, $headPicUrl);

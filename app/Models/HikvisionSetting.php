@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class HikvisionSetting extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'hikvision_settings';
 
     public const EVENTS_FETCH_IDLE = 'idle';
@@ -133,12 +136,18 @@ class HikvisionSetting extends Model
 
     public static function current(): self
     {
-        return self::query()->firstOrCreate(
+        $setting = self::withTrashed()->firstOrCreate(
             ['id' => 1],
             [
                 'enabled' => false,
             ],
         );
+
+        if ($setting->trashed()) {
+            $setting->restore();
+        }
+
+        return $setting;
     }
 
     public function hasStoredCredentials(): bool
