@@ -371,3 +371,42 @@ test('employee directory omits crew status when disabled in profile template', f
             ->where('employees.0.id', $employee->id)
             ->missing('employees.0.crew_status'));
 });
+
+test('employee directory can filter by crew status', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $onVesselEmployee, 'rank' => $rank] = makeEmployeeCrewStatusFixtures();
+
+    $availableEmployee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => '3002',
+            'name' => 'Available Seafarer',
+            'rank_id' => $rank->id,
+            'status' => 'active',
+        ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $onVesselEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeEmployeeCrewStatusVessel('Filter Vessel')->id,
+        'joined_date' => CarbonImmutable::today()->subDay(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->actingAs($user)
+        ->get(route('organization.employees', ['crew_status' => 'available']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $availableEmployee->id)
+            ->where('filters.crew_status', 'available'));
+
+    $this->actingAs($user)
+        ->get(route('organization.employees', ['crew_status' => DeploymentStatus::ON_VESSEL]))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $onVesselEmployee->id)
+            ->where('filters.crew_status', DeploymentStatus::ON_VESSEL));
+});

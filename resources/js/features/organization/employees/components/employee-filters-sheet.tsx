@@ -29,6 +29,7 @@ export type EmployeeFilters = {
     rank_id: string;
     approval_location_id: string;
     sssa_option_id: string;
+    crew_status: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
@@ -44,6 +45,7 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     rank_id: '',
     approval_location_id: '',
     sssa_option_id: '',
+    crew_status: '',
 };
 
 function csvIdSet(csv: string): Set<string> {
@@ -351,7 +353,7 @@ export function EmployeeFiltersSheet({
 
                 <div className="space-y-2 sm:col-span-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Status
+                        HR status
                     </Label>
                     <AppSelect
                         value={value.status}
@@ -364,6 +366,28 @@ export function EmployeeFiltersSheet({
                         <AppSelectItem value="inactive">Inactive</AppSelectItem>
                         <AppSelectItem value="on_leave">On leave</AppSelectItem>
                         <AppSelectItem value="terminated">Terminated</AppSelectItem>
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Crew status
+                    </Label>
+                    <AppSelect
+                        value={value.crew_status}
+                        onValueChange={(v) => onChange({ ...value, crew_status: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="available">Available</AppSelectItem>
+                        <AppSelectItem value="on_vessel">On vessel</AppSelectItem>
+                        <AppSelectItem value="join_standby">Join standby</AppSelectItem>
+                        <AppSelectItem value="leave_standby">Leave standby</AppSelectItem>
+                        <AppSelectItem value="arrived">Arrived</AppSelectItem>
+                        <AppSelectItem value="travel">Travelled</AppSelectItem>
+                        <AppSelectItem value="disembarked">Disembarked</AppSelectItem>
+                        <AppSelectItem value="in_home">In home</AppSelectItem>
                     </AppSelect>
                 </div>
             </div>

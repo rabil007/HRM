@@ -939,9 +939,10 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         ->first();
     expect($activity)->not->toBeNull();
 
-    $this->put("/organization/employees/{$employeeId}/status", [
-        'status' => 'active',
-    ])->assertRedirect('/organization/employees');
+    $this->from('/organization/employees')
+        ->put("/organization/employees/{$employeeId}/status", [
+            'status' => 'active',
+        ])->assertRedirect('/organization/employees');
 
     $this->assertDatabaseHas('employees', [
         'id' => $employeeId,
@@ -950,6 +951,48 @@ test('authenticated users can create, update, toggle status, and delete an emplo
 
     $this->delete("/organization/employees/{$employeeId}")->assertRedirect('/organization/employees');
     $this->assertSoftDeleted('employees', ['id' => $employeeId]);
+});
+
+test('authenticated users can update employee status from profile and stay on profile', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'STS',
+        'name' => 'Status Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'STS',
+        'name' => 'Status Currency',
+        'symbol' => 'S$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Status Co',
+        'slug' => 'status-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->from(route('organization.employees.show', $employee))
+        ->put(route('organization.employees.status', $employee), [
+            'status' => 'on_leave',
+        ])
+        ->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->status)->toBe('on_leave');
 });
 
 test('authenticated users can export employees as csv, excel, and pdf', function () {

@@ -14,6 +14,7 @@ export type EmployeeListQuery = {
     rank_id?: string;
     approval_location_id?: string;
     sssa_option_id?: string;
+    crew_status?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -72,6 +73,10 @@ export function buildEmployeeListQuery(
 
     if (filters.sssa_option_id) {
         query.sssa_option_id = filters.sssa_option_id;
+    }
+
+    if (filters.crew_status) {
+        query.crew_status = filters.crew_status;
     }
 
     return query;

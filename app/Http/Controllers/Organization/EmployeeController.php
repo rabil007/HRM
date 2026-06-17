@@ -85,6 +85,7 @@ class EmployeeController extends Controller
                 'rank_id' => $directoryFilters->rankId,
                 'approval_location_id' => $directoryFilters->approvalLocationId,
                 'sssa_option_id' => $directoryFilters->sssaOptionId,
+                'crew_status' => $directoryFilters->crewStatus,
             ],
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
@@ -322,7 +323,7 @@ class EmployeeController extends Controller
         ]);
 
         return redirect()
-            ->route('organization.employees')
+            ->back()
             ->with('success', 'Employee status updated successfully.');
     }
 

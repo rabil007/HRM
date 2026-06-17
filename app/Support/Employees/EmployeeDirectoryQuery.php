@@ -95,7 +95,21 @@ final class EmployeeDirectoryQuery
                         ->orWhere('personal_email', 'like', "%{$search}%")
                         ->orWhere('phone', 'like', "%{$search}%");
                 });
-            });
+            })
+            ->when(
+                $filters->crewStatus !== '' && EmployeeCrewStatusFilter::isValid($filters->crewStatus),
+                function (Builder $q) use ($companyId, $filters): void {
+                    $matchingIds = EmployeeCrewStatusFilter::matchingEmployeeIds($companyId, $filters->crewStatus);
+
+                    if ($matchingIds === []) {
+                        $q->whereRaw('1 = 0');
+
+                        return;
+                    }
+
+                    $q->whereIn('id', $matchingIds);
+                },
+            );
     }
 
     public function base(): Builder

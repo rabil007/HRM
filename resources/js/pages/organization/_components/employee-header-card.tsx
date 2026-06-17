@@ -1,8 +1,15 @@
-import { Briefcase, Building2, Camera, ClipboardList, UserRound, X } from 'lucide-react';
-import { Link } from '@inertiajs/react';
+import { Briefcase, Building2, Camera, ChevronDown, ClipboardList, UserRound, X } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
+import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
@@ -21,6 +28,113 @@ import { AssignEmployeeProfileTemplate } from '@/pages/organization/_components/
 import { EmployeeInlinePhoneField } from '@/pages/organization/_components/employee-inline-phone-field';
 import type { EmployeeCrewStatus, ProfileTemplateOption } from '@/pages/organization/employee-page.types';
 type Option = { id: number; name?: string | null; title?: string | null };
+
+const EMPLOYEE_STATUS_OPTIONS = [
+    { value: 'active', label: 'Active' },
+    { value: 'inactive', label: 'Inactive' },
+    { value: 'on_leave', label: 'On leave' },
+    { value: 'terminated', label: 'Terminated' },
+] as const;
+
+type EmployeeStatus = (typeof EMPLOYEE_STATUS_OPTIONS)[number]['value'];
+
+function employeeStatusBadgeClasses(status: EmployeeStatus | string | undefined): {
+    container: string;
+    dot: string;
+} {
+    if (status === 'inactive') {
+        return {
+            container: 'border-border bg-muted/50 text-muted-foreground',
+            dot: 'bg-muted-foreground',
+        };
+    }
+
+    if (status === 'on_leave') {
+        return {
+            container: 'border-warning/30 bg-warning/10 text-warning',
+            dot: 'bg-warning',
+        };
+    }
+
+    if (status === 'terminated') {
+        return {
+            container: 'border-destructive/30 bg-destructive/10 text-destructive',
+            dot: 'bg-destructive',
+        };
+    }
+
+    return {
+        container: 'border-success/30 bg-success/10 text-success',
+        dot: 'bg-success',
+    };
+}
+
+function EmployeeStatusBadge({
+    employeeId,
+    status,
+    canUpdate,
+}: {
+    employeeId: number;
+    status: EmployeeStatus | string;
+    canUpdate: boolean;
+}) {
+    const statusBadge = employeeStatusBadgeClasses(status);
+    const label = EMPLOYEE_STATUS_OPTIONS.find((option) => option.value === status)?.label
+        ?? status.replace('_', ' ');
+
+    const badge = (
+        <div
+            className={cn(
+                'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide',
+                statusBadge.container,
+                canUpdate && 'cursor-pointer transition-opacity hover:opacity-90',
+            )}
+        >
+            <div className={cn('h-1.5 w-1.5 rounded-full', statusBadge.dot, status === 'active' && 'animate-pulse')} />
+            {label}
+            {canUpdate ? <ChevronDown className="h-3 w-3 opacity-70" /> : null}
+        </div>
+    );
+
+    if (!canUpdate) {
+        return badge;
+    }
+
+    return (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button type="button" className="inline-flex rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    {badge}
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-40">
+                {EMPLOYEE_STATUS_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                        key={option.value}
+                        onClick={() => {
+                            if (option.value === status) {
+                                return;
+                            }
+
+                            router.put(
+                                `/organization/employees/${employeeId}/status`,
+                                { status: option.value },
+                                {
+                                    preserveScroll: true,
+                                    only: ['employee'],
+                                    onError: () => toast.error('Failed to update status. Please try again.'),
+                                },
+                            );
+                        }}
+                    >
+                        <span className={cn('mr-2 h-1.5 w-1.5 rounded-full', employeeStatusBadgeClasses(option.value).dot)} />
+                        {option.label}
+                    </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
+}
 
 function optionLabel(
     options: Option[],
@@ -184,41 +298,13 @@ export function EmployeeHeaderCard({
         [employee.department?.id, form.data.department_id],
     );
 
-    const statusBadge = useMemo(() => {
-        const status = employee.status;
-
-        if (status === 'inactive') {
-            return {
-                container: 'border-border bg-muted/50 text-muted-foreground',
-                dot: 'bg-muted-foreground',
-            };
-        }
-
-        if (status === 'on_leave') {
-            return {
-                container: 'border-warning/30 bg-warning/10 text-warning',
-                dot: 'bg-warning',
-            };
-        }
-
-        if (status === 'terminated') {
-            return {
-                container: 'border-destructive/30 bg-destructive/10 text-destructive',
-                dot: 'bg-destructive',
-            };
-        }
-
-        return {
-            container: 'border-success/30 bg-success/10 text-success',
-            dot: 'bg-success',
-        };
-    }, [employee.status]);
+    const statusBadge = employeeStatusBadgeClasses(employee.status);
 
     return (
         <div className="relative overflow-hidden rounded-2xl border border-border/80 bg-card p-6 shadow-lg md:p-8">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_55%_at_-5%_-10%,color-mix(in_oklch,var(--primary)_20%,transparent),transparent_55%),radial-gradient(ellipse_55%_55%_at_110%_110%,color-mix(in_oklch,var(--success)_12%,transparent),transparent_55%)]" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
-            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-gradient-to-b from-primary/5 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-primary/50 to-transparent" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-48 bg-linear-to-b from-primary/5 to-transparent" />
 
             <div className="relative flex flex-col gap-6 md:flex-row md:items-start md:gap-8">
                 <div className="relative mx-auto shrink-0 md:mx-0">
@@ -235,7 +321,7 @@ export function EmployeeHeaderCard({
                         }}
                     />
                     {/* Glow halo behind avatar */}
-                    <div className="absolute -inset-3 rounded-2xl bg-gradient-to-br from-primary/25 via-accent/10 to-success/15 opacity-60 blur-xl" />
+                    <div className="absolute -inset-3 rounded-2xl bg-linear-to-br from-primary/25 via-accent/10 to-success/15 opacity-60 blur-xl" />
                     <button
                         type="button"
                         className={cn(
@@ -416,12 +502,13 @@ export function EmployeeHeaderCard({
                                     onChange={(value) => form.setData('employee_no', value)}
                                 />
 
-                                <div
-                                    className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[10px] font-bold uppercase tracking-wide ${statusBadge.container}`}
-                                >
-                                    <div className={`h-1.5 w-1.5 animate-pulse rounded-full ${statusBadge.dot}`} />
-                                    {employee.status?.replace('_', ' ')}
-                                </div>
+                                {employee.id ? (
+                                    <EmployeeStatusBadge
+                                        employeeId={employee.id}
+                                        status={employee.status}
+                                        canUpdate={canUpdate}
+                                    />
+                                ) : null}
 
                                 {employee.crew_status && showField('crew_status') ? (
                                     <EmployeeCrewStatusBadge
@@ -433,7 +520,7 @@ export function EmployeeHeaderCard({
                             {employee.employee_profile_template?.name ? (
                                 <Badge
                                     title={`Profile template: ${employee.employee_profile_template.name}`}
-                                    className="flex max-w-[11rem] items-center gap-1.5 rounded-full border-accent/25 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent"
+                                    className="flex max-w-44 items-center gap-1.5 rounded-full border-accent/25 bg-accent/10 px-2.5 py-1 text-[10px] font-medium text-accent"
                                 >
                                     <ClipboardList className="h-3 w-3 shrink-0" />
                                     <span className="truncate">{employee.employee_profile_template.name}</span>

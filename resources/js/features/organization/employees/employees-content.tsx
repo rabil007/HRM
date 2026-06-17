@@ -129,6 +129,7 @@ export function EmployeesContent({
         rank_id: initialFilters.rank_id ?? '',
         approval_location_id: initialFilters.approval_location_id ?? '',
         sssa_option_id: initialFilters.sssa_option_id ?? '',
+        crew_status: initialFilters.crew_status ?? '',
     };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;

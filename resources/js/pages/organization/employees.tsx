@@ -57,6 +57,7 @@ export default function Employees({
         rank_id: string;
         approval_location_id: string;
         sssa_option_id: string;
+        crew_status: string;
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
