@@ -18,6 +18,7 @@ use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
 use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
 use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
+use App\Support\CrewDeployments\SyncSeaServiceFromDeployment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -90,8 +91,10 @@ class CrewDeploymentController extends Controller
         ]);
     }
 
-    public function store(StoreEmployeeDeploymentRequest $request): RedirectResponse
-    {
+    public function store(
+        StoreEmployeeDeploymentRequest $request,
+        SyncSeaServiceFromDeployment $syncSeaService,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
 
@@ -105,13 +108,15 @@ class CrewDeploymentController extends Controller
             ->where('company_id', $companyId)
             ->max('sort_order');
 
-        EmployeeDeployment::query()->create([
+        $deployment = EmployeeDeployment::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
             'rank_id' => $validated['rank_id'] ?? $employee->rank_id,
             ...$this->deploymentAttributes($validated),
         ]);
+
+        $syncSeaService->sync($deployment);
 
         return back()->with('success', 'Deployment record added.');
     }
@@ -151,6 +156,7 @@ class CrewDeploymentController extends Controller
     public function update(
         UpdateEmployeeDeploymentRequest $request,
         EmployeeDeployment $deployment,
+        SyncSeaServiceFromDeployment $syncSeaService,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -169,6 +175,8 @@ class CrewDeploymentController extends Controller
             ...$this->deploymentAttributes($validated),
         ]);
 
+        $syncSeaService->sync($deployment->fresh());
+
         if (($validated['redirect_to'] ?? null) === 'show') {
             return redirect()
                 ->route('organization.crew-deployments.show', $deployment)
@@ -178,12 +186,16 @@ class CrewDeploymentController extends Controller
         return back()->with('success', 'Deployment record updated.');
     }
 
-    public function destroy(Request $request, EmployeeDeployment $deployment): RedirectResponse
-    {
+    public function destroy(
+        Request $request,
+        EmployeeDeployment $deployment,
+        SyncSeaServiceFromDeployment $syncSeaService,
+    ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($deployment->company_id === $companyId, 403);
 
+        $syncSeaService->removeLinked($deployment);
         $deployment->delete();
 
         return back()->with('success', 'Deployment record removed.');

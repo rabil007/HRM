@@ -7,6 +7,7 @@ use Database\Factories\EmployeeDeploymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
 
@@ -90,5 +91,10 @@ class EmployeeDeployment extends Model
     public function vessel(): BelongsTo
     {
         return $this->belongsTo(Vessel::class);
+    }
+
+    public function seaService(): HasOne
+    {
+        return $this->hasOne(EmployeeSeaService::class);
     }
 }

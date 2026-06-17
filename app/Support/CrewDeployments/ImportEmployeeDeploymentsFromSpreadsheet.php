@@ -14,6 +14,10 @@ use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
 
 final class ImportEmployeeDeploymentsFromSpreadsheet
 {
+    public function __construct(
+        private readonly SyncSeaServiceFromDeployment $syncSeaService,
+    ) {}
+
     /**
      * @return array{imported: int, skipped: int, errors: list<string>}
      */
@@ -123,7 +127,7 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 ->where('company_id', $companyId)
                 ->max('sort_order');
 
-            EmployeeDeployment::query()->create([
+            $deployment = EmployeeDeployment::query()->create([
                 'company_id' => $companyId,
                 'employee_id' => $employee->id,
                 'sort_order' => $maxSort === null ? 0 : ((int) $maxSort + 1),
@@ -143,6 +147,8 @@ final class ImportEmployeeDeploymentsFromSpreadsheet
                 'travelled_date' => $this->dateValue($row, $map, 'travelled_date'),
                 'remarks' => $this->stringValue($row, $map, 'remarks'),
             ]);
+
+            $this->syncSeaService->sync($deployment);
 
             $imported++;
         }

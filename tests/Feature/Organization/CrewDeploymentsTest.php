@@ -8,12 +8,14 @@ use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\EmployeeDeployment;
+use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewDeployments\DeploymentStatus;
 use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
+use App\Support\Employees\SeaServiceDuration;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -795,4 +797,178 @@ test('crew deployment board can filter by join standby status', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('deployments.data', 1)
             ->where('deployments.data.0.status', DeploymentStatus::JOIN_STANDBY));
+});
+
+test('updating a deployment with joined and disembarked dates creates linked sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $client = Client::query()->create(['name' => 'Berltiz', 'is_active' => true]);
+    $vessel = makeCrewDeploymentVessel('Safeen OSV Pearl');
+    $duration = SeaServiceDuration::fromDates('2024-11-26', '2025-01-26');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'client_id' => $client->id,
+            'vessel_id' => $vessel->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $seaService = EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->first();
+
+    expect($seaService)->not->toBeNull()
+        ->and($seaService->employee_id)->toBe($employee->id)
+        ->and($seaService->company_id)->toBe($company->id)
+        ->and($seaService->vessel_id)->toBe($vessel->id)
+        ->and($seaService->vessel_type_id)->toBe($vessel->vessel_type_id)
+        ->and($seaService->rank_id)->toBe($rank->id)
+        ->and($seaService->client_id)->toBe($client->id)
+        ->and($seaService->start_date?->toDateString())->toBe('2024-11-26')
+        ->and($seaService->end_date?->toDateString())->toBe('2025-01-26')
+        ->and($seaService->total_months)->toBe($duration['months'])
+        ->and($seaService->total_days)->toBe($duration['days']);
+});
+
+test('re-updating a deployment updates the same linked sea service record', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('First Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $originalSeaServiceId = EmployeeSeaService::query()
+        ->where('employee_deployment_id', $deployment->id)
+        ->value('id');
+
+    $replacementVessel = makeCrewDeploymentVessel('Cecilie K');
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $replacementVessel->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-02-26',
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->count())->toBe(1);
+
+    $seaService = EmployeeSeaService::query()->find($originalSeaServiceId);
+
+    expect($seaService)->not->toBeNull()
+        ->and($seaService->vessel_id)->toBe($replacementVessel->id)
+        ->and($seaService->end_date?->toDateString())->toBe('2025-02-26');
+});
+
+test('clearing disembarked date removes linked sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Active Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+
+    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeTrue();
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $deployment->vessel_id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => null,
+        ])
+        ->assertRedirect();
+
+    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeFalse();
+});
+
+test('deployment without vessel does not create linked sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+
+    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeFalse();
+});
+
+test('importing deployments with both dates creates linked sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    makeCrewDeploymentVessel('JDL');
+
+    $spreadsheet = new Spreadsheet;
+    $sheet = $spreadsheet->getActiveSheet();
+    $sheet->fromArray([
+        ['EMP. NO', 'NAME', 'RANK', 'VESSEL', 'DATE JOINED', 'DATE DISEMBARKED'],
+        [$employee->employee_no, $employee->name, $rank->name, 'JDL', '2024-11-26', '2025-01-26'],
+    ]);
+
+    $path = tempnam(sys_get_temp_dir(), 'crew-import-sea-').'.xlsx';
+    (new Xlsx($spreadsheet))->save($path);
+
+    $uploaded = new UploadedFile($path, 'crew-deployments.xlsx', null, null, true);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.import'), ['file' => $uploaded])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+
+    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeTrue();
+
+    @unlink($path);
+});
+
+test('deleting a deployment removes linked sea service', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Delete Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $seaServiceId = EmployeeSeaService::query()
+        ->where('employee_deployment_id', $deployment->id)
+        ->value('id');
+
+    $this->actingAs($user)
+        ->delete(route('organization.crew-deployments.destroy', $deployment))
+        ->assertRedirect();
+
+    expect(EmployeeSeaService::query()->find($seaServiceId))->toBeNull();
 });
