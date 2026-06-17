@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Organization;
 
 use App\Exports\CrewDeploymentsExport;
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Organization\CrewDeployment\ImportEmployeeDeploymentsRequest;
 use App\Http\Requests\Organization\CrewDeployment\StoreEmployeeDeploymentRequest;
 use App\Http\Requests\Organization\CrewDeployment\UpdateEmployeeDeploymentRequest;
 use App\Models\Client;
@@ -17,11 +16,9 @@ use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
 use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
-use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
 use App\Support\CrewDeployments\SyncSeaServiceFromDeployment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -202,58 +199,6 @@ class CrewDeploymentController extends Controller
         $deployment->delete();
 
         return back()->with('success', 'Deployment record removed.');
-    }
-
-    public function importTemplate(): Response
-    {
-        $csv = implode(',', [
-            'emp no',
-            'name',
-            'rank',
-            'nationality',
-            'date arrived',
-            'join standby from',
-            'join standby to',
-            'date joined',
-            'date disembarked',
-            'leave standby from',
-            'leave standby to',
-            'date travelled',
-            'vessel',
-            'sponsor',
-            'client',
-            'remarks',
-        ])."\n";
-
-        return response($csv, 200, [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-            'Content-Disposition' => 'attachment; filename="crew-deployments-import-template.csv"',
-        ]);
-    }
-
-    public function import(
-        ImportEmployeeDeploymentsRequest $request,
-        ImportEmployeeDeploymentsFromSpreadsheet $importer,
-    ): RedirectResponse {
-        $companyId = (int) $request->attributes->get('current_company_id');
-        $uploaded = $request->file('file');
-        $path = $uploaded->getRealPath() ?: $uploaded->path();
-
-        $result = $importer->import((string) $path, $companyId);
-
-        if ($result['imported'] === 0) {
-            $message = $result['errors'][0] ?? 'No deployment rows were imported.';
-
-            return back()->withErrors(['file' => $message]);
-        }
-
-        $message = "Imported {$result['imported']} deployment row(s).";
-
-        if ($result['skipped'] > 0) {
-            $message .= " Skipped {$result['skipped']} row(s).";
-        }
-
-        return back()->with('success', $message);
     }
 
     public function export(Request $request): BinaryFileResponse

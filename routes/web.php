@@ -127,8 +127,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew-deployments', [CrewDeploymentController::class, 'index'])->middleware('can:crew_operations.deployments.view')->name('organization.crew-deployments.index');
     Route::post('organization/crew-deployments', [CrewDeploymentController::class, 'store'])->middleware('can:crew_operations.deployments.manage')->name('organization.crew-deployments.store');
-    Route::get('organization/crew-deployments/import/template', [CrewDeploymentController::class, 'importTemplate'])->middleware('can:crew_operations.deployments.manage')->name('organization.crew-deployments.import.template');
-    Route::post('organization/crew-deployments/import', [CrewDeploymentController::class, 'import'])->middleware('can:crew_operations.deployments.manage')->name('organization.crew-deployments.import');
     Route::get('organization/crew-deployments/export', [CrewDeploymentController::class, 'export'])->middleware('can:crew_operations.deployments.view')->name('organization.crew-deployments.export');
     Route::get('organization/crew-deployments/{deployment}', [CrewDeploymentController::class, 'show'])->middleware('can:crew_operations.deployments.view')->name('organization.crew-deployments.show');
     Route::put('organization/crew-deployments/{deployment}', [CrewDeploymentController::class, 'update'])->middleware('can:crew_operations.deployments.manage')->name('organization.crew-deployments.update');

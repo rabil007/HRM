@@ -14,13 +14,9 @@ use App\Models\User;
 use App\Models\Vessel;
 use App\Models\VesselType;
 use App\Support\CrewDeployments\DeploymentStatus;
-use App\Support\CrewDeployments\ImportEmployeeDeploymentsFromSpreadsheet;
 use App\Support\Employees\SeaServiceDuration;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\UploadedFile;
 use Inertia\Testing\AssertableInertia as Assert;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Spatie\Activitylog\Models\Activity;
 
 function makeCrewDeploymentVessel(string $name): Vessel
@@ -303,66 +299,6 @@ test('authorized users can download crew deployment export', function () {
     $response->assertOk();
     expect($response->headers->get('content-type'))
         ->toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-});
-
-test('authorized users can import crew deployments from spreadsheet', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-
-    CompanyVisaType::query()->create(['name' => 'EXPERTS', 'is_active' => true]);
-    makeCrewDeploymentVessel('JDL');
-
-    $spreadsheet = new Spreadsheet;
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->fromArray([
-        ['EMP. NO', 'NAME', 'RANK', 'VESSEL', 'SPONSER', 'CLIENT', 'DATE JOINED', 'DATE DISEMBARKED', 'REMARKS'],
-        [$employee->employee_no, $employee->name, $rank->name, 'JDL', 'EXPERTS', 'JDL', '2024-11-26', '2025-01-26', 'Imported row'],
-    ]);
-
-    $path = tempnam(sys_get_temp_dir(), 'crew-import-').'.xlsx';
-    (new Xlsx($spreadsheet))->save($path);
-
-    $uploaded = new UploadedFile($path, 'crew-deployments.xlsx', null, null, true);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-deployments.import'), ['file' => $uploaded])
-        ->assertRedirect()
-        ->assertSessionHas('success');
-
-    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
-
-    expect($deployment)->not->toBeNull()
-        ->and($deployment->vessel?->name)->toBe('JDL')
-        ->and($deployment->remarks)->toBe('Imported row');
-
-    expect($deployment->company_visa_type_id)->toBe(
-        CompanyVisaType::query()->where('name', 'EXPERTS')->value('id'),
-    )->and(Client::query()->where('name', 'JDL')->exists())->toBeTrue();
-
-    @unlink($path);
-});
-
-test('import service skips rows with unknown employee numbers', function () {
-    ['company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-    makeCrewDeploymentVessel('Known Vessel');
-
-    $spreadsheet = new Spreadsheet;
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->fromArray([
-        ['EMP. NO', 'NAME', 'RANK', 'VESSEL'],
-        ['9999', 'Unknown', $rank->name, 'Nowhere'],
-        [$employee->employee_no, $employee->name, $rank->name, 'Known Vessel'],
-    ]);
-
-    $path = tempnam(sys_get_temp_dir(), 'crew-import-').'.xlsx';
-    (new Xlsx($spreadsheet))->save($path);
-
-    $result = app(ImportEmployeeDeploymentsFromSpreadsheet::class)->import($path, $company->id);
-
-    expect($result['imported'])->toBe(1)
-        ->and($result['skipped'])->toBe(1)
-        ->and(EmployeeDeployment::query()->where('employee_id', $employee->id)->count())->toBe(1);
-
-    @unlink($path);
 });
 
 test('crew deployment board can sort assignments by employee name', function () {
@@ -975,35 +911,6 @@ test('deployment without vessel does not create linked sea service', function ()
     $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
 
     expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeFalse();
-});
-
-test('importing deployments with both dates creates linked sea service', function () {
-    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
-
-    makeCrewDeploymentVessel('JDL');
-
-    $spreadsheet = new Spreadsheet;
-    $sheet = $spreadsheet->getActiveSheet();
-    $sheet->fromArray([
-        ['EMP. NO', 'NAME', 'RANK', 'VESSEL', 'DATE JOINED', 'DATE DISEMBARKED'],
-        [$employee->employee_no, $employee->name, $rank->name, 'JDL', '2024-11-26', '2025-01-26'],
-    ]);
-
-    $path = tempnam(sys_get_temp_dir(), 'crew-import-sea-').'.xlsx';
-    (new Xlsx($spreadsheet))->save($path);
-
-    $uploaded = new UploadedFile($path, 'crew-deployments.xlsx', null, null, true);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-deployments.import'), ['file' => $uploaded])
-        ->assertRedirect()
-        ->assertSessionHas('success');
-
-    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
-
-    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeTrue();
-
-    @unlink($path);
 });
 
 test('deleting a deployment removes linked sea service', function () {

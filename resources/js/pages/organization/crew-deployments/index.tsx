@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Download, Filter, LayoutDashboard, LayoutList, Plus, Search, Upload, X } from 'lucide-react';
+import { Download, Filter, LayoutDashboard, LayoutList, Plus, Search, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
@@ -293,51 +293,14 @@ query.per_page = String(deployments.per_page);
                         </a>
                     </Button>
                     {can.manage ? (
-                        <>
-                            <Button variant="outline" size="sm" className="h-9" asChild>
-                                <a href="/organization/crew-deployments/import/template">
-                                    Template
-                                </a>
-                            </Button>
-                            <label className="inline-flex h-9 cursor-pointer items-center">
-                                <Button variant="outline" size="sm" className="h-9" asChild>
-                                    <span>
-                                        <Upload className="mr-2 h-4 w-4" />
-                                        Import
-                                    </span>
-                                </Button>
-                                <Input
-                                    type="file"
-                                    accept=".xlsx,.xls,.csv"
-                                    className="sr-only"
-                                    onChange={(event) => {
-                                        const file = event.target.files?.[0] ?? null;
-
-                                        if (!file) {
-return;
-}
-
-                                        router.post(
-                                            '/organization/crew-deployments/import',
-                                            { file },
-                                            {
-                                                forceFormData: true,
-                                                preserveScroll: true,
-                                            },
-                                        );
-                                        event.currentTarget.value = '';
-                                    }}
-                                />
-                            </label>
-                            <Button
-                                size="sm"
-                                className={cn(actions.primary, 'h-9')}
-                                onClick={openCreate}
-                            >
-                                <Plus className="mr-2 h-4 w-4" />
-                                Add deployment
-                            </Button>
-                        </>
+                        <Button
+                            size="sm"
+                            className={cn(actions.primary, 'h-9')}
+                            onClick={openCreate}
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add deployment
+                        </Button>
                     ) : null}
                 </div>
             </div>
