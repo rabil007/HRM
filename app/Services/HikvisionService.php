@@ -663,6 +663,14 @@ class HikvisionService
 
         $this->syncAttendanceRecordsForWindow($startTime, $endTime);
 
+        if ($day->isToday()) {
+            $yesterday = $day->copy()->subDay();
+            $this->syncAttendanceRecordsForWindow(
+                $yesterday->copy()->startOfDay(),
+                $yesterday->copy()->endOfDay(),
+            );
+        }
+
         return [
             'fetched_count' => $totalCount,
             'message' => "Fetched {$totalCount} access record(s) for {$dateLabel} ({$fetchedCount} device, {$mobileCount} mobile app).",

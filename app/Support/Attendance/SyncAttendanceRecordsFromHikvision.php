@@ -182,8 +182,9 @@ final class SyncAttendanceRecordsFromHikvision
     private function applyEmployeeEventScope($query, Employee $employee, string $personId): void
     {
         $aliases = $this->employeeMatchAliases($employee);
+        $personCode = trim((string) ($employee->hikvisionPerson?->person_code ?? ''));
 
-        $query->where(function ($query) use ($personId, $aliases): void {
+        $query->where(function ($query) use ($personId, $aliases, $personCode): void {
             $hasConstraint = false;
 
             if ($personId !== '') {
@@ -196,6 +197,21 @@ final class SyncAttendanceRecordsFromHikvision
                     $query->orWhereRaw('LOWER(person_name) = ?', [mb_strtolower($alias)]);
                 } else {
                     $query->whereRaw('LOWER(person_name) = ?', [mb_strtolower($alias)]);
+                    $hasConstraint = true;
+                }
+            }
+
+            if ($personCode !== '') {
+                $personCodeConstraint = function (Builder $mobileQuery) use ($personCode): void {
+                    $mobileQuery
+                        ->where('transaction_source', HikvisionAccessEvent::TRANSACTION_MOBILE_APP)
+                        ->where('raw_payload->personCode', $personCode);
+                };
+
+                if ($hasConstraint) {
+                    $query->orWhere($personCodeConstraint);
+                } else {
+                    $query->where($personCodeConstraint);
                     $hasConstraint = true;
                 }
             }

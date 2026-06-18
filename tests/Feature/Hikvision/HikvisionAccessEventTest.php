@@ -629,6 +629,91 @@ test('background job stores mobile app attendance records from total time card a
     Http::assertSent(fn ($request) => $request->url() === 'https://isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list');
 });
 
+test('background job stores person hikvision id on mobile app access events when person code is linked', function () {
+    freezeHikvisionAccessEventFetchDate();
+
+    HikvisionPerson::query()->create([
+        'person_id' => 'hv-person-7',
+        'person_code' => '7',
+        'full_name' => 'Mathew',
+    ]);
+
+    $acsPayload = json_encode([
+        'AcsEvent' => [
+            'searchID' => '1',
+            'totalMatches' => 0,
+            'InfoList' => [],
+        ],
+    ]);
+
+    Http::fake([
+        'isgp.hikcentralconnect.com/api/hccgw/platform/v1/token/get' => Http::response([
+            'data' => [
+                'accessToken' => 'hcc.test-token',
+                'expireTime' => 1781256540,
+                'userId' => 'user-123',
+                'areaDomain' => 'https://isgp.hikcentralconnect.com',
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/resource/v1/devices/get' => Http::response([
+            'data' => [
+                'totalCount' => 1,
+                'pageIndex' => 1,
+                'pageSize' => 50,
+                'device' => [
+                    [
+                        'id' => 'device-acs-1',
+                        'name' => 'OMS-Door',
+                        'serialNo' => 'FZ4480436',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/video/v1/isapi/proxypass' => Http::response([
+            'data' => $acsPayload,
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/attendance/v1/report/totaltimecard/list' => Http::response([
+            'data' => [
+                'pageIndex' => 1,
+                'pageSize' => 200,
+                'moreData' => 0,
+                'reportDataList' => [
+                    [
+                        'fullName' => 'Mathew',
+                        'personCode' => '7',
+                        'clockInDate' => '2026/06/05',
+                        'clockInTime' => '09:11:44',
+                        'clockInSource' => 3,
+                        'clockInDevice' => '',
+                        'clockOutDate' => '2026/06/05',
+                        'clockOutTime' => '17:55:12',
+                        'clockOutSource' => 3,
+                        'clockOutDevice' => '',
+                    ],
+                ],
+            ],
+            'errorCode' => '0',
+        ], 200),
+        'isgp.hikcentralconnect.com/api/hccgw/acs/v1/event/certificaterecords/search' => Http::response([
+            'data' => [
+                'recordList' => [],
+                'totalNum' => 0,
+            ],
+            'errorCode' => '0',
+        ], 200),
+    ]);
+    configuredHikvisionSettings();
+    HikvisionSetting::current()->beginEventsFetch();
+
+    runHikvisionAccessEventsFetchJob();
+
+    expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
+        ->and(HikvisionAccessEvent::query()->where('person_hikvision_id', 'hv-person-7')->count())->toBe(2);
+});
+
 test('background job stores acs access records from isapi proxypass', function () {
     fakeHikvisionAcsEventsFetch();
     configuredHikvisionSettings();

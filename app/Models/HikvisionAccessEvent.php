@@ -359,6 +359,7 @@ class HikvisionAccessEvent extends Model
             return null;
         }
 
+        $personHikvisionId = self::resolveTimeCardPersonHikvisionId($row, $personCode, $personName);
         $identity = $personCode !== '' ? $personCode : $personName;
 
         $systemId = implode(':', [
@@ -376,6 +377,7 @@ class HikvisionAccessEvent extends Model
             ],
             [
                 'person_name' => $personName !== '' ? $personName : null,
+                'person_hikvision_id' => $personHikvisionId !== '' ? $personHikvisionId : null,
                 'device_name' => $deviceName !== '' ? $deviceName : 'Mobile App',
                 'attendance_status' => $attendanceStatus,
                 'event_source' => self::EVENT_SOURCE_ATTENDANCE_API,
@@ -384,6 +386,40 @@ class HikvisionAccessEvent extends Model
                 'fetched_at' => now(),
             ],
         );
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    protected static function resolveTimeCardPersonHikvisionId(array $row, string $personCode, string $personName): string
+    {
+        $personId = trim((string) ($row['personId'] ?? ''));
+
+        if ($personId !== '') {
+            return $personId;
+        }
+
+        if ($personCode !== '') {
+            $resolvedByCode = HikvisionPerson::query()
+                ->where('person_code', $personCode)
+                ->value('person_id');
+
+            if (filled($resolvedByCode)) {
+                return (string) $resolvedByCode;
+            }
+        }
+
+        if ($personName !== '') {
+            $resolvedByName = HikvisionPerson::query()
+                ->whereRaw('LOWER(full_name) = ?', [mb_strtolower($personName)])
+                ->value('person_id');
+
+            if (filled($resolvedByName)) {
+                return (string) $resolvedByName;
+            }
+        }
+
+        return '';
     }
 
     protected static function parseTimeCardDateTime(string $date, string $time): Carbon

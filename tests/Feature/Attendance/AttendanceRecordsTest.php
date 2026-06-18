@@ -452,6 +452,124 @@ test('hikvision sync matches events when access event name omits trailing initia
         ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC);
 });
 
+test('hikvision sync creates mobile attendance records from mobile app access events', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'mobile-person-1',
+        'person_code' => '42',
+        'full_name' => 'MOHAMED ABDALLA JAMAL',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mohamed Abdalla',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'mobile:checkin',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-17 08:57:00',
+        'person_name' => 'MOHAMED ABDALLA JAMAL',
+        'person_hikvision_id' => 'mobile-person-1',
+        'device_name' => 'Mobile App',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ATTENDANCE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        'raw_payload' => [
+            'fullName' => 'MOHAMED ABDALLA JAMAL',
+            'personCode' => '42',
+            'clockInSource' => 3,
+        ],
+        'fetched_at' => now(),
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'mobile:checkout',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-17 19:40:00',
+        'person_name' => 'MOHAMED ABDALLA JAMAL',
+        'person_hikvision_id' => 'mobile-person-1',
+        'device_name' => 'Mobile App',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ATTENDANCE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        'raw_payload' => [
+            'fullName' => 'MOHAMED ABDALLA JAMAL',
+            'personCode' => '42',
+            'clockOutSource' => 3,
+        ],
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-17 00:00:00'),
+        Carbon::parse('2026-06-17 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-17')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_MOBILE)
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($record->clock_in?->format('H:i'))->toBe('08:57')
+        ->and($record->clock_out?->format('H:i'))->toBe('19:40');
+});
+
+test('hikvision sync matches mobile access events by person code when names differ', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'mobile-code-person-1',
+        'person_code' => '7',
+        'full_name' => 'Mathew Dominic',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Mathew D.',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'mobile-code:checkin',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-17 09:15:00',
+        'person_name' => 'Mathew',
+        'device_name' => 'Mobile App',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ATTENDANCE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        'raw_payload' => [
+            'fullName' => 'Mathew',
+            'personCode' => '7',
+            'clockInSource' => 3,
+        ],
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-17 00:00:00'),
+        Carbon::parse('2026-06-17 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-17')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_MOBILE)
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($record->clock_in?->format('H:i'))->toBe('09:15');
+});
+
 test('cannot create duplicate attendance record for same employee and date', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
