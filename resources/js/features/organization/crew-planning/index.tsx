@@ -13,6 +13,7 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
+import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { AvailableCrewPool } from './components/available-crew-pool';
@@ -232,6 +233,16 @@ export function CrewPlanningContent({
                 return;
             }
 
+            if (activeData.rankId !== overData.rankId) {
+                const rowRank = ranks.find((rank) => rank.id === overData.rankId);
+
+                toast.error(
+                    `${activeData.employeeName} is a ${activeData.rankName} and cannot be assigned to ${rowRank?.name ?? 'this rank'}.`,
+                );
+
+                return;
+            }
+
             const rowEl = document.querySelector(
                 `[data-row-key="vessel:${overData.vesselId}|rank:${overData.rankId}"]`,
             ) as HTMLElement | null;
@@ -249,12 +260,12 @@ export function CrewPlanningContent({
 
             openCreate(
                 String(overData.vesselId),
-                String(activeData.rankId),
+                String(overData.rankId),
                 estimatedDate,
                 String(activeData.employeeId),
             );
         },
-        [openCreate, today, filters.from, filters.to],
+        [openCreate, today, filters.from, filters.to, ranks],
     );
 
     return (
@@ -331,6 +342,7 @@ export function CrewPlanningContent({
                     editing={dialogState.editing}
                     vessels={vessels}
                     ranks={ranks}
+                    rows={rows}
                     employees={employees}
                     canConfirm={can.confirm}
                     onConfirm={handleConfirmFromSheet}

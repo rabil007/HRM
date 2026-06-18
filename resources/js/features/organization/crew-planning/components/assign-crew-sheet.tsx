@@ -1,5 +1,6 @@
 import type { InertiaFormProps } from '@inertiajs/react';
 import { CheckCircle2 } from 'lucide-react';
+import { useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,7 +13,13 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import type { AssignmentFormData, GanttBar, PlanningOption, PlanningPoolEmployee } from '../types';
+import type {
+    AssignmentFormData,
+    GanttBar,
+    GanttVesselGroup,
+    PlanningOption,
+    PlanningPoolEmployee,
+} from '../types';
 
 export function AssignCrewSheet({
     open,
@@ -22,6 +29,7 @@ export function AssignCrewSheet({
     editing,
     vessels,
     ranks,
+    rows,
     employees,
     canConfirm = false,
     onConfirm,
@@ -33,6 +41,7 @@ export function AssignCrewSheet({
     editing: GanttBar | null;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
+    rows: GanttVesselGroup[];
     employees: PlanningPoolEmployee[];
     canConfirm?: boolean;
     onConfirm?: () => void;
@@ -40,6 +49,93 @@ export function AssignCrewSheet({
     const isEdit = editing !== null;
     const showConfirm =
         isEdit && canConfirm && form.data.employee_id !== '' && editing.employee_id != null;
+
+    const availableRanks = useMemo(() => {
+        if (form.data.vessel_id === '') {
+            return ranks;
+        }
+
+        const vesselGroup = rows.find(
+            (group) => String(group.vessel_id) === form.data.vessel_id,
+        );
+        const manningRankIds = new Set(vesselGroup?.ranks.map((rank) => rank.rank_id) ?? []);
+
+        return ranks.filter((rank) => manningRankIds.has(rank.id));
+    }, [form.data.vessel_id, ranks, rows]);
+
+    const availableEmployees = useMemo(() => {
+        if (form.data.rank_id !== '') {
+            return employees.filter((employee) => employee.rank_id === Number(form.data.rank_id));
+        }
+
+        if (form.data.vessel_id === '') {
+            return employees;
+        }
+
+        const manningRankIds = new Set(availableRanks.map((rank) => rank.id));
+
+        return employees.filter((employee) => manningRankIds.has(employee.rank_id));
+    }, [availableRanks, employees, form.data.rank_id, form.data.vessel_id]);
+
+    const handleRankChange = (value: string): void => {
+        const selectedEmployee =
+            form.data.employee_id !== ''
+                ? employees.find((employee) => employee.id === Number(form.data.employee_id))
+                : undefined;
+        const employeeStillMatches =
+            selectedEmployee === undefined || selectedEmployee.rank_id === Number(value);
+
+        form.setData({
+            ...form.data,
+            rank_id: value,
+            employee_id: employeeStillMatches ? form.data.employee_id : '',
+        });
+    };
+
+    const handleEmployeeChange = (value: string): void => {
+        if (value === '') {
+            form.setData('employee_id', '');
+
+            return;
+        }
+
+        const employee = employees.find((entry) => entry.id === Number(value));
+
+        if (employee === undefined) {
+            form.setData('employee_id', value);
+
+            return;
+        }
+
+        const rankIsAvailable = availableRanks.some((rank) => rank.id === employee.rank_id);
+
+        form.setData({
+            ...form.data,
+            employee_id: value,
+            rank_id: rankIsAvailable ? String(employee.rank_id) : form.data.rank_id,
+        });
+    };
+    const handleVesselChange = (value: string): void => {
+        const vesselGroup = rows.find((group) => String(group.vessel_id) === value);
+        const manningRankIds = new Set(vesselGroup?.ranks.map((rank) => rank.rank_id) ?? []);
+        const rankStillValid =
+            form.data.rank_id !== '' && manningRankIds.has(Number(form.data.rank_id));
+        const selectedEmployee =
+            form.data.employee_id !== ''
+                ? employees.find((employee) => employee.id === Number(form.data.employee_id))
+                : undefined;
+        const nextRankId = rankStillValid ? form.data.rank_id : '';
+        const employeeStillMatches =
+            selectedEmployee === undefined ||
+            (nextRankId !== '' && selectedEmployee.rank_id === Number(nextRankId));
+
+        form.setData({
+            ...form.data,
+            vessel_id: value,
+            rank_id: nextRankId,
+            employee_id: employeeStillMatches ? form.data.employee_id : '',
+        });
+    };
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -69,7 +165,7 @@ export function AssignCrewSheet({
                         </Label>
                         <AppSelect
                             value={form.data.vessel_id}
-                            onValueChange={(v) => form.setData('vessel_id', v)}
+                            onValueChange={handleVesselChange}
                             placeholder="Select vessel…"
                         >
                             {vessels.map((v) => (
@@ -95,15 +191,27 @@ export function AssignCrewSheet({
                         </Label>
                         <AppSelect
                             value={form.data.rank_id}
-                            onValueChange={(v) => form.setData('rank_id', v)}
-                            placeholder="Select rank…"
+                            onValueChange={handleRankChange}
+                            placeholder={
+                                form.data.vessel_id === ''
+                                    ? 'Select vessel first…'
+                                    : availableRanks.length === 0
+                                      ? 'No ranks configured for this vessel'
+                                      : 'Select rank…'
+                            }
+                            disabled={form.data.vessel_id === '' || availableRanks.length === 0}
                         >
-                            {ranks.map((r) => (
+                            {availableRanks.map((r) => (
                                 <AppSelectItem key={r.id} value={String(r.id)}>
                                     {r.name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+                        {form.data.vessel_id !== '' && availableRanks.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                Configure ranks for this vessel in Vessel Manning first.
+                            </p>
+                        ) : null}
                         {form.errors.rank_id ? (
                             <p className="text-xs font-medium text-destructive">
                                 {form.errors.rank_id}
@@ -124,16 +232,28 @@ export function AssignCrewSheet({
                         </Label>
                         <AppSelect
                             value={form.data.employee_id}
-                            onValueChange={(v) => form.setData('employee_id', v)}
-                            placeholder="Search and select crew…"
+                            onValueChange={handleEmployeeChange}
+                            placeholder={
+                                form.data.rank_id === ''
+                                    ? 'Select rank first…'
+                                    : availableEmployees.length === 0
+                                      ? 'No matching crew for this rank'
+                                      : 'Search and select crew…'
+                            }
+                            disabled={form.data.rank_id === '' || availableEmployees.length === 0}
                         >
                             <AppSelectItem value="">— Vacant slot —</AppSelectItem>
-                            {employees.map((e) => (
-                                <AppSelectItem key={e.id} value={String(e.id)}>
-                                    {e.name} · {e.rank_name}
+                            {availableEmployees.map((employee) => (
+                                <AppSelectItem key={employee.id} value={String(employee.id)}>
+                                    {employee.name} · {employee.rank_name}
                                 </AppSelectItem>
                             ))}
                         </AppSelect>
+                        {form.data.rank_id !== '' && availableEmployees.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                                No available crew match the selected rank.
+                            </p>
+                        ) : null}
                         {form.errors.employee_id ? (
                             <p className="text-xs font-medium text-destructive">
                                 {form.errors.employee_id}

@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { cn } from '@/lib/utils';
 import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
-import { PlanningGanttRow } from './planning-gantt-row';
+import { PlanningGanttRow, RANK_LABEL_WIDTH, ROW_HEIGHT } from './planning-gantt-row';
 
 type Props = {
     rows: GanttVesselGroup[];
@@ -100,43 +100,66 @@ export function PlanningGantt({
             {/* Timeline header */}
             <div className="sticky top-0 z-20 border-b bg-background">
                 {/* Month row */}
-                <div className="flex" style={{ minWidth: `${totalDays * 32}px` }}>
-                    {monthGroups.map((group) => (
-                        <div
-                            key={group.label}
-                            className="border-r px-2 py-1 text-xs font-semibold text-muted-foreground"
-                            style={{ width: `${group.days * 32}px`, minWidth: `${group.days * 32}px` }}
-                        >
-                            {group.label}
-                        </div>
-                    ))}
+                <div className="flex">
+                    <div
+                        className="sticky left-0 z-30 shrink-0 border-r bg-background px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        style={{ width: RANK_LABEL_WIDTH }}
+                    >
+                        Rank
+                    </div>
+                    <div className="flex" style={{ minWidth: `${totalDays * 32}px` }}>
+                        {monthGroups.map((group) => (
+                            <div
+                                key={group.label}
+                                className="border-r px-2 py-1 text-xs font-semibold text-muted-foreground"
+                                style={{ width: `${group.days * 32}px`, minWidth: `${group.days * 32}px` }}
+                            >
+                                {group.label}
+                            </div>
+                        ))}
+                    </div>
                 </div>
                 {/* Day row */}
-                <div className="flex border-t" style={{ minWidth: `${totalDays * 32}px` }}>
-                    {days.map((day, i) => (
-                        <div
-                            key={i}
-                            className={cn(
-                                'flex w-8 min-w-8 shrink-0 items-center justify-center border-r py-0.5 text-[10px]',
-                                day.isToday && 'bg-red-50 font-bold text-red-600 dark:bg-red-950/30',
-                                !day.isToday && 'text-muted-foreground',
-                            )}
-                        >
-                            {day.label}
-                        </div>
-                    ))}
+                <div className="flex border-t">
+                    <div
+                        className="sticky left-0 z-30 shrink-0 border-r bg-background"
+                        style={{ width: RANK_LABEL_WIDTH }}
+                    />
+                    <div className="flex" style={{ minWidth: `${totalDays * 32}px` }}>
+                        {days.map((day, i) => (
+                            <div
+                                key={i}
+                                className={cn(
+                                    'flex w-8 min-w-8 shrink-0 items-center justify-center border-r py-0.5 text-[10px]',
+                                    day.isToday && 'bg-red-50 font-bold text-red-600 dark:bg-red-950/30',
+                                    !day.isToday && 'text-muted-foreground',
+                                )}
+                            >
+                                {day.label}
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
             {/* Rows */}
-            <div style={{ minWidth: `${totalDays * 32}px` }}>
+            <div>
                 {rows.map((vessel) => (
                     <div key={vessel.vessel_id}>
                         {/* Vessel sub-header */}
-                        <div className="sticky left-0 z-10 border-b bg-muted/40 px-3 py-1.5">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                                {vessel.vessel_name}
-                            </span>
+                        <div className="flex border-b bg-muted/40">
+                            <div
+                                className="sticky left-0 z-10 shrink-0 border-r bg-muted/40"
+                                style={{ width: RANK_LABEL_WIDTH, height: ROW_HEIGHT / 1.5 }}
+                            />
+                            <div
+                                className="flex flex-1 items-center px-3 py-1.5"
+                                style={{ minWidth: `${totalDays * 32}px` }}
+                            >
+                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    {vessel.vessel_name}
+                                </span>
+                            </div>
                         </div>
                         {vessel.ranks.map((rank) => {
                             const rowBars = barsByRow.get(rank.row_key) ?? [];
@@ -160,6 +183,7 @@ export function PlanningGantt({
                                     today={todayDate}
                                     highlightedCrewName={search}
                                     isHighlighted={isHighlightedRow || matchesSearch}
+                                    timelineMinWidth={totalDays * 32}
                                     can={can}
                                     onRowClick={onRowClick}
                                     onEditBar={onEditBar}

@@ -6,6 +6,7 @@ import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
 
 export const ROW_HEIGHT = 48;
+export const RANK_LABEL_WIDTH = 112;
 
 type Props = {
     rowKey: string;
@@ -18,6 +19,7 @@ type Props = {
     today: Date;
     highlightedCrewName: string;
     isHighlighted: boolean;
+    timelineMinWidth: number;
     can: PlanningPagePermissions;
     isDraggingBar?: boolean;
     onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
@@ -53,6 +55,7 @@ export function PlanningGanttRow({
     today,
     highlightedCrewName,
     isHighlighted,
+    timelineMinWidth,
     can,
     isDraggingBar = false,
     onRowClick,
@@ -98,44 +101,62 @@ export function PlanningGanttRow({
             )}
             style={{ height: ROW_HEIGHT }}
         >
-            {todayStyle ? (
-                <div
-                    className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500/70"
-                    style={todayStyle}
-                    aria-hidden
-                />
-            ) : null}
+            <div
+                className={cn(
+                    'sticky left-0 z-20 flex shrink-0 items-center border-r bg-background/95 px-2 backdrop-blur-sm',
+                    isHighlighted && 'bg-yellow-50/80 dark:bg-yellow-900/20',
+                    isOver && 'bg-blue-50/80 dark:bg-blue-950/30',
+                )}
+                style={{ width: RANK_LABEL_WIDTH }}
+            >
+                <span className="truncate text-[11px] font-medium text-muted-foreground/70">
+                    {rankName}
+                </span>
+            </div>
 
-            {can.create ? (
-                <div
-                    className="absolute inset-0 z-0 cursor-copy opacity-0 transition-opacity group-hover:opacity-100"
-                    title={`Click to plan assignment on ${rankName}`}
-                    onClick={handleBackgroundClick}
-                />
-            ) : null}
+            <div
+                className="relative min-w-0 flex-1"
+                style={{ minWidth: timelineMinWidth }}
+            >
+                {todayStyle ? (
+                    <div
+                        className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500/70"
+                        style={todayStyle}
+                        aria-hidden
+                    />
+                ) : null}
 
-            <div className="relative z-10 flex-1 overflow-hidden">
-                {bars.map((bar) => {
-                    const style = barPositionStyle(bar.start, bar.end, rangeFrom, rangeTo);
-                    const isBarHighlighted =
-                        lowerSearch !== '' &&
-                        bar.employee_name.toLowerCase().includes(lowerSearch);
+                {can.create ? (
+                    <div
+                        className="absolute inset-0 z-0 cursor-copy opacity-0 transition-opacity group-hover:opacity-100"
+                        title={`Click to plan assignment on ${rankName}`}
+                        onClick={handleBackgroundClick}
+                    />
+                ) : null}
 
-                    return (
-                        <PlanningGanttBar
-                            key={`${bar.source}-${bar.id}`}
-                            bar={bar}
-                            style={style}
-                            highlighted={isBarHighlighted}
-                            can={can}
-                            rangeFrom={rangeFrom}
-                            rangeTo={rangeTo}
-                            onEdit={onEditBar}
-                            onDelete={onDeleteBar}
-                            onConfirm={onConfirmBar}
-                        />
-                    );
-                })}
+                <div className="relative z-10 h-full overflow-hidden">
+                    {bars.map((bar) => {
+                        const style = barPositionStyle(bar.start, bar.end, rangeFrom, rangeTo);
+                        const isBarHighlighted =
+                            lowerSearch !== '' &&
+                            bar.employee_name.toLowerCase().includes(lowerSearch);
+
+                        return (
+                            <PlanningGanttBar
+                                key={`${bar.source}-${bar.id}`}
+                                bar={bar}
+                                style={style}
+                                highlighted={isBarHighlighted}
+                                can={can}
+                                rangeFrom={rangeFrom}
+                                rangeTo={rangeTo}
+                                onEdit={onEditBar}
+                                onDelete={onDeleteBar}
+                                onConfirm={onConfirmBar}
+                            />
+                        );
+                    })}
+                </div>
             </div>
         </div>
     );
