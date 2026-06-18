@@ -5,7 +5,6 @@ import { index as planningIndex } from '@/actions/App/Http/Controllers/Organizat
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 import type { PlanningFilters, PlanningOption, PlanningPagePermissions } from '../types';
 
 type Props = {
@@ -91,72 +90,82 @@ export function PlanningToolbar({
     };
 
     return (
-        <div className="flex flex-wrap items-center gap-3 border-b px-4 py-3">
-            <AppSelect
-                value={filters.vessel_id !== null ? String(filters.vessel_id) : ''}
-                onValueChange={handleVesselChange}
-                placeholder="All vessels"
-                searchPlaceholder="Search vessels..."
-                size="sm"
-                className="w-48"
-            >
-                <AppSelectItem value="">All vessels</AppSelectItem>
-                {vessels.map((v) => (
-                    <AppSelectItem key={v.id} value={String(v.id)}>
-                        {v.name}
-                    </AppSelectItem>
-                ))}
-            </AppSelect>
+        <div className="flex flex-wrap items-center gap-2 border-b bg-background/95 px-4 py-2.5 backdrop-blur-sm">
+            {/* Filters group */}
+            <div className="flex items-center gap-2">
+                <AppSelect
+                    value={filters.vessel_id !== null ? String(filters.vessel_id) : ''}
+                    onValueChange={handleVesselChange}
+                    placeholder="All vessels"
+                    searchPlaceholder="Search vessels..."
+                    size="sm"
+                    className="w-44"
+                >
+                    <AppSelectItem value="">All vessels</AppSelectItem>
+                    {vessels.map((v) => (
+                        <AppSelectItem key={v.id} value={String(v.id)}>
+                            {v.name}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
 
-            <AppSelect
-                value={filters.rank_id !== null ? String(filters.rank_id) : ''}
-                onValueChange={handleRankChange}
-                placeholder="All ranks"
-                searchPlaceholder="Search ranks..."
-                size="sm"
-                className="w-44"
-            >
-                <AppSelectItem value="">All ranks</AppSelectItem>
-                {ranks.map((r) => (
-                    <AppSelectItem key={r.id} value={String(r.id)}>
-                        {r.name}
-                    </AppSelectItem>
-                ))}
-            </AppSelect>
+                <AppSelect
+                    value={filters.rank_id !== null ? String(filters.rank_id) : ''}
+                    onValueChange={handleRankChange}
+                    placeholder="All ranks"
+                    searchPlaceholder="Search ranks..."
+                    size="sm"
+                    className="w-40"
+                >
+                    <AppSelectItem value="">All ranks</AppSelectItem>
+                    {ranks.map((r) => (
+                        <AppSelectItem key={r.id} value={String(r.id)}>
+                            {r.name}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
 
-            <div className="flex items-center gap-1">
+            {/* Divider */}
+            <div className="h-5 w-px bg-border/60" />
+
+            {/* Date navigator */}
+            <div className="flex items-center gap-0.5 rounded-md border bg-muted/30 p-0.5">
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-7 w-7 rounded"
                     onClick={handlePrev}
                     aria-label="Previous month"
                 >
-                    <ChevronLeft className="h-4 w-4" />
+                    <ChevronLeft className="h-3.5 w-3.5" />
                 </Button>
-                <span className="min-w-48 text-center text-sm font-medium">{rangeLabel}</span>
+                <span className="min-w-44 px-1 text-center text-sm font-medium tabular-nums">
+                    {rangeLabel}
+                </span>
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-7 w-7 rounded"
                     onClick={handleNext}
                     aria-label="Next month"
                 >
-                    <ChevronRight className="h-4 w-4" />
+                    <ChevronRight className="h-3.5 w-3.5" />
                 </Button>
             </div>
 
+            {/* Search */}
             <div className="relative flex items-center">
-                <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted-foreground/60" />
                 <Input
-                    className="h-8 w-52 pl-8 pr-7 text-sm"
+                    className="h-8 w-48 rounded-md pl-8 pr-7 text-sm"
                     placeholder="Find crew by name…"
                     value={searchInput}
                     onChange={(e) => onSearchChange(e.target.value)}
                 />
                 {searchInput !== '' ? (
                     <button
-                        className="absolute right-2 text-muted-foreground hover:text-foreground"
+                        className="absolute right-2 text-muted-foreground transition-colors hover:text-foreground"
                         onClick={() => onSearchChange('')}
                         aria-label="Clear search"
                     >
@@ -165,24 +174,26 @@ export function PlanningToolbar({
                 ) : null}
             </div>
 
-            {can.create ? (
-                <Button size="sm" className="ml-auto h-8 gap-1.5" onClick={onAssign}>
-                    <Plus className="h-3.5 w-3.5" />
-                    Assign
-                </Button>
-            ) : null}
-
-            {can.update ? (
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className={cn('h-8 w-8', !can.create && 'ml-auto')}
-                    onClick={onOpenSettings}
-                    aria-label="Planning settings"
-                >
-                    <Settings className="h-3.5 w-3.5" />
-                </Button>
-            ) : null}
+            {/* Actions — pushed right */}
+            <div className="ml-auto flex items-center gap-2">
+                {can.update ? (
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                        onClick={onOpenSettings}
+                        aria-label="Planning settings"
+                    >
+                        <Settings className="h-4 w-4" />
+                    </Button>
+                ) : null}
+                {can.create ? (
+                    <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onAssign}>
+                        <Plus className="h-3.5 w-3.5" />
+                        Assign
+                    </Button>
+                ) : null}
+            </div>
         </div>
     );
 }

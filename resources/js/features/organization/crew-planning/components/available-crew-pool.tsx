@@ -7,6 +7,30 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type { CrewDragData, PlanningPoolEmployee } from '../types';
 
+function avatarColor(name: string): string {
+    const colors = [
+        'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
+        'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
+        'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
+        'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/40 dark:text-cyan-300',
+        'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
+        'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
+        'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
+    ];
+    const index = [...name].reduce((acc, c) => acc + c.charCodeAt(0), 0) % colors.length;
+
+    return colors[index];
+}
+
+function initials(name: string): string {
+    return name
+        .split(' ')
+        .slice(0, 2)
+        .map((p) => p[0]?.toUpperCase() ?? '')
+        .join('');
+}
+
 function DraggableCrewItem({ employee }: { employee: PlanningPoolEmployee }): ReactElement {
     const dragData: CrewDragData = {
         type: 'crew',
@@ -27,15 +51,23 @@ function DraggableCrewItem({ employee }: { employee: PlanningPoolEmployee }): Re
             {...listeners}
             {...attributes}
             className={cn(
-                'flex cursor-grab items-center gap-2 rounded px-2 py-1 text-xs transition-colors hover:bg-muted/60 active:cursor-grabbing',
+                'flex cursor-grab items-center gap-2.5 rounded-md px-2 py-1.5 text-xs transition-all hover:bg-muted/70 active:cursor-grabbing active:scale-95',
                 isDragging && 'opacity-40',
             )}
         >
-            <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/50" />
-            <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{employee.name}</div>
-                <div className="truncate text-[10px] text-muted-foreground">{employee.rank_name}</div>
+            <div
+                className={cn(
+                    'flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold',
+                    avatarColor(employee.name),
+                )}
+            >
+                {initials(employee.name)}
             </div>
+            <div className="min-w-0 flex-1">
+                <div className="truncate font-medium leading-tight">{employee.name}</div>
+                <div className="truncate text-[10px] text-muted-foreground/70">{employee.rank_name}</div>
+            </div>
+            <GripVertical className="h-3 w-3 shrink-0 text-muted-foreground/30" />
         </div>
     );
 }
@@ -65,28 +97,28 @@ export function AvailableCrewPool({ employees }: Props): ReactElement {
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
             <CollapsibleTrigger asChild>
-                <button className="flex w-full items-center gap-2 border-t px-3 py-2 text-left text-sm font-semibold hover:bg-muted/50">
-                    {open ? (
-                        <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    ) : (
-                        <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    )}
-                    <Users className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <button className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/40 transition-colors">
+                    <Users className="h-3.5 w-3.5 shrink-0" />
                     <span className="truncate">Available crew</span>
-                    <span className="ml-auto shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                    <span className="ml-auto shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary/70">
                         {lowerSearch !== '' ? `${filteredEmployees.length}/${employees.length}` : employees.length}
                     </span>
+                    {open ? (
+                        <ChevronDown className="h-3.5 w-3.5 shrink-0" />
+                    ) : (
+                        <ChevronRight className="h-3.5 w-3.5 shrink-0" />
+                    )}
                 </button>
             </CollapsibleTrigger>
             <CollapsibleContent>
-                <div className="space-y-1 px-2 pb-2">
-                    <div className="relative">
-                        <Search className="absolute top-1/2 left-2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                <div className="px-2 pb-3">
+                    <div className="relative mb-1.5">
+                        <Search className="absolute top-1/2 left-2.5 h-3 w-3 -translate-y-1/2 text-muted-foreground/60" />
                         <Input
                             value={search}
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder="Search by name or rank…"
-                            className="h-7 pr-7 pl-7 text-xs"
+                            className="h-7 rounded-md pr-7 pl-7 text-xs"
                             aria-label="Search available crew"
                         />
                         {search !== '' ? (
@@ -101,12 +133,12 @@ export function AvailableCrewPool({ employees }: Props): ReactElement {
                         ) : null}
                     </div>
 
-                    <div className="max-h-48 space-y-0.5 overflow-y-auto">
+                    <div className="max-h-52 space-y-0.5 overflow-y-auto">
                         {filteredEmployees.length === 0 ? (
-                            <p className="px-1 py-2 text-xs text-muted-foreground/60">
+                            <p className="px-2 py-3 text-center text-xs text-muted-foreground/50">
                                 {lowerSearch !== ''
                                     ? 'No crew matching search.'
-                                    : 'No ranked crew available. Assign a rank on the employee profile first.'}
+                                    : 'No ranked crew available.'}
                             </p>
                         ) : (
                             filteredEmployees.map((employee) => (

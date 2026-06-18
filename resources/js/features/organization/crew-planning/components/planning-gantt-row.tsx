@@ -94,22 +94,23 @@ export function PlanningGanttRow({
             ref={setDropRef}
             data-row-key={rowKey}
             className={cn(
-                'relative flex border-b transition-colors',
-                isHighlighted && 'bg-yellow-50/50 dark:bg-yellow-900/10',
-                isOver && 'bg-blue-50/60 dark:bg-blue-950/20',
+                'relative flex border-b border-border/50 transition-colors',
+                isHighlighted && 'bg-amber-50/40 dark:bg-amber-900/10',
+                isOver && 'bg-primary/5 dark:bg-primary/10',
                 can.create && !isOver && 'group',
             )}
             style={{ height: ROW_HEIGHT }}
         >
+            {/* Rank label */}
             <div
                 className={cn(
-                    'sticky left-0 z-20 flex shrink-0 items-center border-r bg-background/95 px-2 backdrop-blur-sm',
-                    isHighlighted && 'bg-yellow-50/80 dark:bg-yellow-900/20',
-                    isOver && 'bg-blue-50/80 dark:bg-blue-950/30',
+                    'sticky left-0 z-20 flex shrink-0 items-center border-r border-border/50 bg-background/95 px-3 backdrop-blur-sm',
+                    isHighlighted && 'bg-amber-50/80 dark:bg-amber-900/20',
+                    isOver && 'bg-primary/5',
                 )}
                 style={{ width: RANK_LABEL_WIDTH }}
             >
-                <span className="truncate text-[11px] font-medium text-muted-foreground/70">
+                <span className="truncate text-[11px] font-medium tracking-wide text-muted-foreground/60">
                     {rankName}
                 </span>
             </div>
@@ -118,17 +119,21 @@ export function PlanningGanttRow({
                 className="relative min-w-0 flex-1"
                 style={{ minWidth: timelineMinWidth }}
             >
+                {/* Today line */}
                 {todayStyle ? (
                     <div
-                        className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500/70"
+                        className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500/60"
                         style={todayStyle}
                         aria-hidden
-                    />
+                    >
+                        <div className="absolute -top-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-500" />
+                    </div>
                 ) : null}
 
+                {/* Hover click layer */}
                 {can.create ? (
                     <div
-                        className="absolute inset-0 z-0 cursor-copy opacity-0 transition-opacity group-hover:opacity-100"
+                        className="absolute inset-0 z-0 cursor-crosshair opacity-0 transition-opacity group-hover:opacity-100 group-hover:bg-primary/[0.03]"
                         title={`Click to plan assignment on ${rankName}`}
                         onClick={handleBackgroundClick}
                     />

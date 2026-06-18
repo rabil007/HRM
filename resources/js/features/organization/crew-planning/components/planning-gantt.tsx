@@ -1,7 +1,8 @@
+import { Ship } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { cn } from '@/lib/utils';
 import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
-import { PlanningGanttRow, RANK_LABEL_WIDTH, ROW_HEIGHT } from './planning-gantt-row';
+import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
 
 type Props = {
     rows: GanttVesselGroup[];
@@ -98,11 +99,11 @@ export function PlanningGantt({
     return (
         <div className="flex min-w-0 flex-1 flex-col overflow-auto">
             {/* Timeline header */}
-            <div className="sticky top-0 z-20 border-b bg-background">
+            <div className="sticky top-0 z-20 border-b bg-background shadow-sm">
                 {/* Month row */}
                 <div className="flex">
                     <div
-                        className="sticky left-0 z-30 shrink-0 border-r bg-background px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                        className="sticky left-0 z-30 flex shrink-0 items-center border-r bg-background px-3 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/60"
                         style={{ width: RANK_LABEL_WIDTH }}
                     >
                         Rank
@@ -111,7 +112,7 @@ export function PlanningGantt({
                         {monthGroups.map((group) => (
                             <div
                                 key={group.label}
-                                className="border-r px-2 py-1 text-xs font-semibold text-muted-foreground"
+                                className="border-r px-2 py-1.5 text-xs font-semibold text-foreground/70"
                                 style={{ width: `${group.days * 32}px`, minWidth: `${group.days * 32}px` }}
                             >
                                 {group.label}
@@ -120,7 +121,7 @@ export function PlanningGantt({
                     </div>
                 </div>
                 {/* Day row */}
-                <div className="flex border-t">
+                <div className="flex border-t border-border/50">
                     <div
                         className="sticky left-0 z-30 shrink-0 border-r bg-background"
                         style={{ width: RANK_LABEL_WIDTH }}
@@ -130,9 +131,10 @@ export function PlanningGantt({
                             <div
                                 key={i}
                                 className={cn(
-                                    'flex w-8 min-w-8 shrink-0 items-center justify-center border-r py-0.5 text-[10px]',
-                                    day.isToday && 'bg-red-50 font-bold text-red-600 dark:bg-red-950/30',
-                                    !day.isToday && 'text-muted-foreground',
+                                    'flex w-8 min-w-8 shrink-0 items-center justify-center border-r py-0.5 text-[10px] transition-colors',
+                                    day.isToday &&
+                                        'bg-red-500 font-bold text-white',
+                                    !day.isToday && 'text-muted-foreground/60 hover:bg-muted/30',
                                 )}
                             >
                                 {day.label}
@@ -147,16 +149,18 @@ export function PlanningGantt({
                 {rows.map((vessel) => (
                     <div key={vessel.vessel_id}>
                         {/* Vessel sub-header */}
-                        <div className="flex border-b bg-muted/40">
+                        <div className="flex border-b border-border/60 bg-muted/30">
                             <div
-                                className="sticky left-0 z-10 shrink-0 border-r bg-muted/40"
-                                style={{ width: RANK_LABEL_WIDTH, height: ROW_HEIGHT / 1.5 }}
-                            />
-                            <div
-                                className="flex flex-1 items-center px-3 py-1.5"
-                                style={{ minWidth: `${totalDays * 32}px` }}
+                                className="sticky left-0 z-10 flex shrink-0 items-center justify-center border-r border-border/60 bg-muted/30"
+                                style={{ width: RANK_LABEL_WIDTH, height: 36 }}
                             >
-                                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                <Ship className="h-3.5 w-3.5 text-muted-foreground/40" />
+                            </div>
+                            <div
+                                className="flex flex-1 items-center gap-2 border-l-2 border-l-primary/30 px-3"
+                                style={{ minWidth: `${totalDays * 32}px`, height: 36 }}
+                            >
+                                <span className="text-[11px] font-bold uppercase tracking-widest text-foreground/60">
                                     {vessel.vessel_name}
                                 </span>
                             </div>
