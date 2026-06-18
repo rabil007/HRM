@@ -143,6 +143,26 @@ class EmployeeDocument extends Model
         ];
     }
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function toShowArray(): array
+    {
+        return [
+            ...$this->toProfileArray(),
+            'versions' => $this->versions->map(fn (EmployeeDocumentVersion $version) => [
+                'id' => $version->id,
+                'version' => $version->version,
+                'file_url' => $version->file_url,
+                'original_filename' => $version->original_filename,
+                'mime_type' => $version->mime_type,
+                'size_bytes' => $version->size_bytes,
+                'replaced_by' => $version->relationLoaded('replacer') ? $version->replacer?->name : null,
+                'created_at' => $version->created_at?->toDateTimeString(),
+            ])->values()->all(),
+        ];
+    }
+
     public function getFileUrlAttribute(): string
     {
         if (str_starts_with($this->file_path, 'http')) {

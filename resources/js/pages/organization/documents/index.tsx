@@ -19,7 +19,7 @@ import { DocumentsIndexFolderGrid } from '@/features/organization/documents/inde
 import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
 import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
-import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
+import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
     ComplianceDocumentItem,
@@ -67,10 +67,8 @@ export default function DocumentsIndex({
     complianceDocuments,
     can,
 }: Props) {
-    const [previewDoc, setPreviewDoc] = useState<ComplianceDocumentItem | null>(null);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
-    const [versionDoc, setVersionDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [managementEmployeeId, setManagementEmployeeId] = useState<number | null>(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
@@ -161,22 +159,28 @@ export default function DocumentsIndex({
         setReplaceDoc(bindManagementDoc(doc));
     };
 
-    const handleVersionDocument = (doc: ComplianceDocumentItem) => {
-        setVersionDoc(bindManagementDoc(doc));
-    };
-
     const handleDeleteDocument = (doc: ComplianceDocumentItem) => {
         bindManagementDoc(doc);
         setDeleteDocId(doc.id);
     };
 
+    const buildViewHref = (doc: ComplianceDocumentItem) =>
+        buildDocumentShowUrl(doc.employee_id, doc.id, {
+            from: 'index',
+            expiry: initialExpiry,
+            search: initialSearch,
+            page: isComplianceView
+                ? complianceDocuments?.current_page
+                : resolvedSearchDocuments.current_page,
+        });
+
     const documentManagementProps = {
         canDownload: can.download,
         canUpload: can.upload,
         canDelete: can.delete,
+        buildViewHref,
         onEdit: handleEditDocument,
         onReplace: handleReplaceDocument,
-        onVersions: handleVersionDocument,
         onDelete: handleDeleteDocument,
     };
 
@@ -233,7 +237,7 @@ export default function DocumentsIndex({
                                     <DocumentComplianceTableRow
                                         key={doc.id}
                                         doc={doc}
-                                        onPreview={setPreviewDoc}
+                                        viewHref={buildViewHref(doc)}
                                         {...documentManagementProps}
                                     />
                                 ))}
@@ -276,7 +280,6 @@ export default function DocumentsIndex({
                     searchQuery={initialSearch}
                     employees={employees}
                     searchDocuments={resolvedSearchDocuments}
-                    onPreview={setPreviewDoc}
                     onPageChange={onPageChange}
                     folderGridProps={folderGridProps}
                     {...documentManagementProps}
@@ -290,29 +293,11 @@ export default function DocumentsIndex({
                     onEditDocChange={setEditDoc}
                     replaceDoc={replaceDoc}
                     onReplaceDocChange={setReplaceDoc}
-                    versionDoc={versionDoc}
-                    onVersionDocChange={setVersionDoc}
                     deleteDocId={deleteDocId}
                     onDeleteDocIdChange={setDeleteDocId}
-                    canDownload={can.download}
                     partialReloadKeys={managementPartialReloadKeys}
                 />
             ) : null}
-
-            <DocumentPreviewDialog
-                document={
-                    previewDoc
-                        ? {
-                              title: previewDoc.document_name,
-                              document_type_label: previewDoc.document_type,
-                              file_url: previewDoc.file_url,
-                              mime_type: previewDoc.mime_type,
-                              can_preview: previewDoc.can_preview,
-                          }
-                        : null
-                }
-                onOpenChange={(open) => !open && setPreviewDoc(null)}
-            />
         </Main>
     );
 }

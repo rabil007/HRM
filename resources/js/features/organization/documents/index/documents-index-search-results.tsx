@@ -28,9 +28,9 @@ type DocumentManagementProps = {
     canDownload: boolean;
     canUpload: boolean;
     canDelete: boolean;
+    buildViewHref: (doc: ComplianceDocumentItem) => string;
     onEdit: (doc: ComplianceDocumentItem) => void;
     onReplace: (doc: ComplianceDocumentItem) => void;
-    onVersions: (doc: ComplianceDocumentItem) => void;
     onDelete: (doc: ComplianceDocumentItem) => void;
 };
 
@@ -39,7 +39,6 @@ type Props = {
     searchQuery: string;
     employees: EmployeeFolder[];
     searchDocuments: PaginatedComplianceDocuments;
-    onPreview: (doc: ComplianceDocumentItem) => void;
     onPageChange: (page: number) => void;
     folderGridProps: FolderGridProps;
 } & DocumentManagementProps;
@@ -65,12 +64,10 @@ function EmployeesSection({
 
 function DocumentsSection({
     searchDocuments,
-    onPreview,
     onPageChange,
     documentManagementProps,
 }: {
     searchDocuments: PaginatedComplianceDocuments;
-    onPreview: (doc: ComplianceDocumentItem) => void;
     onPageChange: (page: number) => void;
     documentManagementProps: DocumentManagementProps;
 }) {
@@ -85,7 +82,6 @@ function DocumentsSection({
             <DocumentsIndexSectionHeading label="Documents" count={count} />
             <DocumentsIndexDocumentsTable
                 documents={searchDocuments}
-                onPreview={onPreview}
                 onPageChange={onPageChange}
                 {...documentManagementProps}
             />
@@ -98,24 +94,23 @@ export function DocumentsIndexSearchResults({
     searchQuery,
     employees,
     searchDocuments,
-    onPreview,
     onPageChange,
     folderGridProps,
     canDownload,
     canUpload,
     canDelete,
+    buildViewHref,
     onEdit,
     onReplace,
-    onVersions,
     onDelete,
 }: Props) {
     const documentManagementProps = {
         canDownload,
         canUpload,
         canDelete,
+        buildViewHref,
         onEdit,
         onReplace,
-        onVersions,
         onDelete,
     };
     const employeeCount = employees.length;
@@ -125,7 +120,6 @@ export function DocumentsIndexSearchResults({
         return (
             <DocumentsSection
                 searchDocuments={searchDocuments}
-                onPreview={onPreview}
                 onPageChange={onPageChange}
                 documentManagementProps={documentManagementProps}
             />
@@ -158,7 +152,6 @@ export function DocumentsIndexSearchResults({
                 <EmployeesSection employees={employees} folderGridProps={folderGridProps} />
                 <DocumentsSection
                     searchDocuments={searchDocuments}
-                    onPreview={onPreview}
                     onPageChange={onPageChange}
                     documentManagementProps={documentManagementProps}
                 />
@@ -171,7 +164,6 @@ export function DocumentsIndexSearchResults({
             <TabsContent value="documents" className="mt-6">
                 <DocumentsSection
                     searchDocuments={searchDocuments}
-                    onPreview={onPreview}
                     onPageChange={onPageChange}
                     documentManagementProps={documentManagementProps}
                 />

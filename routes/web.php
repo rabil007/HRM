@@ -33,6 +33,7 @@ use App\Http\Controllers\Organization\EmployeeCvPrintController;
 use App\Http\Controllers\Organization\EmployeeDocumentController;
 use App\Http\Controllers\Organization\EmployeeDocumentDownloadController;
 use App\Http\Controllers\Organization\EmployeeDocumentsBrowseController;
+use App\Http\Controllers\Organization\EmployeeDocumentShowController;
 use App\Http\Controllers\Organization\EmployeeEducationQualificationController;
 use App\Http\Controllers\Organization\EmployeeExportController;
 use App\Http\Controllers\Organization\EmployeeImportController;
@@ -153,6 +154,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware('can:documents.view')->group(function () {
         Route::get('organization/documents', DocumentsFolderIndexController::class)->name('organization.documents');
         Route::get('organization/documents/employees/{employee}', EmployeeDocumentsBrowseController::class)->name('organization.documents.employee');
+        Route::get('organization/documents/employees/{employee}/files/{document}', EmployeeDocumentShowController::class)->name('organization.documents.employee.files.show');
         Route::post('organization/documents/employees/{employee}/files/email', DocumentBulkEmailController::class)->name('organization.documents.employee.files.email');
         Route::get('organization/employees/{employee}/documents/{document}/versions', [EmployeeDocumentController::class, 'versions'])->name('organization.employees.documents.versions');
     });

@@ -13,25 +13,23 @@ import type {
 
 export function DocumentsIndexDocumentsTable({
     documents,
-    onPreview,
+    buildViewHref,
     onPageChange,
     canDownload,
     canUpload,
     canDelete,
     onEdit,
     onReplace,
-    onVersions,
     onDelete,
 }: {
     documents: PaginatedComplianceDocuments;
-    onPreview: (doc: ComplianceDocumentItem) => void;
+    buildViewHref: (doc: ComplianceDocumentItem) => string;
     onPageChange?: (page: number) => void;
     canDownload: boolean;
     canUpload: boolean;
     canDelete: boolean;
     onEdit: (doc: ComplianceDocumentItem) => void;
     onReplace: (doc: ComplianceDocumentItem) => void;
-    onVersions: (doc: ComplianceDocumentItem) => void;
     onDelete: (doc: ComplianceDocumentItem) => void;
 }) {
     if (documents.data.length === 0) {
@@ -58,13 +56,12 @@ export function DocumentsIndexDocumentsTable({
                         <DocumentComplianceTableRow
                             key={doc.id}
                             doc={doc}
-                            onPreview={onPreview}
+                            viewHref={buildViewHref(doc)}
                             canDownload={canDownload}
                             canUpload={canUpload}
                             canDelete={canDelete}
                             onEdit={onEdit}
                             onReplace={onReplace}
-                            onVersions={onVersions}
                             onDelete={onDelete}
                         />
                     ))}

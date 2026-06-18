@@ -2,7 +2,6 @@ import { router } from '@inertiajs/react';
 import type { ReactElement } from 'react';
 import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
-import { DocumentVersionsSheet } from '@/features/organization/documents/shared/document-versions-sheet';
 import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
 import { EditDocumentDialog } from '@/pages/organization/_components/documents/edit-document-dialog';
 import { ReplaceDocumentDialog } from '@/pages/organization/_components/documents/replace-document-dialog';
@@ -14,13 +13,11 @@ type DocumentManagementDialogsProps = {
     onEditDocChange: (doc: DocumentProfileItem | null) => void;
     replaceDoc: DocumentProfileItem | null;
     onReplaceDocChange: (doc: DocumentProfileItem | null) => void;
-    versionDoc: DocumentProfileItem | null;
-    onVersionDocChange: (doc: DocumentProfileItem | null) => void;
     deleteDocId: number | null;
     onDeleteDocIdChange: (id: number | null) => void;
-    canDownload: boolean;
     templateFields?: Record<string, TemplateFieldConfig> | null;
     partialReloadKeys?: string[];
+    deleteRedirectUrl?: string;
 };
 
 export function DocumentManagementDialogs({
@@ -29,13 +26,11 @@ export function DocumentManagementDialogs({
     onEditDocChange,
     replaceDoc,
     onReplaceDocChange,
-    versionDoc,
-    onVersionDocChange,
     deleteDocId,
     onDeleteDocIdChange,
-    canDownload,
     templateFields = null,
     partialReloadKeys = ['documents'],
+    deleteRedirectUrl,
 }: DocumentManagementDialogsProps): ReactElement {
     return (
         <>
@@ -55,17 +50,6 @@ export function DocumentManagementDialogs({
                 partialReloadKeys={partialReloadKeys}
             />
 
-            <DocumentVersionsSheet
-                open={!!versionDoc}
-                onOpenChange={(open) => !open && onVersionDocChange(null)}
-                employeeId={employeeId}
-                documentId={versionDoc?.id ?? null}
-                documentTitle={
-                    versionDoc?.title ?? versionDoc?.document_type_label ?? null
-                }
-                showDownload={canDownload}
-            />
-
             <ConfirmDeleteDocumentDialog
                 open={!!deleteDocId}
                 onOpenChange={(open) => !open && onDeleteDocIdChange(null)}
@@ -81,10 +65,17 @@ export function DocumentManagementDialogs({
                         }),
                         {
                             preserveScroll: true,
-                            ...(partialReloadKeys.length > 0
-                                ? { only: partialReloadKeys }
-                                : {}),
-                            onSuccess: () => onDeleteDocIdChange(null),
+                            ...(deleteRedirectUrl
+                                ? {}
+                                : partialReloadKeys.length > 0
+                                  ? { only: partialReloadKeys }
+                                  : {}),
+                            onSuccess: () => {
+                                onDeleteDocIdChange(null);
+                                if (deleteRedirectUrl) {
+                                    router.visit(deleteRedirectUrl);
+                                }
+                            },
                         },
                     );
                 }}

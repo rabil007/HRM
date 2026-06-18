@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
@@ -7,35 +8,36 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { expiryRemainingClass } from '@/features/organization/documents/document-expiry';
 import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
-import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { DocumentModuleRowActions } from '@/features/organization/documents/shared/document-actions/document-module-row-actions';
+import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import type { ComplianceDocumentItem } from '@/features/organization/documents/shared/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
 export function DocumentComplianceTableRow({
     doc,
-    onPreview,
+    viewHref,
     canDownload = false,
     canUpload = false,
     canDelete = false,
     onEdit,
     onReplace,
-    onVersions,
     onDelete,
 }: {
     doc: ComplianceDocumentItem;
-    onPreview: (doc: ComplianceDocumentItem) => void;
+    viewHref: string;
     canDownload?: boolean;
     canUpload?: boolean;
     canDelete?: boolean;
     onEdit?: (doc: ComplianceDocumentItem) => void;
     onReplace?: (doc: ComplianceDocumentItem) => void;
-    onVersions?: (doc: ComplianceDocumentItem) => void;
     onDelete?: (doc: ComplianceDocumentItem) => void;
 }) {
     return (
-        <TableRow className={dataTableBodyRowClass(false)}>
+        <TableRow
+            className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
+            onClick={() => router.visit(viewHref)}
+        >
             <TableCell className={cn(dataTableCellClass(), 'min-w-[140px]')}>
                 <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-foreground">{doc.employee_name}</p>
@@ -93,13 +95,12 @@ export function DocumentComplianceTableRow({
             <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
                 <DocumentModuleRowActions
                     doc={doc}
-                    onPreview={() => onPreview(doc)}
+                    viewHref={viewHref}
                     canDownload={canDownload}
                     canUpload={canUpload}
                     canDelete={canDelete}
                     onEdit={onEdit ? () => onEdit(doc) : undefined}
                     onReplace={onReplace ? () => onReplace(doc) : undefined}
-                    onVersions={onVersions ? () => onVersions(doc) : undefined}
                     onDelete={onDelete ? () => onDelete(doc) : undefined}
                 />
             </TableCell>

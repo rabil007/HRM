@@ -101,3 +101,23 @@ export type PreviewDocument = {
     mime_type?: string | null;
     can_preview?: boolean;
 };
+
+export type DocumentVersionItem = {
+    id: number;
+    version: number;
+    file_url: string;
+    original_filename: string | null;
+    mime_type: string | null;
+    size_bytes: number | null;
+    replaced_by: string | null;
+    created_at: string | null;
+};
+
+export type DocumentShowItem = DocumentProfileItem & {
+    versions: DocumentVersionItem[];
+};
+
+export type DocumentShowBackContext =
+    | { from: 'employee-browse' }
+    | { from: 'profile' }
+    | { from: 'index'; expiry?: string; search?: string; page?: number };

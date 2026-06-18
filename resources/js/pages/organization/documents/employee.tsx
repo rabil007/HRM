@@ -33,10 +33,9 @@ const PdfMergeModal = lazy(() =>
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
-import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
+import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import type {
-    DocumentBrowseItem,
     DocumentExpirySummary,
     DocumentProfileItem,
     EmployeeSummary,
@@ -99,10 +98,8 @@ export default function EmployeeDocumentsBrowse({
     const emailTemplates = can.email_templates ?? [];
     const defaultWhatsappTemplate = resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
-    const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
-    const [versionDoc, setVersionDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [fileSearch, setFileSearch] = useState('');
     const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
@@ -480,13 +477,14 @@ export default function EmployeeDocumentsBrowse({
                                 employeeId={employee.id}
                                 employeeName={employee.name}
                                 employeePhone={employee.phone}
-                                onPreview={setPreviewDoc}
+                                viewHref={buildDocumentShowUrl(employee.id, doc.id, {
+                                    from: 'employee-browse',
+                                })}
                                 canDownload={canDownloadDocuments}
                                 canUpload={canUploadDocuments}
                                 canDelete={canDeleteDocuments}
                                 onEdit={setEditDoc}
                                 onReplace={setReplaceDoc}
-                                onVersions={setVersionDoc}
                                 onDelete={(document) => setDeleteDocId(document.id)}
                                 canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                                 whatsappTemplates={whatsappTemplates}
@@ -564,26 +562,8 @@ export default function EmployeeDocumentsBrowse({
                 onEditDocChange={setEditDoc}
                 replaceDoc={replaceDoc}
                 onReplaceDocChange={setReplaceDoc}
-                versionDoc={versionDoc}
-                onVersionDocChange={setVersionDoc}
                 deleteDocId={deleteDocId}
                 onDeleteDocIdChange={setDeleteDocId}
-                canDownload={canDownloadDocuments}
-            />
-
-            <DocumentPreviewDialog
-                document={
-                    previewDoc
-                        ? {
-                              title: previewDoc.document_name,
-                              document_type_label: previewDoc.document_type,
-                              file_url: previewDoc.file_url,
-                              mime_type: previewDoc.mime_type,
-                              can_preview: previewDoc.can_preview,
-                          }
-                        : null
-                }
-                onOpenChange={(open) => !open && setPreviewDoc(null)}
             />
         </Main>
     );

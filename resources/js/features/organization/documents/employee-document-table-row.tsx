@@ -1,3 +1,4 @@
+import { router } from '@inertiajs/react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
@@ -26,13 +27,12 @@ export function EmployeeDocumentTableRow({
     employeeId,
     employeeName,
     employeePhone,
-    onPreview,
+    viewHref,
     canDownload = false,
     canUpload = false,
     canDelete = false,
     onEdit,
     onReplace,
-    onVersions,
     onDelete,
     canSendWhatsAppTemplate = false,
     whatsappTemplates = [],
@@ -45,13 +45,12 @@ export function EmployeeDocumentTableRow({
     employeeId: number;
     employeeName: string;
     employeePhone?: string | null;
-    onPreview: (doc: DocumentProfileItem) => void;
+    viewHref: string;
     canDownload?: boolean;
     canUpload?: boolean;
     canDelete?: boolean;
     onEdit?: (doc: DocumentProfileItem) => void;
     onReplace?: (doc: DocumentProfileItem) => void;
-    onVersions?: (doc: DocumentProfileItem) => void;
     onDelete?: (doc: DocumentProfileItem) => void;
     canSendWhatsAppTemplate?: boolean;
     whatsappTemplates?: WhatsAppTemplateOption[];
@@ -61,9 +60,15 @@ export function EmployeeDocumentTableRow({
     selectionMode?: boolean;
 }) {
     return (
-        <TableRow className={cn(dataTableBodyRowClass(false), selected && 'bg-primary/5')}>
+        <TableRow
+            className={cn(dataTableBodyRowClass(false), 'cursor-pointer', selected && 'bg-primary/5')}
+            onClick={() => router.visit(viewHref)}
+        >
             {selectionMode ? (
-                <TableCell className="w-10 px-3 py-4 align-middle">
+                <TableCell
+                    className="w-10 px-3 py-4 align-middle"
+                    onClick={(event) => event.stopPropagation()}
+                >
                     <Checkbox
                         checked={selected}
                         onCheckedChange={(value) => onSelectedChange?.(value === true)}
@@ -122,13 +127,12 @@ export function EmployeeDocumentTableRow({
             <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
                 <DocumentModuleRowActions
                     doc={doc}
-                    onPreview={() => onPreview(doc)}
+                    viewHref={viewHref}
                     canDownload={canDownload}
                     canUpload={canUpload}
                     canDelete={canDelete}
                     onEdit={onEdit ? () => onEdit(doc) : undefined}
                     onReplace={onReplace ? () => onReplace(doc) : undefined}
-                    onVersions={onVersions ? () => onVersions(doc) : undefined}
                     onDelete={onDelete ? () => onDelete(doc) : undefined}
                     canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                     whatsappTemplates={whatsappTemplates}

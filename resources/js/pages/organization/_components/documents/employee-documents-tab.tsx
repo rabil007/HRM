@@ -6,10 +6,9 @@ import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Orga
 import { Button } from '@/components/ui/button';
 import { TabsContent } from '@/components/ui/tabs';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
-import { ManagementDocumentActions } from '@/features/organization/documents/shared/document-actions/management-actions';
+import { DocumentListRowActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
+import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import { DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
-import { DocumentPreviewDialog } from '@/features/organization/documents/shared/document-preview-dialog';
-import { DocumentVersionsSheet } from '@/features/organization/documents/shared/document-versions-sheet';
 import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -71,9 +70,7 @@ export function EmployeeDocumentsTab({
     const [uploadOpen, setUploadOpen] = useState(false);
     const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
     const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
-    const [previewDoc, setPreviewDoc] = useState<DocumentProfileItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
-    const [versionDoc, setVersionDoc] = useState<DocumentProfileItem | null>(null);
 
     return (
         <TabsContent value="documents" className="mt-6">
@@ -134,7 +131,24 @@ export function EmployeeDocumentsTab({
                     </thead>
                     <tbody>
                         {documents.map((doc) => (
-                            <tr key={doc.id} className={employeeRecordsTableRowClass()}>
+                            <tr
+                                key={doc.id}
+                                className={cn(
+                                    employeeRecordsTableRowClass(),
+                                    hasEmployeeId && 'cursor-pointer',
+                                )}
+                                onClick={() => {
+                                    if (!hasEmployeeId) {
+                                        return;
+                                    }
+
+                                    router.visit(
+                                        buildDocumentShowUrl(employeeId, doc.id, {
+                                            from: 'profile',
+                                        }),
+                                    );
+                                }}
+                            >
                                 {showField('document_type_id') ? (
                                     <td className={cn(employeeRecordsTableTdClass(), 'text-xs text-muted-foreground')}>
                                         {doc.document_type_label ??
@@ -183,21 +197,22 @@ export function EmployeeDocumentsTab({
                                     {doc.uploaded_by || '—'}
                                 </td>
                                 <td className={employeeRecordsActionsTdClass('min-w-[13.5rem]')}>
-                                    <ManagementDocumentActions
-                                        documentId={doc.id}
-                                        canPreview={!!doc.can_preview}
-                                        fileUrl={doc.file_url}
-                                        onPreview={() => setPreviewDoc(doc)}
-                                        showDownload={can.documents_download}
-                                        showVersions={can.documents_upload}
-                                        onVersions={() => setVersionDoc(doc)}
-                                        showReplace={can.documents_upload}
-                                        onReplace={() => setReplaceDoc(doc)}
-                                        showEdit={can.documents_upload}
-                                        onEdit={() => setEditDoc(doc)}
-                                        showDelete={can.documents_delete}
-                                        onDelete={() => setDeleteDocId(doc.id)}
-                                    />
+                                    {hasEmployeeId ? (
+                                        <DocumentListRowActions
+                                            documentId={doc.id}
+                                            fileUrl={doc.file_url}
+                                            viewHref={buildDocumentShowUrl(employeeId, doc.id, {
+                                                from: 'profile',
+                                            })}
+                                            showDownload={can.documents_download}
+                                            showReplace={can.documents_upload}
+                                            onReplace={() => setReplaceDoc(doc)}
+                                            showEdit={can.documents_upload}
+                                            onEdit={() => setEditDoc(doc)}
+                                            showDelete={can.documents_delete}
+                                            onDelete={() => setDeleteDocId(doc.id)}
+                                        />
+                                    ) : null}
                                 </td>
                             </tr>
                         ))}
@@ -232,24 +247,6 @@ export function EmployeeDocumentsTab({
                     onOpenChange={(open) => !open && setReplaceDoc(null)}
                 />
             ) : null}
-
-            {hasEmployeeId ? (
-                <DocumentVersionsSheet
-                    open={!!versionDoc}
-                    onOpenChange={(open) => !open && setVersionDoc(null)}
-                    employeeId={employeeId}
-                    documentId={versionDoc?.id ?? null}
-                    documentTitle={
-                        versionDoc?.title ?? versionDoc?.document_type_label ?? null
-                    }
-                    showDownload={can.documents_download}
-                />
-            ) : null}
-
-            <DocumentPreviewDialog
-                document={previewDoc}
-                onOpenChange={(open) => !open && setPreviewDoc(null)}
-            />
 
             <ConfirmDeleteDocumentDialog
                 open={!!deleteDocId}

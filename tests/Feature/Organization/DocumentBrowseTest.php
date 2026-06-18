@@ -428,3 +428,150 @@ test('documents module pages expose upload permission and profile metadata for m
             ->where('can.delete', true)
         );
 });
+
+test('authorized user can load document show page with metadata and versions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/passport.pdf',
+        'original_filename' => 'Passport.pdf',
+        'title' => 'Passport Copy',
+        'document_number' => 'P1234567',
+        'mime_type' => 'application/pdf',
+        'current_version' => 2,
+        'status' => 'valid',
+        'uploaded_by' => $user->id,
+    ]);
+
+    $document->versions()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'version' => 1,
+        'file_path' => 'employee-documents/test/passport-v1.pdf',
+        'original_filename' => 'Passport-v1.pdf',
+        'mime_type' => 'application/pdf',
+        'replaced_by' => $user->id,
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=employee-browse")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/show')
+            ->where('document.id', $document->id)
+            ->where('document.title', 'Passport Copy')
+            ->where('document.document_number', 'P1234567')
+            ->where('document.document_type_label', 'Passport Copy')
+            ->where('document.can_preview', true)
+            ->where('document.current_version', 2)
+            ->has('document.versions', 1)
+            ->where('document.versions.0.version', 1)
+            ->where('document.versions.0.replaced_by', $user->name)
+            ->where('employee.id', $employee->id)
+            ->where('employee.name', $employee->name)
+            ->where('back.label', 'Back to files')
+            ->where('back.href', route('organization.documents.employee', $employee))
+        );
+});
+
+test('document show page returns 404 for wrong company or employee pairing', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+    ['company' => $otherCompany, 'employee' => $otherEmployee] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/file.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get("/organization/documents/employees/{$otherEmployee->id}/files/{$document->id}")
+        ->assertNotFound();
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/999999")
+        ->assertNotFound();
+});
+
+test('document show page exposes upload and delete permissions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'documents.view',
+        'documents.upload',
+        'documents.delete',
+    ]);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/file.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.upload', true)
+            ->where('can.delete', true)
+        );
+});
+
+test('document show page back navigation respects from query', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/file.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=profile")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('back.label', 'Back to employee profile')
+            ->where('back.href', route('organization.employees.show', $employee).'#documents')
+        );
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}?from=index&expiry=expired&search=visa&page=2")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('back.label', 'Back to documents')
+            ->where('back.href', route('organization.documents', [
+                'expiry' => 'expired',
+                'search' => 'visa',
+                'page' => '2',
+            ]))
+        );
+});

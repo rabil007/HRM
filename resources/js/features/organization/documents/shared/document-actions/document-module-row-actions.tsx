@@ -2,7 +2,7 @@ import { Send } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
-import { ManagementDocumentActions } from '@/features/organization/documents/shared/document-actions/management-actions';
+import { DocumentListRowActions } from '@/features/organization/documents/shared/document-actions/document-list-row-actions';
 import type { DocumentBrowseItem } from '@/features/organization/documents/shared/types';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
@@ -10,11 +10,10 @@ import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 
 type DocumentModuleRowActionsProps = {
     doc: DocumentBrowseItem;
-    onPreview: () => void;
+    viewHref: string;
     canDownload?: boolean;
     canUpload?: boolean;
     canDelete?: boolean;
-    onVersions?: () => void;
     onReplace?: () => void;
     onEdit?: () => void;
     onDelete?: () => void;
@@ -29,11 +28,10 @@ type DocumentModuleRowActionsProps = {
 
 export function DocumentModuleRowActions({
     doc,
-    onPreview,
+    viewHref,
     canDownload = false,
     canUpload = false,
     canDelete = false,
-    onVersions,
     onReplace,
     onEdit,
     onDelete,
@@ -54,14 +52,11 @@ export function DocumentModuleRowActions({
     return (
         <>
             <div className="inline-flex items-center justify-end gap-0.5">
-                <ManagementDocumentActions
+                <DocumentListRowActions
                     documentId={doc.id}
-                    canPreview={doc.can_preview}
                     fileUrl={doc.file_url}
-                    onPreview={onPreview}
+                    viewHref={viewHref}
                     showDownload={canDownload}
-                    showVersions={canUpload}
-                    onVersions={onVersions}
                     showReplace={canUpload}
                     onReplace={onReplace}
                     showEdit={canUpload}
