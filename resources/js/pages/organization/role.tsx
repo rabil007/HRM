@@ -64,7 +64,7 @@ return name;
         // Remove the group from the name for display if it's the first part
         const rest = parts.slice(1);
 
-        return rest.map(p => p.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')).join(': ');
+        return rest.map(p => p.split(/[-_]/).map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')).join(': ');
     };
 
     const grouped = useMemo(() => {

@@ -13,6 +13,7 @@ import { DeploymentCard } from '@/features/organization/crew-deployments/deploym
 import { StatusTransitionDialog } from '@/features/organization/crew-deployments/status-transition-dialog';
 import type {
     DeploymentItem,
+    DeploymentPagePermissions,
     DeploymentSummary,
 } from '@/features/organization/crew-deployments/types';
 
@@ -21,7 +22,7 @@ type Option = { id: number; name: string };
 type Props = {
     deployments: DeploymentItem[];
     summary: DeploymentSummary;
-    can: { manage: boolean };
+    can: DeploymentPagePermissions;
     vessels: Option[];
     onEdit: (deployment: DeploymentItem) => void;
     onDelete: (deployment: DeploymentItem) => void;

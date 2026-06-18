@@ -3,6 +3,7 @@ import { VesselManningContent } from '@/features/organization/vessel-manning/ind
 import type {
     RankOption,
     VesselManningItem,
+    VesselManningPagePermissions,
     VesselTypeOption,
 } from '@/features/organization/vessel-manning/types';
 import type { PaginationMeta } from '@/types/pagination';
@@ -14,7 +15,7 @@ type Props = {
     filters: { vessel_type_id: number | null };
     ranks: RankOption[];
     vessel_types: VesselTypeOption[];
-    can: { manage: boolean };
+    can: VesselManningPagePermissions;
 };
 
 export default function VesselManningIndex({

@@ -22,7 +22,8 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
-import type { DeploymentItem } from '@/features/organization/crew-deployments/types';
+import { deploymentHasWriteActions } from '@/features/organization/crew-deployments/types';
+import type { DeploymentItem, DeploymentPagePermissions } from '@/features/organization/crew-deployments/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 
@@ -110,7 +111,7 @@ function getKeyDates(
 
 type Props = {
     deployment: DeploymentItem;
-    can: { manage: boolean };
+    can: DeploymentPagePermissions;
     onEdit: (deployment: DeploymentItem) => void;
     onDelete: (deployment: DeploymentItem) => void;
     backQuery?: Record<string, string>;
@@ -128,7 +129,7 @@ export function DeploymentCard({
     const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
         id: d.id,
         data: { deployment: d },
-        disabled: isOverlay || !can.manage,
+        disabled: isOverlay || !can.update,
     });
 
     const style: CSSProperties = transform ? { transform: CSS.Translate.toString(transform) } : {};
@@ -231,7 +232,7 @@ export function DeploymentCard({
                     {/* ── Header ───────────────────────────────────────── */}
                     <div className="flex items-start gap-2.5 px-3.5 pt-3">
                         {/* Drag handle */}
-                        {can.manage && !isOverlay ? (
+                        {can.update && !isOverlay ? (
                             <div
                                 {...attributes}
                                 {...listeners}
@@ -276,7 +277,7 @@ export function DeploymentCard({
                         </div>
 
                         {/* Actions */}
-                        {can.manage && !isOverlay ? (
+                        {deploymentHasWriteActions(can) && !isOverlay ? (
                             <DropdownMenu>
                                 <DropdownMenuTrigger
                                     className="rounded-md p-1 opacity-0 transition-opacity hover:bg-muted group-hover:opacity-100 focus:opacity-100"
@@ -285,23 +286,27 @@ export function DeploymentCard({
                                     <MoreVertical className="h-3.5 w-3.5 text-muted-foreground" />
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onEdit(d);
-                                        }}
-                                    >
-                                        Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onDelete(d);
-                                        }}
-                                        className="text-destructive focus:text-destructive"
-                                    >
-                                        Delete
-                                    </DropdownMenuItem>
+                                    {can.update ? (
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEdit(d);
+                                            }}
+                                        >
+                                            Edit
+                                        </DropdownMenuItem>
+                                    ) : null}
+                                    {can.delete ? (
+                                        <DropdownMenuItem
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onDelete(d);
+                                            }}
+                                            className="text-destructive focus:text-destructive"
+                                        >
+                                            Delete
+                                        </DropdownMenuItem>
+                                    ) : null}
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         ) : null}

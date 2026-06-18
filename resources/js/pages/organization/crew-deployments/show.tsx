@@ -26,6 +26,7 @@ import { EmployeeProfileLink } from '@/features/organization/crew-deployments/em
 import type {
     DeploymentActivityItem,
     DeploymentItem,
+    DeploymentPagePermissions,
 } from '@/features/organization/crew-deployments/types';
 import { actions } from '@/lib/design-system';
 import { formatDisplayDateTime } from '@/lib/format-date';
@@ -84,7 +85,7 @@ export default function CrewDeploymentShow({
     deployment: DeploymentItem;
     recent_activity: DeploymentActivityItem[];
     can_view_audit: boolean;
-    can: { manage: boolean };
+    can: DeploymentPagePermissions;
     employees: EmployeeOption[];
     ranks: Option[];
     clients: Option[];
@@ -135,7 +136,7 @@ export default function CrewDeploymentShow({
                     backHref={backHref}
                     backLabel="Back to deployments"
                     actions={
-                        can.manage ? (
+                        can.update ? (
                             <Button
                                 type="button"
                                 className={actions.primary}

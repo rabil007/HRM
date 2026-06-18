@@ -25,10 +25,12 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import type { PaginationMeta } from '@/types/pagination';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
+import { vesselManningHasWriteActions } from './types';
 import type {
     RankOption,
     VesselManningFormData,
     VesselManningItem,
+    VesselManningPagePermissions,
     VesselTypeOption,
 } from './types';
 
@@ -69,7 +71,7 @@ export function VesselManningContent({
     filters: { vessel_type_id: number | null };
     ranks: RankOption[];
     vessel_types: VesselTypeOption[];
-    can: { manage: boolean };
+    can: VesselManningPagePermissions;
 }) {
     const list = useServerPaginationFilters({
         url: '/organization/vessel-manning',
@@ -199,7 +201,7 @@ export function VesselManningContent({
                             <DataTableHead>Vessel type</DataTableHead>
                             <DataTableHead>Ranks configured</DataTableHead>
                             <DataTableHead>Total required</DataTableHead>
-                            {can.manage ? (
+                            {vesselManningHasWriteActions(can) ? (
                                 <DataTableHead className="text-right">Actions</DataTableHead>
                             ) : null}
                         </DataTableHeaderRow>
@@ -238,11 +240,12 @@ export function VesselManningContent({
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.total_required > 0 ? vessel.total_required : '—'}
                                 </TableCell>
-                                {can.manage ? (
+                                {vesselManningHasWriteActions(can) ? (
                                     <TableCell className={dataTableActionsCellClass()}>
                                         <ListTableCrudActions
                                             showView={false}
                                             showDelete={false}
+                                            showEdit={can.update || can.create}
                                             onEdit={() => openEdit(vessel)}
                                         />
                                     </TableCell>
@@ -255,7 +258,7 @@ export function VesselManningContent({
 
             <Pagination {...list.paginationProps} label="vessels" />
 
-            {can.manage ? (
+            {vesselManningHasWriteActions(can) ? (
                 <VesselManningFormSheet
                     open={sheetOpen}
                     onOpenChange={(open) => {

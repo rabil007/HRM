@@ -203,7 +203,7 @@ Examples (full list in seeder):
 | Branches | `branches.*` |
 | Employees | `employees.view`, `.create`, `.update`, `.delete`, `.export`, `.import`, sub-record `.manage` |
 | Documents | `documents.view`, `.download`, `.share`, `.upload`, `.delete` |
-| Crew | `crew_operations.deployments.view`, `.manage` |
+| Crew | `crew_operations.deployments.view`, `.create`, `.update`, `.delete`, `.export`, `crew_operations.vessel_manning.view`, `.create`, `.update`, `.delete` |
 | Users / roles | `users.*`, `roles.*` |
 | Audit | `audit.view` |
 
@@ -525,10 +525,13 @@ Support: `CrewDeploymentBoardQuery`, `EmployeeDeploymentPresenter`, `SyncSeaServ
 
 ### Permissions involved
 
-- `crew_operations.deployments.view` — list, show, export
-- `crew_operations.deployments.manage` — create, update, delete
+- `crew_operations.deployments.view` — list, show
+- `crew_operations.deployments.create` — create
+- `crew_operations.deployments.update` — update
+- `crew_operations.deployments.delete` — delete
+- `crew_operations.deployments.export` — export
 
-Frontend `can.manage` on show/index.
+Frontend `can.create|update|delete|export` on show/index.
 
 ### Important workflows
 
@@ -568,7 +571,9 @@ Support: `VesselManningIndexQuery`, `SyncVesselManning`
 ### Permissions involved
 
 - `crew_operations.vessel_manning.view` — list
-- `crew_operations.vessel_manning.manage` — update manning
+- `crew_operations.vessel_manning.create` — add manning to a vessel with no existing rows
+- `crew_operations.vessel_manning.update` — change existing manning rows
+- `crew_operations.vessel_manning.delete` — clear all manning rows for a vessel
 
 ---
 

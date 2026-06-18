@@ -33,3 +33,13 @@ export type VesselManningRequirementRow = {
 export type VesselManningFormData = {
     requirements: VesselManningRequirementRow[];
 };
+
+export type VesselManningPagePermissions = {
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+};
+
+export function vesselManningHasWriteActions(can: VesselManningPagePermissions): boolean {
+    return can.create || can.update || can.delete;
+}

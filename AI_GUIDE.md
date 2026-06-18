@@ -498,7 +498,7 @@ See [docs/document-search.md](docs/document-search.md), [docs/document-managemen
 ### Crew deployments
 
 - Saves sync sea service via `SyncSeaServiceFromDeployment` when join/disembark dates complete
-- Permissions: `crew_operations.deployments.view|manage`
+- Permissions: `crew_operations.deployments.view|create|update|delete|export`, `crew_operations.vessel_manning.view|create|update|delete`
 
 ### Exports
 

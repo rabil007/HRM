@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\VesselManning;
 
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Models\VesselManning;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -12,7 +13,36 @@ class UpdateVesselManningRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user();
+        $user = $this->user();
+
+        if ($user === null) {
+            return false;
+        }
+
+        /** @var Vessel|null $vessel */
+        $vessel = $this->route('vessel');
+
+        if (! $vessel instanceof Vessel) {
+            return false;
+        }
+
+        $companyId = (int) $this->attributes->get('current_company_id');
+        $requirements = $this->input('requirements', []);
+
+        if (! is_array($requirements) || $requirements === []) {
+            return $user->can('crew_operations.vessel_manning.delete');
+        }
+
+        $hasExisting = VesselManning::query()
+            ->where('company_id', $companyId)
+            ->where('vessel_id', $vessel->id)
+            ->exists();
+
+        if (! $hasExisting) {
+            return $user->can('crew_operations.vessel_manning.create');
+        }
+
+        return $user->can('crew_operations.vessel_manning.update');
     }
 
     /**

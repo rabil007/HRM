@@ -84,7 +84,9 @@ function makeVesselManningFixtures(): array
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.vessel_manning.view',
-        'crew_operations.vessel_manning.manage',
+        'crew_operations.vessel_manning.create',
+        'crew_operations.vessel_manning.update',
+        'crew_operations.vessel_manning.delete',
     ]);
 
     return compact(
@@ -134,7 +136,9 @@ test('authorized users can view vessel manning index', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/vessel-manning/index')
             ->has('vessels', 2)
-            ->where('can.manage', true)
+            ->where('can.create', true)
+            ->where('can.update', true)
+            ->where('can.delete', true)
             ->where('vessels.0.name', 'Inactive Vessel')
             ->where('vessels.1.name', 'Vessel Alpha')
             ->where('vessels.1.total_required', 3)
@@ -303,6 +307,83 @@ test('vessel manning is scoped per company', function () {
         'rank_id' => $captain->id,
         'required_count' => 5,
     ]);
+});
+
+test('users without update permission cannot modify existing vessel manning', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+        'welder' => $welder,
+    ] = makeVesselManningFixtures();
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.vessel_manning.view',
+        'crew_operations.vessel_manning.create',
+        'crew_operations.vessel_manning.delete',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.vessel-manning.update', $vessel), [
+            'requirements' => [
+                ['rank_id' => $welder->id, 'required_count' => 2],
+            ],
+        ])
+        ->assertForbidden();
+});
+
+test('users without create permission cannot add first vessel manning', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeVesselManningFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.vessel_manning.view',
+        'crew_operations.vessel_manning.update',
+        'crew_operations.vessel_manning.delete',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.vessel-manning.update', $vessel), [
+            'requirements' => [
+                ['rank_id' => $captain->id, 'required_count' => 1],
+            ],
+        ])
+        ->assertForbidden();
+});
+
+test('users without delete permission cannot clear vessel manning', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+    ] = makeVesselManningFixtures();
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.vessel_manning.view',
+        'crew_operations.vessel_manning.create',
+        'crew_operations.vessel_manning.update',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.vessel-manning.update', $vessel), [
+            'requirements' => [],
+        ])
+        ->assertForbidden();
 });
 
 test('users without manage permission cannot update vessel manning', function () {

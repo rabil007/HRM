@@ -48,6 +48,17 @@ export type DeploymentActivityItem = {
 
 export type DeploymentSummary = Record<string, number>;
 
+export type DeploymentPagePermissions = {
+    create: boolean;
+    update: boolean;
+    delete: boolean;
+    export: boolean;
+};
+
+export function deploymentHasWriteActions(can: DeploymentPagePermissions): boolean {
+    return can.create || can.update || can.delete;
+}
+
 export type DeploymentStatusRuleItem = {
     status: string;
     label: string;

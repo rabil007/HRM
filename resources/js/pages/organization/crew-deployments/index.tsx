@@ -35,8 +35,10 @@ import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/
 import { DeploymentStatusRulesDialog } from '@/features/organization/crew-deployments/deployment-status-rules-dialog';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
 import { SortableDeploymentTableHead } from '@/features/organization/crew-deployments/sortable-deployment-table-head';
+import { deploymentHasWriteActions } from '@/features/organization/crew-deployments/types';
 import type {
     DeploymentItem,
+    DeploymentPagePermissions,
     DeploymentStatusRules,
     DeploymentSummary,
 } from '@/features/organization/crew-deployments/types';
@@ -72,7 +74,7 @@ type Props = {
     clients: Option[];
     company_visa_types: Option[];
     vessels: Option[];
-    can: { manage: boolean };
+    can: DeploymentPagePermissions;
     status_rules: DeploymentStatusRules;
 };
 
@@ -305,13 +307,15 @@ query.per_page = String(deployments.per_page);
                     <div className="hidden h-6 w-px bg-border/60 sm:block" aria-hidden />
                     */}
 
-                    <Button variant="outline" size="sm" className="h-9" asChild>
-                        <a href="/organization/crew-deployments/export">
-                            <Download className="mr-2 h-4 w-4" />
-                            Export
-                        </a>
-                    </Button>
-                    {can.manage ? (
+                    {can.export ? (
+                        <Button variant="outline" size="sm" className="h-9" asChild>
+                            <a href="/organization/crew-deployments/export">
+                                <Download className="mr-2 h-4 w-4" />
+                                Export
+                            </a>
+                        </Button>
+                    ) : null}
+                    {can.create ? (
                         <Button
                             size="sm"
                             className={cn(actions.primary, 'h-9')}
@@ -564,7 +568,7 @@ query.per_page = String(deployments.per_page);
                             Client
                         </SortableDeploymentTableHead>
                         <DataTableHead rowSpan={2}>Remarks</DataTableHead>
-                        {can.manage ? (
+                        {deploymentHasWriteActions(can) ? (
                             <DataTableHead rowSpan={2} className="text-right">
                                 Actions
                             </DataTableHead>
@@ -625,7 +629,11 @@ query.per_page = String(deployments.per_page);
                     {deployments.data.length === 0 ? (
                         <TableRow>
                             <TableCell
-                                colSpan={can.manage ? tableColumnCount + 1 : tableColumnCount}
+                                colSpan={
+                                    deploymentHasWriteActions(can)
+                                        ? tableColumnCount + 1
+                                        : tableColumnCount
+                                }
                                 className="py-10 text-center text-muted-foreground"
                             >
                                 No deployment records found.
@@ -748,7 +756,7 @@ query.per_page = String(deployments.per_page);
                                 >
                                     {displayValue(deployment.remarks)}
                                 </TableCell>
-                                {can.manage ? (
+                                {deploymentHasWriteActions(can) ? (
                                     <TableCell className={dataTableActionsCellClass()}>
                                         <ListTableCrudActions
                                             viewHref={showDeployment.url(
@@ -757,8 +765,10 @@ query.per_page = String(deployments.per_page);
                                                     ? { query: listBackQuery }
                                                     : undefined,
                                             )}
-                                            onEdit={() => openEdit(deployment)}
-                                            onDelete={() => setDeleting(deployment)}
+                                            onEdit={can.update ? () => openEdit(deployment) : undefined}
+                                            onDelete={can.delete ? () => setDeleting(deployment) : undefined}
+                                            showEdit={can.update}
+                                            showDelete={can.delete}
                                         />
                                     </TableCell>
                                 ) : null}

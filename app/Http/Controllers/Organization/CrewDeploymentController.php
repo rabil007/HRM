@@ -15,6 +15,7 @@ use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
+use App\Support\CrewDeployments\CrewDeploymentPagePermissions;
 use App\Support\CrewDeployments\DeploymentStatusRules;
 use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
 use App\Support\CrewDeployments\SyncSeaServiceFromDeployment;
@@ -86,9 +87,7 @@ class CrewDeploymentController extends Controller
             'clients' => Client::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'company_visa_types' => CompanyVisaType::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'vessels' => Vessel::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
-            'can' => [
-                'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
-            ],
+            'can' => CrewDeploymentPagePermissions::for($request->user()),
             'status_rules' => DeploymentStatusRules::forPage(),
         ]);
     }
@@ -139,9 +138,7 @@ class CrewDeploymentController extends Controller
                 limit: 20,
             ),
             'can_view_audit' => $request->user()?->can('audit.view') ?? false,
-            'can' => [
-                'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
-            ],
+            'can' => CrewDeploymentPagePermissions::for($request->user()),
             'employees' => Employee::query()
                 ->where('company_id', $companyId)
                 ->where('status', 'active')

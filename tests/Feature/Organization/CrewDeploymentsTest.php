@@ -87,7 +87,10 @@ function makeCrewDeploymentFixtures(): array
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.deployments.view',
-        'crew_operations.deployments.manage',
+        'crew_operations.deployments.create',
+        'crew_operations.deployments.update',
+        'crew_operations.deployments.delete',
+        'crew_operations.deployments.export',
     ]);
 
     return compact('user', 'company', 'employee', 'rank');
@@ -584,7 +587,7 @@ test('deployment show page exposes recent activity with audit permission', funct
 
     grantCompanyPermissions($user, $company, [
         'crew_operations.deployments.view',
-        'crew_operations.deployments.manage',
+        'crew_operations.deployments.update',
         'audit.view',
     ]);
 

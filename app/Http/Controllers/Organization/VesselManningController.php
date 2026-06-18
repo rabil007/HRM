@@ -11,6 +11,7 @@ use App\Models\VesselType;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\VesselManning\SyncVesselManning;
 use App\Support\VesselManning\VesselManningIndexQuery;
+use App\Support\VesselManning\VesselManningPagePermissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -51,9 +52,7 @@ class VesselManningController extends Controller
             ],
             'ranks' => $ranks,
             'vessel_types' => $vesselTypes,
-            'can' => [
-                'manage' => $request->user()?->can('crew_operations.vessel_manning.manage') ?? false,
-            ],
+            'can' => VesselManningPagePermissions::for($request->user()),
         ]);
     }
 

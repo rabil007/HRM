@@ -3,7 +3,7 @@ import { Package } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { DeploymentCard } from '@/features/organization/crew-deployments/deployment-card';
-import type { DeploymentItem } from '@/features/organization/crew-deployments/types';
+import type { DeploymentItem, DeploymentPagePermissions } from '@/features/organization/crew-deployments/types';
 import { cn } from '@/lib/utils';
 
 const COLUMN_STYLES: Record<
@@ -59,7 +59,7 @@ type Props = {
     label: string;
     count: number;
     deployments: DeploymentItem[];
-    can: { manage: boolean };
+    can: DeploymentPagePermissions;
     onEdit: (deployment: DeploymentItem) => void;
     onDelete: (deployment: DeploymentItem) => void;
     backQuery?: Record<string, string>;
