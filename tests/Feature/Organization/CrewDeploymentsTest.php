@@ -124,7 +124,9 @@ test('authorized users can view crew deployment board', function () {
             ->where('deployments.data.0.employee_no', '2018')
             ->where('deployments.data.0.status', DeploymentStatus::ON_VESSEL)
             ->where('summary.on_vessel', 1)
-            ->where('summary.total', 1));
+            ->where('summary.total', 1)
+            ->has('status_rules')
+            ->where('status_rules.in_home.title', 'In home'));
 });
 
 test('crew deployment board accepts view parameter', function () {

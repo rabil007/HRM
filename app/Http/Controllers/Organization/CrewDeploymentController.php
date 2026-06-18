@@ -15,6 +15,7 @@ use App\Models\Vessel;
 use App\Support\Activity\RecentActivityQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardQuery;
 use App\Support\CrewDeployments\CrewDeploymentBoardSort;
+use App\Support\CrewDeployments\DeploymentStatusRules;
 use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
 use App\Support\CrewDeployments\SyncSeaServiceFromDeployment;
 use Illuminate\Http\RedirectResponse;
@@ -88,6 +89,7 @@ class CrewDeploymentController extends Controller
             'can' => [
                 'manage' => $request->user()?->can('crew_operations.deployments.manage') ?? false,
             ],
+            'status_rules' => DeploymentStatusRules::forPage(),
         ]);
     }
 

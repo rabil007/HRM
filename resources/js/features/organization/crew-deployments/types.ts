@@ -47,3 +47,28 @@ export type DeploymentActivityItem = {
 };
 
 export type DeploymentSummary = Record<string, number>;
+
+export type DeploymentStatusRuleItem = {
+    status: string;
+    label: string;
+    summary: string;
+    conditions: string[];
+    badge: string | null;
+};
+
+export type DeploymentStatusRules = {
+    intro: string;
+    priority_note: string;
+    statuses: DeploymentStatusRuleItem[];
+    date_highlights: {
+        title: string;
+        overdue: string;
+        fields: string[];
+    };
+    needs_update_hints: string[];
+    in_home: {
+        title: string;
+        summary: string;
+        conditions: string[];
+    };
+};

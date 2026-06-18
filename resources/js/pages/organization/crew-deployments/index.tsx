@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Download, Filter, Plus, Search, X } from 'lucide-react';
+import { Download, Filter, Info, Plus, Search, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
@@ -32,10 +32,12 @@ import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deploy
 import { DeploymentDateCell } from '@/features/organization/crew-deployments/deployment-date-cell';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
+import { DeploymentStatusRulesDialog } from '@/features/organization/crew-deployments/deployment-status-rules-dialog';
 import { EmployeeProfileLink } from '@/features/organization/crew-deployments/employee-profile-link';
 import { SortableDeploymentTableHead } from '@/features/organization/crew-deployments/sortable-deployment-table-head';
 import type {
     DeploymentItem,
+    DeploymentStatusRules,
     DeploymentSummary,
 } from '@/features/organization/crew-deployments/types';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
@@ -71,6 +73,7 @@ type Props = {
     company_visa_types: Option[];
     vessels: Option[];
     can: { manage: boolean };
+    status_rules: DeploymentStatusRules;
 };
 
 function displayValue(value: string | null | undefined): string {
@@ -93,8 +96,10 @@ export default function CrewDeploymentsIndex({
     company_visa_types,
     vessels,
     can,
+    status_rules,
 }: Props): ReactElement {
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [rulesDialogOpen, setRulesDialogOpen] = useState(false);
     const [editing, setEditing] = useState<DeploymentItem | null>(null);
     const [deleting, setDeleting] = useState<DeploymentItem | null>(null);
 
@@ -254,9 +259,21 @@ query.per_page = String(deployments.per_page);
                     <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/60">
                         Crew Operations
                     </p>
-                    <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
-                        Deployments
-                    </h1>
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-3xl font-extrabold tracking-tight sm:text-4xl">
+                            Deployments
+                        </h1>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                            aria-label="Deployment status rules"
+                            onClick={() => setRulesDialogOpen(true)}
+                        >
+                            <Info className="h-4 w-4" />
+                        </Button>
+                    </div>
                     <p className="mt-1 text-sm text-muted-foreground">
                         Track where crew are now — on vessel, join/leave standby, travel, and
                         assignment history.
@@ -763,6 +780,12 @@ query.per_page = String(deployments.per_page);
             )} */}
 
             <Pagination {...list.paginationProps} className="mt-4" label="deployments" />
+
+            <DeploymentStatusRulesDialog
+                open={rulesDialogOpen}
+                onOpenChange={setRulesDialogOpen}
+                rules={status_rules}
+            />
 
             <DeploymentFormDialog
                 open={dialogOpen}
