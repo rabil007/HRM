@@ -26,7 +26,6 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
-import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
 import { vesselManningHasWriteActions } from './types';
 import type {
     RankOption,
@@ -35,6 +34,7 @@ import type {
     VesselManningPagePermissions,
     VesselTypeOption,
 } from './types';
+import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
 
 export function VesselManningContent({
     vessels,

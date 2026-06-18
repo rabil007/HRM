@@ -1,5 +1,4 @@
 import type { ReactElement } from 'react';
-import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import type { GanttBar, PlanningPagePermissions } from '../types';
@@ -22,6 +21,7 @@ function formatDate(dateStr: string | null): string {
     if (!dateStr) {
         return 'Ongoing';
     }
+
     return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
         day: 'numeric',
         month: 'short',

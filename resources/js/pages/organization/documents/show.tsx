@@ -13,11 +13,11 @@ import { DocumentShowHeaderActions } from '@/features/organization/documents/sha
 import { DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { DocumentPreviewPanel } from '@/features/organization/documents/shared/document-preview-panel';
+import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
 import type {
     DocumentShowItem,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
-import { DocumentVersionHistory } from '@/features/organization/documents/shared/document-version-history';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { formatDisplayDate } from '@/lib/format-date';

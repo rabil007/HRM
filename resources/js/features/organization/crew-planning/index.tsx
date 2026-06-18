@@ -201,6 +201,7 @@ export function CrewPlanningContent({
         setSelectedRowKey((prev) => (prev === rowKey ? null : rowKey));
 
         const el = ganttRef.current?.querySelector(`[data-row-key="${rowKey}"]`);
+
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
@@ -218,6 +219,7 @@ export function CrewPlanningContent({
             setDraggingEmployee(null);
 
             const { active, over } = event;
+
             if (!over) {
                 return;
             }
@@ -233,6 +235,7 @@ export function CrewPlanningContent({
                 `[data-row-key="vessel:${overData.vesselId}|rank:${overData.rankId}"]`,
             ) as HTMLElement | null;
             let estimatedDate = today;
+
             if (rowEl) {
                 const rect = rowEl.getBoundingClientRect();
                 const activator = event.activatorEvent as PointerEvent;

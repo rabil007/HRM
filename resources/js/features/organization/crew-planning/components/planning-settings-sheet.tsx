@@ -47,6 +47,7 @@ export function PlanningSettingsSheet({
     const toggleDepartment = (departmentId: number, checked: boolean): void => {
         if (checked) {
             form.setData('pool_department_ids', [...selectedSet, departmentId]);
+
             return;
         }
 

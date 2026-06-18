@@ -142,6 +142,7 @@ function VesselNode({
             <CollapsibleContent>
                 {vessel.ranks.map((rank) => {
                     const rowKey = `vessel:${vessel.vessel_id}|rank:${rank.rank_id}`;
+
                     return (
                         <RankNode
                             key={rowKey}

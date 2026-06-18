@@ -33,14 +33,14 @@ const PdfMergeModal = lazy(() =>
 import { DocumentsBulkToolbar } from '@/features/organization/documents/shared/bulk-toolbar';
 import { ConfirmDeleteDocumentDialog } from '@/features/organization/documents/shared/confirm-delete-dialog';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
-import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
+import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
+import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
     DocumentExpirySummary,
     DocumentProfileItem,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
-import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import {
     buildWhatsAppMessage,

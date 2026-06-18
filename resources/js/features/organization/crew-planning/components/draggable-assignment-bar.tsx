@@ -39,6 +39,7 @@ function formatDate(dateStr: string | null): string {
     if (!dateStr) {
         return 'Ongoing';
     }
+
     return new Date(`${dateStr}T00:00:00`).toLocaleDateString('en-US', {
         day: 'numeric',
         month: 'short',
@@ -68,6 +69,7 @@ export function DraggableAssignmentBar({
         if (!can.update) {
             return;
         }
+
         e.preventDefault();
         e.stopPropagation();
 
@@ -89,6 +91,7 @@ export function DraggableAssignmentBar({
 
         const onMove = (me: globalThis.PointerEvent): void => {
             const drag = dragRef.current;
+
             if (!drag) {
                 return;
             }
@@ -129,6 +132,7 @@ export function DraggableAssignmentBar({
             if (!drag) {
                 setIsDragging(false);
                 setLiveStyle(null);
+
                 return;
             }
 
@@ -138,6 +142,7 @@ export function DraggableAssignmentBar({
             if (finalStart === drag.originalStart && finalEnd === drag.originalEnd) {
                 setIsDragging(false);
                 setLiveStyle(null);
+
                 return;
             }
 

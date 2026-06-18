@@ -1,8 +1,7 @@
-import { useRef } from 'react';
 import type { ReactElement } from 'react';
 import { cn } from '@/lib/utils';
-import { PlanningGanttRow, ROW_HEIGHT } from './planning-gantt-row';
 import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
+import { PlanningGanttRow } from './planning-gantt-row';
 
 type Props = {
     rows: GanttVesselGroup[];
@@ -17,7 +16,6 @@ type Props = {
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
     onConfirmBar?: (bar: GanttBar) => void;
-    onRowVisible?: (rowKey: string) => void;
 };
 
 function buildDayColumns(from: Date, to: Date): { date: Date; label: string; isToday: boolean }[] {
@@ -45,10 +43,12 @@ function buildMonthGroups(days: { date: Date }[]): MonthGroup[] {
 
     for (const day of days) {
         const label = day.date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+
         if (!current || current.label !== label) {
             current = { label, days: 0 };
             groups.push(current);
         }
+
         current.days++;
     }
 
@@ -68,7 +68,6 @@ export function PlanningGantt({
     onEditBar,
     onDeleteBar,
     onConfirmBar,
-    onRowVisible,
 }: Props): ReactElement {
     const rangeFrom = new Date(`${from}T00:00:00`);
     const rangeTo = new Date(`${to}T23:59:59`);
@@ -78,16 +77,8 @@ export function PlanningGantt({
     const monthGroups = buildMonthGroups(days);
     const totalDays = days.length;
 
-    const rowRefs = useRef<Map<string, React.RefObject<HTMLDivElement | null>>>(new Map());
-
-    function getRowRef(rowKey: string): React.RefObject<HTMLDivElement | null> {
-        if (!rowRefs.current.has(rowKey)) {
-            rowRefs.current.set(rowKey, { current: null });
-        }
-        return rowRefs.current.get(rowKey)!;
-    }
-
     const barsByRow = new Map<string, GanttBar[]>();
+
     for (const bar of bars) {
         const existing = barsByRow.get(bar.row_key) ?? [];
         existing.push(bar);
@@ -169,7 +160,6 @@ export function PlanningGantt({
                                     today={todayDate}
                                     highlightedCrewName={search}
                                     isHighlighted={isHighlightedRow || matchesSearch}
-                                    rowRef={getRowRef(rank.row_key)}
                                     can={can}
                                     onRowClick={onRowClick}
                                     onEditBar={onEditBar}

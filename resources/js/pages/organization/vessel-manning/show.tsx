@@ -1,11 +1,11 @@
 import { Head } from '@inertiajs/react';
+import type { RecentActivityItem } from '@/components/recent-activity-card';
 import { VesselManningShowContent } from '@/features/organization/vessel-manning/show';
 import type {
     RankOption,
     VesselManningPagePermissions,
     VesselManningShowItem,
 } from '@/features/organization/vessel-manning/types';
-import type { RecentActivityItem } from '@/components/recent-activity-card';
 
 type Props = {
     vessel: VesselManningShowItem;

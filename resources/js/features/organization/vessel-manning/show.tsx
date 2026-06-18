@@ -5,7 +5,6 @@ import {
     index as vesselManningIndex,
     update as updateVesselManning,
 } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
-import { DetailsHeader } from '@/components/details-header';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -14,8 +13,10 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
-import { RecentActivityCard, type RecentActivityItem } from '@/components/recent-activity-card';
+import { RecentActivityCard  } from '@/components/recent-activity-card';
+import type {RecentActivityItem} from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +25,6 @@ import { actions } from '@/lib/design-system';
 import { formatDisplayValue } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
-import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
 import { vesselManningHasWriteActions } from './types';
 import type {
     RankOption,
@@ -32,6 +32,7 @@ import type {
     VesselManningPagePermissions,
     VesselManningShowItem,
 } from './types';
+import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
 
 function StatChip({
     label,

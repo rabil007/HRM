@@ -418,7 +418,9 @@ export default function Vessels({
                                 <div className="flex items-center justify-center gap-3">
                                     <FileSpreadsheet className="size-5 text-emerald-600" />
                                     <span className="text-sm font-medium">{importFile.name}</span>
-                                    <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); clearImportFile(); }}>Remove</Button>
+                                    <Button type="button" variant="ghost" size="sm" onClick={(e) => {
+ e.stopPropagation(); clearImportFile(); 
+}}>Remove</Button>
                                 </div>
                             ) : (
                                 <p className="text-sm text-muted-foreground">Drop your CSV here or click to browse</p>

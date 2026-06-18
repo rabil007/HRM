@@ -21,6 +21,7 @@ type Props = {
 
 function formatMonthLabel(dateStr: string): string {
     const d = new Date(`${dateStr}T00:00:00`);
+
     return d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 }
 
@@ -28,12 +29,14 @@ function addMonths(dateStr: string, delta: number): string {
     const d = new Date(`${dateStr}T00:00:00`);
     d.setMonth(d.getMonth() + delta);
     d.setDate(1);
+
     return d.toISOString().split('T')[0];
 }
 
 function endOfMonth(dateStr: string): string {
     const d = new Date(`${dateStr}T00:00:00`);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+
     return end.toISOString().split('T')[0];
 }
 

@@ -1,5 +1,5 @@
-import { Briefcase, Building2, Camera, ChevronDown, ClipboardList, UserRound, X } from 'lucide-react';
 import { Link, router } from '@inertiajs/react';
+import { Briefcase, Building2, Camera, ChevronDown, ClipboardList, UserRound, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';

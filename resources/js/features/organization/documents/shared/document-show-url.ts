@@ -1,5 +1,5 @@
-import { show as documentShow } from '@/routes/organization/documents/employee/files';
 import type { DocumentShowBackContext } from '@/features/organization/documents/shared/types';
+import { show as documentShow } from '@/routes/organization/documents/employee/files';
 
 export function buildDocumentShowUrl(
     employeeId: number,

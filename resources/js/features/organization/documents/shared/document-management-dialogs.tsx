@@ -72,6 +72,7 @@ export function DocumentManagementDialogs({
                                   : {}),
                             onSuccess: () => {
                                 onDeleteDocIdChange(null);
+
                                 if (deleteRedirectUrl) {
                                     router.visit(deleteRedirectUrl);
                                 }

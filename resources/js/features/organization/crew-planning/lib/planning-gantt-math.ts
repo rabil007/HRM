@@ -6,6 +6,7 @@ export function barPositionStyle(
     rangeTo: Date,
 ): { left: string; width: string } | { display: 'none' } {
     const totalMs = rangeTo.getTime() - rangeFrom.getTime();
+
     if (totalMs <= 0) {
         return { display: 'none' };
     }
@@ -45,6 +46,7 @@ export function dateFromPointerRatio(ratio: number, rangeFrom: Date, rangeTo: Da
 export function daysBetween(start: string, end: string): number {
     const startMs = new Date(`${start}T00:00:00`).getTime();
     const endMs = new Date(`${end}T00:00:00`).getTime();
+
     return Math.round((endMs - startMs) / 86_400_000);
 }
 
@@ -57,6 +59,7 @@ export function shiftDateRange(
     const shiftMs = dayDelta * 86_400_000;
     const newStart = new Date(new Date(`${start}T00:00:00`).getTime() + shiftMs);
     const newEnd = new Date(new Date(`${end}T00:00:00`).getTime() + shiftMs);
+
     return {
         start: formatIsoDateLocal(newStart),
         end: formatIsoDateLocal(newEnd),
@@ -67,5 +70,6 @@ export function shiftDateRange(
 export function pxToDays(pxDelta: number, containerWidth: number, rangeFrom: Date, rangeTo: Date): number {
     const totalMs = rangeTo.getTime() - rangeFrom.getTime();
     const totalDays = totalMs / 86_400_000;
+
     return (pxDelta / containerWidth) * totalDays;
 }

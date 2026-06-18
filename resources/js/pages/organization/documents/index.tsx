@@ -19,6 +19,7 @@ import { DocumentsIndexFolderGrid } from '@/features/organization/documents/inde
 import { DocumentsIndexSearchResults } from '@/features/organization/documents/index/documents-index-search-results';
 import { resolveDocumentsIndexSearchMode } from '@/features/organization/documents/index/use-documents-index-search-mode';
 import type { ExpiryFilter } from '@/features/organization/documents/shared/document-expiry';
+import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { buildDocumentShowUrl } from '@/features/organization/documents/shared/document-show-url';
 import { downloadBulkZip } from '@/features/organization/documents/shared/download-bulk-zip';
 import type {
@@ -28,7 +29,6 @@ import type {
     EmployeeFolder,
     PaginatedComplianceDocuments,
 } from '@/features/organization/documents/shared/types';
-import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { toast } from '@/lib/toast';

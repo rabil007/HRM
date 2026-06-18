@@ -2,8 +2,8 @@ import { useDroppable } from '@dnd-kit/core';
 import type { MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
 import { barPositionStyle, dateFromPointerRatio } from '../lib/planning-gantt-math';
-import { PlanningGanttBar } from './planning-bar-tooltip';
 import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
+import { PlanningGanttBar } from './planning-bar-tooltip';
 
 export const ROW_HEIGHT = 48;
 
@@ -18,7 +18,6 @@ type Props = {
     today: Date;
     highlightedCrewName: string;
     isHighlighted: boolean;
-    rowRef?: React.RefObject<HTMLDivElement | null>;
     can: PlanningPagePermissions;
     isDraggingBar?: boolean;
     onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
@@ -29,13 +28,17 @@ type Props = {
 
 function todayLineStyle(today: Date, rangeFrom: Date, rangeTo: Date): React.CSSProperties | null {
     const totalMs = rangeTo.getTime() - rangeFrom.getTime();
+
     if (totalMs <= 0) {
         return null;
     }
+
     const pos = ((today.getTime() - rangeFrom.getTime()) / totalMs) * 100;
+
     if (pos < 0 || pos > 100) {
         return null;
     }
+
     return { left: `${pos}%` };
 }
 
@@ -50,7 +53,6 @@ export function PlanningGanttRow({
     today,
     highlightedCrewName,
     isHighlighted,
-    rowRef,
     can,
     isDraggingBar = false,
     onRowClick,
@@ -71,27 +73,22 @@ export function PlanningGanttRow({
         if (!can.create || !onRowClick || isDraggingBar) {
             return;
         }
+
         const target = e.target as HTMLElement;
+
         if (target.closest('[data-radix-popper-content-wrapper]') ?? target.closest('.absolute')) {
             return;
         }
+
         const rect = e.currentTarget.getBoundingClientRect();
         const ratio = (e.clientX - rect.left) / rect.width;
         const estimatedDate = dateFromPointerRatio(ratio, rangeFrom, rangeTo);
         onRowClick(rowKey, vesselId, rankId, estimatedDate);
     };
 
-    // Merge droppable ref with the external rowRef
-    const setRef = (el: HTMLDivElement | null): void => {
-        setDropRef(el);
-        if (rowRef) {
-            (rowRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
-        }
-    };
-
     return (
         <div
-            ref={setRef}
+            ref={setDropRef}
             data-row-key={rowKey}
             className={cn(
                 'relative flex border-b transition-colors',

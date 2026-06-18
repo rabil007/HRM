@@ -1,5 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
+import { router } from '@inertiajs/react';
 import {
     AlertTriangle,
     Anchor,
@@ -11,7 +12,6 @@ import {
     Ship,
 } from 'lucide-react';
 import type { CSSProperties, ReactElement } from 'react';
-import { router } from '@inertiajs/react';
 import { show as showDeployment } from '@/actions/App/Http/Controllers/Organization/CrewDeploymentController';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
