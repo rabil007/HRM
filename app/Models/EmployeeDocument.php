@@ -129,7 +129,7 @@ class EmployeeDocument extends Model
             'title' => $this->title,
             'type' => $this->type,
             'document_type_id' => $this->document_type_id,
-            'document_type' => $this->document_type,
+            'document_type_value' => $this->document_type,
             'document_type_label' => $this->document_type_label,
             'file_path' => $this->file_path,
             'original_filename' => $this->original_filename,

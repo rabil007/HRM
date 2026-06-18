@@ -14,13 +14,25 @@ import type {
 export function DocumentsIndexDocumentsTable({
     documents,
     onPreview,
-    canDownload,
     onPageChange,
+    canDownload,
+    canUpload,
+    canDelete,
+    onEdit,
+    onReplace,
+    onVersions,
+    onDelete,
 }: {
     documents: PaginatedComplianceDocuments;
     onPreview: (doc: ComplianceDocumentItem) => void;
-    canDownload: boolean;
     onPageChange?: (page: number) => void;
+    canDownload: boolean;
+    canUpload: boolean;
+    canDelete: boolean;
+    onEdit: (doc: ComplianceDocumentItem) => void;
+    onReplace: (doc: ComplianceDocumentItem) => void;
+    onVersions: (doc: ComplianceDocumentItem) => void;
+    onDelete: (doc: ComplianceDocumentItem) => void;
 }) {
     if (documents.data.length === 0) {
         return null;
@@ -48,6 +60,12 @@ export function DocumentsIndexDocumentsTable({
                             doc={doc}
                             onPreview={onPreview}
                             canDownload={canDownload}
+                            canUpload={canUpload}
+                            canDelete={canDelete}
+                            onEdit={onEdit}
+                            onReplace={onReplace}
+                            onVersions={onVersions}
+                            onDelete={onDelete}
                         />
                     ))}
                 </TableBody>

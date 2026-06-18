@@ -1,28 +1,38 @@
-import { Download, ExternalLink, Eye, FolderOpen } from 'lucide-react';
 import {
     dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
 } from '@/components/data-table';
-import { TableRowActions } from '@/components/table-row-actions';
 import { Badge } from '@/components/ui/badge';
 import { TableCell, TableRow } from '@/components/ui/table';
 import { expiryRemainingClass } from '@/features/organization/documents/document-expiry';
 import { DocumentExpiryBadge } from '@/features/organization/documents/document-expiry-badge';
-import { DocumentFileIcon } from '@/features/organization/documents/document-file-icon';
-import type { ComplianceDocumentItem } from '@/features/organization/documents/types';
+import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
+import { DocumentModuleRowActions } from '@/features/organization/documents/shared/document-actions/document-module-row-actions';
+import type { ComplianceDocumentItem } from '@/features/organization/documents/shared/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { documents } from '@/routes/organization';
 
 export function DocumentComplianceTableRow({
     doc,
     onPreview,
     canDownload = false,
+    canUpload = false,
+    canDelete = false,
+    onEdit,
+    onReplace,
+    onVersions,
+    onDelete,
 }: {
     doc: ComplianceDocumentItem;
     onPreview: (doc: ComplianceDocumentItem) => void;
     canDownload?: boolean;
+    canUpload?: boolean;
+    canDelete?: boolean;
+    onEdit?: (doc: ComplianceDocumentItem) => void;
+    onReplace?: (doc: ComplianceDocumentItem) => void;
+    onVersions?: (doc: ComplianceDocumentItem) => void;
+    onDelete?: (doc: ComplianceDocumentItem) => void;
 }) {
     return (
         <TableRow className={dataTableBodyRowClass(false)}>
@@ -80,34 +90,17 @@ export function DocumentComplianceTableRow({
             <TableCell className={cn(dataTableCellClass(), 'hidden sm:table-cell')}>
                 <DocumentExpiryBadge status={doc.expiry_status} />
             </TableCell>
-            <TableCell className={dataTableActionsCellClass()}>
-                <TableRowActions
-                    actions={[
-                        {
-                            label: 'View',
-                            icon: Eye,
-                            onClick: () => onPreview(doc),
-                            hidden: !doc.can_preview,
-                        },
-                        {
-                            label: 'Download',
-                            icon: Download,
-                            href: documents.files.download.url({ document: doc.id }),
-                            hidden: !canDownload,
-                        },
-                        {
-                            label: 'Open file',
-                            icon: ExternalLink,
-                            href: doc.file_url,
-                            target: '_blank',
-                            rel: 'noreferrer',
-                        },
-                        {
-                            label: 'Open folder',
-                            icon: FolderOpen,
-                            href: documents.employee.url({ employee: doc.employee_id }),
-                        },
-                    ]}
+            <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
+                <DocumentModuleRowActions
+                    doc={doc}
+                    onPreview={() => onPreview(doc)}
+                    canDownload={canDownload}
+                    canUpload={canUpload}
+                    canDelete={canDelete}
+                    onEdit={onEdit ? () => onEdit(doc) : undefined}
+                    onReplace={onReplace ? () => onReplace(doc) : undefined}
+                    onVersions={onVersions ? () => onVersions(doc) : undefined}
+                    onDelete={onDelete ? () => onDelete(doc) : undefined}
                 />
             </TableCell>
         </TableRow>

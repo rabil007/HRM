@@ -383,3 +383,48 @@ test('employee documents browse returns 404 when employee is outside company', f
     $this->get("/organization/documents/employees/{$otherEmployee->id}")
         ->assertNotFound();
 });
+
+test('documents module pages expose upload permission and profile metadata for management actions', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'documents.view',
+        'documents.upload',
+        'documents.delete',
+    ]);
+
+    EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/passport.pdf',
+        'original_filename' => 'Passport.pdf',
+        'title' => 'Passport Copy',
+        'document_number' => 'P1234567',
+        'notes' => 'Primary passport',
+        'status' => 'valid',
+        'uploaded_by' => $user->id,
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.upload', true)
+            ->where('can.delete', true)
+            ->where('documents.0.title', 'Passport Copy')
+            ->where('documents.0.document_number', 'P1234567')
+            ->where('documents.0.notes', 'Primary passport')
+        );
+
+    $this->get('/organization/documents?expiry=expired')
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.upload', true)
+            ->where('can.delete', true)
+        );
+});

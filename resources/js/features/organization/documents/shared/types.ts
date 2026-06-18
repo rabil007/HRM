@@ -65,7 +65,7 @@ export type DocumentProfileItem = DocumentBrowseItem & {
     }[];
 };
 
-export type ComplianceDocumentItem = DocumentBrowseItem & {
+export type ComplianceDocumentItem = DocumentProfileItem & {
     employee_id: number;
     employee_name: string;
     employee_no: string;

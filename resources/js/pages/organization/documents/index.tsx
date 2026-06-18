@@ -24,9 +24,11 @@ import { downloadBulkZip } from '@/features/organization/documents/shared/downlo
 import type {
     ComplianceDocumentItem,
     DocumentExpirySummary,
+    DocumentProfileItem,
     EmployeeFolder,
     PaginatedComplianceDocuments,
 } from '@/features/organization/documents/shared/types';
+import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import { useDocumentsIndexFilters } from '@/features/organization/documents/use-documents-index-filters';
 import { toast } from '@/lib/toast';
@@ -41,6 +43,7 @@ type Props = {
     complianceDocuments: PaginatedComplianceDocuments | null;
     can: {
         download: boolean;
+        upload: boolean;
         delete: boolean;
     };
 };
@@ -65,6 +68,11 @@ export default function DocumentsIndex({
     can,
 }: Props) {
     const [previewDoc, setPreviewDoc] = useState<ComplianceDocumentItem | null>(null);
+    const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
+    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
+    const [versionDoc, setVersionDoc] = useState<DocumentProfileItem | null>(null);
+    const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
+    const [managementEmployeeId, setManagementEmployeeId] = useState<number | null>(null);
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
 
     const folderIds = useMemo(
@@ -135,6 +143,43 @@ export default function DocumentsIndex({
         isBulkDownloading,
     };
 
+    const managementPartialReloadKeys = isComplianceView
+        ? ['complianceDocuments']
+        : ['searchDocuments', 'employees'];
+
+    const bindManagementDoc = (doc: ComplianceDocumentItem) => {
+        setManagementEmployeeId(doc.employee_id);
+
+        return doc;
+    };
+
+    const handleEditDocument = (doc: ComplianceDocumentItem) => {
+        setEditDoc(bindManagementDoc(doc));
+    };
+
+    const handleReplaceDocument = (doc: ComplianceDocumentItem) => {
+        setReplaceDoc(bindManagementDoc(doc));
+    };
+
+    const handleVersionDocument = (doc: ComplianceDocumentItem) => {
+        setVersionDoc(bindManagementDoc(doc));
+    };
+
+    const handleDeleteDocument = (doc: ComplianceDocumentItem) => {
+        bindManagementDoc(doc);
+        setDeleteDocId(doc.id);
+    };
+
+    const documentManagementProps = {
+        canDownload: can.download,
+        canUpload: can.upload,
+        canDelete: can.delete,
+        onEdit: handleEditDocument,
+        onReplace: handleReplaceDocument,
+        onVersions: handleVersionDocument,
+        onDelete: handleDeleteDocument,
+    };
+
     return (
         <Main>
             <Head title="Documents" />
@@ -189,7 +234,7 @@ export default function DocumentsIndex({
                                         key={doc.id}
                                         doc={doc}
                                         onPreview={setPreviewDoc}
-                                        canDownload={can.download}
+                                        {...documentManagementProps}
                                     />
                                 ))}
                             </TableBody>
@@ -231,12 +276,28 @@ export default function DocumentsIndex({
                     searchQuery={initialSearch}
                     employees={employees}
                     searchDocuments={resolvedSearchDocuments}
-                    canDownload={can.download}
                     onPreview={setPreviewDoc}
                     onPageChange={onPageChange}
                     folderGridProps={folderGridProps}
+                    {...documentManagementProps}
                 />
             )}
+
+            {managementEmployeeId !== null ? (
+                <DocumentManagementDialogs
+                    employeeId={managementEmployeeId}
+                    editDoc={editDoc}
+                    onEditDocChange={setEditDoc}
+                    replaceDoc={replaceDoc}
+                    onReplaceDocChange={setReplaceDoc}
+                    versionDoc={versionDoc}
+                    onVersionDocChange={setVersionDoc}
+                    deleteDocId={deleteDocId}
+                    onDeleteDocIdChange={setDeleteDocId}
+                    canDownload={can.download}
+                    partialReloadKeys={managementPartialReloadKeys}
+                />
+            ) : null}
 
             <DocumentPreviewDialog
                 document={

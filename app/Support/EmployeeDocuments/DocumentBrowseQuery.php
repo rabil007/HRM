@@ -104,7 +104,8 @@ class DocumentBrowseQuery
                 'employee:id,name,employee_no,company_id',
                 'documentType:id,title',
                 'uploader:id,name',
-            ]);
+            ])
+            ->withCount('versions');
 
         DocumentExpiry::applyExpiryFilter($query, $expiryFilter);
 
@@ -132,7 +133,8 @@ class DocumentBrowseQuery
                 'employee:id,name,employee_no,company_id',
                 'documentType:id,title',
                 'uploader:id,name',
-            ]);
+            ])
+            ->withCount('versions');
 
         $this->applyBrowseSearch($query, $search);
 
@@ -151,7 +153,7 @@ class DocumentBrowseQuery
             ->paginate($perPage)
             ->withQueryString()
             ->through(fn (EmployeeDocument $document) => [
-                ...$document->toBrowseArray(),
+                ...$document->toProfileArray(),
                 'employee_id' => $document->employee_id,
                 'employee_name' => $document->employee?->name ?? '',
                 'employee_no' => $document->employee?->employee_no ?? '',
@@ -195,9 +197,10 @@ class DocumentBrowseQuery
                 'documentType:id,title',
                 'uploader:id,name',
             ])
+            ->withCount('versions')
             ->latestUpload()
             ->get()
-            ->map(fn (EmployeeDocument $document) => $document->toBrowseArray())
+            ->map(fn (EmployeeDocument $document) => $document->toProfileArray())
             ->values()
             ->all();
 

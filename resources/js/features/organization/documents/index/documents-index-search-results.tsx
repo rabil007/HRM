@@ -24,16 +24,25 @@ type FolderGridProps = {
     selectedFolderCount: number;
 };
 
+type DocumentManagementProps = {
+    canDownload: boolean;
+    canUpload: boolean;
+    canDelete: boolean;
+    onEdit: (doc: ComplianceDocumentItem) => void;
+    onReplace: (doc: ComplianceDocumentItem) => void;
+    onVersions: (doc: ComplianceDocumentItem) => void;
+    onDelete: (doc: ComplianceDocumentItem) => void;
+};
+
 type Props = {
     mode: DocumentsIndexSearchMode;
     searchQuery: string;
     employees: EmployeeFolder[];
     searchDocuments: PaginatedComplianceDocuments;
-    canDownload: boolean;
     onPreview: (doc: ComplianceDocumentItem) => void;
     onPageChange: (page: number) => void;
     folderGridProps: FolderGridProps;
-};
+} & DocumentManagementProps;
 
 function EmployeesSection({
     employees,
@@ -56,14 +65,14 @@ function EmployeesSection({
 
 function DocumentsSection({
     searchDocuments,
-    canDownload,
     onPreview,
     onPageChange,
+    documentManagementProps,
 }: {
     searchDocuments: PaginatedComplianceDocuments;
-    canDownload: boolean;
     onPreview: (doc: ComplianceDocumentItem) => void;
     onPageChange: (page: number) => void;
+    documentManagementProps: DocumentManagementProps;
 }) {
     const count = searchDocuments.total;
 
@@ -77,8 +86,8 @@ function DocumentsSection({
             <DocumentsIndexDocumentsTable
                 documents={searchDocuments}
                 onPreview={onPreview}
-                canDownload={canDownload}
                 onPageChange={onPageChange}
+                {...documentManagementProps}
             />
         </section>
     );
@@ -89,11 +98,26 @@ export function DocumentsIndexSearchResults({
     searchQuery,
     employees,
     searchDocuments,
-    canDownload,
     onPreview,
     onPageChange,
     folderGridProps,
+    canDownload,
+    canUpload,
+    canDelete,
+    onEdit,
+    onReplace,
+    onVersions,
+    onDelete,
 }: Props) {
+    const documentManagementProps = {
+        canDownload,
+        canUpload,
+        canDelete,
+        onEdit,
+        onReplace,
+        onVersions,
+        onDelete,
+    };
     const employeeCount = employees.length;
     const documentCount = searchDocuments.total;
 
@@ -101,9 +125,9 @@ export function DocumentsIndexSearchResults({
         return (
             <DocumentsSection
                 searchDocuments={searchDocuments}
-                canDownload={canDownload}
                 onPreview={onPreview}
                 onPageChange={onPageChange}
+                documentManagementProps={documentManagementProps}
             />
         );
     }
@@ -134,9 +158,9 @@ export function DocumentsIndexSearchResults({
                 <EmployeesSection employees={employees} folderGridProps={folderGridProps} />
                 <DocumentsSection
                     searchDocuments={searchDocuments}
-                    canDownload={canDownload}
                     onPreview={onPreview}
                     onPageChange={onPageChange}
+                    documentManagementProps={documentManagementProps}
                 />
             </TabsContent>
 
@@ -147,9 +171,9 @@ export function DocumentsIndexSearchResults({
             <TabsContent value="documents" className="mt-6">
                 <DocumentsSection
                     searchDocuments={searchDocuments}
-                    canDownload={canDownload}
                     onPreview={onPreview}
                     onPageChange={onPageChange}
+                    documentManagementProps={documentManagementProps}
                 />
             </TabsContent>
         </Tabs>

@@ -6,16 +6,16 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell, TableRow } from '@/components/ui/table';
-import { BrowseDocumentActions } from '@/features/organization/documents/shared/document-actions/browse-actions';
+import { DocumentModuleRowActions } from '@/features/organization/documents/shared/document-actions/document-module-row-actions';
 import { DocumentExpiryBadge } from '@/features/organization/documents/shared/document-expiry-badge';
 import { DocumentExpiryDisplay, DocumentExpiryStatusCell } from '@/features/organization/documents/shared/document-expiry-display';
 import { DocumentFileIcon } from '@/features/organization/documents/shared/document-file-icon';
 import { DocumentUploadedDisplay } from '@/features/organization/documents/shared/document-uploaded-display';
+import type { DocumentProfileItem } from '@/features/organization/documents/shared/types';
 import type { WhatsAppTemplateOption } from '@/features/organization/documents/whatsapp-template/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import type { PhoneCountryOption } from '@/lib/phone-with-dial-code';
 import { cn, formatBytes } from '@/lib/utils';
-import type { DocumentBrowseItem } from './types';
 
 function formatOptionalDate(value: string | null): string {
     return value ? formatDisplayDate(value) : '—';
@@ -28,6 +28,12 @@ export function EmployeeDocumentTableRow({
     employeePhone,
     onPreview,
     canDownload = false,
+    canUpload = false,
+    canDelete = false,
+    onEdit,
+    onReplace,
+    onVersions,
+    onDelete,
     canSendWhatsAppTemplate = false,
     whatsappTemplates = [],
     countries,
@@ -35,12 +41,18 @@ export function EmployeeDocumentTableRow({
     onSelectedChange,
     selectionMode = false,
 }: {
-    doc: DocumentBrowseItem;
+    doc: DocumentProfileItem;
     employeeId: number;
     employeeName: string;
     employeePhone?: string | null;
-    onPreview: (doc: DocumentBrowseItem) => void;
+    onPreview: (doc: DocumentProfileItem) => void;
     canDownload?: boolean;
+    canUpload?: boolean;
+    canDelete?: boolean;
+    onEdit?: (doc: DocumentProfileItem) => void;
+    onReplace?: (doc: DocumentProfileItem) => void;
+    onVersions?: (doc: DocumentProfileItem) => void;
+    onDelete?: (doc: DocumentProfileItem) => void;
     canSendWhatsAppTemplate?: boolean;
     whatsappTemplates?: WhatsAppTemplateOption[];
     countries: PhoneCountryOption[];
@@ -107,17 +119,23 @@ export function EmployeeDocumentTableRow({
             <TableCell className={cn(dataTableCellClass(), 'hidden min-w-[120px] xl:table-cell')}>
                 <DocumentUploadedDisplay doc={doc} />
             </TableCell>
-            <TableCell className={dataTableActionsCellClass()}>
-                <BrowseDocumentActions
+            <TableCell className={cn(dataTableActionsCellClass(), 'min-w-[13.5rem]')}>
+                <DocumentModuleRowActions
                     doc={doc}
-                    employeeId={employeeId}
-                    employeeName={employeeName}
-                    employeePhone={employeePhone}
-                    onPreview={onPreview}
+                    onPreview={() => onPreview(doc)}
                     canDownload={canDownload}
+                    canUpload={canUpload}
+                    canDelete={canDelete}
+                    onEdit={onEdit ? () => onEdit(doc) : undefined}
+                    onReplace={onReplace ? () => onReplace(doc) : undefined}
+                    onVersions={onVersions ? () => onVersions(doc) : undefined}
+                    onDelete={onDelete ? () => onDelete(doc) : undefined}
                     canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                     whatsappTemplates={whatsappTemplates}
                     countries={countries}
+                    employeeId={employeeId}
+                    employeeName={employeeName}
+                    employeePhone={employeePhone}
                 />
             </TableCell>
         </TableRow>

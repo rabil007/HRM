@@ -38,8 +38,10 @@ import { downloadBulkZip } from '@/features/organization/documents/shared/downlo
 import type {
     DocumentBrowseItem,
     DocumentExpirySummary,
+    DocumentProfileItem,
     EmployeeSummary,
 } from '@/features/organization/documents/shared/types';
+import { DocumentManagementDialogs } from '@/features/organization/documents/shared/document-management-dialogs';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import {
     buildWhatsAppMessage,
@@ -58,12 +60,13 @@ import { show } from '@/routes/organization/employees';
 
 type Props = {
     employee: EmployeeSummary;
-    documents: DocumentBrowseItem[];
+    documents: DocumentProfileItem[];
     summary: DocumentExpirySummary;
     countries: PhoneCountryOption[];
     can: {
         download: boolean;
         share: boolean;
+        upload: boolean;
         delete: boolean;
         whatsapp_template: boolean;
         whatsapp_templates: WhatsAppTemplateOption[];
@@ -89,6 +92,7 @@ export default function EmployeeDocumentsBrowse({
 
     const canDeleteDocuments = can.delete;
     const canDownloadDocuments = can.download;
+    const canUploadDocuments = can.upload;
     const canShareDocuments = can.share;
     const canSendWhatsAppTemplate = can.whatsapp_template;
     const whatsappTemplates = can.whatsapp_templates ?? [];
@@ -96,6 +100,10 @@ export default function EmployeeDocumentsBrowse({
     const defaultWhatsappTemplate = resolveDefaultWhatsAppTemplate(whatsappTemplates);
 
     const [previewDoc, setPreviewDoc] = useState<DocumentBrowseItem | null>(null);
+    const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
+    const [replaceDoc, setReplaceDoc] = useState<DocumentProfileItem | null>(null);
+    const [versionDoc, setVersionDoc] = useState<DocumentProfileItem | null>(null);
+    const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
     const [fileSearch, setFileSearch] = useState('');
     const [expiryFilter, setExpiryFilter] = useState<ExpiryFilter>('all');
     const [isBulkDownloading, setIsBulkDownloading] = useState(false);
@@ -474,6 +482,12 @@ export default function EmployeeDocumentsBrowse({
                                 employeePhone={employee.phone}
                                 onPreview={setPreviewDoc}
                                 canDownload={canDownloadDocuments}
+                                canUpload={canUploadDocuments}
+                                canDelete={canDeleteDocuments}
+                                onEdit={setEditDoc}
+                                onReplace={setReplaceDoc}
+                                onVersions={setVersionDoc}
+                                onDelete={(document) => setDeleteDocId(document.id)}
                                 canSendWhatsAppTemplate={canSendWhatsAppTemplate}
                                 whatsappTemplates={whatsappTemplates}
                                 countries={countries}
@@ -543,6 +557,19 @@ export default function EmployeeDocumentsBrowse({
                     />
                 </Suspense>
             ) : null}
+
+            <DocumentManagementDialogs
+                employeeId={employee.id}
+                editDoc={editDoc}
+                onEditDocChange={setEditDoc}
+                replaceDoc={replaceDoc}
+                onReplaceDocChange={setReplaceDoc}
+                versionDoc={versionDoc}
+                onVersionDocChange={setVersionDoc}
+                deleteDocId={deleteDocId}
+                onDeleteDocIdChange={setDeleteDocId}
+                canDownload={canDownloadDocuments}
+            />
 
             <DocumentPreviewDialog
                 document={

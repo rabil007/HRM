@@ -35,11 +35,13 @@ export function EditDocumentDialog({
     employeeId,
     onOpenChange,
     templateFields = null,
+    partialReloadKeys = ['documents'],
 }: {
     document: DocumentProfileItem | null;
     employeeId: number;
     onOpenChange: (open: boolean) => void;
     templateFields?: Record<string, TemplateFieldConfig> | null;
+    partialReloadKeys?: string[];
 }): ReactElement {
     const {
         showField,
@@ -353,7 +355,7 @@ export function EditDocumentDialog({
                                 }),
                                 {
                                     preserveScroll: true,
-                                    only: ['documents'],
+                                    only: partialReloadKeys,
                                     onSuccess: () => {
                                         clearMissingRequired();
                                         onOpenChange(false);

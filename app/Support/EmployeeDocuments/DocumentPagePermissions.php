@@ -15,6 +15,7 @@ class DocumentPagePermissions
      * @return array{
      *     download: bool,
      *     share: bool,
+     *     upload: bool,
      *     delete: bool,
      *     whatsapp_template: bool,
      *     whatsapp_templates: list<array<string, mixed>>,
@@ -72,6 +73,7 @@ class DocumentPagePermissions
         return [
             'download' => $user?->can('documents.download') ?? false,
             'share' => $user?->can('documents.share') ?? false,
+            'upload' => $user?->can('documents.upload') ?? false,
             'delete' => $user?->can('documents.delete') ?? false,
             'whatsapp_template' => ($user?->can('documents.share') ?? false)
                 && $canView

@@ -26,10 +26,12 @@ export function ReplaceDocumentDialog({
     document,
     employeeId,
     onOpenChange,
+    partialReloadKeys = ['documents'],
 }: {
     document: DocumentProfileItem | null;
     employeeId: number;
     onOpenChange: (open: boolean) => void;
+    partialReloadKeys?: string[];
 }): ReactElement {
     const replaceForm = useForm({
         file: null as File | null,
@@ -149,7 +151,7 @@ export function ReplaceDocumentDialog({
                                 {
                                     forceFormData: true,
                                     preserveScroll: true,
-                                    only: ['documents'],
+                                    only: partialReloadKeys,
                                     onSuccess: () => {
                                         onOpenChange(false);
                                         replaceForm.reset();
