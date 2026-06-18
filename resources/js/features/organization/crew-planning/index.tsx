@@ -199,13 +199,13 @@ export function CrewPlanningContent({
                 return;
             }
 
-            const rowEl = document.querySelector(
-                `[data-row-key="vessel:${overData.vesselId}|rank:${overData.rankId}"]`,
+            const timelineEl = document.querySelector(
+                `[data-row-key="vessel:${overData.vesselId}|rank:${overData.rankId}"] [data-timeline-container]`,
             ) as HTMLElement | null;
             let estimatedDate = today;
 
-            if (rowEl) {
-                const rect = rowEl.getBoundingClientRect();
+            if (timelineEl) {
+                const rect = timelineEl.getBoundingClientRect();
                 const activator = event.activatorEvent as PointerEvent;
                 const pointerX = activator.clientX + event.delta.x;
                 const ratio = (pointerX - rect.left) / rect.width;
