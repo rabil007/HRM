@@ -48,7 +48,7 @@ class CrewPlanningController extends Controller
             'ranks' => $this->activeRanks(),
             'department_tree' => CrewPlanningSettings::activeDepartmentTree($companyId),
             'employees' => CrewPlanningSettings::poolEmployees($companyId),
-            'settings' => [
+            'planningSettings' => [
                 'pool_department_ids' => CrewPlanningSettings::poolDepartmentIds($companyId),
             ],
             'can' => CrewPlanningPagePermissions::for($request->user()),

@@ -5,6 +5,10 @@ import { update as updateAssignment } from '@/actions/App/Http/Controllers/Organ
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
+    assignmentBarResizeHandleClass,
+    assignmentBarSurfaceClass,
+} from '../lib/assignment-bar-styles';
+import {
     barPositionStyle,
     daysBetween,
     pxToDays,
@@ -157,16 +161,18 @@ export function DraggableAssignmentBar({
                     ref={containerRef}
                     className={cn(
                         'absolute top-1.5 bottom-1.5 rounded-md',
-                        'border border-primary/30 bg-primary/10',
-                        'dark:border-primary/40 dark:bg-primary/15',
-                        'group/bar flex items-stretch overflow-hidden transition-all',
+                        assignmentBarSurfaceClass,
+                        'group/bar flex items-stretch overflow-hidden',
                         isDragging && 'scale-[1.01] opacity-80 shadow-lg',
                         highlighted && 'ring-2 ring-offset-1 ring-amber-400',
                     )}
                     style={computedStyle}
                 >
                     <div
-                        className="absolute inset-y-0 left-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity hover:bg-primary/20 group-hover/bar:opacity-100"
+                        className={cn(
+                            'absolute inset-y-0 left-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
+                            assignmentBarResizeHandleClass,
+                        )}
                         onPointerDown={(e) => handlePointerDown(e, 'resize-left')}
                     />
                     <div
@@ -177,7 +183,10 @@ export function DraggableAssignmentBar({
                         <span className="truncate">{bar.employee_name}</span>
                     </div>
                     <div
-                        className="absolute inset-y-0 right-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity hover:bg-primary/20 group-hover/bar:opacity-100"
+                        className={cn(
+                            'absolute inset-y-0 right-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
+                            assignmentBarResizeHandleClass,
+                        )}
                         onPointerDown={(e) => handlePointerDown(e, 'resize-right')}
                     />
                 </div>

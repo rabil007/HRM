@@ -32,7 +32,12 @@ function RankNode({
 
     return (
         <Collapsible open={rankOpen} onOpenChange={setRankOpen}>
-            <div className={cn('flex items-center', isSelected && 'bg-muted')}>
+            <div
+                className={cn(
+                    'flex items-center',
+                    isSelected && 'bg-amber-50/50 dark:bg-amber-950/30',
+                )}
+            >
                 <CollapsibleTrigger asChild>
                     <button className="flex items-center p-1 pl-7 text-muted-foreground hover:text-foreground">
                         {rankOpen ? (

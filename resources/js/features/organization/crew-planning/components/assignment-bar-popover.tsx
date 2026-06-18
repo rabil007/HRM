@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { cn } from '@/lib/utils';
+import { assignmentBarAvatarClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
 import { AssignmentBarActions } from './assignment-bar-actions';
 
@@ -23,7 +24,8 @@ function Avatar({ name, size }: { name: string; size: 'sm' | 'md' }): ReactEleme
     return (
         <span
             className={cn(
-                'flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-bold text-primary',
+                'flex shrink-0 items-center justify-center rounded-full font-bold',
+                assignmentBarAvatarClass,
                 size === 'sm' && 'h-4 w-4 text-[9px]',
                 size === 'md' && 'h-8 w-8 text-sm',
             )}

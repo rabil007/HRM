@@ -22,7 +22,7 @@ type Props = {
     ranks: PlanningOption[];
     department_tree: PlanningDepartmentNode[];
     employees: PlanningPoolEmployee[];
-    settings: PlanningSettings;
+    planningSettings: PlanningSettings;
     can: PlanningPagePermissions;
 };
 
@@ -36,7 +36,7 @@ export default function CrewPlanningIndex({
     ranks,
     department_tree,
     employees,
-    settings,
+    planningSettings,
     can,
 }: Props) {
     return (
@@ -52,7 +52,7 @@ export default function CrewPlanningIndex({
                 ranks={ranks}
                 departmentTree={department_tree}
                 employees={employees}
-                settings={settings}
+                settings={planningSettings}
                 can={can}
             />
         </>

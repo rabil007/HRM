@@ -92,19 +92,20 @@ export function PlanningGanttRow({
             ref={setDropRef}
             data-row-key={rowKey}
             className={cn(
-                'relative flex border-b border-border/50 transition-colors',
-                isHighlighted && 'bg-amber-50/40 dark:bg-amber-900/10',
+                'group relative flex border-b border-border/50 bg-background',
+                isHighlighted && 'bg-amber-50/50 dark:bg-amber-950/30',
                 isOver && 'bg-primary/5 dark:bg-primary/10',
-                can.create && !isOver && 'group',
+                can.create && 'hover:bg-muted/30 dark:hover:bg-muted/20',
             )}
             style={{ height: ROW_HEIGHT }}
         >
             {/* Rank label */}
             <div
                 className={cn(
-                    'sticky left-0 z-20 flex shrink-0 items-center border-r border-border/50 bg-background/95 px-3 backdrop-blur-sm',
-                    isHighlighted && 'bg-amber-50/80 dark:bg-amber-900/20',
-                    isOver && 'bg-primary/5',
+                    'sticky left-0 z-20 flex shrink-0 items-center border-r border-border/50 bg-background px-3',
+                    isHighlighted && 'bg-amber-50/50 dark:bg-amber-950/30',
+                    isOver && 'bg-primary/5 dark:bg-primary/10',
+                    can.create && 'group-hover:bg-muted/30 dark:group-hover:bg-muted/20',
                 )}
                 style={{ width: RANK_LABEL_WIDTH }}
             >
@@ -120,7 +121,7 @@ export function PlanningGanttRow({
                 {/* Today line */}
                 {todayStyle ? (
                     <div
-                        className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-red-500/60"
+                        className="pointer-events-none absolute top-0 bottom-0 z-[1] w-px bg-red-500/60"
                         style={todayStyle}
                         aria-hidden
                     >
@@ -131,7 +132,7 @@ export function PlanningGanttRow({
                 {/* Hover click layer */}
                 {can.create ? (
                     <div
-                        className="absolute inset-0 z-0 cursor-crosshair opacity-0 transition-opacity group-hover:opacity-100 group-hover:bg-primary/[0.03]"
+                        className="absolute inset-0 z-0 cursor-crosshair"
                         title={`Click to plan assignment on ${rankName}`}
                         onClick={handleBackgroundClick}
                     />

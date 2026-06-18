@@ -1,6 +1,7 @@
 import { Ship } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { cn } from '@/lib/utils';
+import { formatIsoDateLocal } from '../lib/planning-gantt-math';
 import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
 import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
 
@@ -18,16 +19,21 @@ type Props = {
     onDeleteBar?: (bar: GanttBar) => void;
 };
 
-function buildDayColumns(from: Date, to: Date): { date: Date; label: string; isToday: boolean }[] {
+function buildDayColumns(
+    from: Date,
+    to: Date,
+    today: string,
+): { date: Date; label: string; isToday: boolean }[] {
     const cols: { date: Date; label: string; isToday: boolean }[] = [];
-    const todayStr = new Date().toDateString();
     const cursor = new Date(from);
 
     while (cursor <= to) {
+        const iso = formatIsoDateLocal(cursor);
+
         cols.push({
             date: new Date(cursor),
             label: String(cursor.getDate()),
-            isToday: cursor.toDateString() === todayStr,
+            isToday: iso === today,
         });
         cursor.setDate(cursor.getDate() + 1);
     }
@@ -72,7 +78,7 @@ export function PlanningGantt({
     const rangeTo = new Date(`${to}T23:59:59`);
     const todayDate = new Date(`${today}T00:00:00`);
 
-    const days = buildDayColumns(rangeFrom, new Date(`${to}T00:00:00`));
+    const days = buildDayColumns(rangeFrom, new Date(`${to}T00:00:00`), today);
     const monthGroups = buildMonthGroups(days);
     const totalDays = days.length;
 
