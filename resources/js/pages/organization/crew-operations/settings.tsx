@@ -1,7 +1,5 @@
 import { Head, useForm } from '@inertiajs/react';
 import { ChevronRight, Settings2, Sliders, CheckCircle2, Home } from 'lucide-react';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { update as updateSettings } from '@/actions/App/Http/Controllers/Organization/CrewOperationsSettingsController';
@@ -14,13 +12,15 @@ import {
     CollapsibleContent,
     CollapsibleTrigger,
 } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
     applyDepartmentToggle,
     flattenDepartmentTreeIds,
     getDepartmentCheckState,
 } from '@/features/organization/crew-planning/lib/department-tree';
 import type { PlanningDepartmentNode, PlanningSettings } from '@/features/organization/crew-planning/types';
+import { cn } from '@/lib/utils';
 
 type FormData = {
     pool_department_ids: number[];

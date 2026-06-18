@@ -252,9 +252,14 @@ export function CrewPlanningContent({
 
                 <div className="flex min-h-0 flex-1 overflow-hidden">
                     {/* Left sidebar */}
-                    <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r">
-                        <div className="border-b bg-muted/20 px-3 py-2.5 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                            Vessels &amp; Ranks
+                    <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/10">
+                        <div className="border-b border-border/60 bg-background/80 px-3 py-2.5">
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
+                                Vessels &amp; Ranks
+                            </p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground/55">
+                                Select a rank to focus the timeline
+                            </p>
                         </div>
                         <div className="flex-1 overflow-y-auto">
                             <VesselRankTree
