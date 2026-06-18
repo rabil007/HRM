@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Organization;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\Activity\RecentActivityQuery;
 use App\Support\EmployeeDocuments\DocumentAccess;
 use App\Support\EmployeeDocuments\DocumentPagePermissions;
 use App\Support\EmployeeDocuments\DocumentShowBackNavigation;
@@ -40,6 +41,14 @@ class EmployeeDocumentShowController extends Controller
             'countries' => EmployeeFormOptions::for($companyId, $employee)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
+            'recent_activity' => RecentActivityQuery::for(
+                $request->user(),
+                $companyId,
+                EmployeeDocument::class,
+                $document->id,
+                limit: 20,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
         ]);
     }
 }

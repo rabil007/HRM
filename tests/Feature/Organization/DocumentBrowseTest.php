@@ -575,3 +575,56 @@ test('document show page back navigation respects from query', function () {
             ]))
         );
 });
+
+test('document show page hides recent activity without audit permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/file.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', false)
+            ->where('recent_activity', [])
+        );
+});
+
+test('document show page exposes recent activity with audit permission', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view', 'audit.view']);
+
+    $document = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/file.pdf',
+        'status' => 'valid',
+    ]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can_view_audit', true)
+            ->has('recent_activity', 1)
+            ->where('recent_activity.0.event', 'created')
+        );
+});

@@ -4,6 +4,8 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
+import type { RecentActivityItem } from '@/components/recent-activity-card';
+import { RecentActivityCard } from '@/components/recent-activity-card';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DocumentsBreadcrumbs } from '@/features/organization/documents/documents-breadcrumbs';
@@ -40,6 +42,8 @@ type Props = {
         href: string;
         label: string;
     };
+    recent_activity: RecentActivityItem[];
+    can_view_audit: boolean;
 };
 
 function MetadataField({ label, value }: { label: string; value: string }): ReactElement {
@@ -59,6 +63,8 @@ export default function DocumentShow({
     countries,
     can,
     back,
+    recent_activity,
+    can_view_audit,
 }: Props): ReactElement {
     const [editDoc, setEditDoc] = useState<DocumentShowItem | null>(null);
     const [replaceDoc, setReplaceDoc] = useState<DocumentShowItem | null>(null);
@@ -207,6 +213,13 @@ export default function DocumentShow({
                         </CardContent>
                     </Card>
                 </div>
+
+                {can_view_audit ? (
+                    <RecentActivityCard
+                        items={recent_activity}
+                        description="Latest changes for this document."
+                    />
+                ) : null}
             </Main>
 
             <DocumentManagementDialogs
