@@ -26,6 +26,7 @@ import type {
     CrewDragData,
     GanttBar,
     GanttVesselGroup,
+    PlanningDepartmentNode,
     PlanningFilters,
     PlanningOption,
     PlanningPagePermissions,
@@ -59,7 +60,7 @@ type Props = {
     today: string;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
-    departments: PlanningOption[];
+    departmentTree: PlanningDepartmentNode[];
     employees: PlanningPoolEmployee[];
     settings: PlanningSettings;
     can: PlanningPagePermissions;
@@ -73,7 +74,7 @@ export function CrewPlanningContent({
     today,
     vessels,
     ranks,
-    departments,
+    departmentTree,
     employees,
     settings,
     can,
@@ -338,7 +339,7 @@ export function CrewPlanningContent({
                 <PlanningSettingsSheet
                     open={settingsOpen}
                     onOpenChange={setSettingsOpen}
-                    departments={departments}
+                    departmentTree={departmentTree}
                     settings={settings}
                 />
 

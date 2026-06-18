@@ -46,7 +46,7 @@ class CrewPlanningController extends Controller
             'today' => CarbonImmutable::today()->toDateString(),
             'vessels' => $this->activeVessels(),
             'ranks' => $this->activeRanks(),
-            'departments' => CrewPlanningSettings::activeDepartments($companyId),
+            'department_tree' => CrewPlanningSettings::activeDepartmentTree($companyId),
             'employees' => CrewPlanningSettings::poolEmployees($companyId),
             'settings' => [
                 'pool_department_ids' => CrewPlanningSettings::poolDepartmentIds($companyId),

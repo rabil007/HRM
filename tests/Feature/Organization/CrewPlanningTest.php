@@ -105,7 +105,7 @@ test('authorized users can view the crew planning index', function () {
             ->has('bars')
             ->has('tree')
             ->has('filters')
-            ->has('departments')
+            ->has('department_tree')
             ->has('settings')
             ->where('can.view', true)
         );
@@ -186,6 +186,55 @@ test('planning index only includes employees with a profile rank', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 2)
             ->where('employees', fn ($employees) => collect($employees)->pluck('id')->sort()->values()->all() === collect([$ranked->id, $anotherRanked->id])->sort()->values()->all())
+        );
+});
+
+test('planning pool settings include employees from child departments when parent is selected', function () {
+    ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
+
+    $parentDept = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Marine',
+        'code' => 'MAR',
+        'status' => 'active',
+    ]);
+
+    $childDept = Department::query()->create([
+        'company_id' => $company->id,
+        'parent_id' => $parentDept->id,
+        'name' => 'Marine Officers',
+        'code' => 'MAR-OFF',
+        'status' => 'active',
+    ]);
+
+    $parentEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $parentDept->id,
+        'rank_id' => $captain->id,
+        'name' => 'Parent Crew',
+    ]);
+
+    $childEmployee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'department_id' => $childDept->id,
+        'rank_id' => $captain->id,
+        'name' => 'Child Crew',
+    ]);
+
+    CrewPlanningSetting::query()->create([
+        'company_id' => $company->id,
+        'pool_department_ids' => [$parentDept->id],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 2)
+            ->where('employees', fn ($employees) => collect($employees)->pluck('id')->sort()->values()->all() === collect([$parentEmployee->id, $childEmployee->id])->sort()->values()->all())
+            ->has('department_tree', 1)
+            ->where('department_tree.0.id', $parentDept->id)
+            ->where('department_tree.0.children.0.id', $childDept->id)
         );
 });
 

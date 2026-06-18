@@ -64,6 +64,12 @@ export type PlanningPoolEmployee = {
     rank_name: string;
 };
 
+export type PlanningDepartmentNode = {
+    id: number;
+    name: string;
+    children: PlanningDepartmentNode[];
+};
+
 export type PlanningOption = {
     id: number;
     name: string;

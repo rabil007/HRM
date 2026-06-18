@@ -5,6 +5,8 @@ namespace App\Support\CrewPlanning;
 use App\Models\CrewPlanningSetting;
 use App\Models\Department;
 use App\Models\Employee;
+use App\Support\Departments\BuildDepartmentTree;
+use App\Support\Employees\DepartmentDescendantIds;
 use Illuminate\Database\Eloquent\Builder;
 
 final class CrewPlanningSettings
@@ -42,6 +44,63 @@ final class CrewPlanningSettings
     }
 
     /**
+     * Expands configured pool departments to include all descendant departments.
+     *
+     * @return list<int>
+     */
+    public static function expandedPoolDepartmentIds(int $companyId): array
+    {
+        $selected = self::poolDepartmentIds($companyId);
+
+        if ($selected === []) {
+            return [];
+        }
+
+        $departments = Department::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->get(['id', 'parent_id'])
+            ->map(fn (Department $department): array => [
+                'id' => $department->id,
+                'parent_id' => $department->parent_id,
+            ])
+            ->all();
+
+        $expanded = [];
+
+        foreach ($selected as $departmentId) {
+            $expanded = array_merge(
+                $expanded,
+                DepartmentDescendantIds::includingSelf($departmentId, $departments),
+            );
+        }
+
+        return array_values(array_unique($expanded));
+    }
+
+    /**
+     * @return list<array{id: int, name: string, children: list<mixed>}>
+     */
+    public static function activeDepartmentTree(int $companyId): array
+    {
+        return BuildDepartmentTree::forCompany($companyId);
+    }
+
+    /**
+     * @return list<int>
+     */
+    public static function allActiveDepartmentIds(int $companyId): array
+    {
+        return Department::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderBy('name')
+            ->pluck('id')
+            ->map(intval(...))
+            ->all();
+    }
+
+    /**
      * @return list<array{id: int, name: string}>
      */
     public static function activeDepartments(int $companyId): array
@@ -59,7 +118,7 @@ final class CrewPlanningSettings
      */
     public static function poolEmployees(int $companyId): array
     {
-        $departmentIds = self::poolDepartmentIds($companyId);
+        $departmentIds = self::expandedPoolDepartmentIds($companyId);
 
         return Employee::query()
             ->where('employees.company_id', $companyId)

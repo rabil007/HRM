@@ -3,6 +3,7 @@ import { CrewPlanningContent } from '@/features/organization/crew-planning/index
 import type {
     GanttBar,
     GanttVesselGroup,
+    PlanningDepartmentNode,
     PlanningFilters,
     PlanningOption,
     PlanningPagePermissions,
@@ -19,7 +20,7 @@ type Props = {
     today: string;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
-    departments: PlanningOption[];
+    department_tree: PlanningDepartmentNode[];
     employees: PlanningPoolEmployee[];
     settings: PlanningSettings;
     can: PlanningPagePermissions;
@@ -33,7 +34,7 @@ export default function CrewPlanningIndex({
     today,
     vessels,
     ranks,
-    departments,
+    department_tree,
     employees,
     settings,
     can,
@@ -49,7 +50,7 @@ export default function CrewPlanningIndex({
                 today={today}
                 vessels={vessels}
                 ranks={ranks}
-                departments={departments}
+                departmentTree={department_tree}
                 employees={employees}
                 settings={settings}
                 can={can}

@@ -1,9 +1,15 @@
 import { useForm } from '@inertiajs/react';
+import { ChevronRight } from 'lucide-react';
 import type { ReactElement } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { updateSettings as updatePlanningSettings } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
     Sheet,
     SheetContent,
@@ -11,7 +17,13 @@ import {
     SheetHeader,
     SheetTitle,
 } from '@/components/ui/sheet';
-import type { PlanningOption, PlanningSettings } from '../types';
+import { cn } from '@/lib/utils';
+import {
+    applyDepartmentToggle,
+    flattenDepartmentTreeIds,
+    getDepartmentCheckState,
+} from '../lib/department-tree';
+import type { PlanningDepartmentNode, PlanningSettings } from '../types';
 
 type FormData = {
     pool_department_ids: number[];
@@ -20,14 +32,85 @@ type FormData = {
 type Props = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    departments: PlanningOption[];
+    departmentTree: PlanningDepartmentNode[];
     settings: PlanningSettings;
 };
+
+function DepartmentTreeNodeRow({
+    node,
+    depth,
+    selectedIds,
+    onToggle,
+}: {
+    node: PlanningDepartmentNode;
+    depth: number;
+    selectedIds: Set<number>;
+    onToggle: (node: PlanningDepartmentNode, checked: boolean) => void;
+}): ReactElement {
+    const [open, setOpen] = useState(depth === 0);
+    const checkState = getDepartmentCheckState(node, selectedIds);
+    const hasChildren = node.children.length > 0;
+
+    return (
+        <Collapsible open={open} onOpenChange={setOpen}>
+            <div
+                className={cn(
+                    'flex items-center gap-2 rounded-xl border border-border/60 px-3 py-2.5 hover:bg-muted/40',
+                    depth > 0 && 'mt-2',
+                )}
+                style={{ marginLeft: depth * 16 }}
+            >
+                {hasChildren ? (
+                    <CollapsibleTrigger asChild>
+                        <button
+                            type="button"
+                            className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+                            aria-label={`Toggle ${node.name}`}
+                        >
+                            <ChevronRight
+                                className={cn(
+                                    'h-3.5 w-3.5 transition-transform',
+                                    open && 'rotate-90',
+                                )}
+                            />
+                        </button>
+                    </CollapsibleTrigger>
+                ) : (
+                    <span className="inline-flex h-5 w-5 shrink-0" />
+                )}
+
+                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-3">
+                    <Checkbox
+                        checked={
+                            checkState === 'indeterminate' ? 'indeterminate' : checkState === 'checked'
+                        }
+                        onCheckedChange={(value) => onToggle(node, value === true)}
+                    />
+                    <span className="truncate text-sm font-medium">{node.name}</span>
+                </label>
+            </div>
+
+            {hasChildren ? (
+                <CollapsibleContent>
+                    {node.children.map((child) => (
+                        <DepartmentTreeNodeRow
+                            key={child.id}
+                            node={child}
+                            depth={depth + 1}
+                            selectedIds={selectedIds}
+                            onToggle={onToggle}
+                        />
+                    ))}
+                </CollapsibleContent>
+            ) : null}
+        </Collapsible>
+    );
+}
 
 export function PlanningSettingsSheet({
     open,
     onOpenChange,
-    departments,
+    departmentTree,
     settings,
 }: Props): ReactElement {
     const form = useForm<FormData>({
@@ -43,17 +126,12 @@ export function PlanningSettingsSheet({
     }, [open, settings.pool_department_ids]);
 
     const selectedSet = new Set(form.data.pool_department_ids);
+    const allDepartmentIds = flattenDepartmentTreeIds(departmentTree);
 
-    const toggleDepartment = (departmentId: number, checked: boolean): void => {
-        if (checked) {
-            form.setData('pool_department_ids', [...selectedSet, departmentId]);
-
-            return;
-        }
-
+    const toggleDepartment = (node: PlanningDepartmentNode, checked: boolean): void => {
         form.setData(
             'pool_department_ids',
-            form.data.pool_department_ids.filter((id) => id !== departmentId),
+            applyDepartmentToggle(form.data.pool_department_ids, node, checked),
         );
     };
 
@@ -65,7 +143,7 @@ export function PlanningSettingsSheet({
     };
 
     const allSelected =
-        departments.length > 0 && departments.every((d) => selectedSet.has(d.id));
+        allDepartmentIds.length > 0 && allDepartmentIds.every((id) => selectedSet.has(id));
     const noneSelected = form.data.pool_department_ids.length === 0;
 
     return (
@@ -77,7 +155,8 @@ export function PlanningSettingsSheet({
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         Choose which departments appear in the Available crew pool and assignment
-                        picker. Leave all unchecked to include every active employee.
+                        picker. Selecting a parent includes all child departments. Leave all
+                        unchecked to include every active employee.
                     </SheetDescription>
                 </SheetHeader>
 
@@ -92,12 +171,9 @@ export function PlanningSettingsSheet({
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 px-2 text-xs"
-                                disabled={departments.length === 0}
+                                disabled={allDepartmentIds.length === 0}
                                 onClick={() =>
-                                    form.setData(
-                                        'pool_department_ids',
-                                        departments.map((d) => d.id),
-                                    )
+                                    form.setData('pool_department_ids', allDepartmentIds)
                                 }
                             >
                                 Select all
@@ -121,36 +197,27 @@ export function PlanningSettingsSheet({
                         </p>
                     ) : null}
 
-                    {allSelected && departments.length > 0 ? (
+                    {allSelected && allDepartmentIds.length > 0 ? (
                         <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
                             All departments selected — same as showing every active employee.
                         </p>
                     ) : null}
 
-                    {departments.length === 0 ? (
+                    {departmentTree.length === 0 ? (
                         <p className="text-sm text-muted-foreground">
                             No active departments found for this company.
                         </p>
                     ) : (
                         <div className="space-y-2">
-                            {departments.map((department) => {
-                                const checked = selectedSet.has(department.id);
-
-                                return (
-                                    <label
-                                        key={department.id}
-                                        className="flex cursor-pointer items-center gap-3 rounded-xl border border-border/60 px-3 py-2.5 hover:bg-muted/40"
-                                    >
-                                        <Checkbox
-                                            checked={checked}
-                                            onCheckedChange={(value) =>
-                                                toggleDepartment(department.id, value === true)
-                                            }
-                                        />
-                                        <span className="text-sm font-medium">{department.name}</span>
-                                    </label>
-                                );
-                            })}
+                            {departmentTree.map((node) => (
+                                <DepartmentTreeNodeRow
+                                    key={node.id}
+                                    node={node}
+                                    depth={0}
+                                    selectedIds={selectedSet}
+                                    onToggle={toggleDepartment}
+                                />
+                            ))}
                         </div>
                     )}
 
