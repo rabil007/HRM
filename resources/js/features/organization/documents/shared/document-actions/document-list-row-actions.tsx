@@ -7,8 +7,6 @@ import { documents } from '@/routes/organization';
 
 const iconButtonClass =
     'h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-100';
-const dangerIconButtonClass =
-    'h-8 w-8 rounded-lg text-red-400/70 hover:bg-red-500/10 hover:text-red-400';
 
 type DocumentListRowActionsProps = {
     documentId: number;
