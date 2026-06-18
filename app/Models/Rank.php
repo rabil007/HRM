@@ -13,5 +13,6 @@ class Rank extends Model
 
     protected $casts = [
         'is_active' => 'boolean',
+        'max_tour_of_duty_days' => 'integer',
     ];
 }

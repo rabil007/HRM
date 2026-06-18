@@ -35,6 +35,7 @@ type Rank = {
     id: number;
     name: string;
     is_active: boolean;
+    max_tour_of_duty_days: number | null;
 };
 
 export default function Ranks({ ranks }: { ranks: Rank[] }) {
@@ -54,6 +55,7 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
     const form = useForm({
         name: '',
         is_active: true,
+        max_tour_of_duty_days: '' as string | number,
     });
 
     const rows = useMemo(() => {
@@ -73,6 +75,7 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
         form.setData({
             name: '',
             is_active: true,
+            max_tour_of_duty_days: '',
         });
         setSheetOpen(true);
     };
@@ -84,6 +87,7 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
         form.setData({
             name: rank.name,
             is_active: rank.is_active,
+            max_tour_of_duty_days: rank.max_tour_of_duty_days ?? '',
         });
         setSheetOpen(true);
     };
@@ -129,6 +133,7 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
             {
                 name: rank.name,
                 is_active: !rank.is_active,
+                max_tour_of_duty_days: rank.max_tour_of_duty_days,
             },
             { preserveScroll: true },
         );
@@ -258,19 +263,27 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
                     <div className="overflow-x-auto">
                         <div className="min-w-[640px]">
                             <div className="grid grid-cols-12 gap-2 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground bg-muted/30 whitespace-nowrap">
-                                <div className="col-span-7">Name</div>
+                                <div className="col-span-5">Name</div>
+                                <div className="col-span-3">Tour of Duty</div>
                                 <div className="col-span-2">Active</div>
-                                <div className="col-span-3 text-right">Actions</div>
+                                <div className="col-span-2 text-right">Actions</div>
                             </div>
 
                             {rows.map((v) => (
                                 <div key={v.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-t border-border/60 whitespace-nowrap">
-                                    <div className="col-span-7 text-sm truncate">{v.name}</div>
+                                    <div className="col-span-5 text-sm truncate">{v.name}</div>
+                                    <div className="col-span-3 text-sm text-muted-foreground">
+                                        {v.max_tour_of_duty_days != null ? (
+                                            <span>{v.max_tour_of_duty_days} days</span>
+                                        ) : (
+                                            <span className="text-muted-foreground/50">—</span>
+                                        )}
+                                    </div>
                                     <div className="col-span-2 flex items-center">
                                         <Switch disabled={!can.update} checked={v.is_active} onCheckedChange={() => toggleActive(v)} />
                                     </div>
-                                    <div className="col-span-3 flex justify-end gap-2 flex-nowrap">
-                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(g)}>Edit</Button> : null}
+                                    <div className="col-span-2 flex justify-end gap-2 flex-nowrap">
+                                        {can.update ? <Button variant="outline" size="sm" onClick={() => openEdit(v)}>Edit</Button> : null}
                                         {can.delete ? <Button variant="destructive" size="sm" onClick={() => requestDelete(v)}>
                                             Delete
                                         </Button> : null}
@@ -484,6 +497,28 @@ export default function Ranks({ ranks }: { ranks: Rank[] }) {
                                 className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
                             />
                             {form.errors.name ? <div className="text-xs font-medium text-destructive">{form.errors.name}</div> : null}
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="max_tour_of_duty_days" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                Tour of Duty (days)
+                            </Label>
+                            <Input
+                                id="max_tour_of_duty_days"
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={form.data.max_tour_of_duty_days}
+                                onChange={(e) => form.setData('max_tour_of_duty_days', e.target.value === '' ? '' : Number(e.target.value))}
+                                placeholder="e.g. 90"
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all"
+                            />
+                            <p className="text-xs text-muted-foreground/70">
+                                Maximum days on board per contract (TOD). Leave blank if no limit applies.
+                            </p>
+                            {form.errors.max_tour_of_duty_days ? (
+                                <div className="text-xs font-medium text-destructive">{form.errors.max_tour_of_duty_days}</div>
+                            ) : null}
                         </div>
 
                         <div className="flex items-center justify-between rounded-xl border border-border/60 bg-muted/30 px-4 py-3">

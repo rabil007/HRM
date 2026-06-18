@@ -22,7 +22,7 @@ class RankController extends Controller
     {
         $ranks = Rank::query()
             ->orderBy('name')
-            ->get(['id', 'name', 'is_active']);
+            ->get(['id', 'name', 'is_active', 'max_tour_of_duty_days']);
 
         return Inertia::render('settings/master-data/ranks', [
             'ranks' => $ranks,
