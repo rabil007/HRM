@@ -40,15 +40,17 @@ jobs:
         run: composer install --no-interaction --no-progress --prefer-dist --no-dev --optimize-autoloader
 
       - name: Setup SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
         run: |
           mkdir -p ~/.ssh
-          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
             echo "ERROR: SSH_PRIVATE_KEY secret is not set!"
             exit 1
           fi
-          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -p 65002 82.198.227.207 >> ~/.ssh/known_hosts
+          echo '[82.198.227.207]:65002 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIIyse96dUeLo4oKa76H8AfK4q4/RHbHMcxt+1GZRGaI9' >> ~/.ssh/known_hosts
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -74,12 +76,12 @@ jobs:
 
       - name: Upload build to server
         run: |
-          rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002" public/build/ \
+          rsync -avz -e "ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes" public/build/ \
             u769441461@82.198.227.207:~/domains/overseas-ms.com/public_html/hrm/public/build/
 
       - name: Deploy Backend
         run: |
-          ssh -i ~/.ssh/id_ed25519 -p 65002 u769441461@82.198.227.207 << 'EOF'
+          ssh -i ~/.ssh/id_ed25519 -p 65002 -o StrictHostKeyChecking=yes u769441461@82.198.227.207 << 'EOF'
             set -e
             cd ~/domains/overseas-ms.com/public_html/hrm || exit 1
 
