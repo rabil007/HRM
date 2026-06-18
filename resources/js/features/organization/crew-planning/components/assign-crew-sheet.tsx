@@ -251,7 +251,7 @@ export function AssignCrewSheet({
                         </AppSelect>
                         {form.data.rank_id !== '' && availableEmployees.length === 0 ? (
                             <p className="text-xs text-muted-foreground">
-                                No available crew match the selected rank.
+                                No crew match the selected rank.
                             </p>
                         ) : null}
                         {form.errors.employee_id ? (

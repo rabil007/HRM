@@ -154,7 +154,7 @@ export function PlanningSettingsSheet({
                         Planning settings
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                        Choose which departments appear in the Available crew pool and assignment
+                        Choose which departments appear in the Crew sidebar and assignment
                         picker. Selecting a parent includes all child departments. Leave all
                         unchecked to include every active employee.
                     </SheetDescription>
@@ -163,7 +163,7 @@ export function PlanningSettingsSheet({
                 <div className="flex-1 space-y-4 overflow-y-auto p-8">
                     <div className="flex items-center justify-between gap-2">
                         <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                            Available crew departments
+                            Crew departments
                         </p>
                         <div className="flex gap-2">
                             <Button
@@ -192,8 +192,7 @@ export function PlanningSettingsSheet({
 
                     {noneSelected ? (
                         <p className="rounded-xl border border-dashed px-3 py-2 text-xs text-muted-foreground">
-                            No departments selected — all active employees are shown in Available
-                            crew.
+                            No departments selected — all active employees are shown in Crew.
                         </p>
                     ) : null}
 

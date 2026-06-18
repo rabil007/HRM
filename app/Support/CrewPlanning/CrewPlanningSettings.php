@@ -114,6 +114,11 @@ final class CrewPlanningSettings
     }
 
     /**
+     * All active ranked employees for the planning crew sidebar and assign picker.
+     *
+     * Filtered by configured pool departments (including descendants) when set.
+     * Does not exclude employees based on deployment or crew availability status.
+     *
      * @return list<array{id: int, name: string, rank_id: int, rank_name: string}>
      */
     public static function poolEmployees(int $companyId): array

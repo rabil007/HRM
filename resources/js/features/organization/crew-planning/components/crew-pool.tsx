@@ -76,7 +76,7 @@ type Props = {
     employees: PlanningPoolEmployee[];
 };
 
-export function AvailableCrewPool({ employees }: Props): ReactElement {
+export function CrewPool({ employees }: Props): ReactElement {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState('');
 
@@ -97,9 +97,9 @@ export function AvailableCrewPool({ employees }: Props): ReactElement {
     return (
         <Collapsible open={open} onOpenChange={setOpen}>
             <CollapsibleTrigger asChild>
-                <button className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:bg-muted/40 transition-colors">
+                <button className="flex w-full items-center gap-2 border-t px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted/40">
                     <Users className="h-3.5 w-3.5 shrink-0" />
-                    <span className="truncate">Available crew</span>
+                    <span className="truncate">Crew</span>
                     <span className="ml-auto shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary/70">
                         {lowerSearch !== '' ? `${filteredEmployees.length}/${employees.length}` : employees.length}
                     </span>
@@ -119,7 +119,7 @@ export function AvailableCrewPool({ employees }: Props): ReactElement {
                             onChange={(event) => setSearch(event.target.value)}
                             placeholder="Search by name or rank…"
                             className="h-7 rounded-md pr-7 pl-7 text-xs"
-                            aria-label="Search available crew"
+                            aria-label="Search crew"
                         />
                         {search !== '' ? (
                             <button
@@ -138,7 +138,7 @@ export function AvailableCrewPool({ employees }: Props): ReactElement {
                             <p className="px-2 py-3 text-center text-xs text-muted-foreground/50">
                                 {lowerSearch !== ''
                                     ? 'No crew matching search.'
-                                    : 'No ranked crew available.'}
+                                    : 'No crew in the selected departments.'}
                             </p>
                         ) : (
                             filteredEmployees.map((employee) => (

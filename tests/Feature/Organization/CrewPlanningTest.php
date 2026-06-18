@@ -111,6 +111,34 @@ test('authorized users can view the crew planning index', function () {
         );
 });
 
+test('planning crew list includes employees with active deployments', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
+
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $captain->id,
+        'name' => 'Deployed Crew',
+    ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'joined_date' => CarbonImmutable::today()->subDays(5),
+        'disembarked_date' => CarbonImmutable::today()->addMonths(2),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $employee->id)
+            ->where('employees.0.name', 'Deployed Crew')
+        );
+});
+
 test('planning index employees list respects pool department settings', function () {
     ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
 

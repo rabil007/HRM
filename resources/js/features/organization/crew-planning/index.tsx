@@ -16,7 +16,7 @@ import { PageHeader } from '@/components/page-header';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
-import { AvailableCrewPool } from './components/available-crew-pool';
+import { CrewPool } from './components/crew-pool';
 import { PlanningGantt } from './components/planning-gantt';
 import { PlanningSettingsSheet } from './components/planning-settings-sheet';
 import { PlanningToolbar } from './components/planning-toolbar';
@@ -311,7 +311,7 @@ export function CrewPlanningContent({
                         </div>
 
                         {can.create ? (
-                            <AvailableCrewPool employees={employees} />
+                            <CrewPool employees={employees} />
                         ) : null}
                     </div>
 
