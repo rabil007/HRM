@@ -541,6 +541,37 @@ Frontend `can.manage` on show/index.
 
 ---
 
+## Vessel Manning
+
+### Purpose
+
+Define required crew headcount by rank for each vessel (company-scoped). Example: Vessel A needs 1 Captain and 2 Welders; Vessel B may differ.
+
+### Main models
+
+- `VesselManning` — `company_id`, `vessel_id`, `rank_id`, `required_count`
+- Master data: `Vessel`, `Rank`, `VesselType`
+
+### Controllers
+
+`VesselManningController` — index (vessel list + manning summary), update (sync requirements for one vessel)
+
+Support: `VesselManningIndexQuery`, `SyncVesselManning`
+
+### Pages / components
+
+| Path | Role |
+|------|------|
+| `pages/organization/vessel-manning/index.tsx` | Vessel list with manning summary |
+| `features/organization/vessel-manning/vessel-manning-form-sheet.tsx` | Edit rank requirements per vessel |
+
+### Permissions involved
+
+- `crew_operations.vessel_manning.view` — list
+- `crew_operations.vessel_manning.manage` — update manning
+
+---
+
 ## Users
 
 ### Purpose

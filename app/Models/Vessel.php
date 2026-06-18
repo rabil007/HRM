@@ -38,6 +38,11 @@ class Vessel extends Model
         return $this->hasMany(EmployeeDeployment::class);
     }
 
+    public function manning(): HasMany
+    {
+        return $this->hasMany(VesselManning::class);
+    }
+
     public static function normalizeName(string $name): string
     {
         return mb_strtolower(preg_replace('/\s+/u', ' ', trim($name)) ?? '');

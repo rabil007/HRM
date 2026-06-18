@@ -22,6 +22,7 @@ import {
     Radio,
     Contact,
     Ship,
+    Anchor,
 } from 'lucide-react';
 import { getSettingsSidebarSubItems } from '@/lib/settings-nav';
 import { dashboard } from '@/routes';
@@ -83,6 +84,7 @@ const baseSidebarData: SidebarData = {
             title: 'Crew Operations',
             items: [
                 { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
+                { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
             ],
         },
         {
@@ -179,6 +181,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'employees.view') ? item : null;
                         case '/organization/crew-deployments':
                             return has(permissions, 'crew_operations.deployments.view') ? item : null;
+                        case '/organization/vessel-manning':
+                            return has(permissions, 'crew_operations.vessel_manning.view')
+                                ? item
+                                : null;
                         case documents.url():
                             return has(permissions, 'documents.view') ? item : null;
                         case '/organization/roles':
