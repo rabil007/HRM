@@ -1,5 +1,5 @@
 import { router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Plus, Search, Settings, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { index as planningIndex } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -16,7 +16,6 @@ type Props = {
     searchInput: string;
     can: PlanningPagePermissions;
     onAssign: () => void;
-    onOpenSettings?: () => void;
 };
 
 function formatMonthLabel(dateStr: string): string {
@@ -62,7 +61,6 @@ export function PlanningToolbar({
     searchInput,
     can,
     onAssign,
-    onOpenSettings,
 }: Props): ReactElement {
     const { from, to } = filters;
 
@@ -177,17 +175,6 @@ export function PlanningToolbar({
 
             {/* Actions — pushed right */}
             <div className="ml-auto flex items-center gap-2">
-                {can.update ? (
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        onClick={onOpenSettings}
-                        aria-label="Planning settings"
-                    >
-                        <Settings className="h-4 w-4" />
-                    </Button>
-                ) : null}
                 {can.create ? (
                     <Button size="sm" className="h-8 gap-1.5 px-3" onClick={onAssign}>
                         <Plus className="h-3.5 w-3.5" />

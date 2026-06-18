@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\Organization\CrewPlanning;
+namespace App\Http\Requests\Organization\CrewOperations;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
-class UpdateCrewPlanningSettingsRequest extends FormRequest
+class UpdateCrewOperationsSettingsRequest extends FormRequest
 {
     public function authorize(): bool
     {

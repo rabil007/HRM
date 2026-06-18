@@ -1,22 +1,22 @@
 <?php
 
-namespace App\Support\CrewPlanning;
+namespace App\Support\CrewOperations;
 
-use App\Models\CrewPlanningSetting;
+use App\Models\CrewOperationsSetting;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Support\Departments\BuildDepartmentTree;
 use App\Support\Employees\DepartmentDescendantIds;
 use Illuminate\Database\Eloquent\Builder;
 
-final class CrewPlanningSettings
+final class CrewOperationsSettings
 {
     /**
      * @return list<int>
      */
     public static function poolDepartmentIds(int $companyId): array
     {
-        $setting = CrewPlanningSetting::query()
+        $setting = CrewOperationsSetting::query()
             ->where('company_id', $companyId)
             ->first();
 
@@ -33,11 +33,11 @@ final class CrewPlanningSettings
     /**
      * @param  list<int>  $departmentIds
      */
-    public static function savePoolDepartmentIds(int $companyId, array $departmentIds): CrewPlanningSetting
+    public static function savePoolDepartmentIds(int $companyId, array $departmentIds): CrewOperationsSetting
     {
         $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
 
-        return CrewPlanningSetting::query()->updateOrCreate(
+        return CrewOperationsSetting::query()->updateOrCreate(
             ['company_id' => $companyId],
             ['pool_department_ids' => $normalized === [] ? null : $normalized],
         );

@@ -3,14 +3,12 @@
 namespace App\Http\Controllers\Organization;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Organization\CrewPlanning\UpdateCrewPlanningSettingsRequest;
 use App\Models\Rank;
 use App\Models\Vessel;
+use App\Support\CrewOperations\CrewOperationsSettings;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use App\Support\CrewPlanning\CrewPlanningPagePermissions;
-use App\Support\CrewPlanning\CrewPlanningSettings;
 use Carbon\CarbonImmutable;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -46,25 +44,9 @@ class CrewPlanningController extends Controller
             'today' => CarbonImmutable::today()->toDateString(),
             'vessels' => $this->activeVessels(),
             'ranks' => $this->activeRanks(),
-            'department_tree' => CrewPlanningSettings::activeDepartmentTree($companyId),
-            'employees' => CrewPlanningSettings::poolEmployees($companyId),
-            'planningSettings' => [
-                'pool_department_ids' => CrewPlanningSettings::poolDepartmentIds($companyId),
-            ],
+            'employees' => CrewOperationsSettings::poolEmployees($companyId),
             'can' => CrewPlanningPagePermissions::for($request->user()),
         ]);
-    }
-
-    public function updateSettings(UpdateCrewPlanningSettingsRequest $request): RedirectResponse
-    {
-        $companyId = (int) $request->attributes->get('current_company_id');
-
-        CrewPlanningSettings::savePoolDepartmentIds(
-            $companyId,
-            $request->validated('pool_department_ids') ?? [],
-        );
-
-        return back()->with('success', 'Planning settings saved.');
     }
 
     private function resolveDate(mixed $value, string $default): string

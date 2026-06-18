@@ -2,8 +2,8 @@
 
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
-use App\Models\CrewPlanningSetting;
 use App\Models\Currency;
 use App\Models\Department;
 use App\Models\Employee;
@@ -106,8 +106,6 @@ test('authorized users can view the crew planning index', function () {
             ->has('bars')
             ->has('tree')
             ->has('filters')
-            ->has('department_tree')
-            ->has('settings')
             ->where('can.view', true)
         );
 });
@@ -171,7 +169,7 @@ test('planning index employees list respects pool department settings', function
         'name' => 'Beta Office',
     ]);
 
-    CrewPlanningSetting::query()->create([
+    CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
         'pool_department_ids' => [$crewDept->id],
     ]);
@@ -184,7 +182,6 @@ test('planning index employees list respects pool department settings', function
             ->where('employees.0.id', $crewMember->id)
             ->where('employees.0.rank_id', $captain->id)
             ->where('employees.0.rank_name', $captain->name)
-            ->where('settings.pool_department_ids', [$crewDept->id])
         );
 });
 
@@ -250,7 +247,7 @@ test('planning pool settings include employees from child departments when paren
         'name' => 'Child Crew',
     ]);
 
-    CrewPlanningSetting::query()->create([
+    CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
         'pool_department_ids' => [$parentDept->id],
     ]);
@@ -261,110 +258,7 @@ test('planning pool settings include employees from child departments when paren
         ->assertInertia(fn (Assert $page) => $page
             ->has('employees', 2)
             ->where('employees', fn ($employees) => collect($employees)->pluck('id')->sort()->values()->all() === collect([$parentEmployee->id, $childEmployee->id])->sort()->values()->all())
-            ->has('department_tree', 1)
-            ->where('department_tree.0.id', $parentDept->id)
-            ->where('department_tree.0.children.0.id', $childDept->id)
         );
-});
-
-test('authorized user can update planning pool department settings', function () {
-    ['user' => $user, 'company' => $company] = makeCrewPlanningFixtures();
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
-    ]);
-
-    $crewDept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Engine Crew',
-        'code' => 'ENG',
-        'status' => 'active',
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.settings.update'), [
-            'pool_department_ids' => [$crewDept->id],
-        ])
-        ->assertRedirect();
-
-    $setting = CrewPlanningSetting::query()->where('company_id', $company->id)->first();
-
-    expect($setting)->not->toBeNull()
-        ->and($setting->pool_department_ids)->toBe([$crewDept->id]);
-});
-
-test('clearing pool department settings shows all ranked active employees again', function () {
-    ['user' => $user, 'company' => $company, 'captain' => $captain] = makeCrewPlanningFixtures();
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
-    ]);
-
-    $dept = Department::query()->create([
-        'company_id' => $company->id,
-        'name' => 'Crew Pool',
-        'code' => 'POOL',
-        'status' => 'active',
-    ]);
-
-    Employee::factory()->count(2)->create([
-        'company_id' => $company->id,
-        'department_id' => $dept->id,
-        'rank_id' => $captain->id,
-    ]);
-
-    CrewPlanningSetting::query()->create([
-        'company_id' => $company->id,
-        'pool_department_ids' => [$dept->id],
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.settings.update'), [
-            'pool_department_ids' => [],
-        ])
-        ->assertRedirect();
-
-    $this->actingAs($user)
-        ->get(route('organization.crew-planning.index'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->where('settings.pool_department_ids', [])
-            ->has('employees', 2)
-        );
-});
-
-test('users without update permission cannot change planning settings', function () {
-    ['user' => $user, 'company' => $company] = makeCrewPlanningFixtures();
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.settings.update'), [
-            'pool_department_ids' => [],
-        ])
-        ->assertForbidden();
-});
-
-test('planning settings reject departments from another company', function () {
-    ['user' => $user, 'company' => $company, 'otherCompany' => $otherCompany] = makeCrewPlanningFixtures();
-
-    grantCompanyPermissions($user, $company, [
-        'crew_operations.planning.view',
-        'crew_operations.planning.update',
-    ]);
-
-    $foreignDept = Department::query()->create([
-        'company_id' => $otherCompany->id,
-        'name' => 'Foreign Dept',
-        'code' => 'FOR',
-        'status' => 'active',
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.settings.update'), [
-            'pool_department_ids' => [$foreignDept->id],
-        ])
-        ->assertSessionHasErrors(['pool_department_ids.0']);
 });
 
 test('rows are returned from vessel manning', function () {

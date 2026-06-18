@@ -38,7 +38,11 @@ export default function AppLayout({
         {
             title: 'Crew Operations',
             href: '/organization/crew-deployments',
-            isActive: url.startsWith('/organization/crew-deployments'),
+            isActive:
+                url.startsWith('/organization/crew-deployments') ||
+                url.startsWith('/organization/vessel-manning') ||
+                url.startsWith('/organization/crew-planning') ||
+                url.startsWith('/organization/crew-operations'),
             disabled: false,
         },
         {

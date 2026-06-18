@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPool } from './components/crew-pool';
 import { PlanningGantt } from './components/planning-gantt';
-import { PlanningSettingsSheet } from './components/planning-settings-sheet';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
@@ -25,12 +24,10 @@ import type {
     CrewDragData,
     GanttBar,
     GanttVesselGroup,
-    PlanningDepartmentNode,
     PlanningFilters,
     PlanningOption,
     PlanningPagePermissions,
     PlanningPoolEmployee,
-    PlanningSettings,
     RowDropData,
     TreeVessel,
 } from './types';
@@ -59,9 +56,7 @@ type Props = {
     today: string;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
-    departmentTree: PlanningDepartmentNode[];
     employees: PlanningPoolEmployee[];
-    settings: PlanningSettings;
     can: PlanningPagePermissions;
 };
 
@@ -73,15 +68,12 @@ export function CrewPlanningContent({
     today,
     vessels,
     ranks,
-    departmentTree,
     employees,
-    settings,
     can,
 }: Props): ReactElement {
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [dialogState, setDialogState] = useState<AssignDialogState>(CLOSED_DIALOG);
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const [draggingEmployee, setDraggingEmployee] = useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
 
@@ -256,7 +248,6 @@ export function CrewPlanningContent({
                     onSearchChange={setSearchInput}
                     can={can}
                     onAssign={() => openCreate()}
-                    onOpenSettings={() => setSettingsOpen(true)}
                 />
 
                 <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -307,13 +298,6 @@ export function CrewPlanningContent({
                     ranks={ranks}
                     rows={rows}
                     employees={employees}
-                />
-
-                <PlanningSettingsSheet
-                    open={settingsOpen}
-                    onOpenChange={setSettingsOpen}
-                    departmentTree={departmentTree}
-                    settings={settings}
                 />
             </Main>
 

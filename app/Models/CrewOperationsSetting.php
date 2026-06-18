@@ -5,8 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class CrewPlanningSetting extends Model
+class CrewOperationsSetting extends Model
 {
+    protected $table = 'crew_operations_settings';
+
     protected $guarded = [];
 
     protected function casts(): array
