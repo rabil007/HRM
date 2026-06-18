@@ -3,14 +3,12 @@
 namespace App\Http\Requests\Organization\CrewPlanning;
 
 use App\Http\Requests\Organization\CrewPlanning\Concerns\ValidatesCrewPlanningAssignmentFields;
-use App\Http\Requests\Organization\CrewPlanning\Concerns\ValidatesCrewPlanningAssignmentOverlap;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class UpdateCrewPlanningAssignmentRequest extends FormRequest
 {
     use ValidatesCrewPlanningAssignmentFields;
-    use ValidatesCrewPlanningAssignmentOverlap;
 
     public function authorize(): bool
     {

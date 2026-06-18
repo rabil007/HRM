@@ -8,9 +8,7 @@ import {
     store as storeAssignment,
     update as updateAssignment,
     destroy as destroyAssignment,
-    confirm as confirmAssignment,
 } from '@/actions/App/Http/Controllers/Organization/CrewPlanningAssignmentController';
-import { ConfirmDialog } from '@/components/confirm-dialog';
 import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { toast } from '@/lib/toast';
@@ -84,8 +82,6 @@ export function CrewPlanningContent({
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
     const [dialogState, setDialogState] = useState<AssignDialogState>(CLOSED_DIALOG);
     const [settingsOpen, setSettingsOpen] = useState(false);
-    const [confirmBar, setConfirmBar] = useState<GanttBar | null>(null);
-    const [isConfirming, setIsConfirming] = useState(false);
     const [draggingEmployee, setDraggingEmployee] = useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
 
@@ -127,8 +123,8 @@ export function CrewPlanningContent({
             vessel_id: bar.row_key.split('|')[0].replace('vessel:', ''),
             rank_id: bar.row_key.split('|')[1].replace('rank:', ''),
             employee_id: bar.employee_id != null ? String(bar.employee_id) : '',
-            planned_join_date: bar.joined_date,
-            planned_leave_date: bar.disembarked_date ?? '',
+            planned_join_date: bar.planned_join_date,
+            planned_leave_date: bar.planned_leave_date,
             notes: bar.notes ?? '',
         });
         setDialogState({ open: true, editing: bar, initialVesselId: '', initialRankId: '', initialDate: '' });
@@ -166,38 +162,6 @@ export function CrewPlanningContent({
     const handleDeleteBar = useCallback((bar: GanttBar): void => {
         router.delete(destroyAssignment.url({ assignment: bar.id }), { preserveScroll: true });
     }, []);
-
-    const handleConfirmBar = useCallback((bar: GanttBar): void => {
-        setConfirmBar(bar);
-    }, []);
-
-    const handleConfirmSubmit = (): void => {
-        if (!confirmBar) {
-            return;
-        }
-
-        setIsConfirming(true);
-        router.post(
-            confirmAssignment.url({ assignment: confirmBar.id }),
-            {},
-            {
-                preserveScroll: true,
-                onSuccess: () => {
-                    setConfirmBar(null);
-                    setDialogState(CLOSED_DIALOG);
-                },
-                onFinish: () => setIsConfirming(false),
-            },
-        );
-    };
-
-    const handleConfirmFromSheet = (): void => {
-        if (!dialogState.editing) {
-            return;
-        }
-
-        handleConfirmBar(dialogState.editing);
-    };
 
     const handleRowSelect = useCallback((rowKey: string): void => {
         setSelectedRowKey((prev) => (prev === rowKey ? null : rowKey));
@@ -280,7 +244,7 @@ export function CrewPlanningContent({
                     <PageHeader
                         kicker="Crew Operations"
                         title="Crew Planning"
-                        description="Visual timeline of crew deployments by vessel and rank."
+                        description="Visual timeline for scheduling crew by vessel and rank."
                     />
                 </div>
 
@@ -329,7 +293,6 @@ export function CrewPlanningContent({
                             onRowClick={handleRowClick}
                             onEditBar={openEdit}
                             onDeleteBar={handleDeleteBar}
-                            onConfirmBar={handleConfirmBar}
                         />
                     </div>
                 </div>
@@ -344,8 +307,6 @@ export function CrewPlanningContent({
                     ranks={ranks}
                     rows={rows}
                     employees={employees}
-                    canConfirm={can.confirm}
-                    onConfirm={handleConfirmFromSheet}
                 />
 
                 <PlanningSettingsSheet
@@ -353,24 +314,6 @@ export function CrewPlanningContent({
                     onOpenChange={setSettingsOpen}
                     departmentTree={departmentTree}
                     settings={settings}
-                />
-
-                <ConfirmDialog
-                    open={confirmBar !== null}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setConfirmBar(null);
-                        }
-                    }}
-                    title="Confirm planned assignment?"
-                    desc={
-                        confirmBar
-                            ? `This will create a deployment record for ${confirmBar.employee_name} on ${confirmBar.vessel_name ?? 'the vessel'} from ${confirmBar.joined_date} to ${confirmBar.disembarked_date ?? confirmBar.joined_date}. The draft bar will be replaced by a deployment bar.`
-                            : ''
-                    }
-                    confirmText={isConfirming ? 'Confirming…' : 'Confirm deployment'}
-                    isLoading={isConfirming}
-                    handleConfirm={handleConfirmSubmit}
                 />
             </Main>
 

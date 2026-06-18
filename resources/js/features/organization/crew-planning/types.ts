@@ -13,27 +13,21 @@ export type GanttVesselGroup = {
 
 export type GanttBar = {
     id: number;
-    source: 'deployment' | 'assignment';
     row_key: string;
     employee_id: number | null;
     employee_name: string;
-    nationality: string | null;
     start: string;
     end: string;
-    status: 'past' | 'active' | 'future' | 'draft';
+    planned_join_date: string;
+    planned_leave_date: string;
     rank_name: string | null;
     vessel_name: string | null;
-    joined_date: string;
-    disembarked_date: string | null;
     notes: string | null;
-    assignment_status?: 'draft' | 'confirmed' | 'cancelled';
 };
 
 export type TreeCrewMember = {
     employee_id: number | null;
     employee_name: string;
-    status: 'past' | 'active' | 'future' | 'draft';
-    source: 'deployment' | 'assignment';
 };
 
 export type TreeRank = {
@@ -80,7 +74,6 @@ export type PlanningPagePermissions = {
     create: boolean;
     update: boolean;
     delete: boolean;
-    confirm: boolean;
 };
 
 export type PlanningSettings = {

@@ -2,6 +2,7 @@
 
 use App\Models\Company;
 use App\Models\Country;
+use App\Models\CrewPlanningAssignment;
 use App\Models\CrewPlanningSetting;
 use App\Models\Currency;
 use App\Models\Department;
@@ -400,7 +401,7 @@ test('rows are returned from vessel manning', function () {
         );
 });
 
-test('bars are returned for deployments overlapping the date range', function () {
+test('bars are returned for assignments overlapping the date range', function () {
     [
         'user' => $user,
         'company' => $company,
@@ -415,20 +416,22 @@ test('bars are returned for deployments overlapping the date range', function ()
         'required_count' => 1,
     ]);
 
-    $employee = Employee::factory()->create(['company_id' => $company->id]);
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $captain->id,
+    ]);
 
     $today = CarbonImmutable::today();
     $from = $today->startOfMonth()->toDateString();
     $to = $today->addMonths(2)->endOfMonth()->toDateString();
 
-    EmployeeDeployment::query()->create([
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'joined_date' => $today->subDays(10)->toDateString(),
-        'disembarked_date' => null,
-        'sort_order' => 0,
+        'planned_join_date' => $today->subDays(10)->toDateString(),
+        'planned_leave_date' => $today->addDays(30)->toDateString(),
     ]);
 
     $this->actingAs($user)
@@ -437,7 +440,7 @@ test('bars are returned for deployments overlapping the date range', function ()
         ->assertInertia(fn (Assert $page) => $page
             ->has('bars', 1)
             ->where('bars.0.employee_id', $employee->id)
-            ->where('bars.0.status', 'active')
+            ->where('bars.0.planned_join_date', $today->subDays(10)->toDateString())
         );
 });
 
@@ -449,16 +452,18 @@ test('bars outside the date range are excluded', function () {
         'captain' => $captain,
     ] = makeCrewPlanningFixtures();
 
-    $employee = Employee::factory()->create(['company_id' => $company->id]);
+    $employee = Employee::factory()->create([
+        'company_id' => $company->id,
+        'rank_id' => $captain->id,
+    ]);
 
-    EmployeeDeployment::query()->create([
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'joined_date' => '2020-01-01',
-        'disembarked_date' => '2020-03-01',
-        'sort_order' => 0,
+        'planned_join_date' => '2020-01-01',
+        'planned_leave_date' => '2020-03-01',
     ]);
 
     $from = '2025-01-01';

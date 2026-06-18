@@ -1,4 +1,4 @@
-import { CheckCircle2, Pencil, Trash2 } from 'lucide-react';
+import { Pencil, Trash2 } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { Button } from '@/components/ui/button';
 import type { GanttBar, PlanningPagePermissions } from '../types';
@@ -8,7 +8,6 @@ type Props = {
     can: PlanningPagePermissions;
     onEdit?: (bar: GanttBar) => void;
     onDelete?: (bar: GanttBar) => void;
-    onConfirm?: (bar: GanttBar) => void;
 };
 
 export function AssignmentBarActions({
@@ -16,26 +15,13 @@ export function AssignmentBarActions({
     can,
     onEdit,
     onDelete,
-    onConfirm,
 }: Props): ReactElement | null {
-    const canConfirm = can.confirm && bar.employee_id != null;
-
-    if (!can.update && !can.delete && !canConfirm) {
+    if (!can.update && !can.delete) {
         return null;
     }
 
     return (
         <div className="flex flex-wrap gap-2 border-t pt-2">
-            {canConfirm ? (
-                <Button
-                    size="sm"
-                    className="h-7 flex-1 gap-1 rounded-lg text-xs"
-                    onClick={() => onConfirm?.(bar)}
-                >
-                    <CheckCircle2 className="h-3 w-3" />
-                    Confirm
-                </Button>
-            ) : null}
             {can.update ? (
                 <Button
                     size="sm"

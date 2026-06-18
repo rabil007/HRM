@@ -144,7 +144,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/crew-planning/settings', [CrewPlanningController::class, 'updateSettings'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.settings.update');
     Route::post('organization/crew-planning/assignments', [CrewPlanningAssignmentController::class, 'store'])->middleware('can:crew_operations.planning.create')->name('organization.crew-planning.assignments.store');
     Route::put('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.assignments.update');
-    Route::post('organization/crew-planning/assignments/{assignment}/confirm', [CrewPlanningAssignmentController::class, 'confirm'])->middleware('can:crew_operations.planning.confirm')->name('organization.crew-planning.assignments.confirm');
     Route::delete('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'destroy'])->middleware('can:crew_operations.planning.delete')->name('organization.crew-planning.assignments.destroy');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');

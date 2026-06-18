@@ -3,10 +3,7 @@
 namespace App\Support\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
-use App\Models\EmployeeDeployment;
-use App\Models\Vessel;
 use App\Models\VesselManning;
-use Carbon\CarbonImmutable;
 
 final class CrewPlanningGanttQuery
 {
@@ -69,8 +66,7 @@ final class CrewPlanningGanttQuery
     }
 
     /**
-     * Gantt bars combining EmployeeDeployment records (confirmed) and
-     * CrewPlanningAssignment records (draft) overlapping the date range.
+     * Gantt bars from planned assignments overlapping the date range.
      *
      * @return list<array<string, mixed>>
      */
@@ -81,70 +77,8 @@ final class CrewPlanningGanttQuery
         ?int $vesselId = null,
         ?int $rankId = null,
     ): array {
-        $today = CarbonImmutable::today();
-
-        $deployments = EmployeeDeployment::query()
+        return CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
-            ->whereNotNull('joined_date')
-            ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
-            ->where('joined_date', '<=', $to)
-            ->where(fn ($q) => $q
-                ->whereNull('disembarked_date')
-                ->orWhere('disembarked_date', '>=', $from)
-            )
-            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->with([
-                'employee:id,name,nationality_id',
-                'employee.nationalityRef:id,name',
-                'rank:id,name',
-                'vessel:id,name',
-            ])
-            ->orderBy('vessel_id')
-            ->orderBy('rank_id')
-            ->orderBy('joined_date')
-            ->get();
-
-        $deploymentBars = $deployments
-            ->map(function (EmployeeDeployment $dep) use ($today): ?array {
-                $joinedDate = $dep->joined_date;
-                $disembarkedDate = $dep->disembarked_date;
-
-                if ($joinedDate === null) {
-                    return null;
-                }
-
-                $status = match (true) {
-                    $disembarkedDate !== null && $disembarkedDate->lt($today) => 'past',
-                    $joinedDate->gt($today) => 'future',
-                    default => 'active',
-                };
-
-                return [
-                    'id' => $dep->id,
-                    'source' => 'deployment',
-                    'row_key' => "vessel:{$dep->vessel_id}|rank:{$dep->rank_id}",
-                    'employee_id' => $dep->employee_id,
-                    'employee_name' => $dep->employee?->name ?? '',
-                    'nationality' => $dep->employee?->nationalityRef?->name,
-                    'start' => $joinedDate->toDateString(),
-                    'end' => $disembarkedDate?->toDateString() ?? $today->toDateString(),
-                    'status' => $status,
-                    'rank_name' => $dep->rank?->name,
-                    'vessel_name' => $dep->vessel?->name,
-                    'joined_date' => $joinedDate->toDateString(),
-                    'disembarked_date' => $disembarkedDate?->toDateString(),
-                    'notes' => null,
-                ];
-            })
-            ->filter()
-            ->values()
-            ->all();
-
-        $assignments = CrewPlanningAssignment::query()
-            ->where('company_id', $companyId)
-            ->where('status', 'draft')
             ->whereNotNull('vessel_id')
             ->whereNotNull('rank_id')
             ->where('planned_join_date', '<=', $to)
@@ -159,34 +93,26 @@ final class CrewPlanningGanttQuery
             ->orderBy('vessel_id')
             ->orderBy('rank_id')
             ->orderBy('planned_join_date')
-            ->get();
-
-        $assignmentBars = $assignments
-            ->map(fn (CrewPlanningAssignment $asgn) => [
-                'id' => $asgn->id,
-                'source' => 'assignment',
-                'row_key' => "vessel:{$asgn->vessel_id}|rank:{$asgn->rank_id}",
-                'employee_id' => $asgn->employee_id,
-                'employee_name' => $asgn->employee?->name ?? 'Vacant',
-                'nationality' => null,
-                'start' => $asgn->planned_join_date->toDateString(),
-                'end' => $asgn->planned_leave_date->toDateString(),
-                'status' => 'draft',
-                'rank_name' => $asgn->rank?->name,
-                'vessel_name' => $asgn->vessel?->name,
-                'joined_date' => $asgn->planned_join_date->toDateString(),
-                'disembarked_date' => $asgn->planned_leave_date->toDateString(),
-                'notes' => $asgn->notes,
-                'assignment_status' => $asgn->status,
+            ->get()
+            ->map(fn (CrewPlanningAssignment $assignment) => [
+                'id' => $assignment->id,
+                'row_key' => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}",
+                'employee_id' => $assignment->employee_id,
+                'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                'start' => $assignment->planned_join_date->toDateString(),
+                'end' => $assignment->planned_leave_date->toDateString(),
+                'planned_join_date' => $assignment->planned_join_date->toDateString(),
+                'planned_leave_date' => $assignment->planned_leave_date->toDateString(),
+                'rank_name' => $assignment->rank?->name,
+                'vessel_name' => $assignment->vessel?->name,
+                'notes' => $assignment->notes,
             ])
             ->values()
             ->all();
-
-        return array_merge($deploymentBars, $assignmentBars);
     }
 
     /**
-     * Tree data: vessels with their manning ranks and currently deployed/assigned crew.
+     * Tree data: vessels with manning ranks and planned crew in range.
      *
      * @return list<array{
      *     vessel_id: int,
@@ -197,16 +123,13 @@ final class CrewPlanningGanttQuery
      *         required_count: int,
      *         crew: list<array{
      *             employee_id: int|null,
-     *             employee_name: string,
-     *             status: string
+     *             employee_name: string
      *         }>
      *     }>
      * }>
      */
     public static function tree(int $companyId, string $from, string $to): array
     {
-        $today = CarbonImmutable::today();
-
         $manning = VesselManning::query()
             ->where('company_id', $companyId)
             ->with([
@@ -217,30 +140,15 @@ final class CrewPlanningGanttQuery
             ->orderBy('rank_id')
             ->get();
 
-        $deployments = EmployeeDeployment::query()
-            ->where('company_id', $companyId)
-            ->whereNotNull('joined_date')
-            ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
-            ->where('joined_date', '<=', $to)
-            ->where(fn ($q) => $q
-                ->whereNull('disembarked_date')
-                ->orWhere('disembarked_date', '>=', $from)
-            )
-            ->with(['employee:id,name'])
-            ->get()
-            ->groupBy(fn (EmployeeDeployment $dep) => "vessel:{$dep->vessel_id}|rank:{$dep->rank_id}");
-
         $assignments = CrewPlanningAssignment::query()
             ->where('company_id', $companyId)
-            ->where('status', 'draft')
             ->whereNotNull('vessel_id')
             ->whereNotNull('rank_id')
             ->where('planned_join_date', '<=', $to)
             ->where('planned_leave_date', '>=', $from)
             ->with(['employee:id,name'])
             ->get()
-            ->groupBy(fn (CrewPlanningAssignment $a) => "vessel:{$a->vessel_id}|rank:{$a->rank_id}");
+            ->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}");
 
         $grouped = [];
 
@@ -264,38 +172,19 @@ final class CrewPlanningGanttQuery
 
             $rowKey = "vessel:{$vId}|rank:{$rank->id}";
 
-            $deps = $deployments->get($rowKey, collect());
-            $depCrew = $deps->map(function (EmployeeDeployment $dep) use ($today): array {
-                $disembarkedDate = $dep->disembarked_date;
-                $joinedDate = $dep->joined_date;
-
-                $status = match (true) {
-                    $disembarkedDate !== null && $disembarkedDate->lt($today) => 'past',
-                    $joinedDate !== null && $joinedDate->gt($today) => 'future',
-                    default => 'active',
-                };
-
-                return [
-                    'employee_id' => $dep->employee_id,
-                    'employee_name' => $dep->employee?->name ?? '',
-                    'status' => $status,
-                    'source' => 'deployment',
-                ];
-            });
-
-            $asgns = $assignments->get($rowKey, collect());
-            $asgCrew = $asgns->map(fn (CrewPlanningAssignment $a): array => [
-                'employee_id' => $a->employee_id,
-                'employee_name' => $a->employee?->name ?? 'Vacant',
-                'status' => 'draft',
-                'source' => 'assignment',
-            ]);
+            $plannedCrew = ($assignments->get($rowKey, collect()))
+                ->map(fn (CrewPlanningAssignment $assignment): array => [
+                    'employee_id' => $assignment->employee_id,
+                    'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                ])
+                ->values()
+                ->all();
 
             $grouped[$vId]['ranks'][] = [
                 'rank_id' => $rank->id,
                 'rank_name' => $rank->name,
                 'required_count' => $row->required_count,
-                'crew' => $depCrew->merge($asgCrew)->values()->all(),
+                'crew' => $plannedCrew,
             ];
         }
 

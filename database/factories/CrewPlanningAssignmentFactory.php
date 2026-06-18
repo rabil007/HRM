@@ -45,19 +45,8 @@ class CrewPlanningAssignmentFactory extends Factory
             'employee_id' => null,
             'planned_join_date' => $joinDate->format('Y-m-d'),
             'planned_leave_date' => $leaveDate->format('Y-m-d'),
-            'status' => 'draft',
             'notes' => null,
         ];
-    }
-
-    public function draft(): static
-    {
-        return $this->state(fn () => ['status' => 'draft']);
-    }
-
-    public function confirmed(): static
-    {
-        return $this->state(fn () => ['status' => 'confirmed']);
     }
 
     public function withEmployee(Employee $employee): static

@@ -5,27 +5,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils';
 import type { TreeRank, TreeVessel } from '../types';
 
-type Props = {
-    tree: TreeVessel[];
-    search: string;
-    selectedRowKey: string | null;
-    onRowSelect: (rowKey: string) => void;
-};
-
-function StatusDot({ status }: { status: string }): ReactElement {
-    return (
-        <span
-            className={cn(
-                'inline-block h-2 w-2 shrink-0 rounded-full',
-                status === 'active' && 'bg-emerald-500',
-                status === 'future' && 'bg-blue-500',
-                status === 'past' && 'bg-muted-foreground/40',
-                status === 'draft' && 'border border-dashed border-blue-400 bg-blue-100',
-            )}
-        />
-    );
-}
-
 function RankNode({
     rank,
     rowKey,
@@ -76,19 +55,18 @@ function RankNode({
             <CollapsibleContent>
                 <div className="pb-1 pl-10">
                     {rank.crew.length === 0 ? (
-                        <p className="py-1 text-xs text-muted-foreground/60">No crew assigned</p>
+                        <p className="py-1 text-xs text-muted-foreground/60">No crew planned</p>
                     ) : (
                         rank.crew.map((member, idx) => (
                             <div
                                 key={member.employee_id != null ? `emp-${member.employee_id}` : `vacant-${idx}`}
                                 className={cn(
-                                    'flex items-center gap-2 py-0.5 text-xs text-foreground/80',
+                                    'py-0.5 text-xs text-foreground/80',
                                     lowerSearch !== '' &&
                                         member.employee_name.toLowerCase().includes(lowerSearch) &&
                                         'font-semibold text-foreground',
                                 )}
                             >
-                                <StatusDot status={member.status} />
                                 <span className="truncate">{member.employee_name}</span>
                             </div>
                         ))
@@ -159,7 +137,12 @@ function VesselNode({
     );
 }
 
-export function VesselRankTree({ tree, search, selectedRowKey, onRowSelect }: Props): ReactElement {
+export function VesselRankTree({ tree, search, selectedRowKey, onRowSelect }: {
+    tree: TreeVessel[];
+    search: string;
+    selectedRowKey: string | null;
+    onRowSelect: (rowKey: string) => void;
+}): ReactElement {
     if (tree.length === 0) {
         return (
             <div className="flex h-full items-center justify-center p-4 text-center text-xs text-muted-foreground">

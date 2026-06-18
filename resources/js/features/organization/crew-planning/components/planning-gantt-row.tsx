@@ -25,7 +25,6 @@ type Props = {
     onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
-    onConfirmBar?: (bar: GanttBar) => void;
 };
 
 function todayLineStyle(today: Date, rangeFrom: Date, rangeTo: Date): React.CSSProperties | null {
@@ -61,7 +60,6 @@ export function PlanningGanttRow({
     onRowClick,
     onEditBar,
     onDeleteBar,
-    onConfirmBar,
 }: Props): ReactElement {
     const dropData: RowDropData = { type: 'row', vesselId, rankId };
     const { setNodeRef: setDropRef, isOver } = useDroppable({
@@ -148,7 +146,7 @@ export function PlanningGanttRow({
 
                         return (
                             <PlanningGanttBar
-                                key={`${bar.source}-${bar.id}`}
+                                key={bar.id}
                                 bar={bar}
                                 style={style}
                                 highlighted={isBarHighlighted}
@@ -157,7 +155,6 @@ export function PlanningGanttRow({
                                 rangeTo={rangeTo}
                                 onEdit={onEditBar}
                                 onDelete={onDeleteBar}
-                                onConfirm={onConfirmBar}
                             />
                         );
                     })}

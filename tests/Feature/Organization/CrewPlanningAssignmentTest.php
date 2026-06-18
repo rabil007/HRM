@@ -5,8 +5,6 @@ use App\Models\Country;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
-use App\Models\EmployeeDeployment;
-use App\Models\EmployeeSeaService;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -65,7 +63,6 @@ function makeAssignmentFixtures(): array
         'crew_operations.planning.create',
         'crew_operations.planning.update',
         'crew_operations.planning.delete',
-        'crew_operations.planning.confirm',
     ]);
 
     VesselManning::query()->create([
@@ -132,7 +129,6 @@ test('authorized user can create an assignment', function () {
         ->first();
 
     expect($assignment)->not->toBeNull()
-        ->and($assignment->status)->toBe('draft')
         ->and($assignment->notes)->toBe('Standby pool')
         ->and($assignment->planned_join_date->toDateString())->toBe('2027-02-01')
         ->and($assignment->planned_leave_date->toDateString())->toBe('2027-08-31');
@@ -208,7 +204,6 @@ test('update rejects changing to a rank not configured on the vessel', function 
         'rank_id' => $rank->id,
         'planned_join_date' => '2027-02-01',
         'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -232,7 +227,6 @@ test('authorized user can update their own assignment', function () {
         'rank_id' => $rank->id,
         'planned_join_date' => '2027-02-01',
         'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -258,7 +252,6 @@ test('update is scoped to current company', function () {
         'rank_id' => $rank->id,
         'planned_join_date' => '2027-01-01',
         'planned_leave_date' => '2027-06-30',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -279,7 +272,6 @@ test('authorized user can delete an assignment', function () {
         'rank_id' => $rank->id,
         'planned_join_date' => '2027-02-01',
         'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -298,7 +290,6 @@ test('destroy is scoped to current company', function () {
         'rank_id' => $rank->id,
         'planned_join_date' => '2027-01-01',
         'planned_leave_date' => '2027-06-30',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -323,7 +314,6 @@ test('assignment bars are included in the gantt bars response', function () {
         'rank_id' => $rank->id,
         'planned_join_date' => $today->addDays(5)->toDateString(),
         'planned_leave_date' => $today->addDays(35)->toDateString(),
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -331,12 +321,11 @@ test('assignment bars are included in the gantt bars response', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('bars', 1)
-            ->where('bars.0.source', 'assignment')
-            ->where('bars.0.status', 'draft')
+            ->where('bars.0.planned_join_date', $today->addDays(5)->toDateString())
         );
 });
 
-test('bars method combines deployment and assignment bars', function () {
+test('bars method returns assignments only and ignores deployments', function () {
     ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
@@ -344,33 +333,47 @@ test('bars method combines deployment and assignment bars', function () {
     $from = $today->startOfMonth()->toDateString();
     $to = $today->addMonths(2)->endOfMonth()->toDateString();
 
-    EmployeeDeployment::query()->create([
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
-        'employee_id' => $employee->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'joined_date' => $today->subDays(5)->toDateString(),
-        'disembarked_date' => null,
-        'sort_order' => 0,
+        'employee_id' => $employee->id,
+        'planned_join_date' => $today->addDays(10)->toDateString(),
+        'planned_leave_date' => $today->addDays(40)->toDateString(),
     ]);
+
+    $bars = CrewPlanningGanttQuery::bars($company->id, $from, $to);
+
+    expect($bars)->toHaveCount(1)
+        ->and($bars[0]['employee_id'])->toBe($employee->id);
+});
+
+test('store allows overlapping assignments for the same employee', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
 
     CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $rank->id,
-        'planned_join_date' => $today->addDays(10)->toDateString(),
-        'planned_leave_date' => $today->addDays(40)->toDateString(),
-        'status' => 'draft',
+        'employee_id' => $employee->id,
+        'planned_join_date' => '2027-03-01',
+        'planned_leave_date' => '2027-08-31',
     ]);
 
-    $bars = CrewPlanningGanttQuery::bars($company->id, $from, $to);
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2027-05-01',
+            'planned_leave_date' => '2027-11-30',
+        ])
+        ->assertRedirect();
 
-    $sources = collect($bars)->pluck('source')->unique()->sort()->values()->all();
-    expect($sources)->toBe(['assignment', 'deployment'])
-        ->and($bars)->toHaveCount(2);
+    expect(CrewPlanningAssignment::query()->where('employee_id', $employee->id)->count())->toBe(2);
 });
-
-// ─── Overlap / double-booking validation ──────────────────────────────────────
 
 test('store allows overlapping rank dates for different employees', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
@@ -385,7 +388,6 @@ test('store allows overlapping rank dates for different employees', function () 
         'employee_id' => $firstEmployee->id,
         'planned_join_date' => '2027-06-14',
         'planned_leave_date' => '2027-06-18',
-        'status' => 'draft',
     ]);
 
     $this->actingAs($user)
@@ -401,96 +403,7 @@ test('store allows overlapping rank dates for different employees', function () 
     expect(CrewPlanningAssignment::query()->where('employee_id', $secondEmployee->id)->exists())->toBeTrue();
 });
 
-test('store ignores stale older deployments when checking for overlap', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'joined_date' => '2024-01-01',
-        'disembarked_date' => null,
-        'sort_order' => 0,
-    ]);
-
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'joined_date' => '2027-01-01',
-        'disembarked_date' => '2027-06-10',
-        'sort_order' => 1,
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.store'), [
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'employee_id' => $employee->id,
-            'planned_join_date' => '2027-06-15',
-            'planned_leave_date' => '2027-06-18',
-        ])
-        ->assertRedirect();
-});
-
-test('store is rejected when employee already has an overlapping draft assignment', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-03-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.store'), [
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'employee_id' => $employee->id,
-            'planned_join_date' => '2027-05-01',
-            'planned_leave_date' => '2027-11-30',
-        ])
-        ->assertSessionHasErrors(['planned_join_date']);
-});
-
-test('store is rejected when employee already has an overlapping deployment', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-    $today = CarbonImmutable::today();
-
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'joined_date' => $today->subDays(10)->toDateString(),
-        'disembarked_date' => null,
-        'sort_order' => 0,
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.store'), [
-            'vessel_id' => $vessel->id,
-            'rank_id' => $rank->id,
-            'employee_id' => $employee->id,
-            'planned_join_date' => $today->addDays(5)->toDateString(),
-            'planned_leave_date' => $today->addDays(60)->toDateString(),
-        ])
-        ->assertSessionHasErrors(['planned_join_date']);
-});
-
-test('store with no employee (vacant slot) skips overlap check', function () {
+test('store with no employee creates a vacant slot', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $this->actingAs($user)
@@ -506,40 +419,7 @@ test('store with no employee (vacant slot) skips overlap check', function () {
     expect(CrewPlanningAssignment::query()->where('employee_id', null)->count())->toBe(1);
 });
 
-test('update (date shift from drag) is rejected when new dates cause overlap', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $existing = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-01-01',
-        'planned_leave_date' => '2027-03-31',
-        'status' => 'draft',
-    ]);
-
-    $conflict = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-06-01',
-        'planned_leave_date' => '2027-09-30',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.assignments.update', $existing), [
-            'planned_join_date' => '2027-05-01',
-            'planned_leave_date' => '2027-07-31',
-        ])
-        ->assertSessionHasErrors(['planned_join_date']);
-});
-
-test('update excludes self when checking for overlaps', function () {
+test('update allows shifting assignment dates', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
@@ -551,10 +431,8 @@ test('update excludes self when checking for overlaps', function () {
         'employee_id' => $employee->id,
         'planned_join_date' => '2027-02-01',
         'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
     ]);
 
-    // Shifting the same assignment's dates slightly — should not clash with itself
     $this->actingAs($user)
         ->put(route('organization.crew-planning.assignments.update', $assignment), [
             'planned_join_date' => '2027-03-01',
@@ -564,194 +442,6 @@ test('update excludes self when checking for overlaps', function () {
 
     $assignment->refresh();
     expect($assignment->planned_join_date->toDateString())->toBe('2027-03-01');
-});
-
-// ─── Confirm draft → deployment ──────────────────────────────────────────────
-
-test('guests cannot confirm assignments', function () {
-    $this->post(route('organization.crew-planning.assignments.confirm', 999))
-        ->assertRedirect(route('login'));
-});
-
-test('users without confirm permission cannot confirm assignments', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    grantCompanyPermissions($user, $company, ['crew_operations.planning.view']);
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertForbidden();
-});
-
-test('confirm creates deployment and links assignment', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
-        'notes' => 'Ready to deploy',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertRedirect();
-
-    $assignment->refresh();
-
-    expect($assignment->status)->toBe('confirmed')
-        ->and($assignment->employee_deployment_id)->not->toBeNull();
-
-    $deployment = EmployeeDeployment::query()->findOrFail($assignment->employee_deployment_id);
-
-    expect($deployment->company_id)->toBe($company->id)
-        ->and($deployment->employee_id)->toBe($employee->id)
-        ->and($deployment->vessel_id)->toBe($vessel->id)
-        ->and($deployment->rank_id)->toBe($rank->id)
-        ->and($deployment->joined_date->toDateString())->toBe('2027-02-01')
-        ->and($deployment->disembarked_date->toDateString())->toBe('2027-08-31')
-        ->and($deployment->remarks)->toBe('Ready to deploy');
-
-    expect(EmployeeSeaService::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeTrue();
-});
-
-test('confirm is rejected for vacant assignments', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => null,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertSessionHasErrors(['employee_id']);
-
-    expect(EmployeeDeployment::query()->count())->toBe(0);
-});
-
-test('confirm is rejected when assignment is already confirmed', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'confirmed',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertSessionHasErrors(['assignment']);
-});
-
-test('confirm is rejected when employee would double-book', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    EmployeeDeployment::query()->create([
-        'company_id' => $company->id,
-        'employee_id' => $employee->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'joined_date' => '2027-03-01',
-        'disembarked_date' => '2027-09-30',
-        'sort_order' => 0,
-    ]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-05-01',
-        'planned_leave_date' => '2027-07-31',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertSessionHasErrors(['planned_join_date']);
-
-    $assignment->refresh();
-    expect($assignment->status)->toBe('draft')
-        ->and($assignment->employee_deployment_id)->toBeNull();
-});
-
-test('confirmed assignments no longer appear as draft bars in gantt data', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'draft',
-    ]);
-
-    $this->actingAs($user)
-        ->post(route('organization.crew-planning.assignments.confirm', $assignment))
-        ->assertRedirect();
-
-    $bars = CrewPlanningGanttQuery::bars($company->id, '2027-01-01', '2027-12-31');
-
-    expect(collect($bars)->where('source', 'assignment')->count())->toBe(0)
-        ->and(collect($bars)->where('source', 'deployment')->count())->toBe(1);
-});
-
-test('confirmed assignments cannot be updated', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
-
-    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
-
-    $assignment = CrewPlanningAssignment::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'employee_id' => $employee->id,
-        'planned_join_date' => '2027-02-01',
-        'planned_leave_date' => '2027-08-31',
-        'status' => 'confirmed',
-    ]);
-
-    $this->actingAs($user)
-        ->put(route('organization.crew-planning.assignments.update', $assignment), [
-            'planned_join_date' => '2027-03-01',
-        ])
-        ->assertSessionHasErrors(['assignment']);
 });
 
 // ─── index page includes employees prop ────────────────────────────────────────
@@ -772,7 +462,6 @@ test('planning index includes active employees list', function () {
             ->where('can.create', true)
             ->where('can.update', true)
             ->where('can.delete', true)
-            ->where('can.confirm', true)
         );
 });
 

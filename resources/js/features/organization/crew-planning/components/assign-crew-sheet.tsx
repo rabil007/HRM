@@ -1,5 +1,4 @@
 import type { InertiaFormProps } from '@inertiajs/react';
-import { CheckCircle2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
@@ -31,8 +30,6 @@ export function AssignCrewSheet({
     ranks,
     rows,
     employees,
-    canConfirm = false,
-    onConfirm,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -43,12 +40,8 @@ export function AssignCrewSheet({
     ranks: PlanningOption[];
     rows: GanttVesselGroup[];
     employees: PlanningPoolEmployee[];
-    canConfirm?: boolean;
-    onConfirm?: () => void;
 }) {
     const isEdit = editing !== null;
-    const showConfirm =
-        isEdit && canConfirm && form.data.employee_id !== '' && editing.employee_id != null;
 
     const availableRanks = useMemo(() => {
         if (form.data.vessel_id === '') {
@@ -149,8 +142,8 @@ export function AssignCrewSheet({
                     </SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
                         {isEdit
-                            ? 'Update the draft assignment details.'
-                            : 'Create a draft assignment for future deployment planning.'}
+                            ? 'Update the planned assignment details.'
+                            : 'Schedule crew on a vessel and rank for the selected dates.'}
                     </SheetDescription>
                 </SheetHeader>
 
@@ -330,41 +323,27 @@ export function AssignCrewSheet({
                     </div>
                 </div>
 
-                <div className="flex flex-col gap-3 border-t border-border/60 bg-background/40 p-6">
-                    {showConfirm ? (
-                        <Button
-                            type="button"
-                            variant="outline"
-                            className="h-11 w-full gap-2 rounded-xl font-semibold"
-                            disabled={form.processing}
-                            onClick={onConfirm}
-                        >
-                            <CheckCircle2 className="h-4 w-4" />
-                            Confirm to deployment
-                        </Button>
-                    ) : null}
-                    <div className="flex gap-3">
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            onClick={() => onOpenChange(false)}
-                            className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            className="h-11 flex-1 rounded-xl px-8 font-semibold"
-                            disabled={form.processing}
-                            onClick={onSubmit}
-                        >
-                            {form.processing
-                                ? 'Saving…'
-                                : isEdit
-                                  ? 'Save changes'
-                                  : 'Create assignment'}
-                        </Button>
-                    </div>
+                <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => onOpenChange(false)}
+                        className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        type="button"
+                        className="h-11 flex-1 rounded-xl px-8 font-semibold"
+                        disabled={form.processing}
+                        onClick={onSubmit}
+                    >
+                        {form.processing
+                            ? 'Saving…'
+                            : isEdit
+                              ? 'Save changes'
+                              : 'Create assignment'}
+                    </Button>
                 </div>
             </SheetContent>
         </Sheet>

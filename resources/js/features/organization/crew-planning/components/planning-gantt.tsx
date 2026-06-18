@@ -16,7 +16,6 @@ type Props = {
     onRowClick?: (rowKey: string, vesselId: number, rankId: number, estimatedDate: string) => void;
     onEditBar?: (bar: GanttBar) => void;
     onDeleteBar?: (bar: GanttBar) => void;
-    onConfirmBar?: (bar: GanttBar) => void;
 };
 
 function buildDayColumns(from: Date, to: Date): { date: Date; label: string; isToday: boolean }[] {
@@ -68,7 +67,6 @@ export function PlanningGantt({
     onRowClick,
     onEditBar,
     onDeleteBar,
-    onConfirmBar,
 }: Props): ReactElement {
     const rangeFrom = new Date(`${from}T00:00:00`);
     const rangeTo = new Date(`${to}T23:59:59`);
@@ -192,7 +190,6 @@ export function PlanningGantt({
                                     onRowClick={onRowClick}
                                     onEditBar={onEditBar}
                                     onDeleteBar={onDeleteBar}
-                                    onConfirmBar={onConfirmBar}
                                 />
                             );
                         })}
