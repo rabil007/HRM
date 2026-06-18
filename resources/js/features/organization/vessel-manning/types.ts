@@ -23,6 +23,12 @@ export type VesselManningItem = {
     is_active: boolean;
     manning: VesselManningLine[];
     total_required: number;
+    ranks_configured: number;
+};
+
+export type VesselManningShowItem = VesselManningItem & {
+    grt: string | null;
+    bhp: number | null;
 };
 
 export type VesselManningRequirementRow = {

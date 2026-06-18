@@ -12,6 +12,7 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\VesselManning\SyncVesselManning;
 use App\Support\VesselManning\VesselManningIndexQuery;
 use App\Support\VesselManning\VesselManningPagePermissions;
+use App\Support\VesselManning\VesselManningRecentActivityQuery;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -33,16 +34,6 @@ class VesselManningController extends Controller
 
         $vessels = $paginator->through(fn (Vessel $vessel) => VesselManningIndexQuery::toArray($vessel));
 
-        $ranks = Rank::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
-        $vesselTypes = VesselType::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
         return Inertia::render('organization/vessel-manning/index', [
             'vessels' => $vessels->items(),
             'pagination' => $this->paginationMeta($paginator),
@@ -50,9 +41,31 @@ class VesselManningController extends Controller
             'filters' => [
                 'vessel_type_id' => $vesselTypeId,
             ],
-            'ranks' => $ranks,
-            'vessel_types' => $vesselTypes,
+            'ranks' => $this->activeRanks(),
+            'vessel_types' => $this->activeVesselTypes(),
             'can' => VesselManningPagePermissions::for($request->user()),
+        ]);
+    }
+
+    public function show(Request $request, Vessel $vessel): Response
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+
+        $record = VesselManningIndexQuery::findForCompany($companyId, $vessel);
+
+        abort_unless($record instanceof Vessel, 404);
+
+        return Inertia::render('organization/vessel-manning/show', [
+            'vessel' => VesselManningIndexQuery::toArray($record, includeDetails: true),
+            'recent_activity' => VesselManningRecentActivityQuery::forVessel(
+                $request->user(),
+                $companyId,
+                $record->id,
+            ),
+            'can_view_audit' => $request->user()?->can('audit.view') ?? false,
+            'can' => VesselManningPagePermissions::for($request->user()),
+            'ranks' => $this->activeRanks(),
+            'back_query' => VesselManningIndexQuery::listBackQueryFromRequest($request),
         ]);
     }
 
@@ -67,8 +80,41 @@ class VesselManningController extends Controller
             $request->validated('requirements'),
         );
 
+        if (($request->validated('redirect_to') ?? null) === 'show') {
+            return redirect()
+                ->route('organization.vessel-manning.show', [
+                    'vessel' => $vessel,
+                    ...VesselManningIndexQuery::listBackQueryFromRequest($request),
+                ])
+                ->with('success', 'Vessel manning updated.');
+        }
+
         return redirect()
             ->route('organization.vessel-manning.index', $request->only(['search', 'vessel_type_id', 'page', 'per_page']))
             ->with('success', 'Vessel manning updated.');
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeRanks(): array
+    {
+        return Rank::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function activeVesselTypes(): array
+    {
+        return VesselType::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name'])
+            ->all();
     }
 }

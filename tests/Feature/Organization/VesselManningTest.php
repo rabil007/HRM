@@ -102,6 +102,72 @@ function makeVesselManningFixtures(): array
     );
 }
 
+test('authorized users can view vessel manning show page', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+        'welder' => $welder,
+    ] = makeVesselManningFixtures();
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $welder->id,
+        'required_count' => 2,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.vessel-manning.show', [
+            'vessel' => $vessel,
+            'search' => 'Alpha',
+            'page' => 2,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/vessel-manning/show')
+            ->where('vessel.name', 'Vessel Alpha')
+            ->where('vessel.total_required', 3)
+            ->where('vessel.ranks_configured', 2)
+            ->where('back_query.search', 'Alpha')
+            ->where('back_query.page', '2')
+            ->has('vessel.manning', 2)
+        );
+});
+
+test('updating from show page returns to show page', function () {
+    ['user' => $user, 'vessel' => $vessel, 'captain' => $captain, 'welder' => $welder] = makeVesselManningFixtures();
+
+    $this->actingAs($user)
+        ->from(route('organization.vessel-manning.show', ['vessel' => $vessel, 'search' => 'Alpha']))
+        ->put(route('organization.vessel-manning.update', ['vessel' => $vessel, 'search' => 'Alpha']), [
+            'requirements' => [
+                ['rank_id' => $captain->id, 'required_count' => 1],
+                ['rank_id' => $welder->id, 'required_count' => 3],
+            ],
+            'redirect_to' => 'show',
+        ])
+        ->assertRedirect(route('organization.vessel-manning.show', [
+            'vessel' => $vessel,
+            'search' => 'Alpha',
+        ]));
+});
+
+test('guests cannot access vessel manning show page', function () {
+    ['vessel' => $vessel] = makeVesselManningFixtures();
+
+    $this->get(route('organization.vessel-manning.show', $vessel))
+        ->assertRedirect(route('login'));
+});
+
 test('guests cannot access vessel manning', function () {
     $this->get(route('organization.vessel-manning.index'))
         ->assertRedirect(route('login'));

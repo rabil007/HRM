@@ -566,6 +566,7 @@ Support: `VesselManningIndexQuery`, `SyncVesselManning`
 | Path | Role |
 |------|------|
 | `pages/organization/vessel-manning/index.tsx` | Vessel list with manning summary |
+| `pages/organization/vessel-manning/show.tsx` | Vessel manning detail + edit sheet |
 | `features/organization/vessel-manning/vessel-manning-form-sheet.tsx` | Edit rank requirements per vessel |
 
 ### Permissions involved

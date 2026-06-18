@@ -52,6 +52,7 @@ class UpdateVesselManningRequest extends FormRequest
     {
         return [
             'requirements' => ['present', 'array'],
+            'redirect_to' => ['nullable', 'string', 'in:show'],
             'requirements.*.rank_id' => [
                 'required',
                 'integer',

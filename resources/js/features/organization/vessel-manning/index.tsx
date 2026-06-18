@@ -1,7 +1,7 @@
-import { Link, useForm } from '@inertiajs/react';
+import { Link, router, useForm } from '@inertiajs/react';
 import { Anchor, Filter } from 'lucide-react';
-import { useState } from 'react';
-import { update as updateVesselManning } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
+import { useMemo, useState } from 'react';
+import { show as vesselManningShow, update as updateVesselManning } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import {
     OrganizationDataTable,
@@ -23,8 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { VesselManningFormSheet } from './components/vessel-manning-form-sheet';
+import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
 import { vesselManningHasWriteActions } from './types';
 import type {
     RankOption,
@@ -33,28 +35,6 @@ import type {
     VesselManningPagePermissions,
     VesselTypeOption,
 } from './types';
-
-function toFormData(vessel: VesselManningItem): VesselManningFormData {
-    return {
-        requirements: vessel.manning.map((line) => ({
-            rank_id: String(line.rank_id),
-            required_count: String(line.required_count),
-        })),
-    };
-}
-
-function toPayload(formData: VesselManningFormData): {
-    requirements: Array<{ rank_id: number; required_count: number }>;
-} {
-    return {
-        requirements: formData.requirements
-            .filter((row) => row.rank_id !== '')
-            .map((row) => ({
-                rank_id: Number(row.rank_id),
-                required_count: Number(row.required_count),
-            })),
-    };
-}
 
 export function VesselManningContent({
     vessels,
@@ -91,10 +71,41 @@ export function VesselManningContent({
         requirements: [],
     });
 
+    const listBackQuery = useMemo(() => {
+        const query: Record<string, string> = {};
+
+        if (initialSearch.trim() !== '') {
+            query.search = initialSearch;
+        }
+
+        if (initialFilters.vessel_type_id) {
+            query.vessel_type_id = String(initialFilters.vessel_type_id);
+        }
+
+        if (pagination.current_page > 1) {
+            query.page = String(pagination.current_page);
+        }
+
+        if (pagination.per_page) {
+            query.per_page = String(pagination.per_page);
+        }
+
+        return query;
+    }, [initialFilters.vessel_type_id, initialSearch, pagination.current_page, pagination.per_page]);
+
+    const openShow = (vesselId: number): void => {
+        router.visit(
+            vesselManningShow.url(
+                { vessel: vesselId },
+                Object.keys(listBackQuery).length > 0 ? { query: listBackQuery } : undefined,
+            ),
+        );
+    };
+
     const openEdit = (vessel: VesselManningItem): void => {
         setEditingVessel(vessel);
         form.clearErrors();
-        form.setData(toFormData(vessel));
+        form.setData(toVesselManningFormData(vessel));
         setSheetOpen(true);
     };
 
@@ -108,7 +119,7 @@ export function VesselManningContent({
             return;
         }
 
-        form.transform((data) => toPayload(data));
+        form.transform((data) => toVesselManningPayload(data));
         form.put(updateVesselManning.url({ vessel: editingVessel.id }), {
             preserveScroll: true,
             onSuccess: () => closeSheet(),
@@ -201,14 +212,16 @@ export function VesselManningContent({
                             <DataTableHead>Vessel type</DataTableHead>
                             <DataTableHead>Ranks configured</DataTableHead>
                             <DataTableHead>Total required</DataTableHead>
-                            {vesselManningHasWriteActions(can) ? (
-                                <DataTableHead className="text-right">Actions</DataTableHead>
-                            ) : null}
+                            <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
                         {vessels.map((vessel) => (
-                            <TableRow key={vessel.id} className={dataTableBodyRowClass()}>
+                            <TableRow
+                                key={vessel.id}
+                                className={cn(dataTableBodyRowClass(), 'cursor-pointer')}
+                                onClick={() => openShow(vessel.id)}
+                            >
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="font-medium">{vessel.name}</div>
                                     {!vessel.is_active ? (
@@ -240,16 +253,26 @@ export function VesselManningContent({
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.total_required > 0 ? vessel.total_required : '—'}
                                 </TableCell>
-                                {vesselManningHasWriteActions(can) ? (
-                                    <TableCell className={dataTableActionsCellClass()}>
-                                        <ListTableCrudActions
-                                            showView={false}
-                                            showDelete={false}
-                                            showEdit={can.update || can.create}
-                                            onEdit={() => openEdit(vessel)}
-                                        />
-                                    </TableCell>
-                                ) : null}
+                                <TableCell className={dataTableActionsCellClass()}>
+                                    <ListTableCrudActions
+                                        viewHref={vesselManningShow.url(
+                                            { vessel: vessel.id },
+                                            Object.keys(listBackQuery).length > 0
+                                                ? { query: listBackQuery }
+                                                : undefined,
+                                        )}
+                                        onEdit={
+                                            can.update || can.create
+                                                ? (event) => {
+                                                      event.stopPropagation();
+                                                      openEdit(vessel);
+                                                  }
+                                                : undefined
+                                        }
+                                        showEdit={can.update || can.create}
+                                        showDelete={false}
+                                    />
+                                </TableCell>
                             </TableRow>
                         ))}
                     </TableBody>

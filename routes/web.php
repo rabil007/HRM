@@ -135,6 +135,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('organization/crew-deployments/{deployment}', [CrewDeploymentController::class, 'destroy'])->middleware('can:crew_operations.deployments.delete')->name('organization.crew-deployments.destroy');
 
     Route::get('organization/vessel-manning', [VesselManningController::class, 'index'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.index');
+    Route::get('organization/vessel-manning/{vessel}', [VesselManningController::class, 'show'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.show');
     Route::put('organization/vessel-manning/{vessel}', [VesselManningController::class, 'update'])->name('organization.vessel-manning.update');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
