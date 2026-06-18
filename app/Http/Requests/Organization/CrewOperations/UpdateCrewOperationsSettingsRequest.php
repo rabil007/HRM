@@ -27,6 +27,7 @@ class UpdateCrewOperationsSettingsRequest extends FormRequest
                     ->where('company_id', $companyId)
                     ->where('status', 'active')),
             ],
+            'max_home_days' => ['required', 'integer', 'min:0'],
         ];
     }
 }

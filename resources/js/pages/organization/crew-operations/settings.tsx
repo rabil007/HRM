@@ -1,5 +1,7 @@
 import { Head, useForm } from '@inertiajs/react';
-import { ChevronRight, Settings2, Sliders, CheckCircle2 } from 'lucide-react';
+import { ChevronRight, Settings2, Sliders, CheckCircle2, Home } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import type { ReactElement } from 'react';
 import { useEffect, useState } from 'react';
 import { update as updateSettings } from '@/actions/App/Http/Controllers/Organization/CrewOperationsSettingsController';
@@ -22,6 +24,7 @@ import type { PlanningDepartmentNode, PlanningSettings } from '@/features/organi
 
 type FormData = {
     pool_department_ids: number[];
+    max_home_days: number;
 };
 
 type Props = {
@@ -106,13 +109,17 @@ export default function CrewOperationsSettings({
 }: Props): ReactElement {
     const form = useForm<FormData>({
         pool_department_ids: crew_settings.pool_department_ids,
+        max_home_days: crew_settings.max_home_days,
     });
 
     useEffect(() => {
-        form.setData('pool_department_ids', crew_settings.pool_department_ids);
+        form.setData({
+            pool_department_ids: crew_settings.pool_department_ids,
+            max_home_days: crew_settings.max_home_days,
+        });
         form.clearErrors();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [crew_settings.pool_department_ids]);
+    }, [crew_settings.pool_department_ids, crew_settings.max_home_days]);
 
     const selectedSet = new Set(form.data.pool_department_ids);
     const allDepartmentIds = flattenDepartmentTreeIds(department_tree);
@@ -244,6 +251,48 @@ export default function CrewOperationsSettings({
                             {form.errors.pool_department_ids ? (
                                 <p className="text-xs font-medium text-destructive">
                                     {form.errors.pool_department_ids}
+                                </p>
+                            ) : null}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Crew Availability Rules Card */}
+                <Card className="border-border bg-card/60 backdrop-blur-md dark:border-white/5 dark:bg-white/[0.02] overflow-hidden shadow-sm">
+                    <CardHeader className="border-b border-border/50 dark:border-white/5 bg-muted/20 dark:bg-white/[0.01] p-6">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-primary/10 rounded-xl text-primary">
+                                <Home className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-lg font-bold">Crew Availability Rules</CardTitle>
+                                <CardDescription className="text-sm text-muted-foreground mt-0.5">
+                                    Configure default availability constraints and rules for crew members when they are not deployed.
+                                </CardDescription>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-6 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="max_home_days" className="text-sm font-semibold text-foreground">
+                                Default Home Stay Limit (Days)
+                            </Label>
+                            <p className="text-xs text-muted-foreground/90 leading-relaxed">
+                                The maximum number of days a crew member can stay at home before they are expected to be deployed back to a vessel. This applies to all ranks unless overridden.
+                            </p>
+                        </div>
+                        <div className="flex flex-col gap-2 max-w-xs">
+                            <Input
+                                id="max_home_days"
+                                type="number"
+                                min="0"
+                                value={form.data.max_home_days}
+                                onChange={(e) => form.setData('max_home_days', e.target.value === '' ? 0 : Number(e.target.value))}
+                                className={cn(form.errors.max_home_days && "border-destructive focus-visible:ring-destructive/50")}
+                            />
+                            {form.errors.max_home_days ? (
+                                <p className="text-xs font-medium text-destructive">
+                                    {form.errors.max_home_days}
                                 </p>
                             ) : null}
                         </div>

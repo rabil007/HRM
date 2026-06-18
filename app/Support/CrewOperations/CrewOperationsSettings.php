@@ -30,16 +30,28 @@ final class CrewOperationsSettings
         )));
     }
 
+    public static function maxHomeDays(int $companyId): int
+    {
+        $setting = CrewOperationsSetting::query()
+            ->where('company_id', $companyId)
+            ->first();
+
+        return $setting?->max_home_days ?? 30;
+    }
+
     /**
      * @param  list<int>  $departmentIds
      */
-    public static function savePoolDepartmentIds(int $companyId, array $departmentIds): CrewOperationsSetting
+    public static function saveSettings(int $companyId, array $departmentIds, int $maxHomeDays): CrewOperationsSetting
     {
         $normalized = array_values(array_unique(array_map(intval(...), $departmentIds)));
 
         return CrewOperationsSetting::query()->updateOrCreate(
             ['company_id' => $companyId],
-            ['pool_department_ids' => $normalized === [] ? null : $normalized],
+            [
+                'pool_department_ids' => $normalized === [] ? null : $normalized,
+                'max_home_days' => $maxHomeDays,
+            ],
         );
     }
 

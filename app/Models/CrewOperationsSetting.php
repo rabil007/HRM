@@ -16,6 +16,7 @@ class CrewOperationsSetting extends Model
         return [
             'company_id' => 'integer',
             'pool_department_ids' => 'array',
+            'max_home_days' => 'integer',
         ];
     }
 

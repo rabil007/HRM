@@ -91,6 +91,7 @@ test('authorized users can view the crew operations settings index', function ()
             ->has('department_tree')
             ->has('crew_settings')
             ->where('crew_settings.pool_department_ids', [$dept->id])
+            ->where('crew_settings.max_home_days', 30)
         );
 });
 
@@ -112,13 +113,15 @@ test('authorized user can update crew operations settings', function () {
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [$dept->id],
+            'max_home_days' => 45,
         ])
         ->assertRedirect();
 
     $setting = CrewOperationsSetting::query()->where('company_id', $company->id)->first();
 
     expect($setting)->not->toBeNull()
-        ->and($setting->pool_department_ids)->toBe([$dept->id]);
+        ->and($setting->pool_department_ids)->toBe([$dept->id])
+        ->and($setting->max_home_days)->toBe(45);
 });
 
 test('clearing pool department settings works', function () {
@@ -139,11 +142,13 @@ test('clearing pool department settings works', function () {
     CrewOperationsSetting::query()->create([
         'company_id' => $company->id,
         'pool_department_ids' => [$dept->id],
+        'max_home_days' => 30,
     ]);
 
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [],
+            'max_home_days' => 30,
         ])
         ->assertRedirect();
 
@@ -161,6 +166,7 @@ test('users without update permission cannot change settings', function () {
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [],
+            'max_home_days' => 30,
         ])
         ->assertForbidden();
 });
@@ -183,6 +189,7 @@ test('settings reject departments from another company', function () {
     $this->actingAs($user)
         ->put(route('organization.crew-operations.settings.update'), [
             'pool_department_ids' => [$foreignDept->id],
+            'max_home_days' => 30,
         ])
         ->assertSessionHasErrors(['pool_department_ids.0']);
 });

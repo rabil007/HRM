@@ -20,6 +20,7 @@ class CrewOperationsSettingsController extends Controller
             'department_tree' => CrewOperationsSettings::activeDepartmentTree($companyId),
             'crew_settings' => [
                 'pool_department_ids' => CrewOperationsSettings::poolDepartmentIds($companyId),
+                'max_home_days' => CrewOperationsSettings::maxHomeDays($companyId),
             ],
         ]);
     }
@@ -28,9 +29,10 @@ class CrewOperationsSettingsController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
 
-        CrewOperationsSettings::savePoolDepartmentIds(
+        CrewOperationsSettings::saveSettings(
             $companyId,
             $request->validated('pool_department_ids') ?? [],
+            (int) $request->validated('max_home_days'),
         );
 
         return back()->with('success', 'Crew operations settings saved.');
