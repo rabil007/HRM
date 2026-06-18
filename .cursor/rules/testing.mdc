@@ -1,0 +1,91 @@
+---
+description: Pest testing — feature tests, grantCompanyPermissions, Inertia assertions, fixtures
+globs: tests/**
+alwaysApply: false
+---
+
+# Testing
+
+Framework: **Pest v4** with `RefreshDatabase` on Feature and relevant Unit tests.
+
+## Run targeted tests
+
+```bash
+php artisan test --compact tests/Feature/Organization/DocumentBrowseTest.php
+php artisan test --compact --filter='document show page'
+```
+
+Every code change should have a test — prefer the smallest file that covers the behavior.
+
+## Feature test pattern
+
+```php
+test('authorized user can load document show page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType]
+        = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $document = EmployeeDocument::query()->create([...]);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/show')
+            ->where('document.id', $document->id)
+            ->where('can_view_audit', false)
+        );
+});
+```
+
+References:
+- `tests/Feature/Organization/DocumentBrowseTest.php`
+- `tests/Feature/Organization/CrewDeploymentsTest.php` (audit tests)
+
+## Helpers (`tests/Support/`)
+
+| Helper | File | Use |
+|--------|------|-----|
+| `grantCompanyPermissions()` | `Support/spatie.php` | Assign permissions for company team |
+| `makeDocumentFixtures()` | `Support/document-fixtures.php` | Document module setup |
+| `makeCrewDeploymentFixtures()` | Feature-specific helpers | Crew ops tests |
+
+Loaded from `tests/Pest.php`.
+
+## Inertia assertions
+
+```php
+use Inertia\Testing\AssertableInertia as Assert;
+
+->assertInertia(fn (Assert $page) => $page
+    ->component('organization/documents/index')
+    ->has('employees', 1)
+    ->where('can.upload', true)
+);
+```
+
+## Permission tests
+
+Test both sides:
+
+- Without permission → `assertForbidden()` or empty `recent_activity`
+- With permission → props/UI flags present
+
+Reference: `tests/Feature/Organization/AuditLogsTest.php`
+
+## Unit tests
+
+Pure Support logic in `tests/Unit/Support/` — e.g. `DocumentExpiryTest.php`
+
+## PHP formatting
+
+After PHP changes: `vendor/bin/pint --dirty --format agent`
+
+## Avoid
+
+- Deleting tests without approval.
+- Testing implementation details over HTTP/Inertia behavior.
+- Skipping `grantCompanyPermissions()` in org-scoped feature tests.

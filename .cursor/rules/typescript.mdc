@@ -1,0 +1,73 @@
+---
+description: TypeScript conventions — types location, props, Inertia augmentation, no any
+globs: resources/js/**/*.ts,resources/js/**/*.tsx
+alwaysApply: false
+---
+
+# TypeScript
+
+## Type locations
+
+| Scope | Location | Example |
+|-------|----------|---------|
+| Global / shared | `resources/js/types/` | `PaginationMeta`, `User`, nav types |
+| Domain | `features/{domain}/types.ts` | `Branch`, `DocumentShowItem` |
+| Page-local | `pages/organization/employee-page.types.ts` | Profile template types |
+| Inertia shared props | `types/global.d.ts` | Module augmentation |
+
+## Prefer
+
+**Explicit page props** on Inertia pages:
+
+```tsx
+export default function Employees({ employees, pagination }: {
+    employees: Employee[];
+    pagination: PaginationMeta;
+}) { ... }
+```
+
+Reference: `pages/organization/employees.tsx`
+
+**Reuse domain types** — import from feature `types.ts`, don't redefine inline:
+
+```tsx
+import type { DocumentShowItem, EmployeeSummary } from '@/features/organization/documents/shared/types';
+```
+
+**Inertia form typing**:
+
+```tsx
+import type { InertiaFormProps } from '@inertiajs/react';
+form: InertiaFormProps<BranchFormData>
+```
+
+Reference: `features/organization/branches/components/branch-form-sheet.tsx`
+
+**Wayfinder** for typed URLs — generated in `@/routes` and `@/actions`.
+
+**Union types for navigation context**:
+
+```tsx
+type DocumentShowBackContext =
+    | { from: 'employee-browse' }
+    | { from: 'profile' }
+    | { from: 'index'; expiry?: ExpiryFilter; search?: string; page?: number };
+```
+
+Reference: `features/organization/documents/shared/types.ts`
+
+## Avoid
+
+- `any` — use `unknown` + narrowing or proper interfaces.
+- Duplicating backend shapes inline on every component.
+- Runtime schema libs (Zod) — validation is server-side.
+- Editing generated `resources/js/routes/` or `resources/js/actions/`.
+
+## Imports
+
+- Alias `@/` maps to `resources/js/` (see `tsconfig.json`).
+- Type-only imports: `import type { ... }`.
+
+## Check
+
+After TS changes: `npm run types:check`

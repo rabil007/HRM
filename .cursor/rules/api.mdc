@@ -1,0 +1,79 @@
+---
+description: Data flow — Inertia props, mutations, Wayfinder, flash messages; no React Query
+globs: resources/js/**,app/Http/Controllers/**
+alwaysApply: false
+---
+
+# API & Data Flow
+
+This app has **no REST API layer** (`routes/api.php` is empty). Data flows through Inertia.
+
+## Prefer: Inertia page props
+
+Controller loads and shapes data; React renders props.
+
+```php
+return Inertia::render('organization/documents/show', [
+    'document' => $document->toShowArray(),
+    'can' => DocumentPagePermissions::for($request->user()),
+    'back' => DocumentShowBackNavigation::resolve($request, $employee),
+]);
+```
+
+Reference: `EmployeeDocumentShowController.php`
+
+Domain queries live in `app/Support/`, not controllers:
+
+- `DocumentBrowseQuery`, `EmployeeDirectoryQuery`, `RecentActivityQuery`
+
+## Mutations
+
+| Action | Pattern |
+|--------|---------|
+| Create/update | `useForm().post/put()` or `form.post/put()` |
+| Delete | `router.delete()` or `form.delete()` |
+| Filters/search | `router.get()` via `useServerPaginationFilters` |
+| Partial reload | `{ only: ['document'] }` or `partialReloadKeys` prop |
+
+## Flash messages (prefer server-side)
+
+```php
+return redirect()->route('organization.branches.index')
+    ->with('success', 'Branch created.');
+```
+
+Client: `components/http-exception-toasts.tsx` shows `flash.success|error|info` on `router.on('success')`.
+
+**Avoid** duplicate client `toast.success` in `onSuccess` when server already flashes.
+
+## Wayfinder (prefer for new frontend code)
+
+Generated — do not edit `resources/js/routes/` or `resources/js/actions/` manually.
+
+```tsx
+import { show as documentShow } from '@/routes/organization/documents/employee/files';
+import * as EmployeeDocumentController from '@/actions/App/Http/Controllers/Organization/EmployeeDocumentController';
+
+documentShow.url({ employee: id, document: docId }, { query: { from: 'profile' } });
+EmployeeDocumentController.destroy.url({ employee, document });
+```
+
+Helper example: `features/organization/documents/shared/document-show-url.ts`
+
+Legacy code still uses hardcoded paths (e.g. `'/organization/branches'`) — match surrounding file when editing; use Wayfinder in new code.
+
+## Rare JSON / XHR
+
+| Case | Mechanism |
+|------|-----------|
+| 2FA setup | `useHttp()` — `hooks/use-two-factor-auth.ts` |
+| Document versions (legacy sheet) | `useHttp()` — `document-versions-sheet.tsx` |
+| Master-data quick create | `ReturnsQuickCreateJson` trait |
+| Downloads | `<a href>` or `StreamedResponse` |
+| Webhooks | dedicated controllers |
+
+## Avoid
+
+- React Query / TanStack Query / SWR — not in this project.
+- Axios — removed; use Inertia client or `useHttp`.
+- New JSON API endpoints when Inertia visit + partial reload suffices.

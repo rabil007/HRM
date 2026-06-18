@@ -1,0 +1,68 @@
+---
+description: Form handling — useForm, Form, validation display; server-side validation only
+globs: resources/js/**/*form*,resources/js/**/*sheet*,resources/js/pages/auth/**
+alwaysApply: false
+---
+
+# Forms
+
+**Validation is server-side only** — Laravel Form Requests. No Zod, Yup, or react-hook-form.
+
+## Prefer: `useForm` (feature CRUD)
+
+Parent owns form state; sheet/dialog receives `form: InertiaFormProps<T>`.
+
+```tsx
+const form = useForm<BranchFormData>({ name: '', code: '', ... });
+
+form.put(`/organization/branches/${branch.id}`, {
+    preserveScroll: true,
+    onSuccess: () => setIsSheetOpen(false),
+});
+```
+
+Reference: `features/organization/branches/index.tsx` + `branch-form-sheet.tsx`
+
+## Prefer: `<Form>` (auth / Fortify)
+
+```tsx
+import { store } from '@/routes/login';
+
+<Form {...store.form()} resetOnSuccess={['password']}>
+    {({ processing, errors }) => ( ... )}
+</Form>
+```
+
+Reference: `pages/auth/login.tsx`
+
+## Error display
+
+- Inline: `{form.errors.name ? <div className="text-destructive text-sm">{form.errors.name}</div> : null}`
+- Shared: `<InputError message={form.errors.name} />`
+- Toast fallback: `firstValidationError(form.errors)` from `lib/first-validation-error.ts`
+- Employee record tabs: `pages/organization/_lib/apply-record-form-errors.ts`
+
+## Creatable master data
+
+`useCreatableMasterData` + `CreatableSelect` — reference `components/ui/creatable-select.tsx`
+
+Settings master-data sheets: `components/settings/master-data-form-sheet.tsx`
+
+## Document / profile forms
+
+- Upload: `pages/organization/_components/documents/upload-dialog.tsx`
+- Edit/replace: `edit-document-dialog.tsx`, `replace-document-dialog.tsx`
+- Pass `partialReloadKeys={['documents']}` or `['document']` for targeted Inertia reload
+
+## Avoid
+
+- Client-side schema validation libraries.
+- Uncontrolled forms without Inertia `useForm`/`Form`.
+- Manual success toasts on CRUD — server flash is handled by `components/http-exception-toasts.tsx`.
+
+## Backend pairing
+
+Every form maps to a Form Request in `app/Http/Requests/{Domain}/`:
+
+- `StoreBranchRequest.php`, `UpdateBranchRequest.php`
+- Shared rules in `Requests/.../Concerns/` traits

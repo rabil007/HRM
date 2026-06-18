@@ -1,0 +1,35 @@
+---
+description: OMS-HRM project index — follow domain rules below; full analysis in docs/architecture/project-analysis.md
+alwaysApply: true
+---
+
+# OMS-HRM Project Rules (Index)
+
+This repo is a **Laravel 13 + Inertia v3 + React 19** monolith with company-scoped Spatie permissions. Do not introduce REST APIs, React Query, global state stores, or Eloquent policies.
+
+## Domain rule files
+
+| Area | Rule file |
+|------|-----------|
+| Shared UI | `.cursor/rules/components.mdc` |
+| Inertia pages | `.cursor/rules/pages.mdc` |
+| Hooks | `.cursor/rules/hooks.mdc` |
+| Forms | `.cursor/rules/forms.mdc` |
+| Tables | `.cursor/rules/tables.mdc` |
+| Dialogs & sheets | `.cursor/rules/dialogs.mdc` |
+| Data & routing | `.cursor/rules/api.mdc` |
+| Authorization | `.cursor/rules/permissions.mdc` |
+| PHP / Laravel | `.cursor/rules/backend.mdc` |
+| TypeScript | `.cursor/rules/typescript.mdc` |
+| Performance | `.cursor/rules/performance.mdc` |
+| Tests | `.cursor/rules/testing.mdc` |
+
+## Non-negotiables
+
+- Extend existing abstractions before creating new ones.
+- Domain logic → `app/Support/`; integrations → `app/Services/`.
+- UI in `resources/js/features/`; keep `resources/js/pages/` thin.
+- Every change needs a targeted Pest test.
+- Run `vendor/bin/pint --dirty` after PHP edits.
+
+**Full analysis:** `docs/architecture/project-analysis.md` · **Contributor guide:** `AI_GUIDE.md`

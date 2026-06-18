@@ -1,0 +1,86 @@
+---
+description: Laravel backend — controllers, Support layer, Form Requests, models, routes
+globs: app/**,routes/**,database/**
+alwaysApply: false
+---
+
+# Backend (PHP / Laravel)
+
+## Controller patterns
+
+**No `Route::resource()`** — explicit routes per action in `routes/web.php` and `routes/settings.php`.
+
+| Style | When | Example |
+|-------|------|---------|
+| Multi-action | CRUD + export | `BranchController`, `EmployeeController` |
+| Invokable `__invoke` | Single purpose | `EmployeeDocumentShowController`, `DashboardController` |
+
+```php
+public function show(Request $request, Employee $employee, EmployeeDocument $document)
+{
+    $companyId = (int) $request->attributes->get('current_company_id');
+    DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
+    // ...
+    return Inertia::render('organization/documents/show', [...]);
+}
+```
+
+## Layer responsibilities
+
+| Layer | Path | Use |
+|-------|------|-----|
+| Controllers | `app/Http/Controllers/` | HTTP, Inertia render, redirect + flash |
+| Form Requests | `app/Http/Requests/` | Validation (`StoreBranchRequest`, …) |
+| Support | `app/Support/` | Queries, actions, presenters, guards |
+| Services | `app/Services/` | WhatsApp, Hikvision, email, PDF merge, settings |
+| Models | `app/Models/` | Eloquent + `LogsActivityWithCompany` |
+
+**Prefer** moving query logic to Support:
+
+- `DocumentBrowseQuery`, `EmployeeDirectoryQuery`, `CrewDeploymentBoardQuery`
+- Actions with `handle()`: `Support/Employees/Actions/CreateEmployee.php`
+
+Support "Resources" are static array mappers (`EmployeeListResource::toArray()`), not Laravel API Resources.
+
+## Multi-tenancy
+
+- Read `$request->attributes->get('current_company_id')` in controllers.
+- Scope queries: `->where('company_id', $companyId)` or model scopes `scopeForCompany`.
+- Never trust client-supplied company ID for authorization.
+
+## Models & audit
+
+Activity logging via `LogsActivityWithCompany`:
+
+```php
+public function getActivitylogOptions(): LogOptions
+{
+    return LogOptions::defaults()->logOnly([...])->logOnlyDirty();
+}
+```
+
+Reference: `app/Models/EmployeeDocument.php`
+
+Show pages: `RecentActivityQuery::for($user, $companyId, Model::class, $id)`.
+
+## Form Requests
+
+- `authorize()` usually `(bool) $this->user()` — route middleware is authoritative.
+- Shared validation in `Requests/.../Concerns/` traits.
+
+## Formatting & style
+
+- PHP 8.4: constructor promotion, explicit return types, PHPDoc array shapes.
+- Run after edits: `vendor/bin/pint --dirty --format agent`
+
+## Avoid
+
+- Business logic bloating controllers — extract to Support.
+- Eloquent policies.
+- Empty `routes/api.php` patterns — use Inertia unless JSON is truly needed.
+- New top-level `app/` folders without approval.
+
+## Route naming
+
+- URLs: kebab-case (`/organization/crew-deployments`)
+- Names: dots (`organization.documents.employee.files.show`)

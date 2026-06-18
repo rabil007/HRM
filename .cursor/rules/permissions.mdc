@@ -1,0 +1,82 @@
+---
+description: Spatie permission teams, route middleware, frontend can props and useHasPermission
+globs: app/Http/Controllers/**,routes/**,resources/js/**,database/seeders/PermissionsSeeder.php
+alwaysApply: false
+---
+
+# Permissions
+
+Multi-tenant authorization via **Spatie Laravel Permission** with **company teams** (`company_id`).
+
+## Backend (authoritative)
+
+1. `SetCurrentCompany` middleware sets team ID on `PermissionRegistrar`.
+2. Routes enforce permissions: `->middleware('can:documents.view')`.
+3. **No Eloquent policies** — there is no `app/Policies/`.
+
+Seed permissions in `database/seeders/PermissionsSeeder.php` (dot notation):
+
+```
+employees.view
+documents.upload
+settings.master-data.genders.create
+audit.view
+```
+
+Re-seed after adding permissions: `php artisan db:seed --class=PermissionsSeeder`
+
+## Module-specific `can` props
+
+Dedicated Support classes build Inertia flags — do not scatter `$user->can()` across controllers.
+
+```php
+// DocumentPagePermissions::for($user)
+['download' => bool, 'share' => bool, 'upload' => bool, 'delete' => bool, ...]
+```
+
+Reference: `app/Support/EmployeeDocuments/DocumentPagePermissions.php`
+
+## Static access guards
+
+For document/employee scoping:
+
+```php
+DocumentAccess::assertEmployeeInCompany($employee, $companyId, 404);
+DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId, 404);
+```
+
+Reference: `app/Support/EmployeeDocuments/DocumentAccess.php`
+
+## Frontend (UX only — not security)
+
+Shared via Inertia: `auth.permissions`, `auth.roles` (`HandleInertiaRequests.php`).
+
+| Need | API |
+|------|-----|
+| Module actions | Page `can` prop from controller |
+| Nav / cross-cutting | `useHasPermission('branches.create')` |
+| Settings master data | `useSettingsMasterDataCan('genders')` |
+
+```tsx
+{can.upload ? <Button onClick={openReplace}>Replace</Button> : null}
+```
+
+Reference: `hooks/use-has-permission.ts`, `pages/organization/documents/show.tsx`
+
+## Audit permission
+
+`audit.view` gates:
+
+- `/organization/activity-logs`
+- `RecentActivityCard` on show pages
+- `RecentActivityQuery::for()` returns `[]` without permission
+
+Always pass `can_view_audit` + `recent_activity` from show controllers.
+
+## Avoid
+
+- Hiding routes from UI without backend middleware.
+- Creating Policy classes — use Spatie + route middleware.
+- Checking permissions without company team context.
+
+See also: `docs/permissions.md`

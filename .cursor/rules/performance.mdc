@@ -1,0 +1,68 @@
+---
+description: Performance — Inertia partial reloads, debounce, server-side counts, lazy modals
+globs: resources/js/**,app/Http/Controllers/**,app/Support/**
+alwaysApply: false
+---
+
+# Performance
+
+## Data fetching
+
+**Prefer Inertia partial reloads** over refetching entire pages:
+
+```tsx
+router.delete(url, { only: ['documents'], preserveScroll: true });
+// or partialReloadKeys={['document']} on edit dialogs
+```
+
+Reference: `document-management-dialogs.tsx`, `edit-document-dialog.tsx`
+
+**Avoid** React Query, client caches, or duplicate polling — not used in this repo.
+
+## List search
+
+Debounce server visits (default **400ms**):
+
+Reference: `hooks/use-server-pagination-filters.ts`
+
+```tsx
+router.get(url, params, { preserveState: true, preserveScroll: true, replace: true });
+```
+
+## Backend queries
+
+**Prefer** query-level limits and eager loads in Support classes:
+
+```php
+$document->load(['documentType:id,title', 'versions.replacer:id,name']);
+RecentActivityQuery::for(..., limit: 20);
+```
+
+**Prefer** `withCount()` for list metrics — avoid N+1 in controllers.
+
+Reference: `EmployeeDocumentShowController.php`, `AI_GUIDE.md` (Quick info rules)
+
+## Frontend bundle
+
+**Lazy-load** heavy modals when already established:
+
+```tsx
+const PdfMergeModal = lazy(() => import('...').then(m => ({ default: m.PdfMergeModal })));
+```
+
+Reference: `pages/organization/documents/employee.tsx`
+
+## Components
+
+- Extract table rows and row actions when lists grow (`*-table-row.tsx`, `document-list-row-actions.tsx`).
+- Keep pages thin — large feature bodies belong in `features/`.
+
+## Shared prop caching
+
+`HandleInertiaRequests` caches permissions/companies ~60s per user/company — don't bypass with redundant permission fetches on client.
+
+## Avoid
+
+- Client-side pagination of server-paginated datasets.
+- Loading full relation trees when `select()` / `load()` with columns suffices.
+- Adding service workers or offline caches without approval.

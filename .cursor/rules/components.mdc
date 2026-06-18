@@ -1,0 +1,64 @@
+---
+description: Shared and feature component conventions for OMS-HRM React UI
+globs: resources/js/components/**,resources/js/features/**/components/**
+alwaysApply: false
+---
+
+# Components
+
+## Layering (prefer this order)
+
+1. **`components/ui/`** — shadcn/Radix primitives (`Button`, `Sheet`, `Dialog`, `Table`). Do not duplicate.
+2. **`components/`** — cross-domain shared UI.
+3. **`features/{domain}/`** — domain screens, rows, dialogs.
+4. **`pages/`** — thin Inertia entry only (see `pages.mdc`).
+
+## Prefer
+
+| Need | Use | Reference |
+|------|-----|-----------|
+| List header | `PageHeader` | `components/page-header.tsx` |
+| Search | `SearchBar` | `components/search-bar.tsx` |
+| Show page header | `DetailsHeader` | `components/details-header.tsx` |
+| Empty lists | `EmptyState` | `components/empty-state.tsx` |
+| Pagination | `Pagination` | `components/pagination.tsx` |
+| Export | `ExportMenu` | `components/export-menu.tsx` |
+| Grid/table toggle | `ViewToggle` | `components/view-toggle.tsx` |
+| Field errors | `InputError` | `components/input-error.tsx` |
+| Selects | `AppSelect` | `components/app-select.tsx` |
+| Audit section | `RecentActivityCard` | `components/recent-activity-card.tsx` |
+| Class merging | `cn()` | `lib/utils.ts` |
+| Design tokens | `lib/design-system.ts`, `glass-card` | `resources/css/design-system.css` |
+
+## Naming
+
+- PascalCase exports: `BranchFormSheet`, `DocumentComplianceTableRow`.
+- Suffix by role: `*-form-sheet`, `*-delete-dialog`, `*-filters-sheet`, `*-table-row`, `*-content`.
+
+## File placement
+
+```
+features/organization/branches/
+  index.tsx              ← screen body
+  types.ts
+  components/
+    branch-form-sheet.tsx
+    branch-delete-dialog.tsx
+```
+
+- **Cross-domain** → `resources/js/components/`.
+- **Domain-only** → `features/{domain}/components/` or `features/{domain}/shared/`.
+
+## Avoid
+
+- New UI libraries alongside shadcn/Radix.
+- TanStack Table — use `OrganizationDataTable` (see `tables.mdc`).
+- Inline duplicate of `ConfirmDeleteDialog`, `FiltersSheet`, or `ListTableCrudActions`.
+- Narration comments; match sibling file style.
+
+## Golden references
+
+- List screen: `features/organization/branches/index.tsx`
+- Form sheet styling: `features/organization/branches/components/branch-form-sheet.tsx`
+- Detail page: `pages/organization/branch.tsx`
+- Document row actions: `features/organization/documents/shared/document-actions/document-list-row-actions.tsx`

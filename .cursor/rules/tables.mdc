@@ -1,0 +1,73 @@
+---
+description: List tables — OrganizationDataTable, row actions, pagination, row-click navigation
+globs: resources/js/**/*table*,resources/js/**/*row*,resources/js/components/data-table.tsx,resources/js/components/list-table-actions.tsx
+alwaysApply: false
+---
+
+# Tables
+
+## Prefer: `OrganizationDataTable`
+
+Not TanStack Table. Compose shadcn `Table` with shared helpers from `components/data-table.tsx`:
+
+- `OrganizationDataTable` — card + scroll wrapper
+- `DataTableHeaderRow`, `DataTableHead`
+- `dataTableBodyRowClass()`, `dataTableCellClass()`, `dataTableActionsCellClass()`
+
+```tsx
+<OrganizationDataTable minWidth="min-w-[1080px]" compact>
+    <TableHeader>...</TableHeader>
+    <TableBody>{rows}</TableBody>
+</OrganizationDataTable>
+```
+
+References:
+- `features/organization/employees/employees-content.tsx`
+- `features/organization/documents/index/documents-index-documents-table.tsx`
+
+## Row actions
+
+| Layer | Component | Reference |
+|-------|-----------|-----------|
+| Generic CRUD icons | `ListTableCrudActions` | `components/list-table-actions.tsx` |
+| Document lists | `DocumentListRowActions` | `features/organization/documents/shared/document-actions/` |
+| Documents + WhatsApp | `DocumentModuleRowActions` | same folder |
+
+Eye icon = **View link** (`viewHref`), not preview modal — see `documents/show.tsx` pattern.
+
+## Row click → show page
+
+Detail-enabled modules navigate on row click:
+
+```tsx
+<TableRow
+    className={cn(dataTableBodyRowClass(false), 'cursor-pointer')}
+    onClick={() => router.visit(viewHref)}
+>
+```
+
+- `stopPropagation` on action column and checkbox cells.
+- Reference: `features/organization/documents/document-compliance-table-row.tsx`
+
+## Employee profile tables
+
+Native `<table>` with classes from `data-table.tsx` (`employeeRecordsTableRowClass`, etc.) — `pages/organization/_components/employee-records-panel.tsx`
+
+## Pagination & search
+
+- `Pagination` component — `components/pagination.tsx`
+- `useServerPaginationFilters` — debounced `router.get()` with `preserveState`, `preserveScroll`, `replace: true`
+- Documents index: `features/organization/documents/use-documents-index-filters.ts`
+
+## Exports
+
+Respect current filters via query string. Support `format=csv|xlsx|pdf`.
+
+- Companies: `/organization/companies/export`
+- Branches: `/organization/branches/export`
+
+## Avoid
+
+- `@tanstack/react-table` or headless table libraries.
+- Client-side-only pagination for server-paginated lists.
+- Preview modals from list rows when a show page exists.

@@ -1,0 +1,60 @@
+---
+description: Custom React hooks — global and feature-local conventions
+globs: resources/js/hooks/**,resources/js/features/**/use-*.ts,resources/js/features/**/use-*.tsx,resources/js/pages/**/_hooks/**
+alwaysApply: false
+---
+
+# Hooks
+
+## Global hooks (`resources/js/hooks/`)
+
+| Hook | File | Use |
+|------|------|-----|
+| `useServerPaginationFilters` | `use-server-pagination-filters.ts` | Debounced list search + filter `router.get()` |
+| `useHasPermission` | `use-has-permission.ts` | Check `auth.permissions` from Inertia |
+| `useSettingsMasterDataCan` | `use-has-permission.ts` | Master-data create/update/delete flags |
+| `useViewPreference` | `use-view-preference.ts` | Persist grid/table in localStorage |
+| `useDialogState` | `use-dialog-state.tsx` | Toggle one-of-many dialog IDs |
+| `useCreatableMasterData` | `use-creatable-master-data.ts` | Inline master-data creation |
+| `useAppearance` | `use-appearance.tsx` | Theme light/dark/system |
+| `useTwoFactorAuth` | `use-two-factor-auth.ts` | 2FA setup via `useHttp` |
+| `useMobile` | `use-mobile.tsx` | Responsive breakpoint |
+| `useMutableSelectOptions` | `use-mutable-select-options.ts` | Dynamic select options after create |
+
+**Prefer these before writing new hooks** for the same concern.
+
+## Feature-local hooks
+
+Colocate when logic is domain-specific:
+
+- `features/organization/documents/use-documents-index-filters.ts`
+- `features/organization/employees/profile/use-ensure-employee.ts`
+- `pages/organization/_hooks/use-employee-profile-form.tsx`
+
+## Naming
+
+- File: `use-kebab-case.ts(x)`
+- Export: `usePascalCase` function
+
+## Patterns
+
+**List filters** — wrap `useServerPaginationFilters`:
+
+```tsx
+const { searchInput, onSearchChange, onPageChange, onFilterChange } =
+    useServerPaginationFilters({ url: branches.url(), search, filters, pagination });
+```
+
+Reference: `features/organization/branches/index.tsx`
+
+**Permissions** — never cache permissions outside Inertia shared props:
+
+```tsx
+const canCreate = useHasPermission('branches.create');
+```
+
+## Avoid
+
+- Global state libraries (Redux, Zustand) — not used in this repo.
+- Custom fetch hooks wrapping axios — use Inertia `router` or `useHttp` sparingly.
+- Duplicating debounce/pagination logic when `useServerPaginationFilters` fits.

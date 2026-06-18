@@ -1,0 +1,68 @@
+---
+description: Dialogs, sheets, and confirmation patterns
+globs: resources/js/**/*dialog*,resources/js/**/*sheet*,resources/js/**/*modal*
+alwaysApply: false
+---
+
+# Dialogs & Sheets
+
+## UI choice (follow this matrix)
+
+| Action | Component | Example |
+|--------|-----------|---------|
+| Create / Edit | **Sheet** (right side) | `branch-form-sheet.tsx` |
+| Delete | **AlertDialog** | `ConfirmDeleteDialog`, `branch-delete-dialog.tsx` |
+| Heavy workflow | **Dialog** (center) | upload, PDF merge, WhatsApp confirm |
+| Filters | **FiltersSheet** | `components/filters-sheet.tsx` |
+
+## Prefer
+
+**Delete confirmation** — reuse `components/confirm-delete-dialog.tsx` or domain wrapper:
+
+```tsx
+<ConfirmDeleteDocumentDialog
+    open={!!deleteDocId}
+    onOpenChange={(open) => !open && setDeleteDocId(null)}
+    onConfirm={() => router.delete(url, { onSuccess: () => setDeleteDocId(null) })}
+/>
+```
+
+Reference: `features/organization/documents/shared/document-management-dialogs.tsx`
+
+**Form sheet** — `Sheet` + `SheetHeader` + scrollable body + footer actions:
+
+Reference: `features/organization/branches/components/branch-form-sheet.tsx`
+
+**Multi-dialog state** — `useDialogState<'approve' | 'reject'>()` from `hooks/use-dialog-state.tsx`
+
+**Lazy heavy modals** — `lazy(() => import('...'))` + `Suspense` (PDF merge):
+
+Reference: `pages/organization/documents/employee.tsx`
+
+## State pattern
+
+```tsx
+const [editDoc, setEditDoc] = useState<DocumentProfileItem | null>(null);
+const [deleteDocId, setDeleteDocId] = useState<number | null>(null);
+```
+
+Open by setting entity; close in `onOpenChange` or `onSuccess`.
+
+## Show page deletes
+
+Pass `deleteRedirectUrl` to redirect after delete on detail pages:
+
+Reference: `pages/organization/documents/show.tsx` → `DocumentManagementDialogs`
+
+## Avoid
+
+- `Dialog` for standard CRUD forms — use `Sheet`.
+- Delete without confirmation dialog.
+- Nesting dialogs unless an existing pattern does (rare).
+
+## Domain dialog locations
+
+- Shared delete: `components/confirm-delete-dialog.tsx`
+- Documents: `features/organization/documents/shared/document-management-dialogs.tsx`
+- Crew deployments: `features/organization/crew-deployments/deployment-form-dialog.tsx`
+- Master data: `components/settings/master-data-form-sheet.tsx`

@@ -1,189 +1,529 @@
 # AI Guide (OMS-HRM)
 
-This file documents the **current, preferred patterns** in this repo so future changes stay consistent and avoid guesswork.
+Entry point for AI agents working in this repository. Read this file first — it replaces the need to scan conversation history or the entire codebase.
 
-**Product documentation:** [docs/README.md](docs/README.md) (dashboard, documents, search, sharing, permissions, email).
+**Deeper docs:** [docs/architecture/project-analysis.md](docs/architecture/project-analysis.md) · [docs/architecture/domains.md](docs/architecture/domains.md) · [docs/architecture/golden-files.md](docs/architecture/golden-files.md) · [docs/permissions.md](docs/permissions.md) · [AGENTS.md](AGENTS.md) (Laravel Boost rules + skills)
+
+**Cursor rules:** `.cursor/rules/` (domain-specific rule files; start with `project-rules.mdc`)
+
+---
 
 ## Stack
 
-- Laravel 13 + PHP 8.4
-- Inertia v3 + React 19 + TypeScript
-- Tailwind CSS v4
-- Pest for tests
-- Pint for PHP formatting
+| Layer | Technology |
+|-------|------------|
+| Backend | Laravel 13, PHP 8.4 |
+| Frontend | Inertia v3, React 19, TypeScript |
+| Styling | Tailwind CSS v4, shadcn/ui (new-york) |
+| Auth | Laravel Fortify (+ 2FA) |
+| Permissions | Spatie Laravel Permission (teams = `company_id`) |
+| Audit | Spatie Activity Log |
+| Routes (FE) | Laravel Wayfinder (`@/routes`, `@/actions`) |
+| Tests | Pest v4 |
+| Formatting | Pint (PHP), Prettier + ESLint (TS) |
 
-## Frontend structure
+---
 
-- **Pages (Inertia entrypoints)**: `resources/js/pages/**`
-  - Keep these thin: define page prop types, render a feature component.
-- **Feature modules**: `resources/js/features/**`
-  - Example modules:
-    - `resources/js/features/organization/companies`
-    - `resources/js/features/organization/branches`
-- **Shared components**: `resources/js/components/**`
-- **UI primitives**: `resources/js/components/ui/**`
+## 1. Architecture overview
 
-## Backend structure
+OMS-HRM is a **multi-tenant HR / crew operations monolith**. There is **no REST API layer** (`routes/api.php` is empty). The browser loads an Inertia SPA; Laravel renders pages with props and handles mutations via form posts.
 
-- Controllers: `app/Http/Controllers/**`
-- Form requests: `app/Http/Requests/**`
-- Routes: `routes/web.php`
+```
+Browser
+  └── Fortify auth + SetCurrentCompany middleware
+        └── Route middleware (can:permission)
+              └── Controller → Support/Services
+                    └── Inertia::render() → React (resources/js)
+                          └── Wayfinder typed routes/actions
+```
 
-## Routing conventions
+| Concern | Pattern |
+|---------|---------|
+| Data fetching | Server Inertia props — **not** React Query |
+| Mutations | `useForm`, `<Form>`, `router.post/put/delete` |
+| Authorization | Spatie permissions + route `can:` middleware |
+| Domain logic | `app/Support/` (queries, actions, presenters) |
+| Integrations | `app/Services/` (email, WhatsApp, PDF merge, Hikvision) |
+| Tenancy | Session `current_company_id` scopes all org data |
 
-- Organization routes use `/organization/...` paths.
-- Resource-ish routes are explicit in `routes/web.php`:
-  - Companies: index/show/store/update/destroy + export
-  - Branches: index/show/store/update/destroy + export
+**Do not introduce:** REST APIs, React Query/TanStack Query, Redux/Zustand, Eloquent policies, TanStack Table, client-side validation libraries (Zod/Yup).
 
-## Employees + onboarding templates (correct flow)
+---
 
-### Onboarding templates
+## 2. Folder structure
 
-- **Template builder page**: `/onboarding/templates/*` (controller: `OnboardingTemplateController`)
-- Template `tasks` define stages with:
-  - `employee_fields`
-  - `bank_account_fields`
-  - `contract_fields`
-  - `documents`
-- **Bank fields (employee bank accounts)**:
-  - Use keys: `bank_id`, `iban`, `account_name`
-  - Do **not** include system-managed flags like `is_primary` (backend controls primary account)
-- **Contract fields (employee contracts)**:
-  - Use keys: `contract_type`, `start_date`, `end_date`, `labor_contract_id`
-  - Salary keys are supported via `employee_contracts`: `basic_salary`, `housing_allowance`, `transport_allowance`, `other_allowances`
-  - `status` is backend-managed (defaults to `active`)
-- **Documents** are defined by type + min uploads + optional metadata flags:
-  - `ask_issue_date`, `ask_expiry_date`, `ask_document_number`
+### Backend
 
-### Creating an employee (onboarding pipeline)
+```
+app/
+├── Http/Controllers/     Grouped by domain (Organization, Settings, Attendance, Hikvision)
+├── Http/Requests/      Form validation (~127 files, domain subfolders)
+├── Http/Middleware/      SetCurrentCompany, HandleInertiaRequests
+├── Models/               Eloquent + LogsActivityWithCompany
+├── Support/              Domain queries, actions, guards (preferred for business logic)
+├── Services/             External integrations
+└── Actions/              Fortify user actions
 
-- **Create page**: `/organization/employees/create` (Inertia page: `resources/js/pages/organization/employee-create.tsx`)
-- The page:
-  - loads the default onboarding template from the backend
-  - renders inputs dynamically via `FieldRenderer` for `employee_fields`, `bank_account_fields`, `contract_fields`
-  - uploads required docs via `DocumentRegistry`
-- **Backend persistence**: `app/Http/Controllers/Organization/EmployeeController@store`
-  - `Employee` row is created from validated profile/assignment fields
-  - `EmployeeContract` row is created from contract + salary fields
-  - `EmployeeBankAccount` primary row is created from `bank_id` + `iban` + `account_name` when any of them is present
-  - `employee_documents` are inserted from uploaded files + optional metadata
+routes/web.php            Main org routes
+routes/settings.php       Settings + master data
+tests/Feature/            Pest feature tests
+tests/Support/            grantCompanyPermissions(), fixtures
+```
 
-## Inertia shared props
+### Frontend
 
-- Sidebar company switcher uses shared prop:
-  - `company_switcher_companies`
-- Avoid naming collisions with page props (don’t name a page prop `companies` if it can conflict with shared props).
+```
+resources/js/
+├── pages/                Inertia entrypoints — keep THIN
+├── features/             Domain UI (fat screens, dialogs, rows)
+├── components/           Shared cross-domain UI
+│   └── ui/               shadcn/Radix primitives (do not duplicate)
+├── hooks/                Global custom hooks (13 files)
+├── layouts/              app-layout, auth-layout, settings
+├── lib/                  utils, toast, design-system
+├── types/                Global TS + Inertia augmentation
+├── routes/               Wayfinder generated — DO NOT EDIT
+└── actions/              Wayfinder generated — DO NOT EDIT
+```
 
-## Reusable UI patterns (prefer using these)
+### Page colocation (exception for complex screens)
 
-- **List pages**
-  - `PageHeader`: `resources/js/components/page-header.tsx`
-  - `SearchBar`: `resources/js/components/search-bar.tsx`
-  - `ExportMenu`: `resources/js/components/export-menu.tsx`
-  - `FiltersSheet`: `resources/js/components/filters-sheet.tsx`
-  - `EmptyState`: `resources/js/components/empty-state.tsx`
-  - `ViewToggle`: `resources/js/components/view-toggle.tsx`
-  - `useViewPreference`: `resources/js/hooks/use-view-preference.ts` (grid/list view stored in `localStorage`)
+```
+pages/organization/
+├── employee.tsx          Profile hub (large)
+├── _components/          Tab panels
+├── _hooks/               Profile form hooks
+└── _lib/                 Template field helpers
+```
 
-- **Delete confirmation**
-  - `ConfirmDeleteDialog`: `resources/js/components/confirm-delete-dialog.tsx`
+**Rule:** New simple CRUD → thin page + `features/{domain}/`. Do not create new top-level folders without approval.
 
-## Toasts & flash messages (global)
+---
 
-- Prefer **server-side flash** messages on redirects for create/update/delete/status actions:
-  - `->with('success'|'error'|'info', '...')`
-- Inertia shared props include `flash` in:
-  - `app/Http/Middleware/HandleInertiaRequests.php`
-- Client-side toast rendering is centralized in:
-  - `resources/js/components/http-exception-toasts.tsx`
-  - Shows HTTP/network errors plus `flash.success|error|info` on `router.on('success')`
-- Avoid per-page success toasts for CRUD/status (handled globally).
+## 3. Domain relationships
 
-## Details pages (standard pattern)
+Multi-company HR system. All org data scoped by `company_id`.
 
-- Details pages live in `resources/js/pages/organization/*.tsx`
-- Common layout:
-  - `DetailsHeader` (Back + primary actions like Edit / link to related entity)
-  - Main “Overview” card
-  - Right sidebar card(s) (Quick info / Quick actions)
-  - “Recent activity” card below
+```mermaid
+erDiagram
+    Company ||--o{ Branch : has
+    Company ||--o{ Employee : employs
+    Company }o--o{ User : membership
+    User ||--o| Employee : optional
+    Employee ||--o{ EmployeeDocument : files
+    Employee ||--o{ EmployeeDeployment : deployments
+    EmployeeDeployment ||--o| EmployeeSeaService : syncs
+```
 
-### Recent activity rules
+| Domain | Purpose | Key models |
+|--------|---------|------------|
+| **Companies** | Tenant root | `Company` |
+| **Branches** | Sites under company | `Branch` |
+| **Employees** | HR records + profile tabs | `Employee`, sub-records (contract, training, …) |
+| **Documents** | Employee files, expiry, sharing | `EmployeeDocument`, `EmployeeDocumentVersion` |
+| **Crew deployments** | Deployment lifecycle | `EmployeeDeployment` → `EmployeeSeaService` |
+| **Users** | Login accounts | `User`, `company_user` pivot |
+| **Roles** | Permission bundles per company | Spatie `Role` with `company_id` |
 
-- Recent activity comes from Spatie Activitylog and is loaded in each controller `show()` action.
-- Always fetch **latest 5** only (query-level limit):
-  - `->latest('id')->limit(5)`
-- Respect permissions:
-  - only load `recent_activity` when user can `audit.view`, otherwise return `[]`.
+Full domain map: [docs/architecture/domains.md](docs/architecture/domains.md)
 
-### Quick info rules
+### Tenancy flow
 
-- Avoid duplicating fields already prominent in the Overview card.
-- Prefer “high-signal” metrics:
-  - counts (positions under a department, users/employees under a department, companies the user belongs to, etc.)
-- Compute counts server-side (avoid N+1):
-  - `withCount()` when a relation exists
-  - otherwise a targeted `count()` query scoped by `company_id`
+1. User logs in → `SetCurrentCompany` sets session `current_company_id`.
+2. Spatie `PermissionRegistrar::setPermissionsTeamId($companyId)`.
+3. Controllers read `(int) $request->attributes->get('current_company_id')`.
+4. User switches company via sidebar → `CompanySwitchController`.
 
-## Icons (lucide-react) note
+**Never** trust client-supplied `company_id` for authorization.
 
-- Not all icons exist in every installed `lucide-react` build.
-- If Vite throws “does not provide an export named …”, switch to an icon already used in the repo
-  (e.g. `Building2`, `Store`, `Users`, `MapPin`, `Activity`).
+---
 
-## “Golden reference” files (copy patterns from here)
+## 4. Permission system
 
-- Companies list patterns: `resources/js/features/organization/companies/index.tsx`
-- Branches list patterns: `resources/js/features/organization/branches/index.tsx`
-- Company form styling: `resources/js/features/organization/companies/components/company-form-sheet.tsx`
-- Branch form styling: `resources/js/features/organization/branches/components/branch-form-sheet.tsx`
-- Company details page: `resources/js/pages/organization/company.tsx`
-- Branch details page: `resources/js/pages/organization/branch.tsx`
+- **Spatie Permission** with **teams enabled** — team key = `company_id` (`config/permission.php`).
+- **No Eloquent policies** — routes use `->middleware('can:permission.name')`.
+- Permissions seeded in `database/seeders/PermissionsSeeder.php` (dot notation: `employees.view`, `documents.upload`).
+- Re-seed after adding permissions: `php artisan db:seed --class=PermissionsSeeder`
 
-## Export conventions
+### Backend (authoritative)
 
-- Exports support `format=csv|xlsx|pdf` and should respect current search/filters via query string.
-- Companies export endpoint: `/organization/companies/export`
-- Branches export endpoint: `/organization/branches/export`
+```php
+Route::get('organization/branches', [BranchController::class, 'index'])
+    ->middleware('can:branches.view');
+```
 
-## Documents module
+Module-specific UI flags via Support classes:
 
-- **Index:** `resources/js/pages/organization/documents/index.tsx` — folders, expiry cards, global search UX.
-- **Employee browse:** `resources/js/pages/organization/documents/employee.tsx` — table, bulk download/share/merge/email.
-- **Profile tab:** `resources/js/pages/organization/_components/documents/employee-documents-tab.tsx`.
-- **Backend query:** `app/Support/EmployeeDocuments/DocumentBrowseQuery.php` — folders, `documentsForSearch`, `documentsForCompliance`, `expirySummary`.
-- **Search modes:** `resources/js/features/organization/documents/index/use-documents-index-search-mode.ts` — `browse` | `documents-only` | `employees-only` | `tabbed` | `empty`.
-- **Permissions on pages:** `DocumentPagePermissions` → Inertia `can.download|share|delete`; routes use `documents.view|upload|download|share|delete`.
-- **Do not** show index search as an “Active filter” chip; only expiry chips on compliance view.
-- **Folder search** matches employee name/number only; document fields use `searchDocuments` prop.
+```php
+'can' => DocumentPagePermissions::for($request->user()),
+```
 
-See [docs/document-search.md](docs/document-search.md).
+Static guards for cross-entity checks: `DocumentAccess::assertEmployeeInCompany(...)`.
 
-## Dashboard
+### Frontend (UX only)
 
-- Page: `resources/js/pages/dashboard.tsx`, feature: `resources/js/features/dashboard/`.
-- Data: `App\Support\Dashboard\DashboardAnalytics` (employee stats, document compliance, workforce trends, charts).
+| Need | API |
+|------|-----|
+| Module actions | Page `can` prop from controller |
+| Nav / cross-cutting | `useHasPermission('branches.create')` |
+| Settings master data | `useSettingsMasterDataCan('genders')` |
 
-## Users ↔ employees
+Shared Inertia: `auth.permissions[]`, `auth.roles[]` from `HandleInertiaRequests`.
 
-- Link employee on user form: `SyncUserEmployeeLink`, optional `CopyEmployeeAvatarToUser`.
-- Auth user avatar URLs normalized in `HandleInertiaRequests::formatAuthUser()`.
-- `last_login_at` updated on login via `RecordUserLastLogin` listener (Fortify `Login` event); cast on `User` model.
+### Audit permission
 
-## Testing & quality gates
+`audit.view` gates Activity logs page and `RecentActivityCard` on show pages. Without it, return `recent_activity: []`.
 
-- **Every change should be programmatically tested**
-  - Prefer targeted tests: `php artisan test --compact <file>`
-- If PHP is changed:
-  - Run `vendor/bin/pint --dirty --format agent`
-- If TS/React is changed:
-  - Run `npm run lint:check`
+Details: [docs/permissions.md](docs/permissions.md)
 
-## Do / Don’t
+---
 
-- Do follow existing conventions in sibling files.
-- Do reuse existing components before creating new ones.
-- Don’t add narration-style comments in code.
-- Don’t introduce new top-level folders without approval.
+## 5. Reusable components
 
+Use existing components before creating new ones.
+
+### Layout & list chrome
+
+| Component | Path |
+|-----------|------|
+| `Main` | `components/layout/main.tsx` |
+| `PageHeader` | `components/page-header.tsx` |
+| `SearchBar` | `components/search-bar.tsx` |
+| `DetailsHeader` | `components/details-header.tsx` |
+| `Pagination` | `components/pagination.tsx` |
+| `EmptyState` | `components/empty-state.tsx` |
+| `ExportMenu` | `components/export-menu.tsx` |
+| `ViewToggle` | `components/view-toggle.tsx` |
+| `FiltersSheet` | `components/filters-sheet.tsx` |
+
+### Data display
+
+| Component | Path |
+|-----------|------|
+| `OrganizationDataTable` | `components/data-table.tsx` |
+| `ListTableCrudActions` | `components/list-table-actions.tsx` |
+| `RecentActivityCard` | `components/recent-activity-card.tsx` |
+| `InputError` | `components/input-error.tsx` |
+| `AppSelect` | `components/app-select.tsx` |
+
+### Styling helpers
+
+- `cn()` — `lib/utils.ts`
+- Design tokens — `lib/design-system.ts`, CSS class `glass-card`
+- Icons — `lucide-react` only; verify export exists before using new icons
+
+---
+
+## 6. Hooks
+
+Global hooks live in `resources/js/hooks/`. Prefer these over writing new ones.
+
+| Hook | Purpose |
+|------|---------|
+| `useServerPaginationFilters` | Debounced search + filter + page `router.get()` |
+| `useHasPermission` | Check `auth.permissions` |
+| `useSettingsMasterDataCan` | Master-data CRUD flags |
+| `useViewPreference` | Persist grid/table in localStorage |
+| `useDialogState` | Toggle one-of-many dialog IDs |
+| `useCreatableMasterData` | Inline master-data creation |
+| `useAppearance` | Theme light/dark/system |
+
+Domain hooks colocate in `features/{domain}/` (e.g. `use-documents-index-filters.ts`, `use-ensure-employee.ts`).
+
+**No global state store.** State = Inertia props + local `useState` + `useForm`.
+
+---
+
+## 7. Tables
+
+- Use **`OrganizationDataTable`** + shadcn `Table` — **not** TanStack Table.
+- Cell/row classes from `components/data-table.tsx`: `dataTableBodyRowClass()`, `dataTableCellClass()`, `dataTableActionsCellClass()`.
+- Row actions: `ListTableCrudActions` (View/Edit/Delete) or domain wrapper (`DocumentListRowActions`).
+- **Row click → show page** where detail pages exist; `stopPropagation` on action column and checkboxes.
+- Extract domain rows to `*-table-row.tsx` when columns are non-trivial.
+- Server pagination via `Pagination` + `useServerPaginationFilters`.
+
+Golden row: `features/organization/documents/document-compliance-table-row.tsx`
+
+---
+
+## 8. Dialogs
+
+| UI | Use for | Example |
+|----|---------|---------|
+| **Sheet** (right) | Create / edit forms | `branch-form-sheet.tsx` |
+| **AlertDialog** | Delete confirmation | `confirm-delete-dialog.tsx` |
+| **Dialog** (center) | Heavy workflows (upload, merge) | `upload-dialog.tsx` |
+| **FiltersSheet** | Filter panels | `filters-sheet.tsx` |
+
+State pattern:
+
+```tsx
+const [editDoc, setEditDoc] = useState<Item | null>(null);
+const [deleteId, setDeleteId] = useState<number | null>(null);
+```
+
+Lazy-load heavy modals: `lazy(() => import('...'))` + `Suspense`.
+
+**Do not** use center Dialog for standard CRUD — use Sheet.
+
+---
+
+## 9. Forms
+
+**Server-side validation only** — Laravel Form Requests. No Zod, Yup, or react-hook-form.
+
+### Feature CRUD (`useForm`)
+
+```tsx
+const form = useForm<BranchFormData>({ name: '', ... });
+form.put(`/organization/branches/${id}`, { preserveScroll: true, onSuccess: () => setIsSheetOpen(false) });
+```
+
+Parent owns form; sheet receives `form: InertiaFormProps<T>`.
+
+### Auth (`<Form>`)
+
+```tsx
+<Form {...store.form()} resetOnSuccess={['password']}>
+  {({ processing, errors }) => ( ... )}
+</Form>
+```
+
+### Errors
+
+- Inline: `form.errors.field`
+- Shared: `<InputError message={form.errors.name} />`
+- Partial reload after save: `{ only: ['document'] }` or `partialReloadKeys` prop
+
+### Flash / toasts
+
+- Prefer server flash: `->with('success', '...')` on redirect.
+- Client toasts via `components/http-exception-toasts.tsx` — **do not** duplicate success toasts in `onSuccess`.
+
+---
+
+## 10. Backend patterns
+
+### Controllers
+
+- **No `Route::resource()`** — explicit routes per action in `routes/web.php`.
+- **Multi-action** controllers for CRUD + export (`BranchController`).
+- **Invokable** controllers for single-purpose endpoints (`EmployeeDocumentShowController`, `DocumentsFolderIndexController`).
+- Controllers: HTTP + Inertia render + redirect/flash. Logic → Support.
+
+```php
+$companyId = (int) $request->attributes->get('current_company_id');
+return Inertia::render('organization/documents/show', [
+    'document' => $document->toShowArray(),
+    'can' => DocumentPagePermissions::for($request->user()),
+    'recent_activity' => RecentActivityQuery::for($user, $companyId, EmployeeDocument::class, $document->id),
+    'can_view_audit' => $user?->can('audit.view') ?? false,
+]);
+```
+
+### Support vs Services
+
+| Layer | Use | Examples |
+|-------|-----|----------|
+| `app/Support/` | Queries, actions, guards, array mappers | `DocumentBrowseQuery`, `CreateEmployee`, `DocumentAccess` |
+| `app/Services/` | External integrations | `DocumentEmailService`, `WhatsAppService` |
+
+Support "Resources" are static `toArray()` mappers — not Laravel API Resources.
+
+### Form Requests
+
+`app/Http/Requests/{Domain}/Store*.php` — shared rules in `Concerns/` traits.
+
+### Show pages
+
+Pass `recent_activity` + `can_view_audit`. Use `RecentActivityQuery::for()` (returns `[]` without `audit.view`).
+
+### Formatting
+
+After PHP changes: `vendor/bin/pint --dirty --format agent`
+
+---
+
+## 11. TypeScript patterns
+
+| Scope | Location |
+|-------|----------|
+| Global | `resources/js/types/` (`PaginationMeta`, auth types) |
+| Domain | `features/{domain}/types.ts` |
+| Inertia shared | `types/global.d.ts` (module augmentation) |
+
+- Explicit prop interfaces on pages/features.
+- `import type { ... }` for types.
+- Wayfinder for typed URLs — prefer over hardcoded paths in **new** code.
+- Avoid `any`. No runtime schema validation on frontend.
+- Check: `npm run types:check`
+
+---
+
+## 12. Testing patterns
+
+Framework: **Pest v4** with `RefreshDatabase` on Feature tests.
+
+```php
+test('authorized user can load show page', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, ...] = makeDocumentFixtures();
+    grantCompanyPermissions($user, $company, ['documents.view']);
+
+    $this->get("/organization/documents/employees/{$employee->id}/files/{$document->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/documents/show')
+            ->where('document.id', $document->id)
+        );
+});
+```
+
+| Helper | File |
+|--------|------|
+| `grantCompanyPermissions()` | `tests/Support/spatie.php` |
+| `makeDocumentFixtures()` | `tests/Support/document-fixtures.php` |
+
+- **Every change needs a test** — run targeted: `php artisan test --compact tests/Feature/.../FileTest.php`
+- Test permission denied **and** allowed paths.
+- Do not delete tests without approval.
+
+---
+
+## 13. Performance considerations
+
+- **Inertia partial reloads** — `{ only: ['documents'] }` instead of full page refresh after mutations.
+- **Debounce search** — `useServerPaginationFilters` (400ms default).
+- **Eager load** relations in controllers/Support before array mapping.
+- **`withCount()`** for list metrics — avoid N+1.
+- **Lazy-load** heavy modals (PDF merge, upload).
+- **No client-side caching layers** (React Query, etc.).
+- Shared props cached ~60s in `HandleInertiaRequests` — don't re-fetch permissions client-side.
+
+---
+
+## 14. Golden reference files
+
+Copy patterns from these before inventing new ones. Full rationale: [docs/architecture/golden-files.md](docs/architecture/golden-files.md)
+
+| Category | File |
+|----------|------|
+| Index page | `features/organization/branches/index.tsx` |
+| Show page | `pages/organization/documents/show.tsx` |
+| Form sheet | `features/organization/branches/components/branch-form-sheet.tsx` |
+| Table row | `features/organization/documents/document-compliance-table-row.tsx` |
+| Delete dialog | `components/confirm-delete-dialog.tsx` |
+| Upload modal | `pages/organization/_components/documents/upload-dialog.tsx` |
+| List hook | `hooks/use-server-pagination-filters.ts` |
+| Domain filter hook | `features/organization/documents/use-documents-index-filters.ts` |
+| Permissions | `app/Support/EmployeeDocuments/DocumentPagePermissions.php` |
+| Show controller | `app/Http/Controllers/Organization/EmployeeDocumentShowController.php` |
+| Query Support | `app/Support/EmployeeDocuments/DocumentBrowseQuery.php` |
+| File upload | `app/Support/EmployeeDocuments/StoresEmployeeDocument.php` |
+| Delete flow | `features/organization/documents/shared/document-management-dialogs.tsx` |
+| Bulk actions | `pages/organization/documents/employee.tsx` + `use-bulk-selection.ts` |
+
+---
+
+## 15. Common mistakes to avoid
+
+### Architecture
+
+- ❌ Adding React Query, Redux, or a REST API layer
+- ❌ Creating Eloquent policies (use Spatie + route middleware)
+- ❌ Putting business logic in controllers instead of `app/Support/`
+- ❌ Creating new top-level folders without approval
+- ❌ Using `Route::resource()`
+
+### Tenancy & security
+
+- ❌ Querying without `company_id` scope
+- ❌ Trusting client-supplied `company_id`
+- ❌ Hiding UI actions without backend middleware (UI gating is not security)
+- ❌ Checking permissions outside Spatie team context
+
+### Frontend
+
+- ❌ Fat Inertia pages for new simple CRUD (use thin page + feature)
+- ❌ TanStack Table instead of `OrganizationDataTable`
+- ❌ Dialog for standard create/edit (use Sheet)
+- ❌ Preview modals when a show page exists (navigate on row click)
+- ❌ Hardcoded URLs in new code when Wayfinder route exists
+- ❌ Editing `resources/js/routes/` or `resources/js/actions/` manually
+- ❌ Client-side validation libraries (Zod/Yup/react-hook-form)
+- ❌ Duplicate success toasts when server already flashes
+- ❌ Page props named `companies` (collides with shared switcher prop)
+
+### Backend
+
+- ❌ Inline validation in controllers (use Form Requests)
+- ❌ Fetching audit data without checking `audit.view`
+- ❌ N+1 queries on show pages (use `withCount`, eager `load()`)
+
+### Testing
+
+- ❌ Skipping tests on changes
+- ❌ Forgetting `grantCompanyPermissions()` in org feature tests
+- ❌ Running Pint on unchanged PHP or skipping it on changed PHP
+
+### Documents module specifics
+
+- Index search is **not** an "Active filter" chip — only expiry chips on compliance view.
+- Folder search matches employee name/number; document field search uses `searchDocuments`.
+- `DocumentPagePermissions` drives `can` on document pages.
+- Show page owns inline preview + version history (not list modals).
+- Back navigation uses `from` query: `employee-browse` | `index` | `profile`.
+
+See [docs/document-search.md](docs/document-search.md), [docs/document-management.md](docs/document-management.md).
+
+---
+
+## Domain-specific notes
+
+### Employee onboarding
+
+- Template builder: `/onboarding/templates/*` (`OnboardingTemplateController`)
+- Create flow: `/organization/employees/create` — dynamic fields from onboarding template
+- Backend: `EmployeeController@store` + `CreateEmployee` action (employee + contract + bank + documents)
+- Profile driven by `EmployeeProfileTemplate` — field visibility via template helpers in `pages/organization/_lib/`
+
+### Users ↔ employees
+
+- Link: `SyncUserEmployeeLink`, optional `CopyEmployeeAvatarToUser`
+- Create login from employee: `EmployeeUserController` (requires `users.create`)
+
+### Crew deployments
+
+- Saves sync sea service via `SyncSeaServiceFromDeployment` when join/disembark dates complete
+- Permissions: `crew_operations.deployments.view|manage`
+
+### Exports
+
+Support `format=csv|xlsx|pdf`; respect current search/filters via query string.
+
+---
+
+## Quality checklist (every change)
+
+1. Follow patterns in sibling files and golden references.
+2. Scope queries by `current_company_id`.
+3. Add/update Pest test; run `php artisan test --compact <file>`.
+4. Run `vendor/bin/pint --dirty` if PHP changed.
+5. Run `npm run lint:check` if TS/React changed.
+6. Prefer Wayfinder routes in new frontend code.
+7. Reuse existing components — extend, don't reinvent.
+
+---
+
+## Quick links
+
+| Doc | Contents |
+|-----|----------|
+| [docs/architecture/project-analysis.md](docs/architecture/project-analysis.md) | Full technical analysis |
+| [docs/architecture/domains.md](docs/architecture/domains.md) | Business domains + workflows |
+| [docs/architecture/golden-files.md](docs/architecture/golden-files.md) | Best reference implementations |
+| [docs/README.md](docs/README.md) | Product docs index |
+| [AGENTS.md](AGENTS.md) | Laravel Boost agent rules + skill activation |

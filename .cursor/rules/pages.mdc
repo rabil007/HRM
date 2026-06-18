@@ -1,0 +1,82 @@
+---
+description: Inertia page entrypoints and show/detail page layout for OMS-HRM
+globs: resources/js/pages/**
+alwaysApply: false
+---
+
+# Pages
+
+Inertia resolves pages from `resources/js/pages/`. Controllers use dot paths: `Inertia::render('organization/employees', ...)`.
+
+## Thin page pattern (preferred)
+
+Page = `<Head>` + typed props + delegate to feature.
+
+```tsx
+// pages/organization/employees.tsx
+export default function Employees({ employees, pagination, ... }: Props) {
+    return (
+        <>
+            <Head title="Employees" />
+            <EmployeesContent employees={employees} pagination={pagination} ... />
+        </>
+    );
+}
+```
+
+Reference: `pages/organization/employees.tsx` → `features/organization/employees/employees-content.tsx`
+
+## Fat page exception
+
+Employee profile is intentionally large — colocate helpers:
+
+```
+pages/organization/
+  employee.tsx
+  _components/     ← tabs (documents, contracts, …)
+  _hooks/          ← use-employee-profile-form.tsx
+  _lib/            ← template field helpers
+```
+
+Do not use this pattern for new simple CRUD modules.
+
+## List page layout
+
+1. `Main` wrapper (`components/layout/main.tsx`)
+2. `PageHeader` — title, create, export
+3. `SearchBar` + optional `FiltersSheet`
+4. Table or grid from feature
+5. `Pagination`
+
+Reference: `features/organization/branches/index.tsx`
+
+## Show / detail page layout
+
+1. Breadcrumbs (domain-specific, e.g. `DocumentsBreadcrumbs`)
+2. `DetailsHeader` — `backHref`, `backLabel`, permission-gated `actions`
+3. Content cards (overview, metadata, preview)
+4. `RecentActivityCard` when `can_view_audit` (not the page's job to fetch — comes from controller)
+
+References:
+- `pages/organization/branch.tsx`
+- `pages/organization/crew-deployments/show.tsx`
+- `pages/organization/documents/show.tsx`
+
+## Back navigation
+
+Pass whitelisted query params when linking to show pages. Examples:
+
+- Documents: `buildDocumentShowUrl(..., { from: 'profile' | 'index' | 'employee-browse' })` — `features/organization/documents/shared/document-show-url.ts`
+- Crew deployments: `back_query` from controller
+
+## Avoid
+
+- Business logic or large JSX blocks in `pages/` for new modules.
+- Naming page props that collide with Inertia shared props (e.g. don't use `companies` if it conflicts with switcher data — see `AI_GUIDE.md`).
+- Per-page success toasts for CRUD — use server flash + `HttpExceptionToasts`.
+
+## Layouts
+
+- Authenticated app: `layouts/app-layout.tsx`
+- Settings nested: `layouts/settings/layout.tsx`
+- Auth: `layouts/auth-layout.tsx`
