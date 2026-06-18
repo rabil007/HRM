@@ -6,12 +6,11 @@ export function DeploymentDateCell({
     value,
     field,
     overdueFields,
-    dueSoonFields,
 }: {
     value: string | null | undefined;
     field: string;
     overdueFields: string[];
-    dueSoonFields: string[];
+    dueSoonFields?: string[];
 }): ReactElement {
     const isOverdue = overdueFields.includes(field);
 

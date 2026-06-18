@@ -1,5 +1,5 @@
 import { Head, router } from '@inertiajs/react';
-import { Download, Filter, LayoutDashboard, LayoutList, Plus, Search, X } from 'lucide-react';
+import { Download, Filter, Plus, Search, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import type { ReactElement } from 'react';
 import {
@@ -27,7 +27,7 @@ import {
     DEFAULT_DEPLOYMENT_SORT,
     DEFAULT_DEPLOYMENT_SORT_DIRECTION,
 } from '@/features/organization/crew-deployments/crew-deployment-sort-options';
-import { CrewDeploymentsBoard } from '@/features/organization/crew-deployments/crew-deployments-board';
+// import { CrewDeploymentsBoard } from '@/features/organization/crew-deployments/crew-deployments-board';
 import { CrewDeploymentsSummaryCards } from '@/features/organization/crew-deployments/crew-deployments-summary-cards';
 import { DeploymentDateCell } from '@/features/organization/crew-deployments/deployment-date-cell';
 import { DeploymentFormDialog } from '@/features/organization/crew-deployments/deployment-form-dialog';
@@ -117,9 +117,9 @@ export default function CrewDeploymentsIndex({
         pagination: deployments,
     });
 
-    const setView = (newView: 'table' | 'board'): void => {
-        list.applyFilters({ view: newView });
-    };
+    // const setView = (newView: 'table' | 'board'): void => {
+    //     list.applyFilters({ view: newView });
+    // };
 
     const activeSort = filters.sort ?? DEFAULT_DEPLOYMENT_SORT;
     const activeDirection = filters.direction ?? DEFAULT_DEPLOYMENT_SORT_DIRECTION;
