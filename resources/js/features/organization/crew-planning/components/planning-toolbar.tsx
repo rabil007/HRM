@@ -5,6 +5,7 @@ import { index as planningIndex } from '@/actions/App/Http/Controllers/Organizat
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { formatIsoDateLocal } from '../lib/planning-gantt-math';
 import type { PlanningFilters, PlanningOption, PlanningPagePermissions } from '../types';
 
 type Props = {
@@ -29,14 +30,14 @@ function addMonths(dateStr: string, delta: number): string {
     d.setMonth(d.getMonth() + delta);
     d.setDate(1);
 
-    return d.toISOString().split('T')[0];
+    return formatIsoDateLocal(d);
 }
 
 function endOfMonth(dateStr: string): string {
     const d = new Date(`${dateStr}T00:00:00`);
     const end = new Date(d.getFullYear(), d.getMonth() + 1, 0);
 
-    return end.toISOString().split('T')[0];
+    return formatIsoDateLocal(end);
 }
 
 function visit(params: Partial<PlanningFilters & { from: string; to: string }>): void {
