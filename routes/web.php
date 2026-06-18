@@ -13,6 +13,8 @@ use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
 use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\CrewDeploymentController;
+use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
+use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\DashboardController;
 use App\Http\Controllers\Organization\DepartmentController;
 use App\Http\Controllers\Organization\DocumentBulkEmailController;
@@ -137,6 +139,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/vessel-manning', [VesselManningController::class, 'index'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.index');
     Route::get('organization/vessel-manning/{vessel}', [VesselManningController::class, 'show'])->middleware('can:crew_operations.vessel_manning.view')->name('organization.vessel-manning.show');
     Route::put('organization/vessel-manning/{vessel}', [VesselManningController::class, 'update'])->name('organization.vessel-manning.update');
+
+    Route::get('organization/crew-planning', [CrewPlanningController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-planning.index');
+    Route::put('organization/crew-planning/settings', [CrewPlanningController::class, 'updateSettings'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.settings.update');
+    Route::post('organization/crew-planning/assignments', [CrewPlanningAssignmentController::class, 'store'])->middleware('can:crew_operations.planning.create')->name('organization.crew-planning.assignments.store');
+    Route::put('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-planning.assignments.update');
+    Route::post('organization/crew-planning/assignments/{assignment}/confirm', [CrewPlanningAssignmentController::class, 'confirm'])->middleware('can:crew_operations.planning.confirm')->name('organization.crew-planning.assignments.confirm');
+    Route::delete('organization/crew-planning/assignments/{assignment}', [CrewPlanningAssignmentController::class, 'destroy'])->middleware('can:crew_operations.planning.delete')->name('organization.crew-planning.assignments.destroy');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');

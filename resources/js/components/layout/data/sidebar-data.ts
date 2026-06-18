@@ -1,6 +1,7 @@
 import {
     Command,
     Building2,
+    CalendarRange,
     ClipboardList,
     LayoutDashboard,
     Landmark,
@@ -85,6 +86,7 @@ const baseSidebarData: SidebarData = {
             items: [
                 { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
                 { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
+                { title: 'Planning', url: '/organization/crew-planning', icon: CalendarRange },
             ],
         },
         {
@@ -185,6 +187,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'crew_operations.vessel_manning.view')
                                 ? item
                                 : null;
+                        case '/organization/crew-planning':
+                            return has(permissions, 'crew_operations.planning.view') ? item : null;
                         case documents.url():
                             return has(permissions, 'documents.view') ? item : null;
                         case '/organization/roles':
