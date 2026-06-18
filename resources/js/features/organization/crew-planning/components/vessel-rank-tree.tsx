@@ -1,11 +1,9 @@
-import { ChevronRight, Ship, UserRound } from 'lucide-react';
+import { Anchor, ChevronRight, Ship, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 import type { TreeCrewMember, TreeRank, TreeVessel } from '../types';
-
-type ManningFill = 'empty' | 'partial' | 'full' | 'over';
 
 function crewInitials(name: string): string {
     return name
@@ -13,44 +11,6 @@ function crewInitials(name: string): string {
         .slice(0, 2)
         .map((part) => part[0]?.toUpperCase() ?? '')
         .join('');
-}
-
-function manningFill(assigned: number, required: number): ManningFill {
-    if (assigned === 0) {
-        return 'empty';
-    }
-
-    if (assigned < required) {
-        return 'partial';
-    }
-
-    if (assigned > required) {
-        return 'over';
-    }
-
-    return 'full';
-}
-
-function ManningBadge({ assigned, required }: { assigned: number; required: number }): ReactElement {
-    const fill = manningFill(assigned, required);
-
-    return (
-        <span
-            className={cn(
-                'ml-auto shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums',
-                fill === 'empty' && 'bg-muted/80 text-muted-foreground',
-                fill === 'partial' &&
-                    'bg-amber-500/15 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
-                fill === 'full' &&
-                    'bg-emerald-500/15 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
-                fill === 'over' &&
-                    'bg-[color-mix(in_oklch,var(--primary)_18%,var(--background))] text-primary',
-            )}
-            title={`${assigned} planned of ${required} required`}
-        >
-            {assigned}/{required}
-        </span>
-    );
 }
 
 function matchesSearch(text: string, query: string): boolean {
@@ -84,7 +44,7 @@ function CrewMemberRow({
     return (
         <div
             className={cn(
-                'flex items-center gap-2 rounded-md py-1 pr-2 pl-1 text-xs',
+                'flex items-center gap-2 rounded-md py-0.5 pr-1 text-xs',
                 isMatch && 'bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))]',
             )}
         >
@@ -127,7 +87,7 @@ function RankNode({
     forceOpen: boolean;
 }): ReactElement | null {
     const lowerSearch = search.trim().toLowerCase();
-    const [rankOpen, setRankOpen] = useState(rank.crew.length > 0);
+    const [rankOpen, setRankOpen] = useState(false);
 
     if (!rankMatchesSearch(rank, lowerSearch)) {
         return null;
@@ -139,22 +99,27 @@ function RankNode({
         <Collapsible open={forceOpen || rankOpen} onOpenChange={setRankOpen}>
             <div
                 className={cn(
-                    'mx-2 mb-0.5 overflow-hidden rounded-lg border border-transparent transition-colors',
-                    isSelected &&
-                        'border-[color-mix(in_oklch,var(--primary)_25%,var(--border))] bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))]',
-                    !isSelected && 'hover:bg-muted/40',
+                    'relative ml-3 border-l-2 pl-2',
+                    isSelected ? 'border-primary' : 'border-border/50',
                 )}
             >
-                <div className="flex min-w-0 items-stretch">
+                <div
+                    className={cn(
+                        'flex min-w-0 items-stretch rounded-md transition-colors',
+                        isSelected &&
+                            'bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))]',
+                        !isSelected && 'hover:bg-muted/30',
+                    )}
+                >
                     <CollapsibleTrigger asChild>
                         <button
                             type="button"
-                            className="inline-flex w-7 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                            className="inline-flex w-6 shrink-0 items-center justify-center text-muted-foreground/70 transition-colors hover:text-foreground focus-visible:outline-none"
                             aria-label={isExpanded ? `Collapse ${rank.rank_name}` : `Expand ${rank.rank_name}`}
                         >
                             <ChevronRight
                                 className={cn(
-                                    'h-3.5 w-3.5 transition-transform duration-200',
+                                    'h-3 w-3 transition-transform duration-200',
                                     isExpanded && 'rotate-90',
                                 )}
                             />
@@ -162,23 +127,25 @@ function RankNode({
                     </CollapsibleTrigger>
                     <button
                         type="button"
-                        className="flex min-w-0 flex-1 items-center gap-2 py-2 pr-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+                        className="flex min-w-0 flex-1 items-center gap-2 py-1.5 pr-2 text-left focus-visible:outline-none"
                         onClick={() => onRowSelect(rowKey)}
                     >
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded text-muted-foreground/80">
+                            <Anchor className="h-3 w-3" />
+                        </span>
                         <span
                             className={cn(
-                                'truncate text-xs font-medium',
-                                isSelected ? 'text-foreground' : 'text-foreground/90',
+                                'truncate text-[11px] font-medium tracking-wide uppercase',
+                                isSelected ? 'text-primary' : 'text-muted-foreground',
                             )}
                         >
                             {rank.rank_name}
                         </span>
-                        <ManningBadge assigned={rank.crew.length} required={rank.required_count} />
                     </button>
                 </div>
 
                 <CollapsibleContent>
-                    <div className="space-y-0.5 border-t border-border/40 px-2 py-1.5 pl-7">
+                    <div className="space-y-0.5 border-l border-border/30 py-1 pl-3 ml-2.5">
                         {rank.crew.length === 0 ? (
                             <div className="flex items-center gap-2 py-1 text-[11px] text-muted-foreground/55">
                                 <UserRound className="h-3 w-3 shrink-0" />
@@ -218,38 +185,40 @@ function VesselNode({
     forceOpen: boolean;
 }): ReactElement | null {
     const lowerSearch = search.trim().toLowerCase();
-    const [open, setOpen] = useState(true);
-    const plannedCount = vessel.ranks.reduce((total, rank) => total + rank.crew.length, 0);
+    const [open, setOpen] = useState(false);
 
     if (!vesselMatchesSearch(vessel, lowerSearch)) {
         return null;
     }
 
+    const isExpanded = forceOpen || open;
+
     return (
-        <Collapsible open={forceOpen || open} onOpenChange={setOpen} className="border-b border-border/50 last:border-b-0">
+        <Collapsible
+            open={isExpanded}
+            onOpenChange={setOpen}
+            className="border-b border-border/40 last:border-b-0"
+        >
             <CollapsibleTrigger asChild>
                 <button
                     type="button"
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+                    className="flex w-full items-center gap-2.5 bg-muted/25 px-3 py-2.5 text-left transition-colors hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
                 >
                     <ChevronRight
                         className={cn(
-                            'h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
-                            open && 'rotate-90',
+                            'h-4 w-4 shrink-0 text-foreground/70 transition-transform duration-200',
+                            isExpanded && 'rotate-90',
                         )}
                     />
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-                        <Ship className="h-3.5 w-3.5" />
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[color-mix(in_oklch,var(--primary)_15%,var(--background))] text-primary">
+                        <Ship className="h-4 w-4" />
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight">
+                    <span className="min-w-0 flex-1 truncate text-sm font-bold tracking-tight text-foreground">
                         {vessel.vessel_name}
-                    </span>
-                    <span className="shrink-0 rounded-md bg-muted/70 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
-                        {plannedCount} planned
                     </span>
                 </button>
             </CollapsibleTrigger>
-            <CollapsibleContent className="pb-2 pt-0.5">
+            <CollapsibleContent className="space-y-0.5 bg-background/50 py-1.5 pr-2">
                 {vessel.ranks.map((rank) => {
                     const rowKey = `vessel:${vessel.vessel_id}|rank:${rank.rank_id}`;
 
