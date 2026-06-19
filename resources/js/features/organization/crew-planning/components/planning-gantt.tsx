@@ -1,7 +1,9 @@
 import { Ship } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useRef } from 'react';
 import { cn } from '@/lib/utils';
 import { formatIsoDateLocal } from '../lib/planning-gantt-math';
+import { useZoom } from '../lib/zoom-context';
 import type { GanttBar, GanttVesselGroup, PlanningPagePermissions } from '../types';
 import { PlanningGanttRow, RANK_LABEL_WIDTH } from './planning-gantt-row';
 
@@ -23,17 +25,19 @@ function buildDayColumns(
     from: Date,
     to: Date,
     today: string,
-): { date: Date; label: string; isToday: boolean }[] {
-    const cols: { date: Date; label: string; isToday: boolean }[] = [];
+): { date: Date; label: string; isToday: boolean; isWeekend: boolean }[] {
+    const cols: { date: Date; label: string; isToday: boolean; isWeekend: boolean }[] = [];
     const cursor = new Date(from);
 
     while (cursor <= to) {
         const iso = formatIsoDateLocal(cursor);
+        const dow = cursor.getDay(); // 0=Sun, 6=Sat
 
         cols.push({
             date: new Date(cursor),
             label: String(cursor.getDate()),
             isToday: iso === today,
+            isWeekend: dow === 0 || dow === 6,
         });
         cursor.setDate(cursor.getDate() + 1);
     }
@@ -74,6 +78,8 @@ export function PlanningGantt({
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
+    const { dayWidth } = useZoom();
+    const headerRef = useRef<HTMLDivElement | null>(null);
     const rangeFrom = new Date(`${from}T00:00:00`);
     const rangeTo = new Date(`${to}T23:59:59`);
     const todayDate = new Date(`${today}T00:00:00`);
@@ -81,6 +87,7 @@ export function PlanningGantt({
     const days = buildDayColumns(rangeFrom, new Date(`${to}T00:00:00`), today);
     const monthGroups = buildMonthGroups(days);
     const totalDays = days.length;
+    const timelineMinWidth = totalDays * dayWidth;
 
     const barsByRow = new Map<string, GanttBar[]>();
 
@@ -103,7 +110,7 @@ export function PlanningGantt({
     return (
         <div className="flex min-w-0 flex-1 flex-col overflow-auto">
             {/* Timeline header */}
-            <div className="sticky top-0 z-20 border-b bg-background shadow-sm">
+            <div ref={headerRef} className="sticky top-0 z-20 border-b bg-background shadow-sm">
                 {/* Month row */}
                 <div className="flex">
                     <div
@@ -112,12 +119,12 @@ export function PlanningGantt({
                     >
                         Rank
                     </div>
-                    <div className="flex" style={{ minWidth: `${totalDays * 32}px` }}>
+                    <div className="flex" style={{ minWidth: `${timelineMinWidth}px` }}>
                         {monthGroups.map((group) => (
                             <div
                                 key={group.label}
                                 className="border-r px-2 py-1.5 text-xs font-semibold text-foreground/70"
-                                style={{ width: `${group.days * 32}px`, minWidth: `${group.days * 32}px` }}
+                                style={{ width: `${group.days * dayWidth}px`, minWidth: `${group.days * dayWidth}px` }}
                             >
                                 {group.label}
                             </div>
@@ -130,18 +137,30 @@ export function PlanningGantt({
                         className="sticky left-0 z-30 shrink-0 border-r bg-background"
                         style={{ width: RANK_LABEL_WIDTH }}
                     />
-                    <div className="flex" style={{ minWidth: `${totalDays * 32}px` }}>
+                    <div className="flex" style={{ minWidth: `${timelineMinWidth}px` }}>
                         {days.map((day, i) => (
                             <div
                                 key={i}
+                                {...(day.isToday ? { 'data-today-col': '' } : {})}
                                 className={cn(
-                                    'flex w-8 min-w-8 shrink-0 items-center justify-center border-r py-0.5 text-[10px] transition-colors',
+                                    'flex shrink-0 items-center justify-center border-r py-0.5 text-[10px] transition-colors',
                                     day.isToday &&
                                         'bg-red-500 font-bold text-white',
-                                    !day.isToday && 'text-muted-foreground/60 hover:bg-muted/30',
+                                    !day.isToday && day.isWeekend && 'bg-muted/50 text-muted-foreground/50',
+                                    !day.isToday && !day.isWeekend && 'text-muted-foreground/60 hover:bg-muted/30',
                                 )}
+                                style={{ width: `${dayWidth}px`, minWidth: `${dayWidth}px` }}
                             >
-                                {day.label}
+                                {day.isToday ? (
+                                    <span className="relative flex flex-col items-center leading-none">
+                                        <span className="text-[8px] font-normal uppercase opacity-80">
+                                            {day.date.toLocaleDateString('en-US', { weekday: 'short' })}
+                                        </span>
+                                        <span>{day.label}</span>
+                                    </span>
+                                ) : (
+                                    day.label
+                                )}
                             </div>
                         ))}
                     </div>
@@ -162,7 +181,7 @@ export function PlanningGantt({
                             </div>
                             <div
                                 className="flex flex-1 items-center gap-2 border-l-2 border-l-primary/30 px-3"
-                                style={{ minWidth: `${totalDays * 32}px`, height: 36 }}
+                                style={{ minWidth: `${timelineMinWidth}px`, height: 36 }}
                             >
                                 <span className="text-[11px] font-bold uppercase tracking-widest text-foreground/60">
                                     {vessel.vessel_name}
@@ -191,7 +210,7 @@ export function PlanningGantt({
                                     today={todayDate}
                                     highlightedCrewName={search}
                                     isHighlighted={isHighlightedRow || matchesSearch}
-                                    timelineMinWidth={totalDays * 32}
+                                    timelineMinWidth={timelineMinWidth}
                                     can={can}
                                     onRowClick={onRowClick}
                                     onEditBar={onEditBar}

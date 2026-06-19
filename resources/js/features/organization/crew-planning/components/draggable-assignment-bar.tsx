@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import {
     assignmentBarResizeHandleClass,
     assignmentBarSurfaceClass,
+    vacantBarSurfaceClass,
 } from '../lib/assignment-bar-styles';
 import {
     barPositionStyle,
@@ -152,6 +153,7 @@ export function DraggableAssignmentBar({
         window.addEventListener('pointerup', onUp);
     };
 
+    const isVacant = bar.employee_id === null;
     const computedStyle = liveStyle ?? style;
 
     return (
@@ -161,7 +163,7 @@ export function DraggableAssignmentBar({
                     ref={containerRef}
                     className={cn(
                         'absolute top-1.5 bottom-1.5 rounded-md',
-                        assignmentBarSurfaceClass,
+                        isVacant ? vacantBarSurfaceClass : assignmentBarSurfaceClass,
                         'group/bar flex items-stretch overflow-hidden',
                         isDragging && 'scale-[1.01] opacity-80 shadow-lg',
                         highlighted && 'ring-2 ring-offset-1 ring-amber-400',
@@ -179,8 +181,14 @@ export function DraggableAssignmentBar({
                         className="flex min-w-0 flex-1 cursor-grab items-center gap-1.5 px-2 text-xs font-medium text-foreground select-none active:cursor-grabbing"
                         onPointerDown={(e) => handlePointerDown(e, 'move')}
                     >
-                        <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" />
-                        <span className="truncate">{bar.employee_name}</span>
+                        {isVacant ? (
+                            <span className="truncate italic text-muted-foreground/60">Vacant</span>
+                        ) : (
+                            <>
+                                <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" />
+                                <span className="truncate">{bar.employee_name}</span>
+                            </>
+                        )}
                     </div>
                     <div
                         className={cn(

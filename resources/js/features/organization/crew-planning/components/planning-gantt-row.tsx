@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core';
 import type { MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
 import { barPositionStyle, dateFromPointerRatio, toUtcDateMs } from '../lib/planning-gantt-math';
+import { useZoom } from '../lib/zoom-context';
 import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
 
@@ -64,6 +65,7 @@ export function PlanningGanttRow({
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
+    const { dayWidth } = useZoom();
     const dropData: RowDropData = { type: 'row', vesselId, rankId };
     const { setNodeRef: setDropRef, isOver } = useDroppable({
         id: `row:${rowKey}`,
@@ -125,11 +127,12 @@ export function PlanningGanttRow({
                 {/* Today line */}
                 {todayStyle ? (
                     <div
-                        className="pointer-events-none absolute top-0 bottom-0 z-[1] w-px bg-red-500/60"
+                        className="pointer-events-none absolute top-0 bottom-0 z-[1] w-[2px] bg-red-500/70 shadow-[0_0_4px_rgba(239,68,68,0.4)]"
                         style={todayStyle}
                         aria-hidden
                     >
-                        <div className="absolute -top-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-500" />
+                        <div className="absolute -top-0 left-1/2 h-2 w-2 -translate-x-1/2 rounded-full bg-red-500 shadow-sm" />
+                        <div className="absolute bottom-0 left-1/2 h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-red-500/60" />
                     </div>
                 ) : null}
 

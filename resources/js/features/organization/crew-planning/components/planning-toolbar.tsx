@@ -1,11 +1,13 @@
 import { router } from '@inertiajs/react';
-import { ChevronLeft, ChevronRight, Plus, Search, X } from 'lucide-react';
-import type { ReactElement } from 'react';
+import { CalendarCheck, ChevronLeft, ChevronRight, Plus, Search, X, ZoomIn, ZoomOut } from 'lucide-react';
+import type { ReactElement, RefObject } from 'react';
 import { index as planningIndex } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 import { formatIsoDateLocal } from '../lib/planning-gantt-math';
+import { useZoom, type ZoomLevel } from '../lib/zoom-context';
 import type { PlanningFilters, PlanningOption, PlanningPagePermissions } from '../types';
 
 type Props = {
@@ -16,6 +18,8 @@ type Props = {
     searchInput: string;
     can: PlanningPagePermissions;
     onAssign: () => void;
+    ganttRef: RefObject<HTMLDivElement | null>;
+    today: string;
 };
 
 function formatMonthLabel(dateStr: string): string {
@@ -53,6 +57,12 @@ function visit(params: Partial<PlanningFilters & { from: string; to: string }>):
     });
 }
 
+const ZOOM_LABELS: Record<ZoomLevel, string> = {
+    compact: 'Compact',
+    normal: 'Normal',
+    wide: 'Wide',
+};
+
 export function PlanningToolbar({
     filters,
     vessels,
@@ -61,8 +71,37 @@ export function PlanningToolbar({
     searchInput,
     can,
     onAssign,
+    ganttRef,
+    today,
 }: Props): ReactElement {
+    const { zoom, zoomIn, zoomOut } = useZoom();
     const { from, to } = filters;
+
+    const todayIsInRange = today >= from && today <= to;
+
+    const handleJumpToToday = (): void => {
+        if (!todayIsInRange) {
+            // Drop from/to so the server restores the default range for today's month
+            const { from: _from, to: _to, ...restFilters } = filters;
+            const clean: Record<string, string> = {};
+            Object.entries(restFilters).forEach(([k, v]) => {
+                if (v !== null && v !== undefined && v !== '') {
+                    clean[k] = String(v);
+                }
+            });
+            router.get(planningIndex.url(), clean, {
+                preserveState: false,
+                replace: true,
+            });
+            return;
+        }
+
+        // Today is visible — just scroll to it
+        const el = ganttRef.current?.querySelector('[data-today-col]') as HTMLElement | null;
+        if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+    };
 
     const fromLabel = formatMonthLabel(from);
     const toLabel = formatMonthLabel(to);
@@ -172,6 +211,51 @@ export function PlanningToolbar({
                     </button>
                 ) : null}
             </div>
+
+            {/* Zoom controls */}
+            <div className="flex items-center gap-0.5 rounded-md border bg-muted/30 p-0.5">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded"
+                    onClick={zoomOut}
+                    aria-label="Zoom out"
+                    disabled={zoom === 'compact'}
+                >
+                    <ZoomOut className="h-3.5 w-3.5" />
+                </Button>
+                <span className="min-w-16 px-1 text-center text-[11px] font-medium text-muted-foreground">
+                    {ZOOM_LABELS[zoom]}
+                </span>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 rounded"
+                    onClick={zoomIn}
+                    aria-label="Zoom in"
+                    disabled={zoom === 'wide'}
+                >
+                    <ZoomIn className="h-3.5 w-3.5" />
+                </Button>
+            </div>
+
+            {/* Jump to today */}
+            <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                    'h-8 gap-1.5 px-3 text-xs',
+                    todayIsInRange
+                        ? 'border-red-300 text-red-600 hover:bg-red-50 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/40'
+                        : 'border-amber-300 text-amber-600 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/40',
+                )}
+                onClick={handleJumpToToday}
+                aria-label="Jump to today"
+                title={todayIsInRange ? 'Scroll to today' : 'Go to current month'}
+            >
+                <CalendarCheck className="h-3.5 w-3.5" />
+                {todayIsInRange ? 'Today' : 'Go to Today'}
+            </Button>
 
             {/* Actions — pushed right */}
             <div className="ml-auto flex items-center gap-2">

@@ -16,9 +16,11 @@ import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPool } from './components/crew-pool';
 import { PlanningGantt } from './components/planning-gantt';
+import { PlanningStatsBar } from './components/planning-stats-bar';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
+import { ZoomProvider } from './lib/zoom-context';
 import type {
     AssignmentFormData,
     CrewDragData,
@@ -225,32 +227,37 @@ export function CrewPlanningContent({
     );
 
     return (
-        <DndContext
-            sensors={sensors}
-            onDragStart={(e) => setDraggingEmployee(e.active.data.current as CrewDragData)}
-            onDragEnd={handleDragEnd}
-            onDragCancel={() => setDraggingEmployee(null)}
-        >
-            <Main fixed className="p-0">
-                <div className="border-b px-4 pt-5 pb-0">
-                    <PageHeader
-                        kicker="Crew Operations"
-                        title="Crew Planning"
-                        description="Visual timeline for scheduling crew by vessel and rank."
+        <ZoomProvider>
+            <DndContext
+                sensors={sensors}
+                onDragStart={(e) => setDraggingEmployee(e.active.data.current as CrewDragData)}
+                onDragEnd={handleDragEnd}
+                onDragCancel={() => setDraggingEmployee(null)}
+            >
+                <Main fixed className="p-0">
+                    <div className="border-b px-4 pt-5 pb-0">
+                        <PageHeader
+                            kicker="Crew Operations"
+                            title="Crew Planning"
+                            description="Visual timeline for scheduling crew by vessel and rank."
+                        />
+                    </div>
+
+                    <PlanningToolbar
+                        filters={filters}
+                        vessels={vessels}
+                        ranks={ranks}
+                        searchInput={searchInput}
+                        onSearchChange={setSearchInput}
+                        can={can}
+                        onAssign={() => openCreate()}
+                        ganttRef={ganttRef}
+                        today={today}
                     />
-                </div>
 
-                <PlanningToolbar
-                    filters={filters}
-                    vessels={vessels}
-                    ranks={ranks}
-                    searchInput={searchInput}
-                    onSearchChange={setSearchInput}
-                    can={can}
-                    onAssign={() => openCreate()}
-                />
+                    <PlanningStatsBar rows={rows} bars={bars} />
 
-                <div className="flex min-h-0 flex-1 overflow-hidden">
+                    <div className="flex min-h-0 flex-1 overflow-hidden">
                     {/* Left sidebar */}
                     <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/10">
                         <div className="border-b border-border/60 bg-background/80 px-3 py-2.5">
@@ -321,5 +328,6 @@ export function CrewPlanningContent({
                 ) : null}
             </DragOverlay>
         </DndContext>
+        </ZoomProvider>
     );
 }
