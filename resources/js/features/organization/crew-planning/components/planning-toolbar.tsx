@@ -1,5 +1,14 @@
 import { router } from '@inertiajs/react';
-import { CalendarCheck, ChevronLeft, ChevronRight, Plus, Search, X, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+    CalendarCheck,
+    ChevronLeft,
+    ChevronRight,
+    Plus,
+    Search,
+    X,
+    ZoomIn,
+    ZoomOut,
+} from 'lucide-react';
 import type { ReactElement, RefObject } from 'react';
 import { index as planningIndex } from '@/actions/App/Http/Controllers/Organization/CrewPlanningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';

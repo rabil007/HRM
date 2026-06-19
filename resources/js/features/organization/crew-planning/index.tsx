@@ -2,6 +2,7 @@ import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@
 import type { DragEndEvent } from '@dnd-kit/core';
 import { useForm } from '@inertiajs/react';
 import { router } from '@inertiajs/react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { ReactElement } from 'react';
 import { useCallback, useRef, useState } from 'react';
 import {
@@ -74,6 +75,7 @@ export function CrewPlanningContent({
 }: Props): ReactElement {
     const [selectedRowKey, setSelectedRowKey] = useState<string | null>(null);
     const [searchInput, setSearchInput] = useState(filters.search ?? '');
+    const [sidebarOpen, setSidebarOpen] = useState(true);
     const [dialogState, setDialogState] = useState<AssignDialogState>(CLOSED_DIALOG);
     const [draggingEmployee, setDraggingEmployee] = useState<CrewDragData | null>(null);
     const ganttRef = useRef<HTMLDivElement | null>(null);
@@ -254,8 +256,8 @@ export function CrewPlanningContent({
                         today={today}
                     />
 
-                    <div className="flex min-h-0 flex-1 overflow-hidden">
-                    {/* Left sidebar */}
+                    <div className="relative flex min-h-0 flex-1 overflow-hidden">
+                    {sidebarOpen ? (
                     <div className="flex w-64 shrink-0 flex-col overflow-hidden border-r bg-muted/10">
                         <div className="border-b border-border/60 bg-background/80 px-3 py-2.5">
                             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/70">
@@ -278,9 +280,10 @@ export function CrewPlanningContent({
                             <CrewPool employees={employees} />
                         ) : null}
                     </div>
+                    ) : null}
 
                     {/* Gantt */}
-                    <div ref={ganttRef} className="flex min-w-0 flex-1 overflow-auto">
+                    <div ref={ganttRef} className="relative flex min-w-0 flex-1 overflow-auto">
                         <PlanningGantt
                             rows={rows}
                             bars={bars}
@@ -295,6 +298,29 @@ export function CrewPlanningContent({
                             onDeleteBar={handleDeleteBar}
                         />
                     </div>
+
+                    <button
+                        type="button"
+                        onClick={() => setSidebarOpen((open) => !open)}
+                        className={cn(
+                            'absolute top-1/2 z-20 flex h-12 w-6 -translate-y-1/2 items-center justify-center border border-border/60 bg-card text-muted-foreground shadow-md transition-colors hover:bg-muted/60 hover:text-foreground',
+                            sidebarOpen
+                                ? 'left-64 -translate-x-1/2 rounded-md'
+                                : 'left-0 rounded-r-md border-l-0',
+                        )}
+                        aria-label={
+                            sidebarOpen
+                                ? 'Hide vessels and ranks panel'
+                                : 'Show vessels and ranks panel'
+                        }
+                        title={sidebarOpen ? 'Hide vessels & ranks panel' : 'Show vessels & ranks panel'}
+                    >
+                        {sidebarOpen ? (
+                            <ChevronLeft className="h-4 w-4 shrink-0" />
+                        ) : (
+                            <ChevronRight className="h-4 w-4 shrink-0" />
+                        )}
+                    </button>
                 </div>
 
                 <AssignCrewSheet
