@@ -16,7 +16,6 @@ import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPool } from './components/crew-pool';
 import { PlanningGantt } from './components/planning-gantt';
-import { PlanningStatsBar } from './components/planning-stats-bar';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
@@ -254,8 +253,6 @@ export function CrewPlanningContent({
                         ganttRef={ganttRef}
                         today={today}
                     />
-
-                    <PlanningStatsBar rows={rows} bars={bars} />
 
                     <div className="flex min-h-0 flex-1 overflow-hidden">
                     {/* Left sidebar */}
