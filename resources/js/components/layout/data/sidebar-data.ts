@@ -85,8 +85,8 @@ const baseSidebarData: SidebarData = {
             title: 'Crew Operations',
             items: [
                 { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
-                { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
                 { title: 'Planning', url: '/organization/crew-planning', icon: CalendarRange },
+                { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
                 { title: 'Settings', url: '/organization/crew-operations/settings', icon: Settings },
             ],
         },
