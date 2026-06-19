@@ -102,7 +102,7 @@ export function PlanningGanttRow({
                 isOver && 'bg-primary/5 dark:bg-primary/10',
                 can.create && 'hover:bg-muted/30 dark:hover:bg-muted/20',
             )}
-            style={{ height: ROW_HEIGHT }}
+            style={{ height: ROW_HEIGHT, minWidth: timelineMinWidth + RANK_LABEL_WIDTH }}
         >
             {/* Rank label */}
             <div

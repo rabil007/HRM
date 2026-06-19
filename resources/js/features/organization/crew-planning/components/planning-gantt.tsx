@@ -172,7 +172,10 @@ export function PlanningGantt({
                 {rows.map((vessel) => (
                     <div key={vessel.vessel_id}>
                         {/* Vessel sub-header */}
-                        <div className="flex border-b border-border/60 bg-muted/30">
+                        <div
+                            className="flex border-b border-border/60 bg-muted/30"
+                            style={{ minWidth: timelineMinWidth + RANK_LABEL_WIDTH }}
+                        >
                             <div
                                 className="sticky left-0 z-10 flex shrink-0 items-center justify-center border-r border-border/60 bg-muted/30"
                                 style={{ width: RANK_LABEL_WIDTH, height: 36 }}
