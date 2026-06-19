@@ -2,7 +2,6 @@ import { useDroppable } from '@dnd-kit/core';
 import type { MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
 import { barPositionStyle, dateFromPointerRatio, toUtcDateMs } from '../lib/planning-gantt-math';
-import { useZoom } from '../lib/zoom-context';
 import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
 
@@ -65,7 +64,6 @@ export function PlanningGanttRow({
     onEditBar,
     onDeleteBar,
 }: Props): ReactElement {
-    const { dayWidth } = useZoom();
     const dropData: RowDropData = { type: 'row', vesselId, rankId };
     const { setNodeRef: setDropRef, isOver } = useDroppable({
         id: `row:${rowKey}`,

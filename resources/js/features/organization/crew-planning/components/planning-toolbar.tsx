@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { formatIsoDateLocal } from '../lib/planning-gantt-math';
-import { useZoom, type ZoomLevel } from '../lib/zoom-context';
+import { useZoom  } from '../lib/zoom-context';
+import type {ZoomLevel} from '../lib/zoom-context';
 import type { PlanningFilters, PlanningOption, PlanningPagePermissions } from '../types';
 
 type Props = {
@@ -82,9 +83,9 @@ export function PlanningToolbar({
     const handleJumpToToday = (): void => {
         if (!todayIsInRange) {
             // Drop from/to so the server restores the default range for today's month
-            const { from: _from, to: _to, ...restFilters } = filters;
+            const { vessel_id, rank_id, search } = filters;
             const clean: Record<string, string> = {};
-            Object.entries(restFilters).forEach(([k, v]) => {
+            Object.entries({ vessel_id, rank_id, search }).forEach(([k, v]) => {
                 if (v !== null && v !== undefined && v !== '') {
                     clean[k] = String(v);
                 }
@@ -93,11 +94,13 @@ export function PlanningToolbar({
                 preserveState: false,
                 replace: true,
             });
+
             return;
         }
 
         // Today is visible — just scroll to it
         const el = ganttRef.current?.querySelector('[data-today-col]') as HTMLElement | null;
+
         if (el) {
             el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
         }

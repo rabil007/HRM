@@ -37,6 +37,7 @@ export function ZoomProvider({ children }: { children: ReactNode }): ReactElemen
     const zoomIn = useCallback((): void => {
         setZoomState((prev) => {
             const idx = ZOOM_LEVELS.indexOf(prev);
+
             return ZOOM_LEVELS[Math.min(idx + 1, ZOOM_LEVELS.length - 1)];
         });
     }, []);
@@ -44,6 +45,7 @@ export function ZoomProvider({ children }: { children: ReactNode }): ReactElemen
     const zoomOut = useCallback((): void => {
         setZoomState((prev) => {
             const idx = ZOOM_LEVELS.indexOf(prev);
+
             return ZOOM_LEVELS[Math.max(idx - 1, 0)];
         });
     }, []);
