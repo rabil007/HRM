@@ -41,6 +41,7 @@ class CrewPlanningAssignment extends Model
             'vessel_id' => 'integer',
             'rank_id' => 'integer',
             'employee_id' => 'integer',
+            'employee_deployment_id' => 'integer',
             'planned_join_date' => 'date',
             'planned_leave_date' => 'date',
         ];
@@ -64,5 +65,10 @@ class CrewPlanningAssignment extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function employeeDeployment(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeDeployment::class);
     }
 }

@@ -97,4 +97,9 @@ class EmployeeDeployment extends Model
     {
         return $this->hasOne(EmployeeSeaService::class);
     }
+
+    public function planningAssignment(): HasOne
+    {
+        return $this->hasOne(CrewPlanningAssignment::class);
+    }
 }

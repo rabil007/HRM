@@ -19,6 +19,7 @@ use App\Support\CrewDeployments\CrewDeploymentPagePermissions;
 use App\Support\CrewDeployments\DeploymentStatusRules;
 use App\Support\CrewDeployments\EmployeeDeploymentPresenter;
 use App\Support\CrewDeployments\SyncSeaServiceFromDeployment;
+use App\Support\CrewPlanning\SyncPlanningAssignmentFromDeployment;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -95,6 +96,7 @@ class CrewDeploymentController extends Controller
     public function store(
         StoreEmployeeDeploymentRequest $request,
         SyncSeaServiceFromDeployment $syncSeaService,
+        SyncPlanningAssignmentFromDeployment $syncPlanningAssignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         $validated = $request->validated();
@@ -118,6 +120,7 @@ class CrewDeploymentController extends Controller
         ]);
 
         $syncSeaService->sync($deployment);
+        $syncPlanningAssignment->sync($deployment);
 
         return back()->with('success', 'Deployment record added.');
     }
@@ -156,6 +159,7 @@ class CrewDeploymentController extends Controller
         UpdateEmployeeDeploymentRequest $request,
         EmployeeDeployment $deployment,
         SyncSeaServiceFromDeployment $syncSeaService,
+        SyncPlanningAssignmentFromDeployment $syncPlanningAssignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
@@ -175,6 +179,7 @@ class CrewDeploymentController extends Controller
         ]);
 
         $syncSeaService->sync($deployment->fresh());
+        $syncPlanningAssignment->sync($deployment->fresh());
 
         if (($validated['redirect_to'] ?? null) === 'show') {
             return redirect()
@@ -189,12 +194,14 @@ class CrewDeploymentController extends Controller
         Request $request,
         EmployeeDeployment $deployment,
         SyncSeaServiceFromDeployment $syncSeaService,
+        SyncPlanningAssignmentFromDeployment $syncPlanningAssignment,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
 
         abort_unless($deployment->company_id === $companyId, 403);
 
         $syncSeaService->removeLinked($deployment);
+        $syncPlanningAssignment->removeLinked($deployment);
         $deployment->delete();
 
         return back()->with('success', 'Deployment record removed.');

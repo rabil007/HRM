@@ -4,6 +4,7 @@ use App\Models\Client;
 use App\Models\Company;
 use App\Models\CompanyVisaType;
 use App\Models\Country;
+use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
@@ -984,4 +985,143 @@ test('deleting a deployment removes linked sea service', function () {
         ->assertRedirect();
 
     expect(EmployeeSeaService::query()->find($seaServiceId))->toBeNull();
+});
+
+test('updating a deployment with joined and disembarked dates creates linked planning assignment', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $vessel = makeCrewDeploymentVessel('Planning Sync Vessel');
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $vessel->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $assignment = CrewPlanningAssignment::query()->where('employee_deployment_id', $deployment->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->employee_id)->toBe($employee->id)
+        ->and($assignment->company_id)->toBe($company->id)
+        ->and($assignment->vessel_id)->toBe($vessel->id)
+        ->and($assignment->rank_id)->toBe($rank->id)
+        ->and($assignment->planned_join_date?->toDateString())->toBe('2024-11-26')
+        ->and($assignment->planned_leave_date?->toDateString())->toBe('2025-01-26')
+        ->and($assignment->notes)->toBeNull();
+});
+
+test('re-updating a deployment updates the same linked planning assignment record', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Planning First Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $originalAssignmentId = CrewPlanningAssignment::query()
+        ->where('employee_deployment_id', $deployment->id)
+        ->value('id');
+
+    $replacementVessel = makeCrewDeploymentVessel('Planning Replacement Vessel');
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $replacementVessel->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-02-26',
+        ])
+        ->assertRedirect();
+
+    expect(CrewPlanningAssignment::query()->where('employee_deployment_id', $deployment->id)->count())->toBe(1);
+
+    $assignment = CrewPlanningAssignment::query()->find($originalAssignmentId);
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->vessel_id)->toBe($replacementVessel->id)
+        ->and($assignment->planned_leave_date?->toDateString())->toBe('2025-02-26');
+});
+
+test('clearing disembarked date removes linked planning assignment', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Planning Active Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+
+    expect(CrewPlanningAssignment::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeTrue();
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $deployment->vessel_id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => null,
+        ])
+        ->assertRedirect();
+
+    expect(CrewPlanningAssignment::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeFalse();
+});
+
+test('deployment without vessel does not create linked planning assignment', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+
+    expect(CrewPlanningAssignment::query()->where('employee_deployment_id', $deployment->id)->exists())->toBeFalse();
+});
+
+test('deleting a deployment removes linked planning assignment', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Planning Delete Vessel')->id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => '2025-01-26',
+        ])
+        ->assertRedirect();
+
+    $deployment = EmployeeDeployment::query()->where('employee_id', $employee->id)->first();
+    $assignmentId = CrewPlanningAssignment::query()
+        ->where('employee_deployment_id', $deployment->id)
+        ->value('id');
+
+    $this->actingAs($user)
+        ->delete(route('organization.crew-deployments.destroy', $deployment))
+        ->assertRedirect();
+
+    expect(CrewPlanningAssignment::query()->find($assignmentId))->toBeNull();
 });
