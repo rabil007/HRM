@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
+import { barAvatarClass } from '../lib/assignment-bar-styles';
 import type { TreeCrewMember, TreeRank, TreeVessel } from '../types';
 
 function crewInitials(name: string): string {
@@ -31,6 +32,26 @@ function vesselMatchesSearch(vessel: TreeVessel, query: string): boolean {
     );
 }
 
+function crewNameClass(member: TreeCrewMember): string {
+    if (member.employee_id === null) {
+        return 'italic text-muted-foreground/60';
+    }
+
+    return member.is_deployed
+        ? 'text-emerald-800 dark:text-emerald-300'
+        : 'text-sky-800 dark:text-sky-300';
+}
+
+function crewAccentClass(member: TreeCrewMember): string {
+    if (member.employee_id === null) {
+        return 'border-muted-foreground/25';
+    }
+
+    return member.is_deployed
+        ? 'border-emerald-500/70 dark:border-emerald-400/70'
+        : 'border-sky-500/70 dark:border-sky-400/70';
+}
+
 function CrewMemberRow({
     member,
     query,
@@ -44,8 +65,9 @@ function CrewMemberRow({
     return (
         <div
             className={cn(
-                'flex items-center gap-2 rounded-md py-0.5 pr-1 text-xs',
-                isMatch && 'bg-[color-mix(in_oklch,var(--primary)_10%,var(--background))]',
+                'flex items-center gap-2 rounded-md border-l-2 py-0.5 pr-1 pl-1.5 text-xs',
+                crewAccentClass(member),
+                isMatch && 'bg-muted/40',
             )}
         >
             <span
@@ -53,7 +75,7 @@ function CrewMemberRow({
                     'flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold',
                     isVacant
                         ? 'border border-dashed border-muted-foreground/30 text-muted-foreground/50'
-                        : 'bg-muted text-muted-foreground',
+                        : barAvatarClass(member),
                 )}
             >
                 {isVacant ? '—' : crewInitials(member.employee_name)}
@@ -61,8 +83,8 @@ function CrewMemberRow({
             <span
                 className={cn(
                     'min-w-0 truncate',
-                    isVacant ? 'italic text-muted-foreground/60' : 'text-foreground/85',
-                    isMatch && 'font-medium text-foreground',
+                    crewNameClass(member),
+                    isMatch && 'font-semibold',
                 )}
             >
                 {member.employee_name}

@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { assignmentBarAvatarClass } from '../lib/assignment-bar-styles';
+import { barAvatarClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
 import { AssignmentBarActions } from './assignment-bar-actions';
 
@@ -20,12 +21,22 @@ function formatDate(dateStr: string): string {
     });
 }
 
-function Avatar({ name, size }: { name: string; size: 'sm' | 'md' }): ReactElement {
+function Avatar({
+    name,
+    size,
+    bar,
+}: {
+    name: string;
+    size: 'sm' | 'md';
+    bar?: Pick<GanttBar, 'employee_id' | 'is_deployed'>;
+}): ReactElement {
+    const avatarClass = bar ? barAvatarClass(bar) : barAvatarClass({ employee_id: 1, is_deployed: false });
+
     return (
         <span
             className={cn(
                 'flex shrink-0 items-center justify-center rounded-full font-bold',
-                assignmentBarAvatarClass,
+                avatarClass,
                 size === 'sm' && 'h-4 w-4 text-[9px]',
                 size === 'md' && 'h-8 w-8 text-sm',
             )}
@@ -57,12 +68,22 @@ function AssignmentBarPopoverContent({
     onEdit,
     onDelete,
 }: Props): ReactElement {
+    const isVacant = bar.employee_id === null;
+    const sourceLabel = bar.is_deployed ? 'Deployed' : 'Planned relief';
+
     return (
         <>
             <div className="flex items-center gap-3 border-b bg-muted/30 px-4 py-3">
-                <Avatar name={bar.employee_name} size="md" />
+                <Avatar name={bar.employee_name} size="md" bar={bar} />
                 <div className="min-w-0">
-                    <p className="truncate font-semibold">{bar.employee_name}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="truncate font-semibold">{bar.employee_name}</p>
+                        {!isVacant ? (
+                            <Badge variant="secondary" className="shrink-0 text-[10px]">
+                                {sourceLabel}
+                            </Badge>
+                        ) : null}
+                    </div>
                     {bar.rank_name ? (
                         <p className="truncate text-xs text-muted-foreground">{bar.rank_name}</p>
                     ) : null}

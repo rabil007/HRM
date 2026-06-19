@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { assignmentBarSurfaceClass, vacantBarSurfaceClass } from '../lib/assignment-bar-styles';
+import { barAvatarClass, barSurfaceClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
 import { AssignmentBarPopover } from './assignment-bar-popover';
 
@@ -30,7 +30,7 @@ export function ReadOnlyAssignmentBar({
                 <div
                     className={cn(
                         'absolute top-1.5 bottom-1.5 flex items-center gap-1.5 rounded-md px-2 text-xs font-medium text-foreground',
-                        isVacant ? vacantBarSurfaceClass : assignmentBarSurfaceClass,
+                        barSurfaceClass(bar),
                         highlighted && 'ring-2 ring-offset-1 ring-amber-400',
                     )}
                     style={style}
@@ -39,7 +39,7 @@ export function ReadOnlyAssignmentBar({
                         <span className="truncate italic text-muted-foreground/60">Vacant</span>
                     ) : (
                         <>
-                            <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" />
+                            <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" bar={bar} />
                             <span className="truncate">{bar.employee_name}</span>
                         </>
                     )}

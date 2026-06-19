@@ -5,6 +5,7 @@ use App\Models\Country;
 use App\Models\CrewPlanningAssignment;
 use App\Models\Currency;
 use App\Models\Employee;
+use App\Models\EmployeeDeployment;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
@@ -314,10 +315,11 @@ test('assignment bars are included in the gantt bars response', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('bars', 1)
             ->where('bars.0.planned_join_date', $today->addDays(5)->toDateString())
+            ->where('bars.0.is_deployed', false)
         );
 });
 
-test('bars method returns assignments only and ignores deployments', function () {
+test('bars method marks manual relief assignments as not deployed', function () {
     ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
@@ -337,7 +339,97 @@ test('bars method returns assignments only and ignores deployments', function ()
     $bars = CrewPlanningGanttQuery::bars($company->id, $from, $to);
 
     expect($bars)->toHaveCount(1)
-        ->and($bars[0]['employee_id'])->toBe($employee->id);
+        ->and($bars[0]['employee_id'])->toBe($employee->id)
+        ->and($bars[0]['is_deployed'])->toBeFalse();
+});
+
+test('bars method marks deployment-synced assignments as deployed', function () {
+    ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => $today->addDays(5)->toDateString(),
+        'disembarked_date' => $today->addDays(35)->toDateString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'employee_deployment_id' => $deployment->id,
+        'planned_join_date' => $today->addDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(35)->toDateString(),
+    ]);
+
+    $bars = CrewPlanningGanttQuery::bars($company->id, $from, $to);
+
+    expect($bars)->toHaveCount(1)
+        ->and($bars[0]['is_deployed'])->toBeTrue();
+});
+
+test('tree method marks deployment-synced crew as deployed', function () {
+    ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => $today->addDays(5)->toDateString(),
+        'disembarked_date' => $today->addDays(35)->toDateString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'employee_deployment_id' => $deployment->id,
+        'planned_join_date' => $today->addDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(35)->toDateString(),
+    ]);
+
+    $tree = CrewPlanningGanttQuery::tree($company->id, $from, $to);
+
+    expect($tree)->toHaveCount(1)
+        ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeTrue();
+});
+
+test('tree method marks manual relief crew as not deployed', function () {
+    ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $employee->id,
+        'planned_join_date' => $today->addDays(10)->toDateString(),
+        'planned_leave_date' => $today->addDays(40)->toDateString(),
+    ]);
+
+    $tree = CrewPlanningGanttQuery::tree($company->id, $from, $to);
+
+    expect($tree)->toHaveCount(1)
+        ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeFalse();
 });
 
 test('store allows overlapping assignments for the same employee', function () {

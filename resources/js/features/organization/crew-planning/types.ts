@@ -23,11 +23,14 @@ export type GanttBar = {
     rank_name: string | null;
     vessel_name: string | null;
     notes: string | null;
+    /** Synced from Crew Deployments — crew currently on vessel. */
+    is_deployed: boolean;
 };
 
 export type TreeCrewMember = {
     employee_id: number | null;
     employee_name: string;
+    is_deployed: boolean;
 };
 
 export type TreeRank = {

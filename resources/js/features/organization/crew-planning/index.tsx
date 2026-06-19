@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils';
 import { AssignCrewSheet } from './components/assign-crew-sheet';
 import { CrewPool } from './components/crew-pool';
 import { PlanningGantt } from './components/planning-gantt';
+import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
@@ -240,7 +241,7 @@ export function CrewPlanningContent({
                         <PageHeader
                             kicker="Crew Operations"
                             title="Crew Planning"
-                            description="Visual timeline for scheduling crew by vessel and rank."
+                            description="Plan relief crew who will replace deployed crew after they leave the vessel."
                         />
                     </div>
 
@@ -255,6 +256,8 @@ export function CrewPlanningContent({
                         ganttRef={ganttRef}
                         today={today}
                     />
+
+                    <PlanningLegend />
 
                     <div className="relative flex min-h-0 flex-1 overflow-hidden">
                     {sidebarOpen ? (

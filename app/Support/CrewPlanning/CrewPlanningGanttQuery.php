@@ -96,6 +96,7 @@ final class CrewPlanningGanttQuery
                 'rank_name' => $assignment->rank?->name,
                 'vessel_name' => $assignment->vessel?->name,
                 'notes' => $assignment->notes,
+                'is_deployed' => $assignment->employee_deployment_id !== null,
             ])
             ->values()
             ->all();
@@ -113,7 +114,8 @@ final class CrewPlanningGanttQuery
      *         required_count: int,
      *         crew: list<array{
      *             employee_id: int|null,
-     *             employee_name: string
+     *             employee_name: string,
+     *             is_deployed: bool
      *         }>
      *     }>
      * }>
@@ -161,6 +163,7 @@ final class CrewPlanningGanttQuery
                     ->map(fn (CrewPlanningAssignment $assignment): array => [
                         'employee_id' => $assignment->employee_id,
                         'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                        'is_deployed' => $assignment->employee_deployment_id !== null,
                     ])
                     ->values()
                     ->all(),

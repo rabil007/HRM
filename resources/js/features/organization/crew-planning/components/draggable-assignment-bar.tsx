@@ -5,9 +5,8 @@ import { update as updateAssignment } from '@/actions/App/Http/Controllers/Organ
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import {
-    assignmentBarResizeHandleClass,
-    assignmentBarSurfaceClass,
-    vacantBarSurfaceClass,
+    barResizeHandleClass,
+    barSurfaceClass,
 } from '../lib/assignment-bar-styles';
 import {
     barPositionStyle,
@@ -155,6 +154,8 @@ export function DraggableAssignmentBar({
 
     const isVacant = bar.employee_id === null;
     const computedStyle = liveStyle ?? style;
+    const surfaceClass = barSurfaceClass(bar);
+    const resizeHandleClass = barResizeHandleClass(bar);
 
     return (
         <Popover>
@@ -163,7 +164,7 @@ export function DraggableAssignmentBar({
                     ref={containerRef}
                     className={cn(
                         'absolute top-1.5 bottom-1.5 rounded-md',
-                        isVacant ? vacantBarSurfaceClass : assignmentBarSurfaceClass,
+                        surfaceClass,
                         'group/bar flex items-stretch overflow-hidden',
                         isDragging && 'scale-[1.01] opacity-80 shadow-lg',
                         highlighted && 'ring-2 ring-offset-1 ring-amber-400',
@@ -173,7 +174,7 @@ export function DraggableAssignmentBar({
                     <div
                         className={cn(
                             'absolute inset-y-0 left-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
-                            assignmentBarResizeHandleClass,
+                            resizeHandleClass,
                         )}
                         onPointerDown={(e) => handlePointerDown(e, 'resize-left')}
                     />
@@ -185,7 +186,7 @@ export function DraggableAssignmentBar({
                             <span className="truncate italic text-muted-foreground/60">Vacant</span>
                         ) : (
                             <>
-                                <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" />
+                                <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" bar={bar} />
                                 <span className="truncate">{bar.employee_name}</span>
                             </>
                         )}
@@ -193,7 +194,7 @@ export function DraggableAssignmentBar({
                     <div
                         className={cn(
                             'absolute inset-y-0 right-0 z-20 w-1.5 cursor-ew-resize opacity-0 transition-opacity group-hover/bar:opacity-100',
-                            assignmentBarResizeHandleClass,
+                            resizeHandleClass,
                         )}
                         onPointerDown={(e) => handlePointerDown(e, 'resize-right')}
                     />
