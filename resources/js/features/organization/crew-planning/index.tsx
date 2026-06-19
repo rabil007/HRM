@@ -20,8 +20,8 @@ import { PlanningGantt } from './components/planning-gantt';
 import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
-import { dateFromPointerRatio } from './lib/planning-gantt-math';
 import { findRelievedDeployment } from './lib/find-relieved-deployment';
+import { dateFromPointerRatio } from './lib/planning-gantt-math';
 import { ZoomProvider } from './lib/zoom-context';
 import type {
     AssignmentFormData,

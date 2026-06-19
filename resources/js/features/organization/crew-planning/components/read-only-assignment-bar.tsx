@@ -1,7 +1,7 @@
 import type { ReactElement } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { barResizeHandleClass, barSurfaceClass } from '../lib/assignment-bar-styles';
+import { barSurfaceClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
 import { AssignmentBarLabel } from './assignment-bar-label';
 import { AssignmentBarPopover } from './assignment-bar-popover';
