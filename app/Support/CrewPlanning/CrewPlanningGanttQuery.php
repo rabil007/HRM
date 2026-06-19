@@ -128,10 +128,17 @@ final class CrewPlanningGanttQuery
      *     }>
      * }>
      */
-    public static function tree(int $companyId, string $from, string $to): array
-    {
+    public static function tree(
+        int $companyId,
+        string $from,
+        string $to,
+        ?int $vesselId = null,
+        ?int $rankId = null,
+    ): array {
         $manning = VesselManning::query()
             ->where('company_id', $companyId)
+            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
+            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
             ->with([
                 'vessel:id,name',
                 'rank:id,name',
@@ -146,6 +153,8 @@ final class CrewPlanningGanttQuery
             ->whereNotNull('rank_id')
             ->where('planned_join_date', '<=', $to)
             ->where('planned_leave_date', '>=', $from)
+            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
+            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
             ->with(['employee:id,name'])
             ->get()
             ->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}");

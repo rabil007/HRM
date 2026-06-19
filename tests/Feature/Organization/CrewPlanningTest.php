@@ -371,7 +371,7 @@ test('bars outside the date range are excluded', function () {
         );
 });
 
-test('vessel filter narrows rows and bars', function () {
+test('vessel filter narrows rows, bars, and tree', function () {
     [
         'user' => $user,
         'company' => $company,
@@ -407,6 +407,43 @@ test('vessel filter narrows rows and bars', function () {
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
             ->where('rows.0.vessel_name', 'Planning Vessel Alpha')
+            ->has('tree', 1)
+            ->where('tree.0.vessel_name', 'Planning Vessel Alpha')
+        );
+});
+
+test('rank filter narrows rows, bars, and tree', function () {
+    [
+        'user' => $user,
+        'company' => $company,
+        'vessel' => $vessel,
+        'captain' => $captain,
+        'chiefOfficer' => $chiefOfficer,
+    ] = makeCrewPlanningFixtures();
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'required_count' => 1,
+    ]);
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $chiefOfficer->id,
+        'required_count' => 1,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', ['rank_id' => $captain->id]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 1)
+            ->where('rows.0.ranks.0.rank_name', 'Captain CPL')
+            ->has('tree', 1)
+            ->has('tree.0.ranks', 1)
+            ->where('tree.0.ranks.0.rank_name', 'Captain CPL')
         );
 });
 

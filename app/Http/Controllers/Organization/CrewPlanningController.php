@@ -33,7 +33,7 @@ class CrewPlanningController extends Controller
         return Inertia::render('organization/crew-planning/index', [
             'rows' => CrewPlanningGanttQuery::rows($companyId, $vesselId, $rankId),
             'bars' => CrewPlanningGanttQuery::bars($companyId, $from, $to, $vesselId, $rankId),
-            'tree' => CrewPlanningGanttQuery::tree($companyId, $from, $to),
+            'tree' => CrewPlanningGanttQuery::tree($companyId, $from, $to, $vesselId, $rankId),
             'filters' => [
                 'vessel_id' => $vesselId,
                 'rank_id' => $rankId,
