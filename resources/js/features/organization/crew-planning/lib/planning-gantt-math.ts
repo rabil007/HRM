@@ -46,6 +46,27 @@ export function barPositionStyle(
     return { left: `${left}%`, width: `${width}%` };
 }
 
+/** Center of today's column as a percentage within [rangeFrom, rangeTo]. */
+export function todayLinePositionPercent(today: Date, rangeFrom: Date, rangeTo: Date): number | null {
+    const rangeFromMs = toUtcDateMs(rangeFrom);
+    const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
+    const totalMs = rangeToMs - rangeFromMs;
+
+    if (totalMs <= 0) {
+        return null;
+    }
+
+    const todayMs = toUtcDateMs(today);
+    const dayStart = ((todayMs - rangeFromMs) / totalMs) * 100;
+    const dayEnd = ((todayMs + 86400000 - rangeFromMs) / totalMs) * 100;
+
+    if (dayEnd <= 0 || dayStart >= 100) {
+        return null;
+    }
+
+    return dayStart + (dayEnd - dayStart) / 2;
+}
+
 /** Formats a Date as YYYY-MM-DD in local time (avoids UTC shift from toISOString). */
 export function formatIsoDateLocal(date: Date): string {
     const year = date.getFullYear();

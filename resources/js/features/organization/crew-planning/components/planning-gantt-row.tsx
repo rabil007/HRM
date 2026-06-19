@@ -1,7 +1,7 @@
 import { useDroppable } from '@dnd-kit/core';
 import type { MouseEvent, ReactElement } from 'react';
 import { cn } from '@/lib/utils';
-import { barPositionStyle, dateFromPointerRatio, toUtcDateMs } from '../lib/planning-gantt-math';
+import { barPositionStyle, dateFromPointerRatio, todayLinePositionPercent } from '../lib/planning-gantt-math';
 import type { GanttBar, PlanningPagePermissions, RowDropData } from '../types';
 import { PlanningGanttBar } from './planning-bar-tooltip';
 
@@ -28,22 +28,13 @@ type Props = {
 };
 
 function todayLineStyle(today: Date, rangeFrom: Date, rangeTo: Date): React.CSSProperties | null {
-    const rangeFromMs = toUtcDateMs(rangeFrom);
-    const rangeToMs = toUtcDateMs(rangeTo) + 86400000;
-    const totalMs = rangeToMs - rangeFromMs;
+    const pos = todayLinePositionPercent(today, rangeFrom, rangeTo);
 
-    if (totalMs <= 0) {
+    if (pos === null) {
         return null;
     }
 
-    const todayMs = toUtcDateMs(today);
-    const pos = ((todayMs - rangeFromMs) / totalMs) * 100;
-
-    if (pos < 0 || pos > 100) {
-        return null;
-    }
-
-    return { left: `${pos}%` };
+    return { left: `${pos}%`, transform: 'translateX(-50%)' };
 }
 
 export function PlanningGanttRow({
