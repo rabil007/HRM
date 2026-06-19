@@ -8,7 +8,6 @@ use App\Models\Employee;
 use App\Models\Rank;
 use App\Models\User;
 use App\Models\Vessel;
-use App\Models\VesselManning;
 use App\Models\VesselType;
 use App\Support\CrewPlanning\CrewPlanningGanttQuery;
 use Carbon\CarbonImmutable;
@@ -63,13 +62,6 @@ function makeAssignmentFixtures(): array
         'crew_operations.planning.create',
         'crew_operations.planning.update',
         'crew_operations.planning.delete',
-    ]);
-
-    VesselManning::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $rank->id,
-        'required_count' => 1,
     ]);
 
     return compact('user', 'company', 'otherCompany', 'vessel', 'rank');
@@ -176,8 +168,8 @@ test('store rejects employee whose profile rank does not match assignment rank',
         ->assertSessionHasErrors(['employee_id']);
 });
 
-test('store rejects ranks that are not configured on the vessel in vessel manning', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+test('store succeeds without vessel manning configured for the rank', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel] = makeAssignmentFixtures();
 
     $portCaptain = Rank::query()->create(['name' => 'Port Captain CPA', 'is_active' => true]);
 
@@ -188,12 +180,12 @@ test('store rejects ranks that are not configured on the vessel in vessel mannin
             'planned_join_date' => '2027-02-01',
             'planned_leave_date' => '2027-08-31',
         ])
-        ->assertSessionHasErrors(['rank_id']);
+        ->assertRedirect();
 
-    expect(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe(0);
+    expect(CrewPlanningAssignment::query()->where('company_id', $company->id)->count())->toBe(1);
 });
 
-test('update rejects changing to a rank not configured on the vessel', function () {
+test('update succeeds when changing to a rank without vessel manning configured', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 
     $portCaptain = Rank::query()->create(['name' => 'Port Captain Update CPA', 'is_active' => true]);
@@ -210,10 +202,10 @@ test('update rejects changing to a rank not configured on the vessel', function 
         ->put(route('organization.crew-planning.assignments.update', $assignment), [
             'rank_id' => $portCaptain->id,
         ])
-        ->assertSessionHasErrors(['rank_id']);
+        ->assertRedirect();
 
     $assignment->refresh();
-    expect($assignment->rank_id)->toBe($rank->id);
+    expect($assignment->rank_id)->toBe($portCaptain->id);
 });
 
 // ─── Update ────────────────────────────────────────────────────────────────────

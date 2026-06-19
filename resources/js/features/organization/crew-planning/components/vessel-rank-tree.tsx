@@ -259,9 +259,9 @@ export function VesselRankTree({
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-muted/60 text-muted-foreground">
                     <Ship className="h-5 w-5" />
                 </span>
-                <p className="text-sm font-medium text-foreground/90">No vessels configured</p>
+                <p className="text-sm font-medium text-foreground/90">No planned vessels or ranks</p>
                 <p className="max-w-[200px] text-xs leading-relaxed text-muted-foreground/70">
-                    Add vessel manning requirements to start planning crew on the timeline.
+                    No planned assignments in this date range. Assign crew or sync from deployments.
                 </p>
             </div>
         );

@@ -264,7 +264,7 @@ export function CrewPlanningContent({
                                 Vessels &amp; Ranks
                             </p>
                             <p className="mt-0.5 text-[11px] text-muted-foreground/55">
-                                Select a rank to focus the timeline
+                                Select a planned rank to focus the timeline
                             </p>
                         </div>
                         <div className="flex-1 overflow-y-auto">
@@ -331,7 +331,6 @@ export function CrewPlanningContent({
                     editing={dialogState.editing}
                     vessels={vessels}
                     ranks={ranks}
-                    rows={rows}
                     employees={employees}
                 />
             </Main>

@@ -31,7 +31,7 @@ class CrewPlanningController extends Controller
         $search = trim((string) $request->query('search', ''));
 
         return Inertia::render('organization/crew-planning/index', [
-            'rows' => CrewPlanningGanttQuery::rows($companyId, $vesselId, $rankId),
+            'rows' => CrewPlanningGanttQuery::rows($companyId, $from, $to, $vesselId, $rankId),
             'bars' => CrewPlanningGanttQuery::bars($companyId, $from, $to, $vesselId, $rankId),
             'tree' => CrewPlanningGanttQuery::tree($companyId, $from, $to, $vesselId, $rankId),
             'filters' => [

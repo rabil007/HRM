@@ -102,7 +102,7 @@ export function PlanningGantt({
     if (rows.length === 0) {
         return (
             <div className="flex flex-1 items-center justify-center py-24 text-sm text-muted-foreground">
-                No vessel manning configured for the selected filters.
+                No planned assignments in this date range.
             </div>
         );
     }

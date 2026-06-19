@@ -3,12 +3,13 @@
 namespace App\Support\CrewPlanning;
 
 use App\Models\CrewPlanningAssignment;
-use App\Models\VesselManning;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 final class CrewPlanningGanttQuery
 {
     /**
-     * Gantt rows derived from VesselManning, grouped by vessel.
+     * Gantt rows derived from planned assignments in range, grouped by vessel.
      *
      * @return list<array{
      *     vessel_id: int,
@@ -21,24 +22,25 @@ final class CrewPlanningGanttQuery
      *     }>
      * }>
      */
-    public static function rows(int $companyId, ?int $vesselId = null, ?int $rankId = null): array
-    {
-        $query = VesselManning::query()
-            ->where('company_id', $companyId)
-            ->with([
-                'vessel:id,name,is_active',
-                'rank:id,name',
-            ])
-            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->orderBy('vessel_id')
-            ->orderBy('rank_id');
+    public static function rows(
+        int $companyId,
+        string $from,
+        string $to,
+        ?int $vesselId = null,
+        ?int $rankId = null,
+    ): array {
+        $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
+            'vessel:id,name',
+            'rank:id,name',
+        ]);
 
         $grouped = [];
 
-        foreach ($query->get() as $manning) {
-            $vessel = $manning->vessel;
-            $rank = $manning->rank;
+        foreach ($assignments->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}") as $rowKey => $rowAssignments) {
+            /** @var CrewPlanningAssignment $first */
+            $first = $rowAssignments->first();
+            $vessel = $first->vessel;
+            $rank = $first->rank;
 
             if ($vessel === null || $rank === null) {
                 continue;
@@ -55,10 +57,10 @@ final class CrewPlanningGanttQuery
             }
 
             $grouped[$vId]['ranks'][] = [
-                'row_key' => "vessel:{$vId}|rank:{$rank->id}",
+                'row_key' => $rowKey,
                 'rank_id' => $rank->id,
                 'rank_name' => $rank->name,
-                'required_count' => $manning->required_count,
+                'required_count' => $rowAssignments->count(),
             ];
         }
 
@@ -77,23 +79,11 @@ final class CrewPlanningGanttQuery
         ?int $vesselId = null,
         ?int $rankId = null,
     ): array {
-        return CrewPlanningAssignment::query()
-            ->where('company_id', $companyId)
-            ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
-            ->where('planned_join_date', '<=', $to)
-            ->where('planned_leave_date', '>=', $from)
-            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->with([
-                'employee:id,name',
-                'rank:id,name',
-                'vessel:id,name',
-            ])
-            ->orderBy('vessel_id')
-            ->orderBy('rank_id')
-            ->orderBy('planned_join_date')
-            ->get()
+        return self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
+            'employee:id,name',
+            'rank:id,name',
+            'vessel:id,name',
+        ])
             ->map(fn (CrewPlanningAssignment $assignment) => [
                 'id' => $assignment->id,
                 'row_key' => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}",
@@ -112,7 +102,7 @@ final class CrewPlanningGanttQuery
     }
 
     /**
-     * Tree data: vessels with manning ranks and planned crew in range.
+     * Tree data: vessels and ranks with planned crew in range.
      *
      * @return list<array{
      *     vessel_id: int,
@@ -135,35 +125,19 @@ final class CrewPlanningGanttQuery
         ?int $vesselId = null,
         ?int $rankId = null,
     ): array {
-        $manning = VesselManning::query()
-            ->where('company_id', $companyId)
-            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->with([
-                'vessel:id,name',
-                'rank:id,name',
-            ])
-            ->orderBy('vessel_id')
-            ->orderBy('rank_id')
-            ->get();
-
-        $assignments = CrewPlanningAssignment::query()
-            ->where('company_id', $companyId)
-            ->whereNotNull('vessel_id')
-            ->whereNotNull('rank_id')
-            ->where('planned_join_date', '<=', $to)
-            ->where('planned_leave_date', '>=', $from)
-            ->when($vesselId !== null, fn ($q) => $q->where('vessel_id', $vesselId))
-            ->when($rankId !== null, fn ($q) => $q->where('rank_id', $rankId))
-            ->with(['employee:id,name'])
-            ->get()
-            ->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}");
+        $assignments = self::assignmentsInRange($companyId, $from, $to, $vesselId, $rankId, [
+            'vessel:id,name',
+            'rank:id,name',
+            'employee:id,name',
+        ]);
 
         $grouped = [];
 
-        foreach ($manning as $row) {
-            $vessel = $row->vessel;
-            $rank = $row->rank;
+        foreach ($assignments->groupBy(fn (CrewPlanningAssignment $assignment) => "vessel:{$assignment->vessel_id}|rank:{$assignment->rank_id}") as $rowAssignments) {
+            /** @var CrewPlanningAssignment $first */
+            $first = $rowAssignments->first();
+            $vessel = $first->vessel;
+            $rank = $first->rank;
 
             if ($vessel === null || $rank === null) {
                 continue;
@@ -179,24 +153,47 @@ final class CrewPlanningGanttQuery
                 ];
             }
 
-            $rowKey = "vessel:{$vId}|rank:{$rank->id}";
-
-            $plannedCrew = ($assignments->get($rowKey, collect()))
-                ->map(fn (CrewPlanningAssignment $assignment): array => [
-                    'employee_id' => $assignment->employee_id,
-                    'employee_name' => $assignment->employee?->name ?? 'Vacant',
-                ])
-                ->values()
-                ->all();
-
             $grouped[$vId]['ranks'][] = [
                 'rank_id' => $rank->id,
                 'rank_name' => $rank->name,
-                'required_count' => $row->required_count,
-                'crew' => $plannedCrew,
+                'required_count' => $rowAssignments->count(),
+                'crew' => $rowAssignments
+                    ->map(fn (CrewPlanningAssignment $assignment): array => [
+                        'employee_id' => $assignment->employee_id,
+                        'employee_name' => $assignment->employee?->name ?? 'Vacant',
+                    ])
+                    ->values()
+                    ->all(),
             ];
         }
 
         return array_values($grouped);
+    }
+
+    /**
+     * @param  list<string>  $with
+     * @return Collection<int, CrewPlanningAssignment>
+     */
+    private static function assignmentsInRange(
+        int $companyId,
+        string $from,
+        string $to,
+        ?int $vesselId,
+        ?int $rankId,
+        array $with,
+    ): Collection {
+        return CrewPlanningAssignment::query()
+            ->where('company_id', $companyId)
+            ->whereNotNull('vessel_id')
+            ->whereNotNull('rank_id')
+            ->where('planned_join_date', '<=', $to)
+            ->where('planned_leave_date', '>=', $from)
+            ->when($vesselId !== null, fn (Builder $query) => $query->where('vessel_id', $vesselId))
+            ->when($rankId !== null, fn (Builder $query) => $query->where('rank_id', $rankId))
+            ->with($with)
+            ->orderBy('vessel_id')
+            ->orderBy('rank_id')
+            ->orderBy('planned_join_date')
+            ->get();
     }
 }

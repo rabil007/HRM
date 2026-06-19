@@ -88,14 +88,7 @@ test('users without view permission cannot access crew planning', function () {
 });
 
 test('authorized users can view the crew planning index', function () {
-    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'captain' => $captain] = makeCrewPlanningFixtures();
-
-    VesselManning::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
-        'required_count' => 1,
-    ]);
+    ['user' => $user] = makeCrewPlanningFixtures();
 
     $this->actingAs($user)
         ->get(route('organization.crew-planning.index'))
@@ -261,7 +254,7 @@ test('planning pool settings include employees from child departments when paren
         );
 });
 
-test('rows are returned from vessel manning', function () {
+test('rows are returned from planned assignments in range', function () {
     [
         'user' => $user,
         'company' => $company,
@@ -277,18 +270,38 @@ test('rows are returned from vessel manning', function () {
         'required_count' => 1,
     ]);
 
-    VesselManning::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $chiefOfficer->id,
-        'required_count' => 2,
-    ]);
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index'))
+        ->get(route('organization.crew-planning.index', compact('from', 'to')))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('organization/crew-planning/index')
+            ->has('rows', 0)
+        );
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $captain->id,
+        'planned_join_date' => $today->subDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(20)->toDateString(),
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $chiefOfficer->id,
+        'planned_join_date' => $today->subDays(3)->toDateString(),
+        'planned_leave_date' => $today->addDays(25)->toDateString(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-planning.index', compact('from', 'to')))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
             ->where('rows.0.vessel_name', 'Planning Vessel Alpha')
             ->has('rows.0.ranks', 2)
@@ -302,13 +315,6 @@ test('bars are returned for assignments overlapping the date range', function ()
         'vessel' => $vessel,
         'captain' => $captain,
     ] = makeCrewPlanningFixtures();
-
-    VesselManning::query()->create([
-        'company_id' => $company->id,
-        'vessel_id' => $vessel->id,
-        'rank_id' => $captain->id,
-        'required_count' => 1,
-    ]);
 
     $employee = Employee::factory()->create([
         'company_id' => $company->id,
@@ -387,22 +393,28 @@ test('vessel filter narrows rows, bars, and tree', function () {
         'is_active' => true,
     ]);
 
-    VesselManning::query()->create([
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'required_count' => 1,
+        'planned_join_date' => $today->subDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
 
-    VesselManning::query()->create([
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $otherVessel->id,
         'rank_id' => $captain->id,
-        'required_count' => 1,
+        'planned_join_date' => $today->subDays(4)->toDateString(),
+        'planned_leave_date' => $today->addDays(21)->toDateString(),
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index', ['vessel_id' => $vessel->id]))
+        ->get(route('organization.crew-planning.index', ['vessel_id' => $vessel->id, 'from' => $from, 'to' => $to]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
@@ -421,22 +433,28 @@ test('rank filter narrows rows, bars, and tree', function () {
         'chiefOfficer' => $chiefOfficer,
     ] = makeCrewPlanningFixtures();
 
-    VesselManning::query()->create([
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'required_count' => 1,
+        'planned_join_date' => $today->subDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
 
-    VesselManning::query()->create([
+    CrewPlanningAssignment::query()->create([
         'company_id' => $company->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $chiefOfficer->id,
-        'required_count' => 1,
+        'planned_join_date' => $today->subDays(4)->toDateString(),
+        'planned_leave_date' => $today->addDays(21)->toDateString(),
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index', ['rank_id' => $captain->id]))
+        ->get(route('organization.crew-planning.index', ['rank_id' => $captain->id, 'from' => $from, 'to' => $to]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 1)
@@ -456,15 +474,20 @@ test('planning data is scoped to current company', function () {
         'captain' => $captain,
     ] = makeCrewPlanningFixtures();
 
-    VesselManning::query()->create([
+    $today = CarbonImmutable::today();
+    $from = $today->startOfMonth()->toDateString();
+    $to = $today->addMonths(2)->endOfMonth()->toDateString();
+
+    CrewPlanningAssignment::query()->create([
         'company_id' => $otherCompany->id,
         'vessel_id' => $vessel->id,
         'rank_id' => $captain->id,
-        'required_count' => 3,
+        'planned_join_date' => $today->subDays(5)->toDateString(),
+        'planned_leave_date' => $today->addDays(20)->toDateString(),
     ]);
 
     $this->actingAs($user)
-        ->get(route('organization.crew-planning.index'))
+        ->get(route('organization.crew-planning.index', compact('from', 'to')))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->has('rows', 0)

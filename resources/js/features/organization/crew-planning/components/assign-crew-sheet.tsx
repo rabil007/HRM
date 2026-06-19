@@ -16,7 +16,6 @@ import { Textarea } from '@/components/ui/textarea';
 import type {
     AssignmentFormData,
     GanttBar,
-    GanttVesselGroup,
     PlanningOption,
     PlanningPoolEmployee,
 } from '../types';
@@ -32,7 +31,6 @@ export function AssignCrewSheet({
     editing,
     vessels,
     ranks,
-    rows,
     employees,
 }: {
     open: boolean;
@@ -42,37 +40,17 @@ export function AssignCrewSheet({
     editing: GanttBar | null;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
-    rows: GanttVesselGroup[];
     employees: PlanningPoolEmployee[];
 }): ReactElement {
     const isEdit = editing !== null;
 
-    const availableRanks = useMemo(() => {
-        if (form.data.vessel_id === '') {
-            return ranks;
-        }
-
-        const vesselGroup = rows.find(
-            (group) => String(group.vessel_id) === form.data.vessel_id,
-        );
-        const manningRankIds = new Set(vesselGroup?.ranks.map((rank) => rank.rank_id) ?? []);
-
-        return ranks.filter((rank) => manningRankIds.has(rank.id));
-    }, [form.data.vessel_id, ranks, rows]);
-
     const availableEmployees = useMemo(() => {
-        if (form.data.rank_id !== '') {
-            return employees.filter((employee) => employee.rank_id === Number(form.data.rank_id));
-        }
-
-        if (form.data.vessel_id === '') {
+        if (form.data.rank_id === '') {
             return employees;
         }
 
-        const manningRankIds = new Set(availableRanks.map((rank) => rank.id));
-
-        return employees.filter((employee) => manningRankIds.has(employee.rank_id));
-    }, [availableRanks, employees, form.data.rank_id, form.data.vessel_id]);
+        return employees.filter((employee) => employee.rank_id === Number(form.data.rank_id));
+    }, [employees, form.data.rank_id]);
 
     const handleRankChange = (value: string): void => {
         const selectedEmployee =
@@ -104,34 +82,17 @@ export function AssignCrewSheet({
             return;
         }
 
-        const rankIsAvailable = availableRanks.some((rank) => rank.id === employee.rank_id);
-
         form.setData({
             ...form.data,
             employee_id: value,
-            rank_id: rankIsAvailable ? String(employee.rank_id) : form.data.rank_id,
+            rank_id: String(employee.rank_id),
         });
     };
 
     const handleVesselChange = (value: string): void => {
-        const vesselGroup = rows.find((group) => String(group.vessel_id) === value);
-        const manningRankIds = new Set(vesselGroup?.ranks.map((rank) => rank.rank_id) ?? []);
-        const rankStillValid =
-            form.data.rank_id !== '' && manningRankIds.has(Number(form.data.rank_id));
-        const selectedEmployee =
-            form.data.employee_id !== ''
-                ? employees.find((employee) => employee.id === Number(form.data.employee_id))
-                : undefined;
-        const nextRankId = rankStillValid ? form.data.rank_id : '';
-        const employeeStillMatches =
-            selectedEmployee === undefined ||
-            (nextRankId !== '' && selectedEmployee.rank_id === Number(nextRankId));
-
         form.setData({
             ...form.data,
             vessel_id: value,
-            rank_id: nextRankId,
-            employee_id: employeeStillMatches ? form.data.employee_id : '',
         });
     };
 
@@ -193,24 +154,17 @@ export function AssignCrewSheet({
                                 placeholder={
                                     form.data.vessel_id === ''
                                         ? 'Select vessel first'
-                                        : availableRanks.length === 0
-                                          ? 'No ranks configured for this vessel'
-                                          : 'Select rank'
+                                        : 'Select rank'
                                 }
-                                disabled={form.data.vessel_id === '' || availableRanks.length === 0}
+                                disabled={form.data.vessel_id === ''}
                                 variant="card"
                             >
-                                {availableRanks.map((r) => (
+                                {ranks.map((r) => (
                                     <AppSelectItem key={r.id} value={String(r.id)}>
                                         {r.name}
                                     </AppSelectItem>
                                 ))}
                             </AppSelect>
-                            {form.data.vessel_id !== '' && availableRanks.length === 0 ? (
-                                <p className="text-xs text-muted-foreground">
-                                    Configure ranks for this vessel in Vessel Manning first.
-                                </p>
-                            ) : null}
                             {form.errors.rank_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.rank_id}
