@@ -80,15 +80,22 @@ function CrewMemberRow({
             >
                 {isVacant ? '—' : crewInitials(member.employee_name)}
             </span>
-            <span
-                className={cn(
-                    'min-w-0 truncate',
-                    crewNameClass(member),
-                    isMatch && 'font-semibold',
-                )}
-            >
-                {member.employee_name}
-            </span>
+            <div className="min-w-0 flex-1">
+                <span
+                    className={cn(
+                        'block truncate',
+                        crewNameClass(member),
+                        isMatch && 'font-semibold',
+                    )}
+                >
+                    {member.employee_name}
+                </span>
+                {!member.is_deployed && member.relieves_employee_name ? (
+                    <span className="block truncate text-[10px] text-sky-700/80 dark:text-sky-300/80">
+                        → {member.relieves_employee_name}
+                    </span>
+                ) : null}
+            </div>
         </div>
     );
 }

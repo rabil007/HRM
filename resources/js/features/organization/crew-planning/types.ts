@@ -24,6 +24,9 @@ export type GanttBar = {
     rank_name: string | null;
     vessel_name: string | null;
     notes: string | null;
+    employee_deployment_id: number | null;
+    relieves_employee_deployment_id: number | null;
+    relieves_employee_name: string | null;
     /** Synced from Crew Deployments — crew currently on vessel. */
     is_deployed: boolean;
 };
@@ -32,6 +35,7 @@ export type TreeCrewMember = {
     employee_id: number | null;
     employee_name: string;
     is_deployed: boolean;
+    relieves_employee_name: string | null;
 };
 
 export type TreeRank = {
@@ -92,6 +96,7 @@ export type AssignmentFormData = {
     planned_join_date: string;
     planned_leave_date: string;
     notes: string;
+    relieves_employee_deployment_id: string;
 };
 
 export type CrewDragData = {

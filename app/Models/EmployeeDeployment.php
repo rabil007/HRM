@@ -7,6 +7,7 @@ use Database\Factories\EmployeeDeploymentFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\Activitylog\Support\LogOptions;
@@ -100,6 +101,14 @@ class EmployeeDeployment extends Model
 
     public function planningAssignment(): HasOne
     {
-        return $this->hasOne(CrewPlanningAssignment::class);
+        return $this->hasOne(CrewPlanningAssignment::class, 'employee_deployment_id');
+    }
+
+    /**
+     * @return HasMany<CrewPlanningAssignment, $this>
+     */
+    public function reliefPlanningAssignments(): HasMany
+    {
+        return $this->hasMany(CrewPlanningAssignment::class, 'relieves_employee_deployment_id');
     }
 }

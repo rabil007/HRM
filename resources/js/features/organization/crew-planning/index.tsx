@@ -21,6 +21,7 @@ import { PlanningLegend } from './components/planning-legend';
 import { PlanningToolbar } from './components/planning-toolbar';
 import { VesselRankTree } from './components/vessel-rank-tree';
 import { dateFromPointerRatio } from './lib/planning-gantt-math';
+import { findRelievedDeployment } from './lib/find-relieved-deployment';
 import { ZoomProvider } from './lib/zoom-context';
 import type {
     AssignmentFormData,
@@ -41,6 +42,7 @@ type AssignDialogState = {
     initialVesselId: string;
     initialRankId: string;
     initialDate: string;
+    relievesEmployeeName: string;
 };
 
 const CLOSED_DIALOG: AssignDialogState = {
@@ -49,6 +51,7 @@ const CLOSED_DIALOG: AssignDialogState = {
     initialVesselId: '',
     initialRankId: '',
     initialDate: '',
+    relievesEmployeeName: '',
 };
 
 type Props = {
@@ -92,10 +95,18 @@ export function CrewPlanningContent({
         planned_join_date: '',
         planned_leave_date: '',
         notes: '',
+        relieves_employee_deployment_id: '',
     });
 
     const openCreate = useCallback(
-        (initialVesselId = '', initialRankId = '', initialDate = '', employeeId = ''): void => {
+        (
+            initialVesselId = '',
+            initialRankId = '',
+            initialDate = '',
+            employeeId = '',
+            relievesEmployeeDeploymentId = '',
+            relievesEmployeeName = '',
+        ): void => {
             form.reset();
             form.clearErrors();
             form.setData({
@@ -105,11 +116,36 @@ export function CrewPlanningContent({
                 planned_join_date: initialDate,
                 planned_leave_date: '',
                 notes: '',
+                relieves_employee_deployment_id: relievesEmployeeDeploymentId,
             });
-            setDialogState({ open: true, editing: null, initialVesselId, initialRankId, initialDate });
+            setDialogState({
+                open: true,
+                editing: null,
+                initialVesselId,
+                initialRankId,
+                initialDate,
+                relievesEmployeeName,
+            });
         },
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [],
+    );
+
+    const openCreateForRow = useCallback(
+        (vesselId: number, rankId: number, estimatedDate: string, employeeId = ''): void => {
+            const rowKey = `vessel:${vesselId}|rank:${rankId}`;
+            const relieved = findRelievedDeployment(bars, rowKey, estimatedDate);
+
+            openCreate(
+                String(vesselId),
+                String(rankId),
+                relieved?.plannedLeaveDate ?? estimatedDate,
+                employeeId,
+                relieved ? String(relieved.employeeDeploymentId) : '',
+                relieved?.employeeName ?? '',
+            );
+        },
+        [bars, openCreate],
     );
 
     const openEdit = useCallback((bar: GanttBar): void => {
@@ -122,8 +158,19 @@ export function CrewPlanningContent({
             planned_join_date: bar.planned_join_date,
             planned_leave_date: bar.planned_leave_date,
             notes: bar.notes ?? '',
+            relieves_employee_deployment_id:
+                bar.relieves_employee_deployment_id != null
+                    ? String(bar.relieves_employee_deployment_id)
+                    : '',
         });
-        setDialogState({ open: true, editing: bar, initialVesselId: '', initialRankId: '', initialDate: '' });
+        setDialogState({
+            open: true,
+            editing: bar,
+            initialVesselId: '',
+            initialRankId: '',
+            initialDate: '',
+            relievesEmployeeName: bar.relieves_employee_name ?? '',
+        });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -146,6 +193,10 @@ export function CrewPlanningContent({
             planned_join_date: data.planned_join_date,
             planned_leave_date: data.planned_leave_date,
             notes: data.notes || null,
+            relieves_employee_deployment_id:
+                data.relieves_employee_deployment_id !== ''
+                    ? Number(data.relieves_employee_deployment_id)
+                    : null,
         }));
 
         if (dialogState.editing) {
@@ -171,9 +222,9 @@ export function CrewPlanningContent({
 
     const handleRowClick = useCallback(
         (_rowKey: string, vesselId: number, rankId: number, estimatedDate: string): void => {
-            openCreate(String(vesselId), String(rankId), estimatedDate);
+            openCreateForRow(vesselId, rankId, estimatedDate);
         },
-        [openCreate],
+        [openCreateForRow],
     );
 
     const handleDragEnd = useCallback(
@@ -218,14 +269,14 @@ export function CrewPlanningContent({
                 estimatedDate = dateFromPointerRatio(ratio, rangeFrom, rangeTo);
             }
 
-            openCreate(
-                String(overData.vesselId),
-                String(overData.rankId),
+            openCreateForRow(
+                overData.vesselId,
+                overData.rankId,
                 estimatedDate,
                 String(activeData.employeeId),
             );
         },
-        [openCreate, today, filters.from, filters.to, ranks],
+        [openCreateForRow, today, filters.from, filters.to, ranks],
     );
 
     return (
@@ -332,6 +383,7 @@ export function CrewPlanningContent({
                     form={form}
                     onSubmit={handleSubmit}
                     editing={dialogState.editing}
+                    relievesEmployeeName={dialogState.relievesEmployeeName}
                     vessels={vessels}
                     ranks={ranks}
                     employees={employees}

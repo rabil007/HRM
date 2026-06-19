@@ -93,6 +93,9 @@ function AssignmentBarPopoverContent({
                 {bar.vessel_name ? <InfoRow label="Vessel" value={bar.vessel_name} /> : null}
                 <InfoRow label="Planned join" value={formatDate(bar.planned_join_date)} />
                 <InfoRow label="Planned leave" value={formatDate(bar.planned_leave_date)} />
+                {bar.relieves_employee_name ? (
+                    <InfoRow label="Replacing" value={bar.relieves_employee_name} />
+                ) : null}
                 {bar.notes ? (
                     <p className="mt-1 rounded-md bg-muted px-2 py-1.5 text-muted-foreground">{bar.notes}</p>
                 ) : null}

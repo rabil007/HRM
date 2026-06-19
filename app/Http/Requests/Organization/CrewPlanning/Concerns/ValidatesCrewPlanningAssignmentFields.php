@@ -4,6 +4,7 @@ namespace App\Http\Requests\Organization\CrewPlanning\Concerns;
 
 use App\Models\CrewPlanningAssignment;
 use App\Models\Employee;
+use App\Support\CrewPlanning\ValidatesCrewPlanningReliefLink;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -22,6 +23,21 @@ trait ValidatesCrewPlanningAssignmentFields
             Rule::exists('employees', 'id')->where(fn ($query) => $query
                 ->where('company_id', $companyId)
                 ->whereNotNull('rank_id')),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function crewPlanningRelievesDeploymentIdRule(): array
+    {
+        $companyId = (int) $this->attributes->get('current_company_id');
+
+        return [
+            'nullable',
+            'integer',
+            Rule::exists('employee_deployments', 'id')->where(fn ($query) => $query
+                ->where('company_id', $companyId)),
         ];
     }
 
@@ -66,6 +82,18 @@ trait ValidatesCrewPlanningAssignmentFields
                     'The crew member\'s profile rank must match the selected rank.',
                 );
             }
+
+            ValidatesCrewPlanningReliefLink::validate($validator, [
+                'company_id' => $companyId,
+                'relieves_employee_deployment_id' => $this->has('relieves_employee_deployment_id')
+                    ? $this->input('relieves_employee_deployment_id')
+                    : $existing?->relieves_employee_deployment_id,
+                'vessel_id' => $this->has('vessel_id')
+                    ? $this->input('vessel_id')
+                    : $existing?->vessel_id,
+                'rank_id' => $assignmentRankId,
+                'employee_id' => $rawEmployeeId,
+            ], $existing);
         });
     }
 }

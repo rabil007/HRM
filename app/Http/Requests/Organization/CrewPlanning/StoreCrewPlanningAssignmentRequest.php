@@ -27,6 +27,7 @@ class StoreCrewPlanningAssignmentRequest extends FormRequest
             'planned_join_date' => ['required', 'date'],
             'planned_leave_date' => ['required', 'date', 'after_or_equal:planned_join_date'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'relieves_employee_deployment_id' => $this->crewPlanningRelievesDeploymentIdRule(),
         ];
     }
 }

@@ -432,6 +432,131 @@ test('tree method marks manual relief crew as not deployed', function () {
         ->and($tree[0]['ranks'][0]['crew'][0]['is_deployed'])->toBeFalse();
 });
 
+test('store links planned relief to the deployment being relieved', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+    $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $deployedEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => '2027-01-01',
+        'disembarked_date' => '2027-06-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'employee_id' => $reliefEmployee->id,
+            'planned_join_date' => '2027-06-30',
+            'planned_leave_date' => '2027-12-31',
+            'relieves_employee_deployment_id' => $deployment->id,
+        ])
+        ->assertRedirect();
+
+    $assignment = CrewPlanningAssignment::query()->where('employee_id', $reliefEmployee->id)->first();
+
+    expect($assignment)->not->toBeNull()
+        ->and($assignment->relieves_employee_deployment_id)->toBe($deployment->id)
+        ->and($assignment->employee_deployment_id)->toBeNull();
+});
+
+test('store rejects relief linked to the same employee as the deployment', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $employee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => '2027-01-01',
+        'disembarked_date' => '2027-06-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'employee_id' => $employee->id,
+            'planned_join_date' => '2027-06-30',
+            'planned_leave_date' => '2027-12-31',
+            'relieves_employee_deployment_id' => $deployment->id,
+        ])
+        ->assertSessionHasErrors('employee_id');
+});
+
+test('store rejects relief linked to a deployment on another vessel', function () {
+    ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $otherVessel = Vessel::query()->create([
+        'name' => 'Other Relief Vessel',
+        'vessel_type_id' => $vessel->vessel_type_id,
+        'is_active' => true,
+    ]);
+
+    $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+    $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id]);
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $deployedEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $otherVessel->id,
+        'joined_date' => '2027-01-01',
+        'disembarked_date' => '2027-06-30',
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-planning.assignments.store'), [
+            'vessel_id' => $vessel->id,
+            'rank_id' => $rank->id,
+            'employee_id' => $reliefEmployee->id,
+            'planned_join_date' => '2027-06-30',
+            'planned_leave_date' => '2027-12-31',
+            'relieves_employee_deployment_id' => $deployment->id,
+        ])
+        ->assertSessionHasErrors('relieves_employee_deployment_id');
+});
+
+test('bars include relief deployment linkage fields', function () {
+    ['company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
+
+    $deployedEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'name' => 'Deployed Crew']);
+    $reliefEmployee = Employee::factory()->create(['company_id' => $company->id, 'rank_id' => $rank->id, 'name' => 'Relief Crew']);
+
+    $deployment = EmployeeDeployment::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $deployedEmployee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => '2027-01-01',
+        'disembarked_date' => '2027-06-30',
+    ]);
+
+    CrewPlanningAssignment::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'employee_id' => $reliefEmployee->id,
+        'relieves_employee_deployment_id' => $deployment->id,
+        'planned_join_date' => '2027-06-30',
+        'planned_leave_date' => '2027-12-31',
+    ]);
+
+    $bars = CrewPlanningGanttQuery::bars($company->id, '2027-01-01', '2027-12-31');
+
+    expect($bars)->toHaveCount(1)
+        ->and($bars[0]['relieves_employee_deployment_id'])->toBe($deployment->id)
+        ->and($bars[0]['relieves_employee_name'])->toBe('Deployed Crew')
+        ->and($bars[0]['is_deployed'])->toBeFalse();
+});
+
 test('store allows overlapping assignments for the same employee', function () {
     ['user' => $user, 'company' => $company, 'vessel' => $vessel, 'rank' => $rank] = makeAssignmentFixtures();
 

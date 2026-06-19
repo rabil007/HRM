@@ -29,6 +29,7 @@ export function AssignCrewSheet({
     form,
     onSubmit,
     editing,
+    relievesEmployeeName,
     vessels,
     ranks,
     employees,
@@ -38,6 +39,7 @@ export function AssignCrewSheet({
     form: InertiaFormProps<AssignmentFormData>;
     onSubmit: () => void;
     editing: GanttBar | null;
+    relievesEmployeeName: string;
     vessels: PlanningOption[];
     ranks: PlanningOption[];
     employees: PlanningPoolEmployee[];
@@ -64,6 +66,7 @@ export function AssignCrewSheet({
             ...form.data,
             rank_id: value,
             employee_id: employeeStillMatches ? form.data.employee_id : '',
+            relieves_employee_deployment_id: '',
         });
     };
 
@@ -93,6 +96,7 @@ export function AssignCrewSheet({
         form.setData({
             ...form.data,
             vessel_id: value,
+            relieves_employee_deployment_id: '',
         });
     };
 
@@ -114,6 +118,17 @@ export function AssignCrewSheet({
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
+                    {form.data.relieves_employee_deployment_id !== '' && relievesEmployeeName !== '' ? (
+                        <div className="rounded-xl border border-sky-500/35 bg-sky-500/10 px-4 py-3 text-sm">
+                            <p className="font-semibold text-sky-800 dark:text-sky-300">Planned relief</p>
+                            <p className="mt-1 text-muted-foreground">
+                                Replacing{' '}
+                                <span className="font-medium text-foreground">{relievesEmployeeName}</span>{' '}
+                                after their deployment ends.
+                            </p>
+                        </div>
+                    ) : null}
+
                     <div className="space-y-5">
                         <div className="space-y-2">
                             <Label
@@ -210,6 +225,11 @@ export function AssignCrewSheet({
                             {form.errors.employee_id ? (
                                 <div className="text-xs font-medium text-destructive">
                                     {form.errors.employee_id}
+                                </div>
+                            ) : null}
+                            {form.errors.relieves_employee_deployment_id ? (
+                                <div className="text-xs font-medium text-destructive">
+                                    {form.errors.relieves_employee_deployment_id}
                                 </div>
                             ) : null}
                         </div>

@@ -27,6 +27,7 @@ class UpdateCrewPlanningAssignmentRequest extends FormRequest
             'planned_join_date' => ['sometimes', 'date'],
             'planned_leave_date' => ['sometimes', 'date', 'after_or_equal:planned_join_date'],
             'notes' => ['nullable', 'string', 'max:1000'],
+            'relieves_employee_deployment_id' => $this->crewPlanningRelievesDeploymentIdRule(),
         ];
     }
 }
