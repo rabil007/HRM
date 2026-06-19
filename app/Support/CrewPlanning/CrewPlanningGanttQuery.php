@@ -93,6 +93,10 @@ final class CrewPlanningGanttQuery
                 'end' => $assignment->planned_leave_date->toDateString(),
                 'planned_join_date' => $assignment->planned_join_date->toDateString(),
                 'planned_leave_date' => $assignment->planned_leave_date->toDateString(),
+                'total_days' => CrewPlanningAssignmentDuration::inclusiveDays(
+                    $assignment->planned_join_date->toDateString(),
+                    $assignment->planned_leave_date->toDateString(),
+                ),
                 'rank_name' => $assignment->rank?->name,
                 'vessel_name' => $assignment->vessel?->name,
                 'notes' => $assignment->notes,

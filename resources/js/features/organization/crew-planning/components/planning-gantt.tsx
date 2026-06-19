@@ -177,19 +177,18 @@ export function PlanningGantt({
                             style={{ minWidth: timelineMinWidth + RANK_LABEL_WIDTH }}
                         >
                             <div
-                                className="sticky left-0 z-10 flex shrink-0 items-center justify-center border-r border-border/60 bg-muted/30"
+                                className="sticky left-0 z-20 flex shrink-0 items-center gap-2 border-r border-border/60 bg-muted/30 px-3"
                                 style={{ width: RANK_LABEL_WIDTH, height: 36 }}
                             >
-                                <Ship className="h-3.5 w-3.5 text-muted-foreground/40" />
-                            </div>
-                            <div
-                                className="flex flex-1 items-center gap-2 border-l-2 border-l-primary/30 px-3"
-                                style={{ minWidth: `${timelineMinWidth}px`, height: 36 }}
-                            >
-                                <span className="text-[11px] font-bold uppercase tracking-widest text-foreground/60">
+                                <Ship className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />
+                                <span className="truncate text-[11px] font-bold uppercase tracking-widest text-foreground/60">
                                     {vessel.vessel_name}
                                 </span>
                             </div>
+                            <div
+                                className="border-l-2 border-l-primary/30 bg-muted/30"
+                                style={{ minWidth: `${timelineMinWidth}px`, height: 36 }}
+                            />
                         </div>
                         {vessel.ranks.map((rank) => {
                             const rowBars = barsByRow.get(rank.row_key) ?? [];

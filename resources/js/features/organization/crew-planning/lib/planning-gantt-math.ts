@@ -77,6 +77,11 @@ export function daysBetween(start: string, end: string): number {
     return Math.round((endMs - startMs) / 86400000);
 }
 
+/** Inclusive assignment length from planned join through planned leave. */
+export function assignmentDurationDays(start: string, end: string): number {
+    return daysBetween(start, end) + 1;
+}
+
 /** Shifts both start and end by dayDelta days, preserving duration. */
 export function shiftDateRange(
     start: string,

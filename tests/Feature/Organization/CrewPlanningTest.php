@@ -341,6 +341,7 @@ test('bars are returned for assignments overlapping the date range', function ()
             ->has('bars', 1)
             ->where('bars.0.employee_id', $employee->id)
             ->where('bars.0.planned_join_date', $today->subDays(10)->toDateString())
+            ->where('bars.0.total_days', 41)
         );
 });
 

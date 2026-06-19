@@ -15,6 +15,7 @@ import {
     shiftDateRange,
 } from '../lib/planning-gantt-math';
 import type { GanttBar, PlanningPagePermissions } from '../types';
+import { AssignmentBarLabel } from './assignment-bar-label';
 import { AssignmentBarPopover } from './assignment-bar-popover';
 
 type DragMode = 'move' | 'resize-left' | 'resize-right';
@@ -53,6 +54,7 @@ export function DraggableAssignmentBar({
     const optimisticStartRef = useRef<string | null>(null);
     const optimisticEndRef = useRef<string | null>(null);
     const [liveStyle, setLiveStyle] = useState<React.CSSProperties | null>(null);
+    const [liveDates, setLiveDates] = useState<{ start: string; end: string } | null>(null);
     const [isDragging, setIsDragging] = useState(false);
 
     const handlePointerDown = (e: PointerEvent<HTMLDivElement>, mode: DragMode): void => {
@@ -109,6 +111,7 @@ export function DraggableAssignmentBar({
 
             optimisticStartRef.current = newStart;
             optimisticEndRef.current = newEnd;
+            setLiveDates({ start: newStart, end: newEnd });
             setLiveStyle(barPositionStyle(newStart, newEnd, rangeFrom, rangeTo));
         };
 
@@ -122,6 +125,7 @@ export function DraggableAssignmentBar({
             if (!drag) {
                 setIsDragging(false);
                 setLiveStyle(null);
+                setLiveDates(null);
 
                 return;
             }
@@ -132,6 +136,7 @@ export function DraggableAssignmentBar({
             if (finalStart === drag.originalStart && finalEnd === drag.originalEnd) {
                 setIsDragging(false);
                 setLiveStyle(null);
+                setLiveDates(null);
 
                 return;
             }
@@ -141,8 +146,14 @@ export function DraggableAssignmentBar({
                 { planned_join_date: finalStart, planned_leave_date: finalEnd },
                 {
                     preserveScroll: true,
-                    onSuccess: () => setLiveStyle(null),
-                    onError: () => setLiveStyle(null),
+                    onSuccess: () => {
+                        setLiveStyle(null);
+                        setLiveDates(null);
+                    },
+                    onError: () => {
+                        setLiveStyle(null);
+                        setLiveDates(null);
+                    },
                     onFinish: () => setIsDragging(false),
                 },
             );
@@ -152,8 +163,9 @@ export function DraggableAssignmentBar({
         window.addEventListener('pointerup', onUp);
     };
 
-    const isVacant = bar.employee_id === null;
     const computedStyle = liveStyle ?? style;
+    const displayStart = liveDates?.start ?? bar.planned_join_date;
+    const displayEnd = liveDates?.end ?? bar.planned_leave_date;
     const surfaceClass = barSurfaceClass(bar);
     const resizeHandleClass = barResizeHandleClass(bar);
 
@@ -182,14 +194,7 @@ export function DraggableAssignmentBar({
                         className="flex min-w-0 flex-1 cursor-grab items-center gap-1.5 px-2 text-xs font-medium text-foreground select-none active:cursor-grabbing"
                         onPointerDown={(e) => handlePointerDown(e, 'move')}
                     >
-                        {isVacant ? (
-                            <span className="truncate italic text-muted-foreground/60">Vacant</span>
-                        ) : (
-                            <>
-                                <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" bar={bar} />
-                                <span className="truncate">{bar.employee_name}</span>
-                            </>
-                        )}
+                        <AssignmentBarLabel bar={bar} start={displayStart} end={displayEnd} />
                     </div>
                     <div
                         className={cn(

@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
-import { barAvatarClass, barSurfaceClass } from '../lib/assignment-bar-styles';
+import { barResizeHandleClass, barSurfaceClass } from '../lib/assignment-bar-styles';
 import type { GanttBar, PlanningPagePermissions } from '../types';
+import { AssignmentBarLabel } from './assignment-bar-label';
 import { AssignmentBarPopover } from './assignment-bar-popover';
 
 type Props = {
@@ -22,8 +23,6 @@ export function ReadOnlyAssignmentBar({
     onEdit,
     onDelete,
 }: Props): ReactElement {
-    const isVacant = bar.employee_id === null;
-
     return (
         <Popover>
             <PopoverTrigger asChild>
@@ -35,14 +34,11 @@ export function ReadOnlyAssignmentBar({
                     )}
                     style={style}
                 >
-                    {isVacant ? (
-                        <span className="truncate italic text-muted-foreground/60">Vacant</span>
-                    ) : (
-                        <>
-                            <AssignmentBarPopover.Avatar name={bar.employee_name} size="sm" bar={bar} />
-                            <span className="truncate">{bar.employee_name}</span>
-                        </>
-                    )}
+                    <AssignmentBarLabel
+                        bar={bar}
+                        start={bar.planned_join_date}
+                        end={bar.planned_leave_date}
+                    />
                 </div>
             </PopoverTrigger>
             <PopoverContent align="start" sideOffset={6} className="w-68 overflow-hidden p-0">

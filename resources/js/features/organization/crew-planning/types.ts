@@ -20,6 +20,7 @@ export type GanttBar = {
     end: string;
     planned_join_date: string;
     planned_leave_date: string;
+    total_days: number;
     rank_name: string | null;
     vessel_name: string | null;
     notes: string | null;
