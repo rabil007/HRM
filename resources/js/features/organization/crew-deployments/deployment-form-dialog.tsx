@@ -309,6 +309,7 @@ export function DeploymentFormDialog({
             disembarked_date: data.disembarked_date || null,
             travelled_date: data.travelled_date || null,
             remarks: data.remarks || null,
+            require_disembarked_with_joined: Boolean(data.joined_date),
             ...(redirectToShow ? { redirect_to: 'show' as const } : {}),
         }));
 
@@ -325,6 +326,20 @@ export function DeploymentFormDialog({
         form.errors[key as keyof typeof form.errors];
 
     const selectedEmployee = employees.find((e) => String(e.id) === form.data.employee_id);
+    const joinedDateRequiresDisembarked = Boolean(form.data.joined_date);
+
+    const handleJoinedDateChange = (value: string): void => {
+        if (!value) {
+            form.setData({
+                joined_date: '',
+                disembarked_date: '',
+            });
+
+            return;
+        }
+
+        form.setData('joined_date', value);
+    };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -593,19 +608,22 @@ export function DeploymentFormDialog({
                             >
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                                             Joined
                                         </Label>
                                         <DateInput
                                             id="joined_date"
                                             value={form.data.joined_date}
-                                            onChange={(v) => form.setData('joined_date', v)}
+                                            onChange={handleJoinedDateChange}
                                             error={err('joined_date')}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <Label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        <Label className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
                                             Disembarked
+                                            {joinedDateRequiresDisembarked ? (
+                                                <span className="text-destructive">*</span>
+                                            ) : null}
                                         </Label>
                                         <DateInput
                                             id="disembarked_date"

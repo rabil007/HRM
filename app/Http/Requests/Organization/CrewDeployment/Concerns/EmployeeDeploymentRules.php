@@ -12,6 +12,7 @@ trait EmployeeDeploymentRules
     protected function deploymentFieldRules(): array
     {
         $companyId = (int) $this->attributes->get('current_company_id');
+        $requireDisembarkedWithJoined = $this->boolean('require_disembarked_with_joined');
 
         return [
             'employee_id' => [
@@ -29,10 +30,26 @@ trait EmployeeDeploymentRules
             'leave_standby_from' => ['nullable', 'date'],
             'leave_standby_to' => ['nullable', 'date', 'after_or_equal:leave_standby_from'],
             'joined_date' => ['nullable', 'date'],
-            'disembarked_date' => ['nullable', 'date', 'after_or_equal:joined_date'],
+            'disembarked_date' => [
+                'nullable',
+                'date',
+                'after_or_equal:joined_date',
+                Rule::requiredIf(fn () => $requireDisembarkedWithJoined && filled($this->input('joined_date'))),
+            ],
             'travelled_date' => ['nullable', 'date'],
             'remarks' => ['nullable', 'string', 'max:2000'],
             'redirect_to' => ['nullable', 'string', 'in:show'],
+            'require_disembarked_with_joined' => ['sometimes', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    protected function deploymentFieldMessages(): array
+    {
+        return [
+            'disembarked_date.required' => 'Disembarked date is required when a joined date is set.',
         ];
     }
 }

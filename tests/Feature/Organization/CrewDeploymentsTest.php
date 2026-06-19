@@ -256,6 +256,49 @@ test('store rejects employees from another company during validation', function 
     expect(EmployeeDeployment::query()->where('employee_id', $otherEmployee->id)->exists())->toBeFalse();
 });
 
+test('store requires disembarked date when joined date is set', function () {
+    ['user' => $user, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $this->actingAs($user)
+        ->post(route('organization.crew-deployments.store'), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => makeCrewDeploymentVessel('Missing Disembark Vessel')->id,
+            'joined_date' => '2024-11-26',
+        ])
+        ->assertSessionHasErrors('disembarked_date');
+
+    expect(EmployeeDeployment::query()->where('employee_id', $employee->id)->exists())->toBeFalse();
+});
+
+test('deployment form update requires disembarked date when joined date is set', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $deployment = EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeCrewDeploymentVessel('Form Update Vessel')->id,
+        'joined_date' => '2024-11-26',
+        'disembarked_date' => '2025-01-26',
+    ]);
+
+    $this->actingAs($user)
+        ->put(route('organization.crew-deployments.update', $deployment), [
+            'employee_id' => $employee->id,
+            'rank_id' => $rank->id,
+            'vessel_id' => $deployment->vessel_id,
+            'joined_date' => '2024-11-26',
+            'disembarked_date' => null,
+            'require_disembarked_with_joined' => true,
+        ])
+        ->assertSessionHasErrors('disembarked_date');
+
+    $deployment->refresh();
+
+    expect($deployment->disembarked_date?->toDateString())->toBe('2025-01-26');
+});
+
 test('deployment board shows all assignment records per employee', function () {
     ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
 

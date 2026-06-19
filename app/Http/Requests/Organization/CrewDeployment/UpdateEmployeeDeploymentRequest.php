@@ -21,4 +21,12 @@ class UpdateEmployeeDeploymentRequest extends FormRequest
     {
         return $this->deploymentFieldRules();
     }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return $this->deploymentFieldMessages();
+    }
 }
