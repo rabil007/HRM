@@ -15,6 +15,7 @@ use App\Http\Controllers\Organization\CompanySwitchController;
 use App\Http\Controllers\Organization\CrewDeploymentController;
 use App\Http\Controllers\Organization\CrewOperationsDashboardController;
 use App\Http\Controllers\Organization\CrewOperationsSettingsController;
+use App\Http\Controllers\Organization\CrewPayrollController;
 use App\Http\Controllers\Organization\CrewPlanningAssignmentController;
 use App\Http\Controllers\Organization\CrewPlanningController;
 use App\Http\Controllers\Organization\DashboardController;
@@ -50,6 +51,7 @@ use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
+use App\Http\Controllers\Organization\PayrollPeriodController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
@@ -151,6 +153,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
+
+    Route::get('organization/payroll-periods', [PayrollPeriodController::class, 'index'])->middleware('can:payroll.periods.view')->name('organization.payroll-periods.index');
+    Route::post('organization/payroll-periods', [PayrollPeriodController::class, 'store'])->middleware('can:payroll.periods.create')->name('organization.payroll-periods.store');
+
+    Route::get('organization/crew-payroll', [CrewPayrollController::class, 'index'])->middleware('can:payroll.crew_timesheets.view')->name('organization.crew-payroll.index');
+    Route::post('organization/crew-payroll/timesheets', [CrewPayrollController::class, 'storeTimesheet'])->name('organization.crew-payroll.timesheets.store');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');

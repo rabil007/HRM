@@ -1,0 +1,20 @@
+<?php
+
+namespace App\Support\Payroll;
+
+use App\Models\User;
+
+final class CrewPayrollPagePermissions
+{
+    /**
+     * @return array{create: bool, update: bool, delete: bool}
+     */
+    public static function for(?User $user): array
+    {
+        return [
+            'create' => $user?->can('payroll.crew_timesheets.create') ?? false,
+            'update' => $user?->can('payroll.crew_timesheets.update') ?? false,
+            'delete' => $user?->can('payroll.crew_timesheets.delete') ?? false,
+        ];
+    }
+}

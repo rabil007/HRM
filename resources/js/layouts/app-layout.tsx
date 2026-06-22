@@ -67,8 +67,10 @@ export default function AppLayout({
         },
         {
             title: 'Payroll',
-            href: placeholder('payroll.periods'),
-            isActive: url.includes('module=payroll') || url.includes('payroll'),
+            href: '/organization/payroll-periods',
+            isActive:
+                url.startsWith('/organization/payroll-periods') ||
+                url.startsWith('/organization/crew-payroll'),
             disabled: false,
         },
     ];

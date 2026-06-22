@@ -138,6 +138,11 @@ class Employee extends Model
         );
     }
 
+    public function crewTimesheets(): HasMany
+    {
+        return $this->hasMany(CrewTimesheet::class);
+    }
+
     public function religionRef(): BelongsTo
     {
         return $this->belongsTo(Religion::class, 'religion_id');

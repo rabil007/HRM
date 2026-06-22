@@ -79,4 +79,9 @@ class Company extends Model
             ->withPivot(['status'])
             ->withTimestamps();
     }
+
+    public function payrollPeriods(): HasMany
+    {
+        return $this->hasMany(PayrollPeriod::class);
+    }
 }
