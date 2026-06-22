@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use Database\Factories\PayrollPeriodFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,7 @@ class PayrollPeriod extends Model
             'start_date' => 'date',
             'end_date' => 'date',
             'payment_date' => 'date',
+            'payroll_category' => PayrollCategory::class,
             'status' => PayrollPeriodStatus::class,
             'approved_at' => 'datetime',
         ];
@@ -40,5 +42,10 @@ class PayrollPeriod extends Model
     public function isEditable(): bool
     {
         return $this->status === PayrollPeriodStatus::Draft;
+    }
+
+    public function isCrew(): bool
+    {
+        return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew;
     }
 }

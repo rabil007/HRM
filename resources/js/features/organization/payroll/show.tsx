@@ -111,7 +111,10 @@ export function PayrollShowContent({
         [page.props.errors, form.errors],
     );
 
-    const canSave = Boolean(period.is_editable) && (permissions.create || permissions.update);
+    const canSave =
+        period.supports_timesheets &&
+        Boolean(period.is_editable) &&
+        (permissions.create || permissions.update);
 
     useEffect(() => {
         if (!timesheet_draft) {
@@ -171,7 +174,7 @@ export function PayrollShowContent({
                 kicker="Payroll"
                 title={
                     <span className="inline-flex items-center gap-3">
-                        {period.name} · Crew
+                        {period.name} · {period.payroll_category_label}
                         <Badge variant={period.is_editable ? 'secondary' : 'outline'}>
                             {period.status_label}
                         </Badge>
@@ -183,15 +186,26 @@ export function PayrollShowContent({
             />
 
             <div className="mb-4">
-                <SearchBar value={list.searchInput} onChange={list.onSearchChange} placeholder="Search crew..." />
+                <SearchBar
+                    value={list.searchInput}
+                    onChange={list.onSearchChange}
+                    placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                />
             </div>
+
+            {!period.supports_timesheets ? (
+                <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
+                    Office payroll for this period will be generated from attendance in a later phase. Below are
+                    employees with an active office contract for this run.
+                </div>
+            ) : null}
 
             {rows.length === 0 ? (
                 <EmptyState
-                    title="No crew employees"
-                    description="Only employees with an active crew contract appear on this pay run."
+                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
+                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
                 />
-            ) : (
+            ) : period.supports_timesheets ? (
                 <>
                     <OrganizationDataTable>
                         <TableHeader>
@@ -264,17 +278,52 @@ export function PayrollShowContent({
                         onPageChange={list.onPageChange}
                     />
                 </>
+            ) : (
+                <>
+                    <OrganizationDataTable>
+                        <TableHeader>
+                            <DataTableHeaderRow>
+                                <DataTableHead>Employee</DataTableHead>
+                                <DataTableHead>Code</DataTableHead>
+                            </DataTableHeaderRow>
+                        </TableHeader>
+                        <TableBody>
+                            {rows.map((row) => (
+                                <TableRow key={row.employee.id} className={dataTableBodyRowClass}>
+                                    <TableCell className={dataTableCellPrimaryClass}>
+                                        {row.employee.name}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass}>
+                                        {row.employee.employee_no ?? '—'}
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </OrganizationDataTable>
+
+                    <Pagination
+                        currentPage={pagination.current_page}
+                        lastPage={pagination.last_page}
+                        perPage={pagination.per_page}
+                        total={pagination.total}
+                        from={pagination.from}
+                        to={pagination.to}
+                        onPageChange={list.onPageChange}
+                    />
+                </>
             )}
 
-            <CrewTimesheetFormSheet
-                open={isSheetOpen}
-                onOpenChange={setIsSheetOpen}
-                row={currentRow}
-                canSave={canSave}
-                form={form}
-                errors={mergedErrors}
-                onSubmit={handleSubmit}
-            />
+            {period.supports_timesheets ? (
+                <CrewTimesheetFormSheet
+                    open={isSheetOpen}
+                    onOpenChange={setIsSheetOpen}
+                    row={currentRow}
+                    canSave={canSave}
+                    form={form}
+                    errors={mergedErrors}
+                    onSubmit={handleSubmit}
+                />
+            ) : null}
         </Main>
     );
 }

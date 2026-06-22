@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -25,6 +26,7 @@ class PayrollPeriodFactory extends Factory
             'company_id' => static function (): int {
                 throw new \InvalidArgumentException('company_id must be set via for()');
             },
+            'payroll_category' => PayrollCategory::Crew,
             'name' => $start->format('F Y'),
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
@@ -41,6 +43,13 @@ class PayrollPeriodFactory extends Factory
     {
         return $this->state(fn () => [
             'status' => PayrollPeriodStatus::Approved,
+        ]);
+    }
+
+    public function office(): static
+    {
+        return $this->state(fn () => [
+            'payroll_category' => PayrollCategory::Office,
         ]);
     }
 }

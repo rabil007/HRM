@@ -8,7 +8,7 @@ use App\Models\Employee;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 
-final class CrewTimesheetBoardQuery
+final class PayrollPeriodBoardQuery
 {
     /**
      * @return LengthAwarePaginator<int, array<string, mixed>>
@@ -16,17 +16,17 @@ final class CrewTimesheetBoardQuery
     public function paginate(
         int $companyId,
         int $periodId,
+        PayrollCategory $payrollCategory,
         ?string $search = null,
         int $perPage = 25,
     ): LengthAwarePaginator {
-        $query = Employee::query()
-            ->where('employees.company_id', $companyId)
-            ->whereHas('currentContract', function (Builder $contractQuery) {
-                $contractQuery->where('payroll_category', PayrollCategory::Crew);
-            })
-            ->with([
+        $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+
+        if ($payrollCategory === PayrollCategory::Crew) {
+            $query->with([
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery->where('period_id', $periodId),
             ]);
+        }
 
         $this->applySearch($query, $search);
 
@@ -34,11 +34,15 @@ final class CrewTimesheetBoardQuery
             ->orderBy('employees.name')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(function (Employee $employee) use ($periodId) {
-                /** @var CrewTimesheet|null $timesheet */
-                $timesheet = $employee->crewTimesheets->first();
+            ->through(function (Employee $employee) use ($periodId, $payrollCategory) {
+                if ($payrollCategory === PayrollCategory::Crew) {
+                    /** @var CrewTimesheet|null $timesheet */
+                    $timesheet = $employee->crewTimesheets->first();
 
-                return CrewTimesheetResource::toBoardRow($employee, $timesheet, $periodId);
+                    return CrewTimesheetResource::toBoardRow($employee, $timesheet, $periodId);
+                }
+
+                return CrewTimesheetResource::toEmployeeRow($employee, $periodId);
             });
     }
 

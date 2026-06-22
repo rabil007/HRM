@@ -19,6 +19,7 @@ test('crew payroll board lists only employees with active crew contracts', funct
     grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
 
     $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
         'name' => 'May 2026',
         'start_date' => '2026-05-01',
         'end_date' => '2026-05-31',
@@ -212,6 +213,71 @@ test('crew timesheet validation rejects invalid date ranges', function () {
             'standby_to' => '2026-06-01',
         ])
         ->assertSessionHasErrors('standby_to');
+});
+
+test('office pay period lists only office employees', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-07-01',
+        'end_date' => '2026-07-31',
+    ]);
+
+    $crewEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    EmployeeContract::factory()->create([
+        'employee_id' => $crewEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $officeEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    EmployeeContract::factory()->create([
+        'employee_id' => $officeEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('organization.payroll.show', $period))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/payroll/show')
+            ->has('rows', 1)
+            ->where('rows.0.employee.id', $officeEmployee->id)
+            ->where('period.payroll_category', 'office')
+            ->where('period.supports_timesheets', false));
+});
+
+test('crew timesheets cannot be saved on office pay periods', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.view',
+        'payroll.crew_timesheets.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create();
+    $crewEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    EmployeeContract::factory()->create([
+        'employee_id' => $crewEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'active',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('organization.payroll.timesheets.store', $period), [
+            'period_id' => $period->id,
+            'employee_id' => $crewEmployee->id,
+            'standby_days' => 5,
+        ])
+        ->assertNotFound();
 });
 
 test('legacy crew payroll route redirects to payroll show when period is provided', function () {

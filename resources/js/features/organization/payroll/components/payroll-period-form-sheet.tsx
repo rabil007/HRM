@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,17 +11,19 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
-import type { PayrollPeriodFormData } from '../types';
+import type { PayrollCategoryOption, PayrollPeriodFormData } from '../types';
 
 export function PayrollPeriodFormSheet({
     open,
     onOpenChange,
     form,
+    payrollCategories,
     onSubmit,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     form: InertiaFormProps<PayrollPeriodFormData>;
+    payrollCategories: PayrollCategoryOption[];
     onSubmit: () => void;
 }) {
     return (
@@ -32,11 +35,36 @@ export function PayrollPeriodFormSheet({
                 <SheetHeader className="border-b border-border/60 p-8 pb-6">
                     <SheetTitle className="text-xl font-bold tracking-tight">New Payroll Period</SheetTitle>
                     <SheetDescription className="mt-1 text-sm text-muted-foreground/80">
-                        Create a draft pay period for crew and office payroll runs.
+                        Choose the payroll type and dates. Only employees on matching contracts appear on this run.
                     </SheetDescription>
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
+                    <div className="space-y-2">
+                        <Label
+                            htmlFor="payroll_category"
+                            className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                        >
+                            Payroll type
+                        </Label>
+                        <AppSelect
+                            value={form.data.payroll_category}
+                            onValueChange={(value) =>
+                                form.setData('payroll_category', value as PayrollPeriodFormData['payroll_category'])
+                            }
+                            variant="card"
+                        >
+                            {payrollCategories.map((category) => (
+                                <AppSelectItem key={category.value} value={category.value}>
+                                    {category.label}
+                                </AppSelectItem>
+                            ))}
+                        </AppSelect>
+                        {form.errors.payroll_category ? (
+                            <div className="text-xs font-medium text-destructive">{form.errors.payroll_category}</div>
+                        ) : null}
+                    </div>
+
                     <div className="space-y-2">
                         <Label
                             htmlFor="name"

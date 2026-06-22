@@ -49,4 +49,21 @@ final class CrewTimesheetResource
             'is_filled' => $timesheet !== null,
         ];
     }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function toEmployeeRow(Employee $employee, int $periodId): array
+    {
+        return [
+            'employee' => [
+                'id' => $employee->id,
+                'name' => $employee->name,
+                'employee_no' => $employee->employee_no,
+            ],
+            'period_id' => $periodId,
+            'timesheet' => null,
+            'is_filled' => false,
+        ];
+    }
 }

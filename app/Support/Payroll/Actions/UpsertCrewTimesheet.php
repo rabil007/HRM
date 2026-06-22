@@ -23,6 +23,12 @@ final class UpsertCrewTimesheet
             ]);
         }
 
+        if (! $period->isCrew()) {
+            throw ValidationException::withMessages([
+                'period_id' => 'Crew timesheets can only be saved on crew pay periods.',
+            ]);
+        }
+
         $employee->loadMissing('currentContract');
 
         if ($employee->currentContract?->payroll_category !== PayrollCategory::Crew) {

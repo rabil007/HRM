@@ -1,9 +1,19 @@
+export type PayrollCategory = 'office' | 'crew';
+
+export type PayrollCategoryOption = {
+    value: PayrollCategory;
+    label: string;
+};
+
 export type PayrollPeriod = {
     id: number;
     name: string;
     start_date: string;
     end_date: string;
     payment_date: string;
+    payroll_category: PayrollCategory;
+    payroll_category_label: string;
+    supports_timesheets: boolean;
     status: string;
     status_label: string;
     notes: string | null;
@@ -13,13 +23,14 @@ export type PayrollPeriod = {
 
 export type PayrollPeriodListItem = PayrollPeriod & {
     run_label: string;
-    crew_employee_count: number;
+    employee_count: number;
     timesheets_filled_count: number;
-    timesheets_progress_label: string;
+    timesheets_progress_label: string | null;
 };
 
 export type PayrollPeriodFormData = {
     name: string;
+    payroll_category: PayrollCategory;
     start_date: string;
     end_date: string;
     payment_date: string;
