@@ -45,7 +45,7 @@ final class CrewDeploymentBoardQuery
         $this->applySearch($baseQuery, $search);
         $this->applyRelationFilters($baseQuery, $rankId, $clientId, $companyVisaTypeId);
 
-        $summary = $this->buildSummary(clone $baseQuery);
+        $summary = CrewDeploymentSummary::fromQuery(clone $baseQuery);
 
         if ($status === DeploymentStatus::IN_HOME) {
             $inHomeIds = CrewDeploymentLatestRecords::inHomeDeploymentIds((clone $baseQuery)->get());
@@ -252,35 +252,5 @@ final class CrewDeploymentBoardQuery
                 default => null,
             };
         });
-    }
-
-    /**
-     * @param  Builder<EmployeeDeployment>  $query
-     * @return array<string, int>
-     */
-    private function buildSummary(Builder $query): array
-    {
-        $deployments = (clone $query)->get();
-
-        $summary = [
-            DeploymentStatus::ON_VESSEL => 0,
-            DeploymentStatus::JOIN_STANDBY => 0,
-            DeploymentStatus::LEAVE_STANDBY => 0,
-            DeploymentStatus::ARRIVED => 0,
-            DeploymentStatus::TRAVEL => 0,
-            DeploymentStatus::IN_HOME => 0,
-            DeploymentStatus::DISEMBARKED => 0,
-            DeploymentStatus::UNKNOWN => 0,
-        ];
-
-        foreach ($deployments as $deployment) {
-            $status = DeploymentStatus::resolve($deployment)['status'];
-            $summary[$status] = ($summary[$status] ?? 0) + 1;
-        }
-
-        $summary[DeploymentStatus::IN_HOME] = CrewDeploymentLatestRecords::inHomeDeploymentIds($deployments)->count();
-        $summary['total'] = $deployments->count();
-
-        return $summary;
     }
 }

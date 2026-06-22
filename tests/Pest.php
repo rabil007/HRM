@@ -10,6 +10,7 @@ require __DIR__.'/Support/spatie.php';
 require __DIR__.'/Support/document-fixtures.php';
 require __DIR__.'/Support/employee-profile-inertia.php';
 require __DIR__.'/Support/employee-profile-template-fixtures.php';
+require __DIR__.'/Support/crew-deployment-fixtures.php';
 
 /*
 |--------------------------------------------------------------------------

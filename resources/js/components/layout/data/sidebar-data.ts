@@ -84,6 +84,7 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Crew Operations',
             items: [
+                { title: 'Overview', url: '/organization/crew-operations', icon: LayoutDashboard },
                 { title: 'Deployments', url: '/organization/crew-deployments', icon: Ship },
                 { title: 'Planning', url: '/organization/crew-planning', icon: CalendarRange },
                 { title: 'Vessel Manning', url: '/organization/vessel-manning', icon: Anchor },
@@ -182,6 +183,8 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'positions.view') ? item : null;
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
+                        case '/organization/crew-operations':
+                            return has(permissions, 'crew_operations.deployments.view') ? item : null;
                         case '/organization/crew-deployments':
                             return has(permissions, 'crew_operations.deployments.view') ? item : null;
                         case '/organization/vessel-manning':
