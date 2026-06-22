@@ -1,4 +1,35 @@
-import type { PayrollPeriod } from '@/features/organization/payroll-periods/types';
+export type PayrollPeriod = {
+    id: number;
+    name: string;
+    start_date: string;
+    end_date: string;
+    payment_date: string;
+    status: string;
+    status_label: string;
+    notes: string | null;
+    is_editable: boolean;
+    created_at: string | null;
+};
+
+export type PayrollPeriodListItem = PayrollPeriod & {
+    run_label: string;
+    crew_employee_count: number;
+    timesheets_filled_count: number;
+    timesheets_progress_label: string;
+};
+
+export type PayrollPeriodFormData = {
+    name: string;
+    start_date: string;
+    end_date: string;
+    payment_date: string;
+    notes: string;
+};
+
+export type PayrollHubPermissions = {
+    create_period: boolean;
+    view_crew_timesheets: boolean;
+};
 
 export type CrewTimesheet = {
     id: number;
@@ -48,13 +79,13 @@ export type CrewPayrollPermissions = {
     delete: boolean;
 };
 
-export type CrewPayrollBoardProps = {
-    periods: PayrollPeriod[];
-    selectedPeriod: PayrollPeriod | null;
+export type PayrollShowProps = {
+    period: PayrollPeriod;
     rows: CrewPayrollRow[];
     pagination: import('@/types/pagination').PaginationMeta;
     search: string;
     permissions: CrewPayrollPermissions;
+    timesheet_draft: CrewTimesheetFormData | null;
 };
 
 function formatAmount(value: string | null | undefined): string {

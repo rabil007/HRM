@@ -67,10 +67,8 @@ export default function AppLayout({
         },
         {
             title: 'Payroll',
-            href: '/organization/payroll-periods',
-            isActive:
-                url.startsWith('/organization/payroll-periods') ||
-                url.startsWith('/organization/crew-payroll'),
+            href: '/organization/payroll',
+            isActive: url.startsWith('/organization/payroll'),
             disabled: false,
         },
     ];

@@ -16,6 +16,31 @@ class UpsertCrewTimesheetRequest extends FormRequest
             || $this->user()?->can('payroll.crew_timesheets.update'));
     }
 
+    protected function prepareForValidation(): void
+    {
+        $nullableFields = [
+            'standby_from',
+            'standby_to',
+            'standby_days',
+            'onsite_from',
+            'onsite_to',
+            'onsite_days',
+            'remarks',
+        ];
+
+        $normalized = [];
+
+        foreach ($nullableFields as $field) {
+            $value = $this->input($field);
+
+            if ($value === '' || $value === null) {
+                $normalized[$field] = null;
+            }
+        }
+
+        $this->merge($normalized);
+    }
+
     /**
      * @return array<string, ValidationRule|array<mixed>|string>
      */
@@ -35,10 +60,24 @@ class UpsertCrewTimesheetRequest extends FormRequest
                 Rule::exists('employees', 'id')->where('company_id', $companyId),
             ],
             'standby_from' => ['nullable', 'date'],
-            'standby_to' => ['nullable', 'date', 'after_or_equal:standby_from'],
+            'standby_to' => [
+                'nullable',
+                'date',
+                Rule::when(
+                    $this->filled('standby_from') && $this->filled('standby_to'),
+                    ['after_or_equal:standby_from'],
+                ),
+            ],
             'standby_days' => ['nullable', 'numeric', 'min:0'],
             'onsite_from' => ['nullable', 'date'],
-            'onsite_to' => ['nullable', 'date', 'after_or_equal:onsite_from'],
+            'onsite_to' => [
+                'nullable',
+                'date',
+                Rule::when(
+                    $this->filled('onsite_from') && $this->filled('onsite_to'),
+                    ['after_or_equal:onsite_from'],
+                ),
+            ],
             'onsite_days' => ['nullable', 'numeric', 'min:0'],
             'overtime_amount' => ['nullable', 'numeric', 'min:0'],
             'additional_amount' => ['nullable', 'numeric', 'min:0'],

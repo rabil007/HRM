@@ -1,4 +1,5 @@
 import type { InertiaFormProps } from '@inertiajs/react';
+import InputError from '@/components/input-error';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,6 +19,7 @@ export function CrewTimesheetFormSheet({
     row,
     canSave,
     form,
+    errors,
     onSubmit,
 }: {
     open: boolean;
@@ -25,8 +27,11 @@ export function CrewTimesheetFormSheet({
     row: CrewPayrollRow | null;
     canSave: boolean;
     form: InertiaFormProps<CrewTimesheetFormData>;
+    errors: Record<string, string | undefined>;
     onSubmit: () => void;
 }) {
+    const hasErrors = Object.keys(errors).length > 0;
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
@@ -45,6 +50,12 @@ export function CrewTimesheetFormSheet({
                 </SheetHeader>
 
                 <div className="flex-1 space-y-8 overflow-y-auto p-8">
+                    {hasErrors ? (
+                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+                            Please fix the highlighted fields before saving.
+                        </div>
+                    ) : null}
+
                     <div className="space-y-5">
                         <h3 className="text-sm font-semibold tracking-tight">Worked days</h3>
 
@@ -60,6 +71,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('standby_from', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.standby_from} className="text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -72,6 +84,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('standby_to', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.standby_to} className="text-xs" />
                             </div>
                         </div>
 
@@ -88,9 +101,7 @@ export function CrewTimesheetFormSheet({
                                 onChange={(e) => form.setData('standby_days', e.target.value)}
                                 disabled={!canSave}
                             />
-                            {form.errors.standby_days ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.standby_days}</div>
-                            ) : null}
+                            <InputError message={errors.standby_days} className="text-xs" />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
@@ -105,6 +116,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('onsite_from', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.onsite_from} className="text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -117,6 +129,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('onsite_to', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.onsite_to} className="text-xs" />
                             </div>
                         </div>
 
@@ -133,9 +146,7 @@ export function CrewTimesheetFormSheet({
                                 onChange={(e) => form.setData('onsite_days', e.target.value)}
                                 disabled={!canSave}
                             />
-                            {form.errors.onsite_days ? (
-                                <div className="text-xs font-medium text-destructive">{form.errors.onsite_days}</div>
-                            ) : null}
+                            <InputError message={errors.onsite_days} className="text-xs" />
                         </div>
                     </div>
 
@@ -156,6 +167,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('overtime_amount', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.overtime_amount} className="text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -170,6 +182,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('additional_amount', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.additional_amount} className="text-xs" />
                             </div>
                             <div className="space-y-2">
                                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -184,6 +197,7 @@ export function CrewTimesheetFormSheet({
                                     onChange={(e) => form.setData('deduction_amount', e.target.value)}
                                     disabled={!canSave}
                                 />
+                                <InputError message={errors.deduction_amount} className="text-xs" />
                             </div>
                         </div>
 
@@ -197,6 +211,7 @@ export function CrewTimesheetFormSheet({
                                 onChange={(e) => form.setData('remarks', e.target.value)}
                                 disabled={!canSave}
                             />
+                            <InputError message={errors.remarks} className="text-xs" />
                         </div>
                     </div>
                 </div>

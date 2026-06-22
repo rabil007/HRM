@@ -1,10 +1,13 @@
-import { useForm, router } from '@inertiajs/react';
-import { Plus } from 'lucide-react';
+import { Link, router, useForm } from '@inertiajs/react';
+import { ChevronRight, Plus } from 'lucide-react';
 import { useState } from 'react';
+import { index, storePeriod } from '@/actions/App/Http/Controllers/Organization/PayrollController';
+import { show } from '@/actions/App/Http/Controllers/Organization/PayrollController';
 import {
     OrganizationDataTable,
     DataTableHead,
     DataTableHeaderRow,
+    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
@@ -16,19 +19,18 @@ import { Pagination } from '@/components/pagination';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { index, store } from '@/actions/App/Http/Controllers/Organization/PayrollPeriodController';
-import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
-import type { PayrollPeriod, PayrollPeriodFormData, PayrollPeriodPermissions } from './types';
 import type { PaginationMeta } from '@/types/pagination';
+import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
+import type { PayrollHubPermissions, PayrollPeriodFormData, PayrollPeriodListItem } from './types';
 
-export function PayrollPeriodsContent({
+export function PayrollIndexContent({
     periods,
     pagination,
     permissions,
 }: {
-    periods: PayrollPeriod[];
+    periods: PayrollPeriodListItem[];
     pagination: PaginationMeta;
-    permissions: PayrollPeriodPermissions;
+    permissions: PayrollHubPermissions;
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
 
@@ -47,7 +49,7 @@ export function PayrollPeriodsContent({
     };
 
     const handleSubmit = () => {
-        form.post(store.url(), {
+        form.post(storePeriod.url(), {
             preserveScroll: true,
             onSuccess: () => setIsSheetOpen(false),
         });
@@ -56,13 +58,13 @@ export function PayrollPeriodsContent({
     return (
         <Main>
             <PageHeader
-                title="Payroll Periods"
-                description="Manage monthly pay periods used for crew and office payroll."
+                title="Payroll"
+                description="Pay periods and crew timesheet entry in one place."
                 actions={
-                    permissions.create ? (
+                    permissions.create_period ? (
                         <Button onClick={handleAdd} className="rounded-xl">
                             <Plus className="mr-2 h-4 w-4" />
-                            New period
+                            New pay period
                         </Button>
                     ) : null
                 }
@@ -70,13 +72,13 @@ export function PayrollPeriodsContent({
 
             {periods.length === 0 ? (
                 <EmptyState
-                    title="No payroll periods yet"
-                    description="Create a draft period to start entering crew timesheets."
+                    title="No pay periods yet"
+                    description="Create a draft pay period to start entering crew timesheets."
                     action={
-                        permissions.create ? (
+                        permissions.create_period ? (
                             <Button onClick={handleAdd} className="rounded-xl">
                                 <Plus className="mr-2 h-4 w-4" />
-                                New period
+                                New pay period
                             </Button>
                         ) : undefined
                     }
@@ -86,24 +88,44 @@ export function PayrollPeriodsContent({
                     <OrganizationDataTable>
                         <TableHeader>
                             <DataTableHeaderRow>
-                                <DataTableHead>Name</DataTableHead>
+                                <DataTableHead>Pay run</DataTableHead>
                                 <DataTableHead>Period</DataTableHead>
                                 <DataTableHead>Payment date</DataTableHead>
+                                <DataTableHead>Crew timesheets</DataTableHead>
                                 <DataTableHead>Status</DataTableHead>
+                                <DataTableHead className="text-right">Actions</DataTableHead>
                             </DataTableHeaderRow>
                         </TableHeader>
                         <TableBody>
                             {periods.map((period) => (
                                 <TableRow key={period.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>{period.name}</TableCell>
+                                    <TableCell className={dataTableCellPrimaryClass}>
+                                        <div className="font-medium">{period.run_label}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {period.crew_employee_count} crew employees
+                                        </div>
+                                    </TableCell>
                                     <TableCell className={dataTableCellClass}>
                                         {period.start_date} — {period.end_date}
                                     </TableCell>
                                     <TableCell className={dataTableCellClass}>{period.payment_date}</TableCell>
                                     <TableCell className={dataTableCellClass}>
+                                        {period.timesheets_progress_label} filled
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass}>
                                         <Badge variant={period.status === 'draft' ? 'secondary' : 'outline'}>
                                             {period.status_label}
                                         </Badge>
+                                    </TableCell>
+                                    <TableCell className={dataTableActionsCellClass}>
+                                        {permissions.view_crew_timesheets ? (
+                                            <Button variant="ghost" size="sm" className="rounded-lg" asChild>
+                                                <Link href={show.url(period.id)}>
+                                                    Open
+                                                    <ChevronRight className="ml-2 h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        ) : null}
                                     </TableCell>
                                 </TableRow>
                             ))}
