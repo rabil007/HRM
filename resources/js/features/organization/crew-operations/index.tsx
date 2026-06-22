@@ -3,6 +3,7 @@ import {
     AlertTriangle,
     Anchor,
     ArrowUpRight,
+    BarChart3,
     CalendarDays,
     CalendarRange,
     ChevronRight,
@@ -26,6 +27,8 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import { CrewOperationsDeploymentSummaryCards } from '@/features/organization/crew-operations/components/deployment-summary-cards';
+import { DeploymentTrendChart } from '@/features/organization/crew-operations/components/deployment-trend-chart';
+import { ManningGapsCard } from '@/features/organization/crew-operations/components/manning-gaps-card';
 import type { CrewOperationsDashboardProps } from '@/features/organization/crew-operations/types';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -46,6 +49,8 @@ export function CrewOperationsDashboardContent({
     deployment_summary: deploymentSummary,
     alert_counts: alertCounts,
     attention_items: attentionItems,
+    manning_gaps: manningGaps,
+    deployment_trends: deploymentTrends,
     upcoming_planning: upcomingPlanning,
     pool_snapshot: poolSnapshot,
     recent_activity: recentActivity,
@@ -54,7 +59,7 @@ export function CrewOperationsDashboardContent({
     can_view_audit: canViewAudit,
 }: CrewOperationsDashboardProps): ReactElement {
     usePoll(60_000, {
-        only: ['alert_counts', 'deployment_summary', 'attention_items'],
+        only: ['alert_counts', 'deployment_summary', 'attention_items', 'manning_gaps', 'deployment_trends'],
     });
 
     const today = new Date().toLocaleDateString('en-US', {
@@ -65,7 +70,11 @@ export function CrewOperationsDashboardContent({
     });
 
     const hasUrgentAlerts =
-        alertCounts.needs_update + alertCounts.overdue_home + alertCounts.due_soon > 0;
+        alertCounts.needs_update +
+            alertCounts.overdue_home +
+            alertCounts.due_soon +
+            (can.vessel_manning ? alertCounts.manning_gaps : 0) >
+        0;
 
     return (
         <Main>
@@ -139,6 +148,9 @@ export function CrewOperationsDashboardContent({
                                     `${alertCounts.overdue_home} over home limit (${maxHomeDays}d)`,
                                 alertCounts.due_soon > 0 &&
                                     `${alertCounts.due_soon} due within 2 days`,
+                                can.vessel_manning &&
+                                    alertCounts.manning_gaps > 0 &&
+                                    `${alertCounts.manning_gaps} manning gap${alertCounts.manning_gaps !== 1 ? 's' : ''}`,
                             ]
                                 .filter(Boolean)
                                 .join(' · ')}
@@ -149,7 +161,12 @@ export function CrewOperationsDashboardContent({
             ) : null}
 
             <SectionLabel icon={AlertTriangle} label="Alerts" />
-            <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div
+                className={cn(
+                    'mb-6 grid gap-4 sm:grid-cols-2',
+                    can.vessel_manning ? 'lg:grid-cols-5' : 'lg:grid-cols-4',
+                )}
+            >
                 <MetricCard
                     title="Needs update"
                     value={alertCounts.needs_update.toLocaleString()}
@@ -190,11 +207,57 @@ export function CrewOperationsDashboardContent({
                     accent="border-primary/20 hover:border-primary/30"
                     href={can.planning ? crewPlanningIndex.url() : undefined}
                 />
+                {can.vessel_manning ? (
+                    <MetricCard
+                        title="Manning gaps"
+                        value={alertCounts.manning_gaps.toLocaleString()}
+                        hint={
+                            manningGaps.total_shortfall > 0
+                                ? `${manningGaps.total_shortfall} crew short total`
+                                : 'Understaffed positions'
+                        }
+                        icon={Anchor}
+                        iconColor="text-amber-400"
+                        iconBg="bg-amber-500/10 border-amber-500/20"
+                        accent="border-amber-500/20 hover:border-amber-500/30"
+                        href={vesselManningIndex.url()}
+                    />
+                ) : null}
             </div>
 
             <SectionLabel icon={Ship} label="Deployment status" />
             <div className="mb-8">
                 <CrewOperationsDeploymentSummaryCards summary={deploymentSummary} />
+            </div>
+
+            <div className="mb-6 grid gap-6 lg:grid-cols-2">
+                <Card
+                    className={cn(
+                        'glass-card overflow-hidden dark:border-white/5 dark:bg-white/2',
+                        !can.vessel_manning && 'lg:col-span-2',
+                    )}
+                >
+                    <CardHeader className="border-b border-border/60 pb-4 dark:border-white/5">
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <CardTitle className="text-base font-bold tracking-tight">
+                                    Deployment trends
+                                </CardTitle>
+                                <CardDescription className="text-xs">
+                                    Joins and disembarks over the last 6 months
+                                </CardDescription>
+                            </div>
+                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10">
+                                <BarChart3 className="h-4 w-4 text-primary" />
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-5">
+                        <DeploymentTrendChart data={deploymentTrends} />
+                    </CardContent>
+                </Card>
+
+                {can.vessel_manning ? <ManningGapsCard manningGaps={manningGaps} /> : null}
             </div>
 
             <div className="mb-6 grid gap-6 lg:grid-cols-2">

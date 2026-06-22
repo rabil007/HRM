@@ -33,6 +33,14 @@ final class CrewOperationsDashboardAnalytics
         $deployments = $this->companyDeployments($companyId);
         $inHomeIds = CrewDeploymentLatestRecords::inHomeDeploymentIds($deployments, $today);
 
+        $manningGaps = $permissions['vessel_manning']
+            ? CrewOperationsManningGapQuery::forCompany($companyId, $today)
+            : [
+                'understaffed_positions' => 0,
+                'total_shortfall' => 0,
+                'items' => [],
+            ];
+
         $alertCounts = $this->alertCounts($deployments, $inHomeIds, $maxHomeDays, $companyId, $today, $permissions['planning']);
         $attentionItems = $this->attentionItems(
             $deployments,
@@ -41,12 +49,17 @@ final class CrewOperationsDashboardAnalytics
             $companyId,
             $today,
             $permissions['planning'],
+            $manningGaps['items'],
         );
 
         return [
             'deployment_summary' => CrewDeploymentSummary::forCompany($companyId),
-            'alert_counts' => $alertCounts,
+            'alert_counts' => array_merge($alertCounts, [
+                'manning_gaps' => $manningGaps['understaffed_positions'],
+            ]),
             'attention_items' => $attentionItems,
+            'manning_gaps' => $manningGaps,
+            'deployment_trends' => CrewOperationsDeploymentTrends::lastSixMonths($companyId),
             'upcoming_planning' => $permissions['planning']
                 ? $this->upcomingPlanning($companyId, $today)
                 : [],
@@ -150,6 +163,7 @@ final class CrewOperationsDashboardAnalytics
         int $companyId,
         CarbonImmutable $today,
         bool $canViewPlanning,
+        array $manningGapItems,
     ): array {
         $items = [];
         $seenDeploymentIds = [];
@@ -198,6 +212,28 @@ final class CrewOperationsDashboardAnalytics
                 'critical',
             );
             $seenDeploymentIds[$deployment->id] = true;
+        }
+
+        if ($manningGapItems !== []) {
+            foreach ($manningGapItems as $gap) {
+                if (count($items) >= self::ATTENTION_LIMIT) {
+                    break;
+                }
+
+                $items[] = [
+                    'type' => 'manning_gap',
+                    'title' => $gap['vessel_name'],
+                    'subtitle' => $gap['rank_name'],
+                    'hint' => sprintf(
+                        'Short %d — %d of %d on board',
+                        $gap['gap'],
+                        $gap['actual_count'],
+                        $gap['required_count'],
+                    ),
+                    'href' => route('organization.vessel-manning.show', ['vessel' => $gap['vessel_id']]),
+                    'severity' => 'warning',
+                ];
+            }
         }
 
         foreach ($deployments as $deployment) {

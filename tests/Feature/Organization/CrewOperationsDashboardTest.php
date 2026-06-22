@@ -4,6 +4,7 @@ use App\Models\CrewOperationsSetting;
 use App\Models\CrewPlanningAssignment;
 use App\Models\EmployeeDeployment;
 use App\Models\User;
+use App\Models\VesselManning;
 use App\Support\CrewDeployments\DeploymentStatus;
 use Carbon\CarbonImmutable;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -179,4 +180,85 @@ test('crew operations overview deployment summary matches board summary keys', f
             ->where('deployment_summary.on_vessel', 1)
             ->where('deployment_summary.total', 1)
             ->where('deployment_summary.'.DeploymentStatus::UNKNOWN, 0));
+});
+
+test('crew operations overview exposes manning gaps when user can view vessel manning', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.deployments.view',
+        'crew_operations.deployments.create',
+        'crew_operations.deployments.update',
+        'crew_operations.deployments.delete',
+        'crew_operations.deployments.export',
+        'crew_operations.vessel_manning.view',
+    ]);
+
+    $vessel = makeCrewDeploymentVessel('Overview Manning Gap');
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 2,
+    ]);
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => $vessel->id,
+        'joined_date' => CarbonImmutable::today()->subDays(2),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.vessel_manning', true)
+            ->where('alert_counts.manning_gaps', 1)
+            ->where('manning_gaps.understaffed_positions', 1)
+            ->where('manning_gaps.total_shortfall', 1)
+            ->has('manning_gaps.items', 1)
+            ->where('manning_gaps.items.0.gap', 1));
+});
+
+test('crew operations overview includes deployment trends for the last six months', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    EmployeeDeployment::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'rank_id' => $rank->id,
+        'vessel_id' => makeCrewDeploymentVessel('Trend Vessel')->id,
+        'joined_date' => CarbonImmutable::now()->startOfMonth()->toDateString(),
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('deployment_trends', 6)
+            ->where('deployment_trends.5.joins', 1));
+});
+
+test('crew operations overview hides manning gaps without vessel manning permission', function () {
+    ['user' => $user, 'company' => $company, 'employee' => $employee, 'rank' => $rank] = makeCrewDeploymentFixtures();
+
+    $vessel = makeCrewDeploymentVessel('Hidden Manning Gap');
+
+    VesselManning::query()->create([
+        'company_id' => $company->id,
+        'vessel_id' => $vessel->id,
+        'rank_id' => $rank->id,
+        'required_count' => 3,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.vessel_manning', false)
+            ->where('alert_counts.manning_gaps', 0)
+            ->where('manning_gaps.items', []));
 });
