@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Organization;
 
+use App\Enums\PayrollCategory;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
@@ -23,7 +24,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -57,7 +58,7 @@ class EmployeeContractController extends Controller
 
         EmployeeProfileTemplateRequestRules::assertRecordHasMeaningfulContent(
             $attributes,
-            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
+            ['contract_type', 'start_date', 'end_date', 'labor_contract_id', 'status', 'payroll_category', 'basic_salary', 'housing_allowance', 'transport_allowance', 'other_allowances', 'supplementary_allowance', 'site_allowance', 'note'],
             'Enter at least one contract field before saving.',
         );
 
@@ -97,6 +98,7 @@ class EmployeeContractController extends Controller
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'labor_contract_id' => ['nullable', 'string', 'max:100'],
             'status' => ['required', 'in:active,ended,draft'],
+            'payroll_category' => ['nullable', 'in:'.implode(',', PayrollCategory::values())],
             'basic_salary' => ['nullable', 'numeric', 'min:0'],
             'housing_allowance' => ['nullable', 'numeric', 'min:0'],
             'transport_allowance' => ['nullable', 'numeric', 'min:0'],
@@ -127,6 +129,11 @@ class EmployeeContractController extends Controller
                 $validated,
                 'start_date',
                 $existing?->start_date,
+            ),
+            'payroll_category' => EmployeeProfileTemplateRequestRules::persistedNullableValue(
+                $validated,
+                'payroll_category',
+                $existing?->payroll_category?->value ?? PayrollCategory::Office->value,
             ),
             'end_date' => EmployeeProfileTemplateRequestRules::hasValidated($validated, 'end_date')
                 ? ($validated['end_date'] ?? null)

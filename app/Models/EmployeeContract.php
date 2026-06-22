@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\PayrollCategory;
 use Database\Factories\EmployeeContractFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,7 @@ class EmployeeContract extends Model
         return [
             'start_date' => 'date',
             'end_date' => 'date',
+            'payroll_category' => PayrollCategory::class,
             'basic_salary' => 'decimal:2',
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',

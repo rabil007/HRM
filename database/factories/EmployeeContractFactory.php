@@ -27,6 +27,7 @@ class EmployeeContractFactory extends Factory
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $this->faker->optional()->dateTimeBetween($start, '+2 years')?->format('Y-m-d'),
             'labor_contract_id' => $this->faker->optional()->bothify('LCID-########'),
+            'payroll_category' => 'office',
             'status' => 'active',
         ];
     }

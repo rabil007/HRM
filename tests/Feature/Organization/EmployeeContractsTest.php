@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
@@ -381,3 +382,62 @@ test('contract store persists supplementary and site allowances', function () {
         ->and($contract->supplementary_allowance)->toBe('428.00')
         ->and($contract->site_allowance)->toBe('715.00');
 });
+
+test('contract store persists payroll_category correctly')
+    ->with([
+        'office category' => [PayrollCategory::Office],
+        'crew category' => [PayrollCategory::Crew],
+    ])
+    ->expect(function (PayrollCategory $category) {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $country = Country::query()->create([
+            'code' => 'PC'.strtoupper($category->value),
+            'name' => "Payroll Category {$category->value} Land",
+            'dial_code' => '+900',
+            'is_active' => true,
+        ]);
+
+        $currency = Currency::query()->create([
+            'code' => 'PC'.strtoupper($category->value),
+            'name' => "Payroll Cat {$category->value} Currency",
+            'symbol' => '$',
+            'is_active' => true,
+        ]);
+
+        $company = Company::query()->create([
+            'name' => "Payroll Cat {$category->value} Co",
+            'slug' => "payroll-cat-{$category->value}-co",
+            'working_days' => [1, 2, 3, 4, 5],
+            'country_id' => $country->id,
+            'currency_id' => $currency->id,
+            'timezone' => 'Asia/Dubai',
+            'payroll_cycle' => 'monthly',
+            'status' => 'active',
+        ]);
+
+        $employee = Employee::factory()->forCompany($company)->create([
+            'employee_no' => 'EMP-PC-'.strtoupper($category->value),
+            'status' => 'active',
+        ]);
+
+        grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+
+        $this->post(route('organization.employees.contracts.store', $employee), [
+            'contract_type' => 'unlimited',
+            'start_date' => '2026-01-01',
+            'status' => 'active',
+            'payroll_category' => $category->value,
+            'basic_salary' => 5000,
+        ])->assertRedirect();
+
+        $contract = EmployeeContract::query()
+            ->where('employee_id', $employee->id)
+            ->where('status', 'active')
+            ->latest('id')
+            ->first();
+
+        expect($contract)->not->toBeNull()
+            ->and($contract->payroll_category)->toBe($category);
+    });
