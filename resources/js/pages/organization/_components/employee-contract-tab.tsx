@@ -73,6 +73,11 @@ const STATUS_LABELS: Record<string, string> = {
     draft: 'Draft',
 };
 
+const PAYROLL_CATEGORY_LABELS: Record<string, string> = {
+    office: 'Office',
+    crew: 'Crew',
+};
+
 const DEFAULT_CONTRACT_REQUIRED_FIELDS = [
     'contract_type',
     'start_date',
@@ -138,6 +143,14 @@ function formatStatus(value: string | null | undefined): string {
     return STATUS_LABELS[value] ?? value;
 }
 
+function formatPayrollCategory(value: string | null | undefined): string {
+    if (!value) {
+        return '—';
+    }
+
+    return PAYROLL_CATEGORY_LABELS[value] ?? value;
+}
+
 function formatMoney(value: number | null | undefined): string {
     if (value === null || value === undefined) {
         return '—';
@@ -158,6 +171,7 @@ function formatMoney(value: number | null | undefined): string {
 function buildContractPayload(
     data: {
         contract_type: string;
+        payroll_category: string;
         start_date: string;
         end_date: string;
         labor_contract_id: string;
@@ -175,6 +189,7 @@ function buildContractPayload(
     return omitHiddenTemplateRecordFields(
         {
             contract_type: data.contract_type,
+            payroll_category: data.payroll_category,
             start_date: data.start_date,
             end_date: data.end_date === '' ? null : data.end_date,
             labor_contract_id:
@@ -263,6 +278,7 @@ export function EmployeeContractTab({
 
     const showContractDetailsSection =
         showField('contract_type') ||
+        showField('payroll_category') ||
         showField('status') ||
         showField('labor_contract_id');
     const showDurationSection = showField('start_date') || showField('end_date');
@@ -284,6 +300,7 @@ export function EmployeeContractTab({
 
     const contractForm = useForm({
         contract_type: 'unlimited',
+        payroll_category: 'office',
         start_date: '',
         end_date: '',
         labor_contract_id: '',
@@ -327,6 +344,7 @@ export function EmployeeContractTab({
         setMissingRequiredFields(new Set());
         contractForm.setData({
             contract_type: 'unlimited',
+            payroll_category: 'office',
             start_date: '',
             end_date: '',
             labor_contract_id: '',
@@ -348,6 +366,7 @@ export function EmployeeContractTab({
         setMissingRequiredFields(new Set());
         contractForm.setData({
             contract_type: row.contract_type ?? 'unlimited',
+            payroll_category: row.payroll_category ?? 'office',
             start_date: row.start_date ?? '',
             end_date: row.end_date ?? '',
             labor_contract_id: row.labor_contract_id ?? '',
@@ -485,6 +504,11 @@ export function EmployeeContractTab({
                             {showField('contract_type') ? (
                                 <th className={employeeRecordsTableThClass()}>Type</th>
                             ) : null}
+                            {showField('payroll_category') ? (
+                                <th className={employeeRecordsTableThClass()}>
+                                    Payroll category
+                                </th>
+                            ) : null}
                             {showField('status') ? (
                                 <th className={employeeRecordsTableThClass()}>Status</th>
                             ) : null}
@@ -549,6 +573,20 @@ export function EmployeeContractTab({
                                         )}
                                     >
                                         {formatContractType(row.contract_type)}
+                                    </td>
+                                ) : null}
+                                {showField('payroll_category') ? (
+                                    <td className={employeeRecordsTableTdClass()}>
+                                        <span
+                                            className={cn(
+                                                'inline-flex rounded-full border px-2 py-0.5 text-xs font-medium',
+                                                row.payroll_category === 'crew'
+                                                    ? 'border-sky-500/25 bg-sky-500/10 text-sky-600 dark:text-sky-400'
+                                                    : 'border-indigo-500/25 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400',
+                                            )}
+                                        >
+                                            {formatPayrollCategory(row.payroll_category)}
+                                        </span>
                                     </td>
                                 ) : null}
                                 {showField('status') ? (
@@ -749,6 +787,40 @@ export function EmployeeContractTab({
                                     <AppSelectItem value="contract">Contract</AppSelectItem>
                                 </AppSelect>
                                 <p className="text-[11px] text-muted-foreground">The nature of the employment term</p>
+                            </ContractFormField>
+                            ) : null}
+                            {showField('payroll_category') ? (
+                            <ContractFormField
+                                field="payroll_category"
+                                highlightMissing={isMissingRequired('payroll_category')}
+                            >
+                                <Label
+                                    htmlFor="contract_payroll_category"
+                                    className={cn(
+                                        'text-xs',
+                                        isMissingRequired('payroll_category') &&
+                                            employeeFieldMissingLabelClass,
+                                    )}
+                                >
+                                    Payroll category
+                                    <RequiredIndicator
+                                        show={isFieldRequired('payroll_category')}
+                                    />
+                                </Label>
+                                <AppSelect
+                                    value={contractForm.data.payroll_category}
+                                    onValueChange={(v) =>
+                                        contractForm.setData('payroll_category', v)
+                                    }
+                                    variant="dark"
+                                >
+                                    <AppSelectItem value="office">Office</AppSelectItem>
+                                    <AppSelectItem value="crew">Crew</AppSelectItem>
+                                </AppSelect>
+                                <p className="text-[11px] text-muted-foreground">
+                                    Office payroll uses monthly salary; crew payroll uses
+                                    daily rates and timesheets
+                                </p>
                             </ContractFormField>
                             ) : null}
                             {showField('status') ? (

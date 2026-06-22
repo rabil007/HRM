@@ -106,6 +106,7 @@ test('employee show page includes contracts', function () {
         'company_id' => $company->id,
         'employee_id' => $employee->id,
         'contract_type' => 'limited',
+        'payroll_category' => PayrollCategory::Crew->value,
         'start_date' => '2025-01-01',
         'end_date' => '2025-12-31',
         'labor_contract_id' => 'LC-100',
@@ -123,7 +124,9 @@ test('employee show page includes contracts', function () {
                 ->where(
                     'contracts',
                     fn ($contracts) => collect($contracts)->contains(
-                        fn ($row) => $row['contract_type'] === 'limited' && $row['status'] === 'ended',
+                        fn ($row) => $row['contract_type'] === 'limited'
+                            && $row['status'] === 'ended'
+                            && $row['payroll_category'] === 'crew',
                     ),
                 ),
         ));

@@ -113,10 +113,6 @@ class EmployeeContractController extends Controller
      * @param  array<string, mixed>  $validated
      * @return array<string, mixed>
      */
-    /**
-     * @param  array<string, mixed>  $validated
-     * @return array<string, mixed>
-     */
     private function contractAttributes(array $validated, ?EmployeeContract $existing): array
     {
         return [

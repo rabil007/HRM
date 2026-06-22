@@ -14,6 +14,7 @@ final class EmployeeContractResource
         return [
             'id' => $contract->id,
             'contract_type' => $contract->contract_type,
+            'payroll_category' => $contract->payroll_category?->value,
             'start_date' => $contract->start_date?->toDateString(),
             'end_date' => $contract->end_date?->toDateString(),
             'labor_contract_id' => $contract->labor_contract_id,

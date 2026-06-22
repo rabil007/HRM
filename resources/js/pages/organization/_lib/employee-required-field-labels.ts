@@ -33,6 +33,7 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     status: 'Status',
     crew_status: 'Crew status',
     contract_type: 'Contract type',
+    payroll_category: 'Payroll category',
     start_date: 'Start date',
     end_date: 'End date',
     labor_contract_id: 'Labor contract ID',
