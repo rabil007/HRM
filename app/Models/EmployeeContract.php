@@ -7,6 +7,7 @@ use Database\Factories\EmployeeContractFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeContract extends Model
@@ -41,5 +42,10 @@ class EmployeeContract extends Model
     public function employee(): BelongsTo
     {
         return $this->belongsTo(Employee::class);
+    }
+
+    public function salaryComponents(): HasMany
+    {
+        return $this->hasMany(ContractSalaryComponent::class, 'contract_id');
     }
 }

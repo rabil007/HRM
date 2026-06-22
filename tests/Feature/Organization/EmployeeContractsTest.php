@@ -1,7 +1,9 @@
 <?php
 
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryComponentCode;
 use App\Models\Company;
+use App\Models\ContractSalaryComponent;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Employee;
@@ -444,3 +446,62 @@ test('contract store persists payroll_category correctly')
         expect($contract)->not->toBeNull()
             ->and($contract->payroll_category)->toBe($category);
     });
+
+test('contract store syncs salary components from legacy columns', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'CSC',
+        'name' => 'Component Sync Country',
+        'dial_code' => '+901',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'CSC',
+        'name' => 'Component Sync Currency',
+        'symbol' => '$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Component Sync Co',
+        'slug' => 'component-sync-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'EMP-CSC-1',
+        'status' => 'active',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.contracts.manage']);
+
+    $this->post(route('organization.employees.contracts.store', $employee), [
+        'contract_type' => 'unlimited',
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office->value,
+        'basic_salary' => 8000,
+        'housing_allowance' => 1500,
+    ])->assertRedirect();
+
+    $contract = EmployeeContract::query()
+        ->where('employee_id', $employee->id)
+        ->where('status', 'active')
+        ->first();
+
+    $components = ContractSalaryComponent::query()
+        ->where('contract_id', $contract->id)
+        ->get();
+
+    expect($components)->toHaveCount(2)
+        ->and($components->firstWhere('component_code', SalaryComponentCode::Basic)?->amount)->toBe('8000.00')
+        ->and($components->firstWhere('component_code', SalaryComponentCode::Housing)?->amount)->toBe('1500.00');
+});

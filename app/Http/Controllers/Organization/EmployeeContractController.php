@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -32,11 +33,13 @@ class EmployeeContractController extends Controller
             $this->deactivateOtherContracts($companyId, $employee->id);
         }
 
-        EmployeeContract::query()->create([
+        $contract = EmployeeContract::query()->create([
             'company_id' => $companyId,
             'employee_id' => $employee->id,
             ...$attributes,
         ]);
+
+        (new SyncContractSalaryComponentsFromContract)->handle($contract);
 
         return back()->with('success', 'Contract added.');
     }
@@ -67,6 +70,8 @@ class EmployeeContractController extends Controller
         }
 
         $employeeContract->update($attributes);
+
+        (new SyncContractSalaryComponentsFromContract)->handle($employeeContract->fresh());
 
         return back()->with('success', 'Contract updated.');
     }

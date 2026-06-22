@@ -163,8 +163,7 @@ Example:
 
 | Component | Rate Type | Amount |
 |------------|-----------|--------|
-| STANDBY_RATE | daily | 150 |
-| ONSITE_RATE | daily | 300 |
+| BASIC | daily | 50 |
 | SITE_ALLOWANCE | daily | 50 |
 | SUPPLEMENTARY_ALLOWANCE | daily | 75 |
 | OT_RATE | hourly | 25 |
@@ -191,8 +190,7 @@ Other Allowances
 Show:
 
 ```text
-Standby Rate
-Onsite Rate
+Basic Salary (daily rate — used for standby and onsite)
 Site Allowance
 Supplementary Allowance
 OT Rate
@@ -290,7 +288,7 @@ Crew Timesheets
 ### Standby Salary
 
 ```text
-Standby Days × Standby Rate
+Standby Days × Basic Salary (daily rate)
 ```
 
 ---
@@ -298,7 +296,7 @@ Standby Days × Standby Rate
 ### Onsite Salary
 
 ```text
-Onsite Days × Onsite Rate
+Onsite Days × Basic Salary (daily rate)
 ```
 
 ---
