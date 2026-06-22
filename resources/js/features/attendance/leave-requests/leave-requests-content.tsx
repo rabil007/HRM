@@ -254,7 +254,19 @@ export function LeaveRequestsContent({
                         {leave_requests.map((leaveRequest) => (
                             <TableRow key={leaveRequest.id} className={dataTableBodyRowClass()}>
                                 <TableCell className={dataTableCellPrimaryClass()}>{leaveRequest.employee?.name ?? '—'}</TableCell>
-                                <TableCell className={dataTableCellClass()}>{leaveRequest.leave_type?.name ?? '—'}</TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {leaveRequest.leave_type ? (
+                                        <div className="flex items-center gap-2">
+                                            <span
+                                                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                                                style={{ backgroundColor: leaveRequest.leave_type.color ?? '#94a3b8' }}
+                                            />
+                                            <span className="font-semibold">{leaveRequest.leave_type.name}</span>
+                                        </div>
+                                    ) : (
+                                        '—'
+                                    )}
+                                </TableCell>
                                 <TableCell className={dataTableCellClass()}>{formatDisplayDate(leaveRequest.start_date)}</TableCell>
                                 <TableCell className={dataTableCellClass()}>{formatDisplayDate(leaveRequest.end_date)}</TableCell>
                                 <TableCell className={dataTableCellClass()}>{leaveRequest.total_days}</TableCell>

@@ -37,8 +37,13 @@ export function LeaveRequestCard({
                         <div className="mt-3 flex flex-wrap gap-2">
                             {leaveRequest.leave_type ? (
                                 <Badge
-                                    variant="secondary"
-                                    className="bg-muted/40 text-muted-foreground border-border/60 text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10"
+                                    variant="outline"
+                                    className="text-[10px] uppercase font-bold tracking-wider"
+                                    style={{
+                                        borderColor: `${leaveRequest.leave_type.color || '#94a3b8'}40`,
+                                        backgroundColor: `${leaveRequest.leave_type.color || '#94a3b8'}15`,
+                                        color: leaveRequest.leave_type.color || '#94a3b8',
+                                    }}
                                 >
                                     {leaveRequest.leave_type.code}
                                 </Badge>
@@ -59,7 +64,15 @@ export function LeaveRequestCard({
                 <div className="grid gap-2 pb-16">
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 dark:border-white/6 dark:bg-white/4">
                         <div className="text-xs font-semibold text-muted-foreground/80">Leave type</div>
-                        <div className="text-sm font-bold truncate">{leaveRequest.leave_type?.name ?? '—'}</div>
+                        <div className="flex items-center gap-2 truncate">
+                            {leaveRequest.leave_type ? (
+                                <span
+                                    className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                                    style={{ backgroundColor: leaveRequest.leave_type.color ?? '#94a3b8' }}
+                                />
+                            ) : null}
+                            <div className="text-sm font-bold truncate">{leaveRequest.leave_type?.name ?? '—'}</div>
+                        </div>
                     </div>
                     {leaveRequest.reason ? (
                         <div className="rounded-xl border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground dark:border-white/6 dark:bg-white/4 line-clamp-2">

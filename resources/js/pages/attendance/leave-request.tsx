@@ -1,6 +1,6 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { FileText } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
@@ -23,7 +23,7 @@ import type {LeaveRequest, LeaveRequestEmployeeOption, LeaveRequestPermissions, 
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div className="flex items-center justify-between gap-3 px-6 py-4">
             <div className="text-sm font-semibold text-muted-foreground/80">{label}</div>
@@ -129,7 +129,22 @@ export default function LeaveRequestDetails({
                         <div className="divide-y divide-border dark:divide-white/5">
                             <Field label="Employee" value={leave_request.employee?.name ?? '—'} />
                             <Field label="Employee no." value={leave_request.employee?.employee_no ?? '—'} />
-                            <Field label="Leave type" value={leave_request.leave_type?.name ?? '—'} />
+                            <Field
+                                label="Leave type"
+                                value={
+                                    leave_request.leave_type ? (
+                                        <div className="flex items-center justify-end gap-2">
+                                            <span
+                                                className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
+                                                style={{ backgroundColor: leave_request.leave_type.color ?? '#94a3b8' }}
+                                            />
+                                            <span>{leave_request.leave_type.name}</span>
+                                        </div>
+                                    ) : (
+                                        '—'
+                                    )
+                                }
+                            />
                             <Field label="Start date" value={formatDisplayDate(leave_request.start_date)} />
                             <Field label="End date" value={formatDisplayDate(leave_request.end_date)} />
                             <Field label="Total days" value={String(leave_request.total_days)} />
