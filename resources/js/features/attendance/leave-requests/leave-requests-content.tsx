@@ -256,13 +256,21 @@ export function LeaveRequestsContent({
                                 <TableCell className={dataTableCellPrimaryClass()}>{leaveRequest.employee?.name ?? '—'}</TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {leaveRequest.leave_type ? (
-                                        <div className="flex items-center gap-2">
+                                        <Badge
+                                            variant="outline"
+                                            className="text-[10px] uppercase font-bold tracking-wider flex items-center gap-1"
+                                            style={{
+                                                borderColor: `${leaveRequest.leave_type.color || '#94a3b8'}40`,
+                                                backgroundColor: `${leaveRequest.leave_type.color || '#94a3b8'}15`,
+                                                color: leaveRequest.leave_type.color || '#94a3b8',
+                                            }}
+                                        >
                                             <span
                                                 className="inline-block h-2.5 w-2.5 shrink-0 rounded-full border border-black/10 dark:border-white/10"
                                                 style={{ backgroundColor: leaveRequest.leave_type.color ?? '#94a3b8' }}
                                             />
-                                            <span className="font-semibold">{leaveRequest.leave_type.name}</span>
-                                        </div>
+                                            {leaveRequest.leave_type.code}
+                                        </Badge>
                                     ) : (
                                         '—'
                                     )}

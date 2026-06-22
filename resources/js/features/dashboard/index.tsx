@@ -40,7 +40,7 @@ import { DistributionBarChart } from '@/features/dashboard/charts/distribution-b
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
-import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDate } from '@/lib/format-date';
 import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
