@@ -166,7 +166,8 @@ Example:
 | BASIC | daily | 50 |
 | SITE_ALLOWANCE | daily | 50 |
 | SUPPLEMENTARY_ALLOWANCE | daily | 75 |
-| OT_RATE | hourly | 25 |
+
+OT is **not** stored on the contract. Enter the already-calculated overtime amount on the crew timesheet when running payroll.
 
 ---
 
@@ -193,7 +194,6 @@ Show:
 Basic Salary (daily rate — used for standby and onsite)
 Site Allowance
 Supplementary Allowance
-OT Rate
 ```
 
 ---
@@ -231,7 +231,7 @@ onsite_from
 onsite_to
 onsite_days
 
-ot_hours
+overtime_amount
 
 additional_amount
 deduction_amount
@@ -320,7 +320,7 @@ Onsite Days × Supplementary Allowance
 ### OT
 
 ```text
-OT Hours × OT Rate
+Overtime amount from crew timesheet (already calculated — not contract rate × hours)
 ```
 
 ---

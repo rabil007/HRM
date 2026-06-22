@@ -119,6 +119,43 @@ test('sync deactivates obsolete standby rate when crew contract uses basic', fun
         )->toBe(SalaryComponentStatus::Active);
 });
 
+test('sync deactivates obsolete ot rate component for crew contracts', function () {
+    $company = makeSyncContractSalaryComponentsCompany();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'SSC-OT',
+    ]);
+
+    $contract = EmployeeContract::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'contract_type' => 'unlimited',
+        'payroll_category' => PayrollCategory::Crew->value,
+        'start_date' => '2026-01-01',
+        'status' => 'active',
+        'basic_salary' => 50,
+    ]);
+
+    ContractSalaryComponent::query()->create([
+        'company_id' => $company->id,
+        'contract_id' => $contract->id,
+        'component_code' => SalaryComponentCode::OtRate->value,
+        'component_name' => 'OT rate',
+        'rate_type' => 'hourly',
+        'amount' => 25,
+        'status' => SalaryComponentStatus::Active->value,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    expect(
+        ContractSalaryComponent::query()
+            ->where('contract_id', $contract->id)
+            ->where('component_code', SalaryComponentCode::OtRate->value)
+            ->first()
+            ?->status,
+    )->toBe(SalaryComponentStatus::Inactive);
+});
+
 test('sync deactivates components when legacy amount is cleared', function () {
     $company = makeSyncContractSalaryComponentsCompany();
     $employee = Employee::factory()->forCompany($company)->create([

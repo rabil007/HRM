@@ -18,27 +18,22 @@ test('office catalog exposes monthly salary components', function () {
         ->and($definitions[0]['rate_type'])->toBe(SalaryComponentRateType::Monthly->value);
 });
 
-test('crew catalog exposes daily basic and hourly ot components', function () {
+test('crew catalog exposes daily rate components only', function () {
     $definitions = ContractSalaryComponentCatalog::definitionsFor(PayrollCategory::Crew);
 
-    expect($definitions)->toHaveCount(4)
-        ->and(collect($definitions)->pluck('component_code')->all())->toContain(
+    expect($definitions)->toHaveCount(3)
+        ->and(collect($definitions)->pluck('component_code')->all())->toBe([
             SalaryComponentCode::Basic,
-            SalaryComponentCode::OtRate,
-        );
+            SalaryComponentCode::SiteAllowance,
+            SalaryComponentCode::SupplementaryAllowance,
+        ]);
 
     $basicDefinition = collect($definitions)->firstWhere(
         'component_code',
         SalaryComponentCode::Basic,
     );
 
-    $otDefinition = collect($definitions)->firstWhere(
-        'component_code',
-        SalaryComponentCode::OtRate,
-    );
-
-    expect($basicDefinition['rate_type'])->toBe(SalaryComponentRateType::Daily->value)
-        ->and($otDefinition['rate_type'])->toBe(SalaryComponentRateType::Hourly->value);
+    expect($basicDefinition['rate_type'])->toBe(SalaryComponentRateType::Daily->value);
 });
 
 test('legacy column map differs by payroll category', function () {

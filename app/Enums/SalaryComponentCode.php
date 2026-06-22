@@ -62,7 +62,6 @@ enum SalaryComponentCode: string
                 self::Basic,
                 self::SiteAllowance,
                 self::SupplementaryAllowance,
-                self::OtRate,
             ],
         };
     }

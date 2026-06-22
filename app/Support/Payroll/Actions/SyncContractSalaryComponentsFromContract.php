@@ -17,6 +17,7 @@ final class SyncContractSalaryComponentsFromContract
     private const OBSOLETE_CREW_COMPONENTS = [
         SalaryComponentCode::StandbyRate,
         SalaryComponentCode::OnsiteRate,
+        SalaryComponentCode::OtRate,
     ];
 
     public function handle(EmployeeContract $contract): void
