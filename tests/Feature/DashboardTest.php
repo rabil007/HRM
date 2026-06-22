@@ -1,8 +1,7 @@
 <?php
 
 use App\Models\Employee;
-use App\Models\HikvisionAccessEvent;
-use App\Models\HikvisionPerson;
+use App\Models\AttendanceRecord;
 use App\Models\User;
 use Carbon\Carbon;
 
@@ -63,7 +62,7 @@ test('dashboard returns employee analytics and document compliance props', funct
             ->has('recent_hires')
             ->has('attendance_analytics')
             ->has('attendance_analytics.check_ins_today')
-            ->has('attendance_analytics.recent_events')
+            ->has('attendance_analytics.recent_records')
         );
 });
 
@@ -83,37 +82,29 @@ test('dashboard attendance analytics only includes linked company employees', fu
         'status' => 'active',
     ]);
 
-    $linkedPerson = HikvisionPerson::query()->create([
-        'person_id' => 'dash-person-1',
-        'full_name' => 'Linked Employee',
+    // Create an AttendanceRecord for the current company employee
+    AttendanceRecord::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'date' => '2026-06-08',
+        'clock_in' => '2026-06-08 09:00:00',
+        'clock_out' => '2026-06-08 17:00:00',
+        'hours_worked' => 8.0,
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
     ]);
 
-    $employee->update(['hikvision_person_id' => $linkedPerson->id]);
-
-    HikvisionAccessEvent::query()->create([
-        'system_id' => 'dash:linked:checkin',
-        'msg_type' => 'acs/5/38',
-        'occurrence_time' => now(),
-        'person_name' => 'Linked Employee',
-        'person_hikvision_id' => 'dash-person-1',
-        'device_name' => 'OMS-Door',
-        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
-        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
-        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
-        'fetched_at' => now(),
-    ]);
-
-    HikvisionAccessEvent::query()->create([
-        'system_id' => 'dash:unlinked:checkin',
-        'msg_type' => 'acs/5/38',
-        'occurrence_time' => '2026-06-08 09:00:00',
-        'person_name' => 'Unlinked Person',
-        'person_hikvision_id' => 'unlinked-person',
-        'device_name' => 'OMS-Door',
-        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
-        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
-        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
-        'fetched_at' => now(),
+    // Create an AttendanceRecord for a different company
+    $otherFixtures = makeDocumentFixtures();
+    $otherCompany = $otherFixtures['company'];
+    $otherCompanyEmployee = $otherFixtures['employee'];
+    AttendanceRecord::query()->create([
+        'company_id' => $otherCompany->id,
+        'employee_id' => $otherCompanyEmployee->id,
+        'date' => '2026-06-08',
+        'clock_in' => '2026-06-08 09:00:00',
+        'status' => AttendanceRecord::STATUS_PRESENT,
+        'source' => AttendanceRecord::SOURCE_MANUAL,
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -122,12 +113,11 @@ test('dashboard attendance analytics only includes linked company employees', fu
         ->assertInertia(fn ($page) => $page
             ->where('attendance_analytics.check_ins_today', 1)
             ->where('attendance_analytics.present_today', 1)
-            ->where('attendance_analytics.linked_employees', 1)
-            ->has('attendance_analytics.recent_events', 1)
-            ->where('attendance_analytics.recent_events.0.employee_id', $employee->id)
+            ->where('attendance_analytics.late_today', 0)
+            ->where('attendance_analytics.absent_today', 0)
+            ->has('attendance_analytics.recent_records', 1)
+            ->where('attendance_analytics.recent_records.0.employee_id', $employee->id)
         );
-
-    expect($otherEmployee->hikvision_person_id)->toBeNull();
 
     Carbon::setTestNow();
 });

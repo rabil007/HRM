@@ -7,7 +7,7 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
-use App\Models\HikvisionAccessEvent;
+use App\Models\AttendanceRecord;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -96,17 +96,19 @@ final class DashboardAnalytics
      *     check_outs_today: int,
      *     events_today: int,
      *     present_today: int,
-     *     linked_employees: int,
+     *     late_today: int,
+     *     absent_today: int,
      *     active_employees: int,
      *     weekly_trends: list<array{day: string, check_ins: int, check_outs: int}>,
-     *     recent_events: list<array{
+     *     recent_records: list<array{
      *         id: int,
-     *         occurrence_time: string|null,
-     *         person_name: string|null,
+     *         date: string|null,
+     *         clock_in: string|null,
+     *         clock_out: string|null,
      *         employee_name: string|null,
      *         employee_id: int|null,
-     *         attendance_status: string|null,
-     *         device_name: string|null
+     *         status: string,
+     *         source: string|null
      *     }>
      * }
      */
@@ -115,41 +117,45 @@ final class DashboardAnalytics
         $timezone = Company::query()->whereKey($companyId)->value('timezone')
             ?? config('app.timezone');
 
-        $dayStart = now($timezone)->startOfDay();
-        $dayEnd = now($timezone)->endOfDay();
+        $todayDate = now($timezone)->toDateString();
 
-        $checkInsToday = (int) HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->forCompany($companyId)
-            ->whereBetween('occurrence_time', [$dayStart, $dayEnd])
-            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-            ->count();
-
-        $checkOutsToday = (int) HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->forCompany($companyId)
-            ->whereBetween('occurrence_time', [$dayStart, $dayEnd])
-            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
-            ->count();
-
-        $eventsToday = (int) HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->forCompany($companyId)
-            ->whereBetween('occurrence_time', [$dayStart, $dayEnd])
-            ->count();
-
-        $presentToday = (int) HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->forCompany($companyId)
-            ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-            ->whereBetween('occurrence_time', [$dayStart, $dayEnd])
-            ->whereNotNull('person_hikvision_id')
-            ->distinct()
-            ->count('person_hikvision_id');
-
-        $linkedEmployees = (int) Employee::query()
+        $checkInsToday = (int) AttendanceRecord::query()
             ->where('company_id', $companyId)
-            ->whereNotNull('hikvision_person_id')
+            ->whereDate('date', $todayDate)
+            ->whereNotNull('clock_in')
+            ->count();
+
+        $checkOutsToday = (int) AttendanceRecord::query()
+            ->where('company_id', $companyId)
+            ->whereDate('date', $todayDate)
+            ->whereNotNull('clock_out')
+            ->count();
+
+        $eventsToday = (int) AttendanceRecord::query()
+            ->where('company_id', $companyId)
+            ->whereDate('date', $todayDate)
+            ->count();
+
+        $presentToday = (int) AttendanceRecord::query()
+            ->where('company_id', $companyId)
+            ->whereDate('date', $todayDate)
+            ->whereIn('status', [
+                AttendanceRecord::STATUS_PRESENT,
+                AttendanceRecord::STATUS_LATE,
+                AttendanceRecord::STATUS_HALF_DAY,
+            ])
+            ->count();
+
+        $lateToday = (int) AttendanceRecord::query()
+            ->where('company_id', $companyId)
+            ->whereDate('date', $todayDate)
+            ->where('status', AttendanceRecord::STATUS_LATE)
+            ->count();
+
+        $absentToday = (int) AttendanceRecord::query()
+            ->where('company_id', $companyId)
+            ->whereDate('date', $todayDate)
+            ->where('status', AttendanceRecord::STATUS_ABSENT)
             ->count();
 
         $activeEmployees = (int) Employee::query()
@@ -162,10 +168,11 @@ final class DashboardAnalytics
             'check_outs_today' => $checkOutsToday,
             'events_today' => $eventsToday,
             'present_today' => $presentToday,
-            'linked_employees' => $linkedEmployees,
+            'late_today' => $lateToday,
+            'absent_today' => $absentToday,
             'active_employees' => $activeEmployees,
             'weekly_trends' => $this->attendanceWeeklyTrends($companyId, $timezone),
-            'recent_events' => $this->recentAttendanceEvents($companyId),
+            'recent_records' => $this->recentAttendanceRecords($companyId),
         ];
     }
 
@@ -178,22 +185,18 @@ final class DashboardAnalytics
 
         for ($i = 6; $i >= 0; $i--) {
             $date = now($timezone)->subDays($i);
-            $start = $date->copy()->startOfDay();
-            $end = $date->copy()->endOfDay();
 
             $points[] = [
                 'day' => $date->format('D'),
-                'check_ins' => (int) HikvisionAccessEvent::query()
-                    ->accessRecords()
-                    ->forCompany($companyId)
-                    ->whereBetween('occurrence_time', [$start, $end])
-                    ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+                'check_ins' => (int) AttendanceRecord::query()
+                    ->where('company_id', $companyId)
+                    ->whereDate('date', $date->toDateString())
+                    ->whereNotNull('clock_in')
                     ->count(),
-                'check_outs' => (int) HikvisionAccessEvent::query()
-                    ->accessRecords()
-                    ->forCompany($companyId)
-                    ->whereBetween('occurrence_time', [$start, $end])
-                    ->where('attendance_status', HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
+                'check_outs' => (int) AttendanceRecord::query()
+                    ->where('company_id', $companyId)
+                    ->whereDate('date', $date->toDateString())
+                    ->whereNotNull('clock_out')
                     ->count(),
             ];
         }
@@ -204,57 +207,36 @@ final class DashboardAnalytics
     /**
      * @return list<array{
      *     id: int,
-     *     occurrence_time: string|null,
-     *     person_name: string|null,
+     *     date: string|null,
+     *     clock_in: string|null,
+     *     clock_out: string|null,
      *     employee_name: string|null,
      *     employee_id: int|null,
-     *     attendance_status: string|null,
-     *     device_name: string|null
+     *     status: string,
+     *     source: string|null
      * }>
      */
-    private function recentAttendanceEvents(int $companyId): array
+    private function recentAttendanceRecords(int $companyId): array
     {
-        $events = HikvisionAccessEvent::query()
-            ->accessRecords()
-            ->forCompany($companyId)
-            ->orderByDesc('occurrence_time')
+        $records = AttendanceRecord::query()
+            ->with('employee:id,name')
+            ->where('company_id', $companyId)
+            ->orderByDesc('date')
+            ->orderByDesc('id')
             ->limit(8)
             ->get();
 
-        $personHikvisionIds = $events
-            ->pluck('person_hikvision_id')
-            ->filter()
-            ->unique()
-            ->values()
-            ->all();
-
-        $employeesByPersonId = $personHikvisionIds === []
-            ? collect()
-            : Employee::query()
-                ->with('hikvisionPerson:id,person_id')
-                ->where('company_id', $companyId)
-                ->whereHas('hikvisionPerson', fn ($query) => $query->whereIn('person_id', $personHikvisionIds))
-                ->get()
-                ->keyBy(fn (Employee $employee): string => (string) $employee->hikvisionPerson?->person_id);
-
-        return $events
-            ->map(function (HikvisionAccessEvent $event) use ($employeesByPersonId): array {
-                $linkedEmployee = $event->person_hikvision_id
-                    ? $employeesByPersonId->get($event->person_hikvision_id)
-                    : null;
-
-                return [
-                    'id' => $event->id,
-                    'occurrence_time' => $event->occurrence_time instanceof CarbonInterface
-                        ? $event->occurrence_time->toIso8601String()
-                        : null,
-                    'person_name' => $event->person_name,
-                    'employee_name' => $linkedEmployee?->name,
-                    'employee_id' => $linkedEmployee?->id,
-                    'attendance_status' => $event->attendance_status,
-                    'device_name' => $event->device_name,
-                ];
-            })
+        return $records
+            ->map(fn (AttendanceRecord $record): array => [
+                'id' => $record->id,
+                'date' => $record->date?->toDateString(),
+                'clock_in' => $record->clock_in?->toIso8601String(),
+                'clock_out' => $record->clock_out?->toIso8601String(),
+                'employee_name' => $record->employee?->name,
+                'employee_id' => $record->employee?->id,
+                'status' => $record->status,
+                'source' => $record->source,
+            ])
             ->all();
     }
 

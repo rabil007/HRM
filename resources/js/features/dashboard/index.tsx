@@ -40,7 +40,8 @@ import { DistributionBarChart } from '@/features/dashboard/charts/distribution-b
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDate, formatDisplayDateTime } from '@/lib/format-date';
+import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { documents, employees } from '@/routes/organization';
@@ -299,7 +300,7 @@ export function DashboardContent({
                             : undefined
                     }
                     badgeVariant="success"
-                    href="/hikvision/access-events"
+                    href="/attendance/records"
                 />
                 <MetricCard
                     title="Check Ins"
@@ -310,7 +311,7 @@ export function DashboardContent({
                     iconColor="text-sky-400"
                     iconBg="bg-sky-500/10 border-sky-500/20"
                     accent="border-sky-500/20 hover:border-sky-500/30 hover:shadow-sky-500/5 hover:bg-sky-500/[0.01]"
-                    href="/hikvision/access-events?attendance_status=checkIn"
+                    href="/attendance/records"
                 />
                 <MetricCard
                     title="Check Outs"
@@ -321,20 +322,20 @@ export function DashboardContent({
                     iconColor="text-primary"
                     iconBg="bg-primary/10 border-primary/20"
                     accent="border-primary/20 hover:border-primary/30 hover:shadow-primary/5 hover:bg-primary/[0.01]"
-                    href="/hikvision/access-events?attendance_status=checkOut"
+                    href="/attendance/records"
                 />
                 <MetricCard
-                    title="Linked Employees"
-                    value={attendanceAnalytics.linked_employees.toLocaleString()}
-                    hint="Employees linked to Hikvision"
-                    icon={Radio}
-                    gradient="from-cyan-500/10 to-teal-500/5"
-                    iconColor="text-cyan-400"
-                    iconBg="bg-cyan-500/10 border-cyan-500/20"
-                    accent="border-cyan-500/20 hover:border-cyan-500/30 hover:shadow-cyan-500/5 hover:bg-cyan-500/[0.01]"
-                    badge={`${attendanceAnalytics.events_today} events today`}
-                    badgeVariant="info"
-                    href="/hikvision/persons"
+                    title="Late Today"
+                    value={attendanceAnalytics.late_today.toLocaleString()}
+                    hint="Late arrivals today"
+                    icon={Clock}
+                    gradient="from-amber-500/10 to-orange-500/5"
+                    iconColor="text-amber-400"
+                    iconBg="bg-amber-500/10 border-amber-500/20"
+                    accent="border-amber-500/20 hover:border-amber-500/30 hover:shadow-amber-500/5 hover:bg-amber-500/[0.01]"
+                    badge={`${attendanceAnalytics.absent_today} absent`}
+                    badgeVariant="destructive"
+                    href="/attendance/records"
                 />
             </div>
 
@@ -366,13 +367,13 @@ export function DashboardContent({
                     href={employees.url()}
                 />
                 <OrgSnapshotTile
-                    icon={LogIn}
-                    label="Today's Events"
+                    icon={UserRoundCheck}
+                    label="Attendance Records"
                     value={attendanceAnalytics.events_today}
-                    sub={`${attendanceAnalytics.check_ins_today} check-ins`}
+                    sub={`${attendanceAnalytics.present_today} present today`}
                     iconColor="text-cyan-400"
                     iconBg="bg-cyan-400/10 border-cyan-400/20"
-                    href="/hikvision/access-events"
+                    href="/attendance/records"
                 />
             </div>
 
@@ -570,75 +571,64 @@ export function DashboardContent({
                                     Recent Attendance
                                 </CardTitle>
                                 <CardDescription className="mt-0.5 text-xs text-muted-foreground/60 font-medium">
-                                    Latest access events from linked employees
+                                    Latest check-ins and check-outs from employees
                                 </CardDescription>
                             </div>
                             <Button variant="outline" size="sm" className="h-8 rounded-lg text-xs" asChild>
-                                <Link href="/hikvision/access-events">View all</Link>
+                                <Link href="/attendance/records">View all</Link>
                             </Button>
                         </div>
                     </CardHeader>
                     <CardContent className="space-y-2 pt-4">
-                        {attendanceAnalytics.recent_events.length === 0 ? (
+                        {attendanceAnalytics.recent_records.length === 0 ? (
                             <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
                                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/20 border border-dashed border-border dark:bg-white/[0.02] dark:border-white/10">
-                                    <Radio className="h-5 w-5 text-muted-foreground/30" />
+                                    <Clock className="h-5 w-5 text-muted-foreground/30" />
                                 </div>
                                 <p className="text-sm font-medium text-muted-foreground/50">
-                                    No attendance events yet
-                                </p>
-                                <p className="text-xs text-muted-foreground/40">
-                                    Link employees to Hikvision persons to see access events here
+                                    No attendance records yet
                                 </p>
                             </div>
                         ) : (
-                            attendanceAnalytics.recent_events.map((event) => {
-                                const displayName =
-                                    event.employee_name ?? event.person_name ?? 'Unknown';
-                                const isCheckIn = event.attendance_status === 'checkIn';
-                                const isCheckOut = event.attendance_status === 'checkOut';
+                            attendanceAnalytics.recent_records.map((record) => {
+                                const displayName = record.employee_name ?? 'Unknown';
+
+                                const formatTime = (isoString: string | null) => {
+                                    if (!isoString) return '—';
+                                    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                                };
+
+                                const clockInTime = formatTime(record.clock_in);
+                                const clockOutTime = formatTime(record.clock_out);
 
                                 const content = (
-                                    <div className="group flex items-center gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03]">
-                                        <div
-                                            className={cn(
-                                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border',
-                                                isCheckIn
-                                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
-                                                    : isCheckOut
-                                                      ? 'bg-sky-500/10 border-sky-500/20 text-sky-400'
-                                                      : 'bg-muted/60 border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10',
-                                            )}
-                                        >
-                                            {isCheckOut ? (
-                                                <LogOut className="h-4 w-4" />
-                                            ) : (
-                                                <LogIn className="h-4 w-4" />
-                                            )}
+                                    <div className="group flex items-center justify-between gap-3 rounded-xl border border-border/80 bg-muted/10 p-3 transition-all duration-300 hover:border-border hover:bg-muted/30 dark:border-white/5 dark:bg-white/[0.01] dark:hover:border-white/10 dark:hover:bg-white/[0.03]">
+                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border bg-muted/60 border-border/80 text-muted-foreground dark:bg-white/5 dark:border-white/10">
+                                                <Clock className="h-4 w-4" />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="truncate text-sm font-semibold text-foreground/80">
+                                                    {displayName}
+                                                </p>
+                                                <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/45">
+                                                    {record.date ? formatDisplayDate(record.date) : '—'}
+                                                    {record.clock_in ? ` · In: ${clockInTime}` : ''}
+                                                    {record.clock_out ? ` · Out: ${clockOutTime}` : ''}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="truncate text-sm font-semibold text-foreground/80">
-                                                {displayName}
-                                            </p>
-                                            <p className="mt-0.5 truncate text-[10px] font-bold uppercase tracking-wider text-muted-foreground/45">
-                                                {formatDisplayDateTime(event.occurrence_time)}
-                                                {event.device_name ? ` · ${event.device_name}` : ''}
-                                            </p>
+                                        <div className="shrink-0">
+                                            <RecordStatusBadge status={record.status} />
                                         </div>
-                                        <Badge
-                                            variant="secondary"
-                                            className="shrink-0 border border-border/80 bg-muted/60 dark:border-white/5 dark:bg-white/5 text-[10px] font-bold uppercase"
-                                        >
-                                            {isCheckIn ? 'In' : isCheckOut ? 'Out' : '—'}
-                                        </Badge>
                                     </div>
                                 );
 
-                                if (event.employee_id) {
+                                if (record.employee_id) {
                                     return (
                                         <Link
-                                            key={event.id}
-                                            href={showEmployee.url({ employee: event.employee_id })}
+                                            key={record.id}
+                                            href={showEmployee.url({ employee: record.employee_id })}
                                             className="block"
                                         >
                                             {content}
@@ -647,7 +637,7 @@ export function DashboardContent({
                                 }
 
                                 return (
-                                    <div key={event.id}>{content}</div>
+                                    <div key={record.id}>{content}</div>
                                 );
                             })
                         )}

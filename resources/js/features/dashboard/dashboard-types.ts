@@ -51,14 +51,15 @@ export type AttendanceTrendPoint = {
     check_outs: number;
 };
 
-export type RecentAttendanceEvent = {
+export type RecentAttendanceRecord = {
     id: number;
-    occurrence_time: string | null;
-    person_name: string | null;
+    date: string | null;
+    clock_in: string | null;
+    clock_out: string | null;
     employee_name: string | null;
     employee_id: number | null;
-    attendance_status: string | null;
-    device_name: string | null;
+    status: string;
+    source: string | null;
 };
 
 export type AttendanceAnalytics = {
@@ -66,10 +67,11 @@ export type AttendanceAnalytics = {
     check_outs_today: number;
     events_today: number;
     present_today: number;
-    linked_employees: number;
+    late_today: number;
+    absent_today: number;
     active_employees: number;
     weekly_trends: AttendanceTrendPoint[];
-    recent_events: RecentAttendanceEvent[];
+    recent_records: RecentAttendanceRecord[];
 };
 
 export type DashboardProps = {
