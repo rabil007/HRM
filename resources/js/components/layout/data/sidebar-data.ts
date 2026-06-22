@@ -119,7 +119,7 @@ const baseSidebarData: SidebarData = {
         {
             title: 'Payroll',
             items: [
-                { title: 'Payroll', url: '/organization/payroll', icon: Receipt },
+                { title: 'Payroll', url: '/payroll', icon: Receipt },
                 { title: 'Payroll records', url: placeholder('payroll.records'), icon: PiggyBank },
                 { title: 'Salary adjustments', url: placeholder('payroll.adjustments'), icon: Wallet },
             ],
@@ -226,7 +226,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                             return has(permissions, 'attendance.leave-requests.view') ? item : null;
                         case '/attendance/records':
                             return has(permissions, 'attendance.records.view') ? item : null;
-                        case '/organization/payroll':
+                        case '/payroll':
                             return has(permissions, 'payroll.periods.view')
                                 || has(permissions, 'payroll.crew_timesheets.view')
                                 ? item

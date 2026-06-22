@@ -8,7 +8,7 @@ use App\Models\PayrollPeriod;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('guests cannot access crew payroll board', function () {
-    $this->get(route('organization.payroll.show', ['payrollPeriod' => 1]))
+    $this->get(route('payroll.show', ['payrollPeriod' => 1]))
         ->assertRedirect(route('login'));
 });
 
@@ -53,11 +53,13 @@ test('crew payroll board lists only employees with active crew contracts', funct
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.payroll.show', $period))
+        ->get(route('payroll.show', $period))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/payroll/show')
+            ->component('payroll/show')
             ->has('rows', 1)
+            ->has('board_summary')
+            ->where('board_summary.employee_count', 1)
             ->where('rows.0.employee.id', $crewEmployee->id)
             ->where('rows.0.is_filled', false)
             ->where('period.id', $period->id));
@@ -96,8 +98,8 @@ test('authorized users can upsert crew timesheets for draft periods', function (
     ];
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), $payload)
-        ->assertRedirect(route('organization.payroll.show', $period));
+        ->post(route('payroll.timesheets.store', $period), $payload)
+        ->assertRedirect(route('payroll.show', $period));
 
     $this->assertDatabaseHas('crew_timesheets', [
         'company_id' => $company->id,
@@ -110,7 +112,7 @@ test('authorized users can upsert crew timesheets for draft periods', function (
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), [
+        ->post(route('payroll.timesheets.store', $period), [
             ...$payload,
             'standby_days' => 12,
             'remarks' => 'Updated',
@@ -148,7 +150,7 @@ test('crew timesheets cannot be saved for non-draft periods', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), [
+        ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
             'standby_days' => 5,
@@ -177,7 +179,7 @@ test('crew timesheets cannot be saved for office employees', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), [
+        ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $officeEmployee->id,
             'standby_days' => 5,
@@ -206,7 +208,7 @@ test('crew timesheet validation rejects invalid date ranges', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), [
+        ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
             'standby_from' => '2026-06-10',
@@ -243,10 +245,10 @@ test('office pay period lists only office employees', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->get(route('organization.payroll.show', $period))
+        ->get(route('payroll.show', $period))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('organization/payroll/show')
+            ->component('payroll/show')
             ->has('rows', 1)
             ->where('rows.0.employee.id', $officeEmployee->id)
             ->where('period.payroll_category', 'office')
@@ -272,7 +274,7 @@ test('crew timesheets cannot be saved on office pay periods', function () {
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
-        ->post(route('organization.payroll.timesheets.store', $period), [
+        ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $crewEmployee->id,
             'standby_days' => 5,
@@ -290,5 +292,5 @@ test('legacy crew payroll route redirects to payroll show when period is provide
 
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('organization.crew-payroll.index', ['period_id' => $period->id]))
-        ->assertRedirect(route('organization.payroll.show', $period));
+        ->assertRedirect(route('payroll.show', $period));
 });

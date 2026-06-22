@@ -50,14 +50,15 @@ use App\Http\Controllers\Organization\EmployeeTrainingController;
 use App\Http\Controllers\Organization\EmployeeUserController;
 use App\Http\Controllers\Organization\EmployeeVaccinationController;
 use App\Http\Controllers\Organization\EmployeeWorkExperienceController;
-use App\Http\Controllers\Organization\PayrollController;
 use App\Http\Controllers\Organization\PositionController;
 use App\Http\Controllers\Organization\RoleController;
 use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
+use App\Http\Controllers\Payroll\PayrollController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
+use App\Models\PayrollPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -154,22 +155,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
 
-    Route::get('organization/payroll', [PayrollController::class, 'index'])->name('organization.payroll.index');
-    Route::post('organization/payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('organization.payroll.periods.store');
-    Route::get('organization/payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('organization.payroll.show');
-    Route::post('organization/payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('organization.payroll.timesheets.store');
+    Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
+    Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
+    Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
+    Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
 
-    Route::get('organization/payroll-periods', fn () => redirect()->route('organization.payroll.index'))->name('organization.payroll-periods.index');
+    Route::get('organization/payroll', fn () => redirect()->route('payroll.index'))->name('organization.payroll.index');
+    Route::get('organization/payroll/{payrollPeriod}', fn (PayrollPeriod $payrollPeriod) => redirect()->route('payroll.show', $payrollPeriod))->name('organization.payroll.show');
+    Route::get('organization/payroll-periods', fn () => redirect()->route('payroll.index'))->name('organization.payroll-periods.index');
     Route::get('organization/crew-payroll', function (Request $request) {
         $periodId = $request->integer('period_id');
 
         if ($periodId > 0) {
-            return redirect()->route('organization.payroll.show', $periodId);
+            return redirect()->route('payroll.show', $periodId);
         }
 
-        return redirect()->route('organization.payroll.index');
+        return redirect()->route('payroll.index');
     })->name('organization.crew-payroll.index');
-    Route::post('organization/crew-payroll/timesheets', fn () => abort(410, 'Use organization.payroll.timesheets.store'))->name('organization.crew-payroll.timesheets.store');
+    Route::post('organization/crew-payroll/timesheets', fn () => abort(410, 'Use payroll.timesheets.store'))->name('organization.crew-payroll.timesheets.store');
 
     Route::get('organization/employees', [EmployeeController::class, 'index'])->middleware('can:employees.view')->name('organization.employees');
     Route::get('organization/employees/create', [EmployeeController::class, 'create'])->middleware('can:employees.create')->name('organization.employees.create');

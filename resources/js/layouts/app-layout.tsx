@@ -67,8 +67,8 @@ export default function AppLayout({
         },
         {
             title: 'Payroll',
-            href: '/organization/payroll',
-            isActive: url.startsWith('/organization/payroll'),
+            href: '/payroll',
+            isActive: url.startsWith('/payroll'),
             disabled: false,
         },
     ];

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Organization;
+namespace App\Http\Controllers\Payroll;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
@@ -12,7 +12,9 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
+use App\Support\Payroll\PayrollHubSummary;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
+use App\Support\Payroll\PayrollPeriodBoardSummary;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodResource;
 use Illuminate\Http\RedirectResponse;
@@ -31,20 +33,37 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage($request);
         $employeeCountsByCategory = $this->employeeCountsByCategory($companyId);
+        $search = trim((string) $request->query('search', ''));
+        $category = trim((string) $request->query('category', ''));
 
-        $paginator = PayrollPeriod::query()
+        $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
             ->withCount('crewTimesheets')
-            ->latest('start_date')
+            ->latest('start_date');
+
+        if ($search !== '') {
+            $query->where('name', 'like', '%'.$search.'%');
+        }
+
+        if (in_array($category, [PayrollCategory::Crew->value, PayrollCategory::Office->value], true)) {
+            $query->where('payroll_category', $category);
+        }
+
+        $paginator = $query
             ->paginate($perPage)
             ->withQueryString();
 
-        return Inertia::render('organization/payroll/index', [
+        return Inertia::render('payroll/index', [
             'periods' => collect($paginator->items())
                 ->map(fn (PayrollPeriod $period) => PayrollPeriodListResource::toArray($period, $employeeCountsByCategory))
                 ->values()
                 ->all(),
             'pagination' => $this->paginationMeta($paginator),
+            'search' => $search,
+            'filters' => [
+                'category' => $category,
+            ],
+            'summary' => PayrollHubSummary::forCompany($companyId),
             'payroll_categories' => $this->payrollCategoryOptions(),
             'permissions' => [
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
@@ -75,10 +94,11 @@ class PayrollController extends Controller
             perPage: $perPage,
         );
 
-        return Inertia::render('organization/payroll/show', [
+        return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'board_summary' => PayrollPeriodBoardSummary::forPeriod($payrollPeriod, (int) $paginator->total()),
             'search' => $search,
             'permissions' => CrewPayrollPagePermissions::for($request->user()),
             'timesheet_draft' => $payrollPeriod->isCrew()
@@ -129,7 +149,7 @@ class PayrollController extends Controller
         ]);
 
         return redirect()
-            ->route('organization.payroll.index')
+            ->route('payroll.index')
             ->with('success', 'Payroll period created.');
     }
 
@@ -150,7 +170,7 @@ class PayrollController extends Controller
         );
 
         return redirect()
-            ->route('organization.payroll.show', $payrollPeriod)
+            ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Crew timesheet saved.');
     }
 

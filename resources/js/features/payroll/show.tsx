@@ -1,8 +1,8 @@
 import { useForm, usePage } from '@inertiajs/react';
-import { Pencil } from 'lucide-react';
+import { Building2, Pencil } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { index as payrollIndex } from '@/actions/App/Http/Controllers/Organization/PayrollController';
-import { show, storeTimesheet } from '@/actions/App/Http/Controllers/Organization/PayrollController';
+import { index as payrollIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import { show, storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -21,7 +21,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
+import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
+import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import type {
     CrewPayrollRow,
     CrewTimesheetFormData,
@@ -88,6 +92,7 @@ export function PayrollShowContent({
     period,
     rows,
     pagination,
+    board_summary,
     search: initialSearch,
     permissions,
     timesheet_draft,
@@ -173,17 +178,20 @@ export function PayrollShowContent({
             <DetailsHeader
                 kicker="Payroll"
                 title={
-                    <span className="inline-flex items-center gap-3">
-                        {period.name} · {period.payroll_category_label}
+                    <span className="inline-flex flex-wrap items-center gap-3">
+                        {period.name}
+                        <PayrollCategoryBadge category={period.payroll_category} />
                         <Badge variant={period.is_editable ? 'secondary' : 'outline'}>
                             {period.status_label}
                         </Badge>
                     </span>
                 }
-                description={`${period.start_date} — ${period.end_date} · Payment ${period.payment_date}`}
+                description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
                 backHref={payrollIndex.url()}
                 backLabel="All pay periods"
             />
+
+            <PayrollBoardSummaryBar period={period} summary={board_summary} />
 
             <div className="mb-4">
                 <SearchBar
@@ -194,9 +202,12 @@ export function PayrollShowContent({
             </div>
 
             {!period.supports_timesheets ? (
-                <div className="mb-4 rounded-xl border border-border/60 bg-muted/30 px-4 py-3 text-sm text-muted-foreground">
-                    Office payroll for this period will be generated from attendance in a later phase. Below are
-                    employees with an active office contract for this run.
+                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3.5 text-sm text-muted-foreground">
+                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                    <p>
+                        Office payroll for this period will be generated from attendance in a later phase. Below are
+                        employees with an active office contract for this run.
+                    </p>
                 </div>
             ) : null}
 
@@ -223,34 +234,50 @@ export function PayrollShowContent({
                         </TableHeader>
                         <TableBody>
                             {rows.map((row) => (
-                                <TableRow key={row.employee.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>
-                                        {row.employee.name}
+                                <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                                {row.employee.name
+                                                    .split(' ')
+                                                    .filter(Boolean)
+                                                    .slice(0, 2)
+                                                    .map((part) => part[0]?.toUpperCase())
+                                                    .join('') || '—'}
+                                            </div>
+                                            <span className="font-semibold">{row.employee.name}</span>
+                                        </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {row.employee.employee_no ?? '—'}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetDays(row.timesheet?.standby_days)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetDays(row.timesheet?.onsite_days)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetAmount(row.timesheet?.overtime_amount)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetAmount(row.timesheet?.additional_amount)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetAmount(row.timesheet?.deduction_amount)}
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
-                                        <Badge variant={row.is_filled ? 'default' : 'outline'}>
-                                            {row.is_filled ? 'Filled' : 'Empty'}
+                                    <TableCell className={dataTableCellClass()}>
+                                        <Badge
+                                            variant={row.is_filled ? 'default' : 'outline'}
+                                            className={cn(
+                                                !row.is_filled &&
+                                                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                            )}
+                                        >
+                                            {row.is_filled ? 'Filled' : 'Pending'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass}>
+                                    <TableCell className={dataTableActionsCellClass()}>
                                         {canSave ? (
                                             <Button
                                                 variant="ghost"
@@ -289,11 +316,21 @@ export function PayrollShowContent({
                         </TableHeader>
                         <TableBody>
                             {rows.map((row) => (
-                                <TableRow key={row.employee.id} className={dataTableBodyRowClass}>
-                                    <TableCell className={dataTableCellPrimaryClass}>
-                                        {row.employee.name}
+                                <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                                {row.employee.name
+                                                    .split(' ')
+                                                    .filter(Boolean)
+                                                    .slice(0, 2)
+                                                    .map((part) => part[0]?.toUpperCase())
+                                                    .join('') || '—'}
+                                            </div>
+                                            <span className="font-semibold">{row.employee.name}</span>
+                                        </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass}>
+                                    <TableCell className={dataTableCellClass()}>
                                         {row.employee.employee_no ?? '—'}
                                     </TableCell>
                                 </TableRow>

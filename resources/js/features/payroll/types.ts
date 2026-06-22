@@ -42,6 +42,24 @@ export type PayrollHubPermissions = {
     view_crew_timesheets: boolean;
 };
 
+export type PayrollHubFilters = {
+    category: PayrollCategory | '';
+};
+
+export type PayrollHubSummary = {
+    total_periods: number;
+    draft_periods: number;
+    crew_periods: number;
+    office_periods: number;
+    incomplete_crew_runs: number;
+};
+
+export type PayrollBoardSummary = {
+    employee_count: number;
+    filled_count: number;
+    progress_percent: number;
+};
+
 export type CrewTimesheet = {
     id: number;
     period_id: number;
@@ -94,6 +112,7 @@ export type PayrollShowProps = {
     period: PayrollPeriod;
     rows: CrewPayrollRow[];
     pagination: import('@/types/pagination').PaginationMeta;
+    board_summary: PayrollBoardSummary;
     search: string;
     permissions: CrewPayrollPermissions;
     timesheet_draft: CrewTimesheetFormData | null;
@@ -123,4 +142,12 @@ export function formatTimesheetDays(value: string | null | undefined): string {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2,
     });
+}
+
+export function getPeriodProgressPercent(period: PayrollPeriodListItem): number {
+    if (!period.supports_timesheets || period.employee_count === 0) {
+        return 0;
+    }
+
+    return Math.round((period.timesheets_filled_count / period.employee_count) * 100);
 }
