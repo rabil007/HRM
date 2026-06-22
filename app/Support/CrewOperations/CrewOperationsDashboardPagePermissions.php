@@ -8,6 +8,7 @@ final class CrewOperationsDashboardPagePermissions
 {
     /**
      * @return array{
+     *     overview: bool,
      *     planning: bool,
      *     vessel_manning: bool,
      *     deployments: bool,
@@ -17,6 +18,7 @@ final class CrewOperationsDashboardPagePermissions
     public static function for(?User $user): array
     {
         return [
+            'overview' => CrewOperationsOverviewAccess::canView($user),
             'planning' => $user?->can('crew_operations.planning.view') ?? false,
             'vessel_manning' => $user?->can('crew_operations.vessel_manning.view') ?? false,
             'deployments' => $user?->can('crew_operations.deployments.view') ?? false,

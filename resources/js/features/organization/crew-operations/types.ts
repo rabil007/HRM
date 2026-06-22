@@ -50,6 +50,7 @@ export type CrewOperationsDeploymentTrendPoint = {
 };
 
 export type CrewOperationsPagePermissions = {
+    overview: boolean;
     planning: boolean;
     vessel_manning: boolean;
     deployments: boolean;

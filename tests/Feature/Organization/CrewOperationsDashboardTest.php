@@ -14,7 +14,7 @@ test('guests cannot access crew operations overview', function () {
         ->assertRedirect(route('login'));
 });
 
-test('users without deployments view permission cannot access crew operations overview', function () {
+test('users without overview or deployments view permission cannot access crew operations overview', function () {
     $user = User::factory()->create();
 
     $this->actingAs($user)
@@ -34,8 +34,41 @@ test('authorized users can view crew operations overview', function () {
             ->has('alert_counts')
             ->has('attention_items')
             ->has('pool_snapshot')
+            ->where('can.overview', true)
             ->where('can.deployments', true)
         );
+});
+
+test('users with only overview view permission can access crew operations overview', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeCrewDeploymentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.overview.view',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.overview', true)
+            ->where('can.deployments', false));
+});
+
+test('users with only deployments view permission retain backward compatible overview access', function () {
+    $user = User::factory()->create();
+    ['company' => $company] = makeCrewDeploymentFixtures();
+
+    grantCompanyPermissions($user, $company, [
+        'crew_operations.deployments.view',
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('organization.crew-operations.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.overview', true)
+            ->where('can.deployments', true));
 });
 
 test('crew operations overview counts needs update deployments in alert counts', function () {

@@ -131,6 +131,13 @@ function has(permissions: string[], permission: string): boolean {
     return permissions.includes(permission);
 }
 
+function canViewCrewOperationsOverview(permissions: string[]): boolean {
+    return (
+        has(permissions, 'crew_operations.overview.view') ||
+        has(permissions, 'crew_operations.deployments.view')
+    );
+}
+
 export function getSidebarData(permissions: string[]): SidebarData {
     const groups = baseSidebarData.navGroups
         .map((group) => {
@@ -184,7 +191,7 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/organization/employees':
                             return has(permissions, 'employees.view') ? item : null;
                         case '/organization/crew-operations':
-                            return has(permissions, 'crew_operations.deployments.view') ? item : null;
+                            return canViewCrewOperationsOverview(permissions) ? item : null;
                         case '/organization/crew-deployments':
                             return has(permissions, 'crew_operations.deployments.view') ? item : null;
                         case '/organization/vessel-manning':

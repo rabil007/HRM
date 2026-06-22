@@ -200,6 +200,7 @@ class PermissionsSeeder extends Seeder
             'crew_operations.deployments.update',
             'crew_operations.deployments.delete',
             'crew_operations.deployments.export',
+            'crew_operations.overview.view',
             'crew_operations.vessel_manning.view',
             'crew_operations.vessel_manning.create',
             'crew_operations.vessel_manning.update',

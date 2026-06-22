@@ -131,7 +131,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/users/{user}/memberships/{company}', [UserController::class, 'updateMembership'])->middleware('can:users.update')->name('organization.users.memberships.update');
     Route::delete('organization/users/{user}/memberships/{company}', [UserController::class, 'destroyMembership'])->middleware('can:users.update')->name('organization.users.memberships.destroy');
 
-    Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->middleware('can:crew_operations.deployments.view')->name('organization.crew-operations.index');
+    Route::get('organization/crew-operations', CrewOperationsDashboardController::class)->name('organization.crew-operations.index');
 
     Route::get('organization/crew-deployments', [CrewDeploymentController::class, 'index'])->middleware('can:crew_operations.deployments.view')->name('organization.crew-deployments.index');
     Route::post('organization/crew-deployments', [CrewDeploymentController::class, 'store'])->middleware('can:crew_operations.deployments.create')->name('organization.crew-deployments.store');
