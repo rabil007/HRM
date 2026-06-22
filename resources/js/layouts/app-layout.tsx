@@ -53,8 +53,10 @@ export default function AppLayout({
         },
         {
             title: 'Attendance',
-            href: '/hikvision/access-events',
-            isActive: url.startsWith('/hikvision/access-events'),
+            href: '/attendance/records',
+            isActive:
+                url.startsWith('/attendance/') &&
+                !url.startsWith('/attendance/leave-requests'),
             disabled: false,
         },
         {
