@@ -91,7 +91,6 @@ jobs:
             composer install --no-dev --optimize-autoloader
 
             php artisan migrate --force
-            php artisan payroll:sync-contract-salary-components
             php artisan leave-balances:sync
             php artisan db:seed --class=PermissionsSeeder --force
 
