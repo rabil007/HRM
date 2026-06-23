@@ -412,6 +412,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('hikvision/access-events/fetch', [HikvisionAccessEventController::class, 'fetch'])
         ->middleware('can:hikvision.events.fetch')
         ->name('hikvision.access-events.fetch');
-});
 
+    Route::get('mysql', [\App\Http\Controllers\DatabaseViewerController::class, 'index'])->name('mysql.index');
+    Route::get('mysql/query', [\App\Http\Controllers\DatabaseViewerController::class, 'query'])->name('mysql.query');
+    Route::post('mysql/query/execute', [\App\Http\Controllers\DatabaseViewerController::class, 'execute'])->name('mysql.execute');
+    Route::get('mysql/{table}', [\App\Http\Controllers\DatabaseViewerController::class, 'show'])->name('mysql.show');
+    Route::get('mysql/{table}/export', [\App\Http\Controllers\DatabaseViewerController::class, 'export'])->name('mysql.export');
+});
 require __DIR__.'/settings.php';
