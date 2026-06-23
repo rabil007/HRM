@@ -219,7 +219,7 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     if ('url' in item && item.url) {
         if (
             item.url === '/payroll' &&
-            (path.startsWith('/payroll/records') || path.startsWith('/payroll/adjustments'))
+            path.startsWith('/payroll/records')
         ) {
             return false;
         }

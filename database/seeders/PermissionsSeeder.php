@@ -231,11 +231,6 @@ class PermissionsSeeder extends Seeder
             'payroll.crew_timesheets.update',
             'payroll.crew_timesheets.delete',
             'payroll.records.view',
-            'payroll.adjustments.view',
-            'payroll.adjustments.create',
-            'payroll.adjustments.update',
-            'payroll.adjustments.delete',
-            'payroll.adjustments.approve',
         ];
 
         foreach ($permissions as $name) {

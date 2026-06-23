@@ -120,7 +120,6 @@ const baseSidebarData: SidebarData = {
             items: [
                 { title: 'Payroll', url: '/payroll', icon: Wallet },
                 { title: 'Payroll records', url: '/payroll/records', icon: PiggyBank },
-                { title: 'Salary adjustments', url: '/payroll/adjustments', icon: Wallet },
             ],
         },
     ],
@@ -232,8 +231,6 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/payroll/records':
                             return has(permissions, 'payroll.records.view') ? item : null;
-                        case '/payroll/adjustments':
-                            return has(permissions, 'payroll.adjustments.view') ? item : null;
                         default:
                             return item;
                     }
