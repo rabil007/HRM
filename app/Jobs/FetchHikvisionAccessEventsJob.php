@@ -18,26 +18,43 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
     public int $timeout = 180;
 
-    public function __construct(public ?string $date = null) {}
+    public function __construct(public ?string $date = null)
+    {
+        if (! filled($this->date)) {
+            $this->timeout = 300;
+        }
+    }
 
     public function handle(HikvisionService $hikvision): void
     {
         $settings = HikvisionSetting::current();
         $settings->markEventsFetchRunning();
 
-        try {
-            $timezone = (string) config('app.timezone', 'UTC');
-            $date = filled($this->date)
-                ? Carbon::parse($this->date, $timezone)->startOfDay()
-                : null;
+        $timezone = (string) config('app.timezone', 'UTC');
+        $date = filled($this->date)
+            ? Carbon::parse($this->date, $timezone)->startOfDay()
+            : null;
 
+        $result = null;
+        $fetchFailed = false;
+
+        try {
             $result = filled($this->date)
                 ? $hikvision->fetchAccessEvents($date)
                 : $hikvision->fetchScheduledAccessEvents();
-
-            $settings->markEventsFetchCompleted($result['message']);
         } catch (RuntimeException $exception) {
+            $fetchFailed = true;
             $settings->markEventsFetchFailed($exception->getMessage());
+        } finally {
+            if (filled($this->date) && $date instanceof Carbon) {
+                $hikvision->syncAttendanceForDay($date);
+            } elseif (! filled($this->date)) {
+                $hikvision->syncAttendanceForScheduledDays();
+            }
+        }
+
+        if (! $fetchFailed && $result !== null) {
+            $settings->markEventsFetchCompleted($result['message']);
         }
     }
 

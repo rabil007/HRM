@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
 use App\Models\HikvisionPerson;
 use App\Models\User;
+use App\Services\HikvisionService;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -568,6 +569,95 @@ test('hikvision sync matches mobile access events by person code when names diff
         ->and($record->source)->toBe(AttendanceRecord::SOURCE_MOBILE)
         ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT)
         ->and($record->clock_in?->format('H:i'))->toBe('09:15');
+});
+
+test('attendance sync updates stale biometric record when mobile events were backfilled later', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'adham-person-12',
+        'person_code' => '12',
+        'full_name' => 'Adham Bassiony',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Adham Bassiony',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create([
+        'date' => '2026-06-19',
+        'clock_in' => '2026-06-19 08:40:43',
+        'clock_out' => null,
+        'hours_worked' => null,
+        'source' => AttendanceRecord::SOURCE_BIOMETRIC,
+        'status' => AttendanceRecord::STATUS_PRESENT,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'adham:door:checkin',
+        'msg_type' => 'webhook/event/110013',
+        'occurrence_time' => '2026-06-19 08:40:43',
+        'person_name' => 'Adham',
+        'person_hikvision_id' => 'adham-person-12',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'raw_payload' => ['name' => 'Adham', 'employeeNoString' => '12'],
+        'fetched_at' => '2026-06-19 08:41:03',
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'adham:mobile:checkin',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-19 08:36:25',
+        'person_name' => 'Adham',
+        'person_hikvision_id' => 'adham-person-12',
+        'device_name' => 'Mobile App',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ATTENDANCE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        'raw_payload' => [
+            'fullName' => 'Adham',
+            'personCode' => '12',
+            'clockInSource' => 3,
+        ],
+        'fetched_at' => '2026-06-20 08:51:47',
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'adham:mobile:checkout',
+        'msg_type' => 'attendance/totaltimecard',
+        'occurrence_time' => '2026-06-19 18:51:45',
+        'person_name' => 'Adham',
+        'person_hikvision_id' => 'adham-person-12',
+        'device_name' => 'Mobile App',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_OUT,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ATTENDANCE_API,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_MOBILE_APP,
+        'raw_payload' => [
+            'fullName' => 'Adham',
+            'personCode' => '12',
+            'clockOutSource' => 3,
+        ],
+        'fetched_at' => '2026-06-20 08:51:47',
+    ]);
+
+    app(HikvisionService::class)->syncAttendanceForDay(Carbon::parse('2026-06-19'));
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-19')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_MOBILE)
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($record->clock_in?->format('H:i'))->toBe('08:36')
+        ->and($record->clock_out?->format('H:i'))->toBe('18:51')
+        ->and((float) $record->hours_worked)->toBe(10.26);
 });
 
 test('cannot create duplicate attendance record for same employee and date', function () {

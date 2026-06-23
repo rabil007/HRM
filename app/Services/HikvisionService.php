@@ -10,6 +10,7 @@ use App\Models\HikvisionPersonGroup;
 use App\Models\HikvisionSetting;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use App\Support\Hikvision\HikvisionPersonPhotoStorage;
+use App\Support\Settings\ApplicationTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -695,15 +696,45 @@ class HikvisionService
      */
     public function fetchScheduledAccessEvents(): array
     {
-        $timezone = (string) config('app.timezone', 'UTC');
+        $timezone = ApplicationTimezone::identifier();
         $yesterday = now($timezone)->copy()->subDay()->startOfDay();
         $yesterdayResult = $this->fetchAccessEvents($yesterday);
         $todayResult = $this->fetchAccessEvents(null);
+
+        $this->syncAttendanceForScheduledDays();
 
         return [
             'fetched_count' => $yesterdayResult['fetched_count'] + $todayResult['fetched_count'],
             'message' => "Scheduled fetch: {$yesterdayResult['message']} {$todayResult['message']}",
         ];
+    }
+
+    public function syncAttendanceForDay(CarbonInterface $day): void
+    {
+        $timezone = ApplicationTimezone::identifier();
+        $normalizedDay = $day->copy()->timezone($timezone);
+
+        $this->syncAttendanceRecordsForWindow(
+            $normalizedDay->copy()->startOfDay(),
+            $normalizedDay->copy()->endOfDay(),
+        );
+    }
+
+    public function syncAttendanceForScheduledDays(): void
+    {
+        $timezone = ApplicationTimezone::identifier();
+        $today = now($timezone)->copy()->timezone($timezone)->startOfDay();
+        $yesterday = $today->copy()->subDay();
+
+        $this->syncAttendanceRecordsForWindow(
+            $yesterday->copy()->startOfDay(),
+            $yesterday->copy()->endOfDay(),
+        );
+
+        $this->syncAttendanceRecordsForWindow(
+            $today->copy()->startOfDay(),
+            $today->copy()->endOfDay(),
+        );
     }
 
     public function fetchCertificateRecords(

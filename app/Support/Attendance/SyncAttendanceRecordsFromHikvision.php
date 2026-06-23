@@ -120,23 +120,27 @@ final class SyncAttendanceRecordsFromHikvision
 
             $source = $this->resolveSourceForDay($dayEvents);
 
-            AttendanceRecord::query()->updateOrCreate(
-                [
+            $attributes = [
+                'clock_in' => $clockIn,
+                'clock_out' => $clockOut,
+                'hours_worked' => AttendanceRecord::calculateHoursWorked($clockIn, $clockOut),
+                'overtime_hours' => 0,
+                'late_minutes' => 0,
+                'source' => $source,
+                'status' => $this->resolveStatusForDay($date, $clockIn, $clockOut, $workingDays, $approvedLeaves),
+                'notes' => null,
+            ];
+
+            if ($existing !== null) {
+                $existing->update($attributes);
+            } else {
+                AttendanceRecord::query()->create([
                     'company_id' => $employee->company_id,
                     'employee_id' => $employee->id,
                     'date' => $date,
-                ],
-                [
-                    'clock_in' => $clockIn,
-                    'clock_out' => $clockOut,
-                    'hours_worked' => AttendanceRecord::calculateHoursWorked($clockIn, $clockOut),
-                    'overtime_hours' => 0,
-                    'late_minutes' => 0,
-                    'source' => $source,
-                    'status' => $this->resolveStatusForDay($date, $clockIn, $clockOut, $workingDays, $approvedLeaves),
-                    'notes' => null,
-                ],
-            );
+                    ...$attributes,
+                ]);
+            }
 
             $synced++;
             $current->addDay();
