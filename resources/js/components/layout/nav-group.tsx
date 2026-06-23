@@ -217,6 +217,13 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     const path = href.split('?')[0];
 
     if ('url' in item && item.url) {
+        if (
+            item.url === '/payroll' &&
+            (path.startsWith('/payroll/records') || path.startsWith('/payroll/adjustments'))
+        ) {
+            return false;
+        }
+
         if (path === item.url || (item.url !== '/' && path.startsWith(`${item.url}/`))) {
             return true;
         }

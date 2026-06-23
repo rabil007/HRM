@@ -26,6 +26,7 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { TableRowActions } from '@/components/table-row-actions';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatTimesheetAmount } from '@/features/payroll/types';
+import { cn } from '@/lib/utils';
 import { SalaryAdjustmentDeleteDialog } from './components/salary-adjustment-delete-dialog';
 import { SalaryAdjustmentFormSheet } from './components/salary-adjustment-form-sheet';
 import { SalaryAdjustmentRejectDialog } from './components/salary-adjustment-reject-dialog';
@@ -126,26 +127,26 @@ export function SalaryAdjustmentsContent({
                 }
             />
 
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-                <SearchBar
-                    value={list.searchInput}
-                    onChange={list.onSearchChange}
-                    placeholder="Search employees or reasons..."
-                    className="min-w-[240px] flex-1"
-                />
-                <div className="flex flex-wrap gap-2">
-                    {(['', 'pending', 'approved', 'rejected'] as const).map((status) => (
-                        <Button
-                            key={status || 'all'}
-                            variant={initialFilters.status === status ? 'default' : 'outline'}
-                            className="h-10 rounded-xl"
-                            onClick={() => list.applyFilters({ status })}
-                        >
-                            {status === '' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
-                        </Button>
-                    ))}
-                </div>
-            </div>
+            <SearchBar
+                value={list.searchInput}
+                onChange={list.onSearchChange}
+                placeholder="Search employees or reasons..."
+                className="mb-6"
+                right={
+                    <div className="glass-card flex flex-wrap items-center rounded-xl p-1 gap-1">
+                        {(['', 'pending', 'approved', 'rejected'] as const).map((status) => (
+                            <Button
+                                key={status || 'all'}
+                                variant={initialFilters.status === status ? 'secondary' : 'ghost'}
+                                className="h-11 rounded-lg px-4 hover:bg-accent"
+                                onClick={() => list.applyFilters({ status })}
+                            >
+                                {status === '' ? 'All' : status.charAt(0).toUpperCase() + status.slice(1)}
+                            </Button>
+                        ))}
+                    </div>
+                }
+            />
 
             {adjustments.length === 0 ? (
                 <EmptyState
@@ -178,7 +179,7 @@ export function SalaryAdjustmentsContent({
                                 const isPending = adjustment.status === 'pending';
 
                                 return (
-                                    <TableRow key={adjustment.id} className={dataTableBodyRowClass(false)}>
+                                    <TableRow key={adjustment.id} className={cn(dataTableBodyRowClass(false), "group hover:bg-muted/40 transition-colors duration-200")}>
                                         <TableCell className={dataTableCellPrimaryClass()}>
                                             <div className="font-semibold">{adjustment.employee?.name ?? '—'}</div>
                                             <div className="text-xs text-muted-foreground">

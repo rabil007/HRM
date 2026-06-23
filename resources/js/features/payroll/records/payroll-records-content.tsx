@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { Filter } from 'lucide-react';
+import { Eye, Filter } from 'lucide-react';
 import { useState } from 'react';
 import { index as recordsIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollRecordController';
 import { show as payrollShow } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { PayrollCategoryBadge } from '../components/payroll-category-badge';
 import { PayrollRecordsFiltersSheet } from './components/payroll-records-filters-sheet';
 import type { PayrollRecordIndexItem, PayrollRecordsFilters } from './types';
@@ -67,27 +68,30 @@ export function PayrollRecordsContent({
                 description="Company-wide payroll records across all pay periods."
             />
 
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-                <SearchBar
-                    value={list.searchInput}
-                    onChange={list.onSearchChange}
-                    placeholder="Search employees..."
-                    className="min-w-[240px] flex-1"
-                />
-                <Button
-                    variant="outline"
-                    className="glass-card h-11 rounded-xl px-4"
-                    onClick={() => setIsFiltersOpen(true)}
-                >
-                    <Filter className="mr-2 h-4 w-4" />
-                    Filters
-                    {activeFiltersCount > 0 ? (
-                        <span className="ml-2 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                            {activeFiltersCount}
-                        </span>
-                    ) : null}
-                </Button>
-            </div>
+            <SearchBar
+                value={list.searchInput}
+                onChange={list.onSearchChange}
+                placeholder="Search employees..."
+                className="mb-6"
+                right={
+                    <div className="glass-card flex items-center rounded-xl p-1">
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-11 rounded-lg px-4 hover:bg-accent"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
+                            {activeFiltersCount > 0 ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFiltersCount}
+                                </span>
+                            ) : null}
+                        </Button>
+                    </div>
+                }
+            />
 
             {records.length === 0 ? (
                 <EmptyState
@@ -110,7 +114,7 @@ export function PayrollRecordsContent({
                         </TableHeader>
                         <TableBody>
                             {records.map((record) => (
-                                <TableRow key={record.id} className={dataTableBodyRowClass(false)}>
+                                <TableRow key={record.id} className={cn(dataTableBodyRowClass(false), "group hover:bg-muted/40 transition-colors duration-200")}>
                                     <TableCell className={dataTableCellPrimaryClass()}>
                                         <div className="font-semibold">{record.employee.name}</div>
                                         <div className="text-xs text-muted-foreground">
@@ -139,13 +143,14 @@ export function PayrollRecordsContent({
                                         <span className="text-sm capitalize">{record.status}</span>
                                     </TableCell>
                                     <TableCell className={dataTableActionsCellClass()}>
-                                        <Button variant="ghost" size="sm" className="rounded-lg" asChild>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" asChild>
                                             <Link
                                                 href={payrollShow.url(record.period.id, {
                                                     query: { tab: 'payroll' },
                                                 })}
+                                                aria-label="View period"
                                             >
-                                                View period
+                                                <Eye className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
                                             </Link>
                                         </Button>
                                     </TableCell>

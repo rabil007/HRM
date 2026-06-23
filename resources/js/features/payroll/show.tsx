@@ -389,7 +389,7 @@ export function PayrollShowContent({
                             ) : null}
                             {canGenerate ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95"
+                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95"
                                     onClick={() => setIsGenerateDialogOpen(true)}
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
