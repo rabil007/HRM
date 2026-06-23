@@ -1,5 +1,6 @@
 import { Building2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { formatDisplayDate } from '@/lib/format-date';
 import type { PayrollBoardSummary, PayrollPeriod } from '../types';
 import { PayrollCategoryBadge } from './payroll-category-badge';
 import { PayrollPeriodProgress } from './payroll-period-progress';
@@ -61,6 +62,18 @@ export function PayrollBoardSummaryBar({
                             </p>
                         </div>
                     </div>
+                    {period.approved_at ? (
+                        <p className="text-xs text-muted-foreground">
+                            Approved by {period.approver?.name ?? '—'} on{' '}
+                            {formatDisplayDate(period.approved_at)}
+                        </p>
+                    ) : null}
+                    {period.payroll_records_count > 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                            {period.payroll_records_count} payroll record
+                            {period.payroll_records_count === 1 ? '' : 's'} generated
+                        </p>
+                    ) : null}
                     {period.supports_timesheets ? (
                         <p className="text-xs text-muted-foreground">
                             {summary.filled_count} timesheet{summary.filled_count === 1 ? '' : 's'} entered

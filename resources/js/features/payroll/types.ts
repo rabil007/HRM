@@ -34,6 +34,12 @@ export type PayrollPeriod = {
     is_editable: boolean;
     can_generate_crew_payroll: boolean;
     can_revert_to_draft: boolean;
+    can_approve: boolean;
+    can_mark_paid: boolean;
+    can_cancel: boolean;
+    payroll_records_count: number;
+    approved_at: string | null;
+    approver: { id: number; name: string } | null;
     created_at: string | null;
 };
 
@@ -127,6 +133,9 @@ export type CrewPayrollPermissions = {
     delete: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
+    approve: boolean;
+    mark_paid: boolean;
+    cancel: boolean;
 };
 
 export type PayrollRecordListItem = {

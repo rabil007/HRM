@@ -1,7 +1,6 @@
 import { Link } from '@inertiajs/react';
 import { CalendarDays, ChevronRight, Users } from 'lucide-react';
 import { show } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -10,6 +9,7 @@ import type { PayrollPeriodListItem } from '../types';
 import { getPeriodProgressPercent } from '../types';
 import { PayrollCategoryBadge } from './payroll-category-badge';
 import { PayrollPeriodProgress } from './payroll-period-progress';
+import { PayrollPeriodStatusBadge } from './payroll-period-status-badge';
 
 export function PayrollPeriodCard({
     period,
@@ -42,9 +42,10 @@ export function PayrollPeriodCard({
                     <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <PayrollCategoryBadge category={period.payroll_category} />
-                            <Badge variant={period.status === 'draft' ? 'secondary' : 'outline'}>
-                                {period.status_label}
-                            </Badge>
+                            <PayrollPeriodStatusBadge
+                                status={period.status}
+                                label={period.status_label}
+                            />
                         </div>
                         <CardTitle className="line-clamp-2 text-lg font-extrabold tracking-tight">
                             {period.name}

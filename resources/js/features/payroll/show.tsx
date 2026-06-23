@@ -1,9 +1,12 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { Building2, Calculator, Pencil, RotateCcw } from 'lucide-react';
+import { Building2, Calculator, Pencil, RotateCcw, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
+    approve,
+    cancel,
     generateCrewPayroll,
     index as payrollIndex,
+    markPaid,
     revertToDraft,
     show,
     storeTimesheet,
@@ -30,9 +33,13 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
+import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
+import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
+import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
+import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
@@ -156,6 +163,12 @@ export function PayrollShowContent({
     const [isGenerating, setIsGenerating] = useState(false);
     const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
     const [isReverting, setIsReverting] = useState(false);
+    const [isApproveDialogOpen, setIsApproveDialogOpen] = useState(false);
+    const [isApproving, setIsApproving] = useState(false);
+    const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
+    const [isMarkingPaid, setIsMarkingPaid] = useState(false);
+    const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+    const [isCancelling, setIsCancelling] = useState(false);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -257,12 +270,63 @@ export function PayrollShowContent({
         );
     };
 
+    const handleApprove = () => {
+        setIsApproving(true);
+        router.post(
+            approve.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsApproving(false);
+                    setIsApproveDialogOpen(false);
+                },
+            },
+        );
+    };
+
+    const handleMarkPaid = () => {
+        setIsMarkingPaid(true);
+        router.post(
+            markPaid.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsMarkingPaid(false);
+                    setIsMarkPaidDialogOpen(false);
+                },
+            },
+        );
+    };
+
+    const handleCancel = () => {
+        setIsCancelling(true);
+        router.post(
+            cancel.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsCancelling(false);
+                    setIsCancelDialogOpen(false);
+                },
+            },
+        );
+    };
+
     const canGenerate =
         period.supports_timesheets &&
         period.can_generate_crew_payroll &&
         permissions.generate_payroll;
 
     const canRevertToDraft = period.can_revert_to_draft && permissions.revert_to_draft;
+    const canApprove = period.can_approve && permissions.approve;
+    const canMarkPaid = period.can_mark_paid && permissions.mark_paid;
+    const canCancelPeriod = period.can_cancel && permissions.cancel;
+
+    const hasHeaderActions =
+        canGenerate || canRevertToDraft || canApprove || canMarkPaid || canCancelPeriod;
 
     const recordsPagination = payroll_records_pagination;
 
@@ -274,17 +338,28 @@ export function PayrollShowContent({
                     <span className="inline-flex flex-wrap items-center gap-3">
                         {period.name}
                         <PayrollCategoryBadge category={period.payroll_category} />
-                        <Badge variant={period.is_editable ? 'secondary' : 'outline'}>
-                            {period.status_label}
-                        </Badge>
+                        <PayrollPeriodStatusBadge
+                            status={period.status}
+                            label={period.status_label}
+                        />
                     </span>
                 }
                 description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
                 backHref={payrollIndex.url()}
                 backLabel="Go back"
                 actions={
-                    canGenerate || canRevertToDraft ? (
+                    hasHeaderActions ? (
                         <div className="flex flex-wrap items-center gap-2">
+                            {canCancelPeriod ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl border-destructive/30 px-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => setIsCancelDialogOpen(true)}
+                                >
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Cancel pay run
+                                </Button>
+                            ) : null}
                             {canRevertToDraft ? (
                                 <Button
                                     variant="outline"
@@ -293,6 +368,23 @@ export function PayrollShowContent({
                                 >
                                     <RotateCcw className="mr-2 h-4 w-4" />
                                     Revert to draft
+                                </Button>
+                            ) : null}
+                            {canApprove ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-6"
+                                    onClick={() => setIsApproveDialogOpen(true)}
+                                >
+                                    Approve pay run
+                                </Button>
+                            ) : null}
+                            {canMarkPaid ? (
+                                <Button
+                                    className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    onClick={() => setIsMarkPaidDialogOpen(true)}
+                                >
+                                    Mark as paid
                                 </Button>
                             ) : null}
                             {canGenerate ? (
@@ -382,6 +474,27 @@ export function PayrollShowContent({
                 onOpenChange={setIsRevertDialogOpen}
                 onConfirm={handleRevertToDraft}
                 processing={isReverting}
+            />
+
+            <PayrollApproveDialog
+                open={isApproveDialogOpen}
+                onOpenChange={setIsApproveDialogOpen}
+                onConfirm={handleApprove}
+                processing={isApproving}
+            />
+
+            <PayrollMarkPaidDialog
+                open={isMarkPaidDialogOpen}
+                onOpenChange={setIsMarkPaidDialogOpen}
+                onConfirm={handleMarkPaid}
+                processing={isMarkingPaid}
+            />
+
+            <PayrollCancelDialog
+                open={isCancelDialogOpen}
+                onOpenChange={setIsCancelDialogOpen}
+                onConfirm={handleCancel}
+                processing={isCancelling}
             />
         </Main>
     );

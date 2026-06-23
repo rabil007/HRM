@@ -5,14 +5,20 @@ namespace App\Http\Controllers\Payroll;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Payroll\ApprovePayrollPeriodRequest;
+use App\Http\Requests\Organization\Payroll\CancelPayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\GenerateCrewPayrollRequest;
+use App\Http\Requests\Organization\Payroll\MarkPayrollPeriodPaidRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Payroll\Actions\ApprovePayrollPeriod;
+use App\Support\Payroll\Actions\CancelPayrollPeriod;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
+use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
@@ -47,7 +53,7 @@ class PayrollController extends Controller
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
-            ->withCount('crewTimesheets')
+            ->withCount(['crewTimesheets', 'payrollRecords'])
             ->latest('start_date');
 
         if ($search !== '') {
@@ -106,6 +112,8 @@ class PayrollController extends Controller
 
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $payrollPeriod->load('approvedBy')->loadCount('payrollRecords');
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
@@ -267,6 +275,60 @@ class PayrollController extends Controller
                 'tab' => 'timesheets',
             ])
             ->with('success', 'Pay period reverted to draft. Timesheets can be edited again.');
+    }
+
+    public function approve(
+        ApprovePayrollPeriodRequest $request,
+        PayrollPeriod $payrollPeriod,
+        ApprovePayrollPeriod $approvePayrollPeriod,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $user = $request->user();
+        abort_unless($user !== null, 403);
+
+        $approvePayrollPeriod->handle($payrollPeriod, $user);
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'payroll',
+            ])
+            ->with('success', 'Pay period approved.');
+    }
+
+    public function markPaid(
+        MarkPayrollPeriodPaidRequest $request,
+        PayrollPeriod $payrollPeriod,
+        MarkPayrollPeriodPaid $markPayrollPeriodPaid,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $markPayrollPeriodPaid->handle($payrollPeriod);
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'payroll',
+            ])
+            ->with('success', 'Pay period marked as paid.');
+    }
+
+    public function cancel(
+        CancelPayrollPeriodRequest $request,
+        PayrollPeriod $payrollPeriod,
+        CancelPayrollPeriod $cancelPayrollPeriod,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $cancelPayrollPeriod->handle($payrollPeriod);
+
+        return redirect()
+            ->route('payroll.show', $payrollPeriod)
+            ->with('success', 'Pay period cancelled.');
     }
 
     /**

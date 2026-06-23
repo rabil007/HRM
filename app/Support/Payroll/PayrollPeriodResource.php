@@ -27,6 +27,17 @@ final class PayrollPeriodResource
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'can_revert_to_draft' => $period->canRevertToDraft(),
+            'can_approve' => $period->canApprove(),
+            'can_mark_paid' => $period->canMarkPaid(),
+            'can_cancel' => $period->canCancel(),
+            'payroll_records_count' => (int) ($period->payroll_records_count ?? 0),
+            'approved_at' => $period->approved_at?->toDateTimeString(),
+            'approver' => $period->relationLoaded('approvedBy') && $period->approvedBy !== null
+                ? [
+                    'id' => $period->approvedBy->id,
+                    'name' => $period->approvedBy->name,
+                ]
+                : null,
             'created_at' => $period->created_at?->toDateTimeString(),
         ];
     }

@@ -17,7 +17,6 @@ import { Main } from '@/components/layout/main';
 import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewToggle } from '@/components/view-toggle';
@@ -31,6 +30,7 @@ import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
 import { PayrollPeriodProgress } from './components/payroll-period-progress';
+import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollSummaryCards } from './components/payroll-summary-cards';
 import type {
     PayrollCategoryOption,
@@ -267,9 +267,10 @@ export function PayrollIndexContent({
                                             )}
                                         </TableCell>
                                         <TableCell className={dataTableCellClass()}>
-                                            <Badge variant={period.status === 'draft' ? 'secondary' : 'outline'}>
-                                                {period.status_label}
-                                            </Badge>
+                                            <PayrollPeriodStatusBadge
+                                                status={period.status}
+                                                label={period.status_label}
+                                            />
                                         </TableCell>
                                         <TableCell className={dataTableActionsCellClass()}>
                                             {canOpen ? (
