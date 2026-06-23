@@ -49,7 +49,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
         }, 400);
 
         return () => clearTimeout(timeout);
-    }, [search, columnFilters]);
+    }, [search, columnFilters, filters.sort_by, filters.sort_dir, tableName]);
 
     const handleSort = (column: string) => {
         let sortDir: 'asc' | 'desc' = 'asc';
@@ -91,7 +91,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
                         </pre>
                     );
                 }
-            } catch (e) {
+            } catch {
                 // Not JSON, continue to normal string render
             }
         }
