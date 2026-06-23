@@ -1,6 +1,6 @@
 import { useForm, usePage } from '@inertiajs/react';
 import { Building2, Pencil } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { index as payrollIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import { show, storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import {
@@ -23,8 +23,8 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
+import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import type {
     CrewPayrollRow,
@@ -88,6 +88,23 @@ function rowToFormData(row: CrewPayrollRow): CrewTimesheetFormData {
     };
 }
 
+function draftToFormData(draft: CrewTimesheetFormData): CrewTimesheetFormData {
+    return {
+        period_id: draft.period_id,
+        employee_id: draft.employee_id,
+        standby_from: draft.standby_from ?? '',
+        standby_to: draft.standby_to ?? '',
+        standby_days: draft.standby_days ?? '',
+        onsite_from: draft.onsite_from ?? '',
+        onsite_to: draft.onsite_to ?? '',
+        onsite_days: draft.onsite_days ?? '',
+        overtime_amount: draft.overtime_amount ?? '0',
+        additional_amount: draft.additional_amount ?? '0',
+        deduction_amount: draft.deduction_amount ?? '0',
+        remarks: draft.remarks ?? '',
+    };
+}
+
 export function PayrollShowContent({
     period,
     rows,
@@ -106,10 +123,15 @@ export function PayrollShowContent({
         pagination,
     });
 
-    const [isSheetOpen, setIsSheetOpen] = useState(false);
-    const [currentRow, setCurrentRow] = useState<CrewPayrollRow | null>(null);
+    const [activeEmployeeId, setActiveEmployeeId] = useState<number | null>(
+        () => timesheet_draft?.employee_id ?? null,
+    );
 
-    const form = useForm<CrewTimesheetFormData>(emptyTimesheetForm(period.id, 0));
+    const form = useForm<CrewTimesheetFormData>(
+        timesheet_draft
+            ? draftToFormData(timesheet_draft)
+            : emptyTimesheetForm(period.id, 0),
+    );
 
     const mergedErrors = useMemo(
         () => ({ ...page.props.errors, ...form.errors }),
@@ -121,55 +143,38 @@ export function PayrollShowContent({
         Boolean(period.is_editable) &&
         (permissions.create || permissions.update);
 
-    useEffect(() => {
-        if (!timesheet_draft) {
-            return;
+    const validationErrorEmployeeId =
+        hasTimesheetErrors(mergedErrors) && form.data.employee_id > 0 ? form.data.employee_id : null;
+
+    const sheetEmployeeId = activeEmployeeId ?? validationErrorEmployeeId;
+    const isSheetOpen = sheetEmployeeId !== null;
+
+    const currentRow = useMemo(
+        () =>
+            sheetEmployeeId !== null
+                ? rows.find((entry) => entry.employee.id === sheetEmployeeId) ?? null
+                : null,
+        [rows, sheetEmployeeId],
+    );
+
+    const handleSheetOpenChange = (open: boolean) => {
+        if (!open) {
+            setActiveEmployeeId(null);
         }
-
-        form.setData({
-            period_id: timesheet_draft.period_id,
-            employee_id: timesheet_draft.employee_id,
-            standby_from: timesheet_draft.standby_from ?? '',
-            standby_to: timesheet_draft.standby_to ?? '',
-            standby_days: timesheet_draft.standby_days ?? '',
-            onsite_from: timesheet_draft.onsite_from ?? '',
-            onsite_to: timesheet_draft.onsite_to ?? '',
-            onsite_days: timesheet_draft.onsite_days ?? '',
-            overtime_amount: timesheet_draft.overtime_amount ?? '0',
-            additional_amount: timesheet_draft.additional_amount ?? '0',
-            deduction_amount: timesheet_draft.deduction_amount ?? '0',
-            remarks: timesheet_draft.remarks ?? '',
-        });
-        setIsSheetOpen(true);
-        setCurrentRow(rows.find((entry) => entry.employee.id === timesheet_draft.employee_id) ?? null);
-    }, [timesheet_draft, rows]);
-
-    useEffect(() => {
-        if (!hasTimesheetErrors(mergedErrors)) {
-            return;
-        }
-
-        setIsSheetOpen(true);
-
-        if (form.data.employee_id > 0) {
-            const row = rows.find((entry) => entry.employee.id === form.data.employee_id) ?? null;
-            setCurrentRow(row);
-        }
-    }, [mergedErrors, form.data.employee_id, rows]);
+    };
 
     const handleEdit = (row: CrewPayrollRow) => {
-        setCurrentRow(row);
+        setActiveEmployeeId(row.employee.id);
         form.clearErrors();
         form.setData(rowToFormData(row));
-        setIsSheetOpen(true);
     };
 
     const handleSubmit = () => {
         form.post(storeTimesheet.url(period.id), {
             preserveScroll: true,
             preserveState: true,
-            onSuccess: () => setIsSheetOpen(false),
-            onError: () => setIsSheetOpen(true),
+            onSuccess: () => setActiveEmployeeId(null),
+            onError: () => setActiveEmployeeId(form.data.employee_id),
         });
     };
 
@@ -353,7 +358,7 @@ export function PayrollShowContent({
             {period.supports_timesheets ? (
                 <CrewTimesheetFormSheet
                     open={isSheetOpen}
-                    onOpenChange={setIsSheetOpen}
+                    onOpenChange={handleSheetOpenChange}
                     row={currentRow}
                     canSave={canSave}
                     form={form}

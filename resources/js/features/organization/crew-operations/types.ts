@@ -1,5 +1,5 @@
-import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
 import type { RecentActivityItem } from '@/components/recent-activity-card';
+import type { DeploymentSummary } from '@/features/organization/crew-deployments/types';
 
 export type CrewOperationsAlertCounts = {
     needs_update: number;

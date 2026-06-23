@@ -1,8 +1,9 @@
 import { Head } from '@inertiajs/react';
 import {
-    CrewOperationsDashboardContent,
-    type CrewOperationsDashboardProps,
+    CrewOperationsDashboardContent
+    
 } from '@/features/organization/crew-operations';
+import type {CrewOperationsDashboardProps} from '@/features/organization/crew-operations';
 
 export default function CrewOperationsOverview(props: CrewOperationsDashboardProps) {
     return (

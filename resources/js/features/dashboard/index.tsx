@@ -35,13 +35,13 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { AttendanceTrendChart } from '@/features/dashboard/charts/attendance-trend-chart';
 import { DistributionBarChart } from '@/features/dashboard/charts/distribution-bar-chart';
 import { DocumentHealthChart } from '@/features/dashboard/charts/document-health-chart';
 import { WorkforceTrendChart } from '@/features/dashboard/charts/workforce-trend-chart';
 import type { DashboardProps } from '@/features/dashboard/dashboard-types';
 import { formatDisplayDate } from '@/lib/format-date';
-import { RecordStatusBadge } from '@/features/attendance/records/components/record-status-badge';
 import { cn } from '@/lib/utils';
 import { dashboard } from '@/routes';
 import { documents, employees } from '@/routes/organization';
@@ -594,7 +594,10 @@ export function DashboardContent({
                                 const displayName = record.employee_name ?? 'Unknown';
 
                                 const formatTime = (isoString: string | null) => {
-                                    if (!isoString) return '—';
+                                    if (!isoString) {
+return '—';
+}
+
                                     return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                                 };
 

@@ -1,6 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
 import { FileText } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { useState  } from 'react';
+import type {ReactNode} from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
 import type { RecentActivityItem } from '@/components/recent-activity-card';

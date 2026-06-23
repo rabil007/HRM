@@ -1,3 +1,5 @@
+import type { PaginationMeta } from '@/types/pagination';
+
 export type PayrollCategory = 'office' | 'crew';
 
 export type PayrollCategoryOption = {
@@ -111,7 +113,7 @@ export type CrewPayrollPermissions = {
 export type PayrollShowProps = {
     period: PayrollPeriod;
     rows: CrewPayrollRow[];
-    pagination: import('@/types/pagination').PaginationMeta;
+    pagination: PaginationMeta;
     board_summary: PayrollBoardSummary;
     search: string;
     permissions: CrewPayrollPermissions;

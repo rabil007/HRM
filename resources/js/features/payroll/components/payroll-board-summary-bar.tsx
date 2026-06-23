@@ -1,8 +1,8 @@
 import { Building2, Users } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import type { PayrollBoardSummary, PayrollPeriod } from '../types';
 import { PayrollCategoryBadge } from './payroll-category-badge';
 import { PayrollPeriodProgress } from './payroll-period-progress';
-import type { PayrollBoardSummary, PayrollPeriod } from '../types';
 
 export function PayrollBoardSummaryBar({
     period,
