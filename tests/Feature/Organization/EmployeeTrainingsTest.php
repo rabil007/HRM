@@ -432,10 +432,10 @@ test('storing a training certificate invokes the document upload optimizer', fun
 
     $certificate = UploadedFile::fake()->create('cert.pdf', 100, 'application/pdf');
 
-    $optimizer = \Mockery::mock(DocumentUploadOptimizer::class);
+    $optimizer = Mockery::mock(DocumentUploadOptimizer::class);
     $optimizer->shouldReceive('prepare')
         ->once()
-        ->with(\Mockery::type(UploadedFile::class))
+        ->with(Mockery::type(UploadedFile::class))
         ->andReturn(new PreparedDocumentUpload($certificate));
 
     $this->app->instance(DocumentUploadOptimizer::class, $optimizer);

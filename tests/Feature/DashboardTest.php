@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Employee;
 use App\Models\AttendanceRecord;
+use App\Models\Employee;
 use App\Models\User;
 use Carbon\Carbon;
 

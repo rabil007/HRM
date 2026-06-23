@@ -2,15 +2,14 @@
 
 namespace App\Support\Dashboard;
 
+use App\Models\AttendanceRecord;
 use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Department;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
-use App\Models\AttendanceRecord;
 use App\Support\EmployeeDocuments\DocumentBrowseQuery;
 use Carbon\Carbon;
-use Carbon\CarbonInterface;
 
 final class DashboardAnalytics
 {

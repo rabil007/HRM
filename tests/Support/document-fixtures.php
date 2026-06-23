@@ -8,6 +8,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use Illuminate\Support\Facades\Storage;
+use setasign\Fpdi\Fpdi;
 
 function makeDocumentFixtures(): array
 {
@@ -63,7 +64,7 @@ function makeDocumentFixtures(): array
 
 function minimalPdfBytes(): string
 {
-    $pdf = new setasign\Fpdi\Fpdi;
+    $pdf = new Fpdi;
     $pdf->AddPage();
     $pdf->SetFont('Helvetica', '', 12);
     $pdf->Cell(0, 10, 'Test document');

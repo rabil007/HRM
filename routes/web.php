@@ -57,6 +57,7 @@ use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Payroll\PayrollController;
+use App\Http\Controllers\Payroll\PayrollOverviewController;
 use App\Http\Controllers\Payroll\PayrollRecordController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
@@ -157,6 +158,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'index'])->middleware('can:crew_operations.planning.view')->name('organization.crew-operations.settings.index');
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
 
+    Route::get('payroll/overview', PayrollOverviewController::class)->name('payroll.overview');
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
     Route::get('payroll/records', [PayrollRecordController::class, 'index'])->middleware('can:payroll.records.view')->name('payroll.records.index');
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');

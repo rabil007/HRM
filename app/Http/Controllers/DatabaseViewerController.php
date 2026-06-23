@@ -25,7 +25,7 @@ class DatabaseViewerController extends Controller
 
         return Inertia::render('mysql/index', [
             'tables' => $tables->values(),
-            'filters' => $request->only('search')
+            'filters' => $request->only('search'),
         ]);
     }
 
@@ -52,7 +52,7 @@ class DatabaseViewerController extends Controller
 
     public function show(Request $request, $table)
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             abort(404);
         }
 
@@ -75,13 +75,13 @@ class DatabaseViewerController extends Controller
             'tableName' => $table,
             'columns' => $columns,
             'data' => $data,
-            'filters' => $request->only('search', 'sort_by', 'sort_dir', 'column_filters')
+            'filters' => $request->only('search', 'sort_by', 'sort_dir', 'column_filters'),
         ]);
     }
 
     public function export(Request $request, $table)
     {
-        if (!Schema::hasTable($table)) {
+        if (! Schema::hasTable($table)) {
             abort(404);
         }
 
@@ -109,7 +109,7 @@ class DatabaseViewerController extends Controller
         $callback = function () use ($query, $columns) {
             $file = fopen('php://output', 'w');
             // Add BOM for UTF-8 Excel compatibility
-            fputs($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
+            fwrite($file, chr(0xEF).chr(0xBB).chr(0xBF));
             fputcsv($file, $columns);
 
             foreach ($query->cursor() as $record) {
@@ -141,12 +141,12 @@ class DatabaseViewerController extends Controller
         $sql = trim($request->input('query'));
 
         try {
-            if (!preg_match('/^select\s/i', $sql)) {
+            if (! preg_match('/^select\s/i', $sql)) {
                 throw new \Exception('Only SELECT queries are allowed for safety.');
             }
 
             $results = DB::select($sql);
-            
+
             $columns = [];
             if (count($results) > 0) {
                 $columns = array_keys((array) $results[0]);
@@ -156,7 +156,7 @@ class DatabaseViewerController extends Controller
                 'query_results' => [
                     'columns' => $columns,
                     'data' => $results,
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return back()->withErrors(['query' => $e->getMessage()]);

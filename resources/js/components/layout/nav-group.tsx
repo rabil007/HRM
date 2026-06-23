@@ -219,19 +219,27 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     if ('url' in item && item.url) {
         if (
             item.url === '/payroll' &&
-            path.startsWith('/payroll/records')
+            (path.startsWith('/payroll/records') || path.startsWith('/payroll/overview'))
+        ) {
+            return false;
+        }
+
+        if (item.url === '/settings') {
+            return path === '/settings' || path.startsWith('/settings/master-data/');
+        }
+
+        if (item.url === '/settings/application') {
+            return path === '/settings/application';
+        }
+
+        if (
+            item.url === '/organization/crew-operations' &&
+            path.startsWith('/organization/crew-operations/settings')
         ) {
             return false;
         }
 
         if (path === item.url || (item.url !== '/' && path.startsWith(`${item.url}/`))) {
-            return true;
-        }
-
-        if (
-            item.url === '/settings' &&
-            path.startsWith('/settings/master-data/')
-        ) {
             return true;
         }
     }
