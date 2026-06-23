@@ -230,7 +230,13 @@ class PermissionsSeeder extends Seeder
             'payroll.crew_timesheets.create',
             'payroll.crew_timesheets.update',
             'payroll.crew_timesheets.delete',
+            'payroll.crew_timesheets.import',
             'payroll.records.view',
+            'payroll.payslips.view',
+            'payroll.payslips.generate',
+            'payroll.payslips.email',
+            'payroll.wps.view',
+            'payroll.wps.export',
         ];
 
         foreach ($permissions as $name) {

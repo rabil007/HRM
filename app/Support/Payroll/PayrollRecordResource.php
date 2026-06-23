@@ -3,6 +3,7 @@
 namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
+use App\Enums\WpsStatus;
 use App\Models\PayrollRecord;
 
 final class PayrollRecordResource
@@ -17,6 +18,7 @@ final class PayrollRecordResource
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
         $category = $record->payroll_category ?? PayrollCategory::Office;
+        $wpsStatus = $record->wps_status !== null ? WpsStatus::from($record->wps_status) : null;
 
         $base = [
             'id' => $record->id,
@@ -32,6 +34,9 @@ final class PayrollRecordResource
             'gross_salary' => self::formatAmount($record->gross_salary),
             'net_salary' => self::formatAmount($record->net_salary),
             'status' => $record->status,
+            'has_payslip' => filled($record->payslip_path),
+            'wps_status' => $wpsStatus?->value,
+            'wps_status_label' => $wpsStatus?->label(),
         ];
 
         if ($category === PayrollCategory::Crew) {

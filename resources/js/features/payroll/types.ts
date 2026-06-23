@@ -140,14 +140,47 @@ export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
     delete: boolean;
+    import_timesheets: boolean;
     generate_payroll: boolean;
     revert_to_draft: boolean;
     approve: boolean;
     mark_paid: boolean;
     cancel: boolean;
+    payslips_view: boolean;
+    payslips_generate: boolean;
+    payslips_email: boolean;
+    wps_view: boolean;
+    wps_export: boolean;
 };
 
-export type CrewPayrollRecordListItem = {
+export type PayslipSummary = {
+    total: number;
+    generated: number;
+    pending: number;
+};
+
+export type WpsPreview = {
+    period: { id: number; name: string };
+    eligible_count: number;
+    skipped: Array<{
+        record_id: number;
+        employee_name: string;
+        employee_no: string | null;
+        reason: string;
+    }>;
+    company: {
+        wps_mol_uid: string | null;
+        wps_agent_code: string | null;
+    };
+};
+
+export type PayrollRecordDeliveryFields = {
+    has_payslip: boolean;
+    wps_status: string | null;
+    wps_status_label: string | null;
+};
+
+export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'crew';
     employee: {
@@ -169,7 +202,7 @@ export type CrewPayrollRecordListItem = {
     status: string;
 };
 
-export type OfficePayrollRecordListItem = {
+export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'office';
     employee: {
@@ -219,6 +252,8 @@ export type PayrollShowProps = {
     generation_summary: PayrollGenerationSummary | null;
     search: string;
     permissions: CrewPayrollPermissions;
+    payslip_summary: PayslipSummary;
+    wps_preview: WpsPreview | null;
     timesheet_draft: CrewTimesheetFormData | null;
 };
 

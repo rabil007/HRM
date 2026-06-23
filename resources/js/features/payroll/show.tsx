@@ -1,5 +1,5 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { Calculator, Pencil, RotateCcw, XCircle } from 'lucide-react';
+import { Calculator, Pencil, RotateCcw, Upload, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     approve,
@@ -33,12 +33,14 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
+import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
+import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { PayrollRecordsTable } from './components/payroll-records-table';
@@ -159,6 +161,8 @@ export function PayrollShowContent({
     generation_summary,
     search: initialSearch,
     permissions,
+    payslip_summary,
+    wps_preview,
     timesheet_draft,
 }: PayrollShowProps) {
     const page = usePage<{ errors: Record<string, string> }>();
@@ -172,6 +176,7 @@ export function PayrollShowContent({
     const [isMarkingPaid, setIsMarkingPaid] = useState(false);
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -415,12 +420,24 @@ export function PayrollShowContent({
                     </TabsList>
 
                     <TabsContent value="timesheets">
-                        <div className="mb-4">
-                            <SearchBar
-                                value={list.searchInput}
-                                onChange={list.onSearchChange}
-                                placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
-                            />
+                        <div className="mb-4 flex flex-wrap items-center gap-3">
+                            <div className="min-w-0 flex-1">
+                                <SearchBar
+                                    value={list.searchInput}
+                                    onChange={list.onSearchChange}
+                                    placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                                />
+                            </div>
+                            {permissions.import_timesheets && canSave ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-6"
+                                    onClick={() => setIsImportDialogOpen(true)}
+                                >
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Import Excel
+                                </Button>
+                            ) : null}
                         </div>
                         {renderTimesheetsTab()}
                     </TabsContent>
@@ -474,6 +491,14 @@ export function PayrollShowContent({
                     form={form}
                     errors={mergedErrors}
                     onSubmit={handleSubmit}
+                />
+            ) : null}
+
+            {period.supports_timesheets ? (
+                <CrewTimesheetImportDialog
+                    open={isImportDialogOpen}
+                    onOpenChange={setIsImportDialogOpen}
+                    periodId={period.id}
                 />
             ) : null}
 
@@ -648,10 +673,22 @@ export function PayrollShowContent({
 
         return (
             <>
+                <PayrollPeriodDeliveryPanel
+                    period={period}
+                    payslip_summary={payslip_summary}
+                    wps_preview={wps_preview}
+                    permissions={permissions}
+                />
                 {period.supports_timesheets ? (
-                    <PayrollRecordsTable records={crewRecords} />
+                    <PayrollRecordsTable
+                        records={crewRecords}
+                        canViewPayslips={permissions.payslips_view}
+                    />
                 ) : (
-                    <OfficePayrollRecordsTable records={officeRecords} />
+                    <OfficePayrollRecordsTable
+                        records={officeRecords}
+                        canViewPayslips={permissions.payslips_view}
+                    />
                 )}
                 {recordsPagination ? (
                     <Pagination

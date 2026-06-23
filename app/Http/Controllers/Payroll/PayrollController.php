@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\ApprovePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\CancelPayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\GenerateCrewPayrollRequest;
+use App\Http\Requests\Organization\Payroll\ImportCrewTimesheetsRequest;
 use App\Http\Requests\Organization\Payroll\MarkPayrollPeriodPaidRequest;
 use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
+use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
@@ -30,8 +32,13 @@ use App\Support\Payroll\PayrollPeriodBoardSummary;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodResource;
 use App\Support\Payroll\PayrollRecordResource;
+use App\Support\Payroll\PayslipSummary;
+use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
+use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
 
@@ -108,7 +115,7 @@ class PayrollController extends Controller
         Request $request,
         PayrollPeriod $payrollPeriod,
         PayrollPeriodBoardQuery $boardQuery,
-    ): InertiaResponse {
+    ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
         $companyId = (int) $request->attributes->get('current_company_id');
@@ -119,6 +126,29 @@ class PayrollController extends Controller
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
         $tab = trim((string) $request->query('tab', ''));
+        $isFinalizedPeriod = in_array($payrollPeriod->status, [
+            PayrollPeriodStatus::Approved,
+            PayrollPeriodStatus::Paid,
+        ], true);
+
+        if ($tab === '' && $isFinalizedPeriod) {
+            $params = [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'payroll',
+            ];
+
+            if ($search !== '') {
+                $params['search'] = $search;
+            }
+
+            foreach (['page', 'records_page', 'per_page'] as $key) {
+                if ($request->filled($key)) {
+                    $params[$key] = $request->query($key);
+                }
+            }
+
+            return redirect()->route('payroll.show', $params);
+        }
 
         $paginator = $boardQuery->paginate(
             companyId: $companyId,
@@ -144,10 +174,18 @@ class PayrollController extends Controller
             ->all();
         $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
 
-        $defaultTab = $payrollPeriod->isCrew() ? 'timesheets' : 'employees';
+        $defaultTab = $isFinalizedPeriod
+            ? 'payroll'
+            : ($payrollPeriod->isCrew() ? 'timesheets' : 'employees');
         $allowedTabs = $payrollPeriod->isCrew()
             ? ['timesheets', 'payroll']
             : ['employees', 'payroll'];
+
+        $company = Company::query()->findOrFail($companyId);
+        $payslipSummary = PayslipSummary::forPeriod($payrollPeriod);
+        $wpsPreview = $isFinalizedPeriod && $payrollPeriod->payroll_records_count > 0
+            ? app(WpsExportPreview::class)->forPeriod($company, $payrollPeriod)
+            : null;
 
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
@@ -160,7 +198,17 @@ class PayrollController extends Controller
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
-            'permissions' => CrewPayrollPagePermissions::for($request->user()),
+            'permissions' => array_merge(CrewPayrollPagePermissions::for($request->user()), [
+                'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
+                    || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),
+                'payslips_view' => $request->user()?->can('payroll.payslips.view') ?? false,
+                'payslips_generate' => $request->user()?->can('payroll.payslips.generate') ?? false,
+                'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,
+                'wps_view' => $request->user()?->can('payroll.wps.view') ?? false,
+                'wps_export' => $request->user()?->can('payroll.wps.export') ?? false,
+            ]),
+            'payslip_summary' => $payslipSummary,
+            'wps_preview' => $wpsPreview,
             'timesheet_draft' => $payrollPeriod->isCrew()
                 ? $this->timesheetDraftFromOldInput($request)
                 : null,
@@ -232,6 +280,68 @@ class PayrollController extends Controller
         return redirect()
             ->route('payroll.show', $payrollPeriod)
             ->with('success', 'Crew timesheet saved.');
+    }
+
+    public function importTemplate(PayrollPeriod $payrollPeriod)
+    {
+        $companyId = (int) request()->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        abort_unless($payrollPeriod->isCrew(), 404);
+
+        $path = resource_path('templates/crew-monthly-timesheet.xlsx');
+
+        abort_unless(File::exists($path), 404);
+
+        return response()->download($path, 'crew-monthly-timesheet.xlsx');
+    }
+
+    public function importPreview(
+        ImportCrewTimesheetsRequest $request,
+        PayrollPeriod $payrollPeriod,
+        CrewTimesheetImportOrchestrator $orchestrator,
+    ) {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        try {
+            $result = $orchestrator->preview($companyId, $payrollPeriod, $request->file('file'));
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
+        }
+
+        return response()->json($result);
+    }
+
+    public function importTimesheets(
+        ImportCrewTimesheetsRequest $request,
+        PayrollPeriod $payrollPeriod,
+        CrewTimesheetImportOrchestrator $orchestrator,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        try {
+            $result = $orchestrator->execute($companyId, $payrollPeriod, $request->file('file'));
+        } catch (\InvalidArgumentException $exception) {
+            throw ValidationException::withMessages([
+                'file' => $exception->getMessage(),
+            ]);
+        }
+
+        $message = "Imported {$result['imported']} crew timesheet(s).";
+
+        if ($result['skipped'] > 0) {
+            $message .= " {$result['skipped']} row(s) skipped.";
+        }
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'timesheets',
+            ])
+            ->with('success', $message);
     }
 
     public function generatePayroll(

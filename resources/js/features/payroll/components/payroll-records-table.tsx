@@ -2,17 +2,28 @@ import {
     OrganizationDataTable,
     DataTableHead,
     DataTableHeaderRow,
+    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import {
+    PayrollRecordPayslipActionsCell,
+    PayrollRecordPayslipStatusCell,
+} from './payroll-record-payslip-cells';
 import type { CrewPayrollRecordListItem } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 
-export function PayrollRecordsTable({ records }: { records: CrewPayrollRecordListItem[] }) {
+export function PayrollRecordsTable({
+    records,
+    canViewPayslips,
+}: {
+    records: CrewPayrollRecordListItem[];
+    canViewPayslips: boolean;
+}) {
     return (
-        <OrganizationDataTable minWidth="min-w-[1100px]">
+        <OrganizationDataTable minWidth="min-w-[1220px]">
             <TableHeader>
                 <DataTableHeaderRow>
                     <DataTableHead className="pl-5">Employee</DataTableHead>
@@ -21,6 +32,8 @@ export function PayrollRecordsTable({ records }: { records: CrewPayrollRecordLis
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Deductions</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
+                    <DataTableHead>Payslip</DataTableHead>
+                    <DataTableHead className={dataTableActionsCellClass()}>Actions</DataTableHead>
                 </DataTableHeaderRow>
             </TableHeader>
             <TableBody>
@@ -55,6 +68,14 @@ export function PayrollRecordsTable({ records }: { records: CrewPayrollRecordLis
                                 {formatTimesheetAmount(record.net_salary)}
                             </span>
                         </TableCell>
+                        <PayrollRecordPayslipStatusCell
+                            has_payslip={record.has_payslip}
+                            wps_status_label={record.wps_status_label}
+                        />
+                        <PayrollRecordPayslipActionsCell
+                            recordId={record.id}
+                            canViewPayslips={canViewPayslips}
+                        />
                     </TableRow>
                 ))}
             </TableBody>

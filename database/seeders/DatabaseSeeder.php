@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         $this->call(PermissionsSeeder::class);
+        $this->call(EmailTemplatesSeeder::class);
         $this->call(AppSettingsSeeder::class);
         $this->call(CurrencySeeder::class);
         $this->call(CountrySeeder::class);

@@ -9,6 +9,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use Inertia\Testing\AssertableInertia as Assert;
 
 test('users without permission cannot approve pay period', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -210,6 +211,78 @@ test('revert to draft fails for cancelled pay period', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.revert-to-draft', $period))
         ->assertSessionHasErrors('period_id');
+});
+
+test('approved and paid pay periods open on payroll tab by default', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    [$approvedPeriod] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', $approvedPeriod))
+        ->assertRedirect(route('payroll.show', [
+            'payrollPeriod' => $approvedPeriod,
+            'tab' => 'payroll',
+        ]));
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $approvedPeriod, 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('tab', 'payroll'));
+
+    $paidPeriod = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Paid,
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', $paidPeriod))
+        ->assertRedirect(route('payroll.show', [
+            'payrollPeriod' => $paidPeriod,
+            'tab' => 'payroll',
+        ]));
+});
+
+test('approved pay period show includes payslip and wps delivery props', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.view',
+        'payroll.payslips.view',
+        'payroll.payslips.generate',
+        'payroll.payslips.email',
+        'payroll.wps.view',
+        'payroll.wps.export',
+    ]);
+
+    $company->update([
+        'wps_mol_uid' => 'MOL-TEST-001',
+        'wps_agent_code' => 'AGENT-TEST-001',
+    ]);
+
+    [$approvedPeriod] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $approvedPeriod, 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('payslip_summary.total', 1)
+            ->where('payslip_summary.generated', 0)
+            ->where('payslip_summary.pending', 1)
+            ->where('permissions.payslips_view', true)
+            ->where('permissions.payslips_generate', true)
+            ->where('permissions.wps_view', true)
+            ->where('permissions.wps_export', true)
+            ->has('wps_preview')
+            ->where('wps_preview.period.id', $approvedPeriod->id)
+            ->where('payroll_records.0.has_payslip', false));
 });
 
 test('timesheets remain locked after pay period is approved', function () {

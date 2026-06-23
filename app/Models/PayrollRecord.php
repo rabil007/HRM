@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PayrollCategory;
+use App\Enums\WpsStatus;
 use Database\Factories\PayrollRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +38,7 @@ class PayrollRecord extends Model
             'leave_days' => 'decimal:2',
             'overtime_hours' => 'decimal:2',
             'calculation_breakdown' => 'array',
+            'wps_status' => WpsStatus::class,
             'wps_submitted_at' => 'datetime',
             'paid_at' => 'datetime',
         ];
