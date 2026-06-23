@@ -217,7 +217,7 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     const path = href.split('?')[0];
 
     if ('url' in item && item.url) {
-        if (path === item.url) {
+        if (path === item.url || (item.url !== '/' && path.startsWith(`${item.url}/`))) {
             return true;
         }
 
@@ -230,7 +230,7 @@ function checkIsActive(href: string, item: NavItem, mainNav = false): boolean {
     }
 
     return (
-        !!item?.items?.filter((i) => i.url === path).length ||
+        !!item?.items?.some((i) => i.url && (i.url === path || (i.url !== '/' && path.startsWith(`${i.url}/`)))) ||
         (mainNav &&
             path.split('/')[1] !== '' &&
             path.split('/')[1] === item?.url?.split('/')[1])

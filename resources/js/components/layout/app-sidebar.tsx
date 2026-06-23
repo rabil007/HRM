@@ -1,5 +1,5 @@
 import { usePage } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import {
     Sidebar,
     SidebarContent,
@@ -27,6 +27,17 @@ export function AppSidebar() {
         () => companies.map((c) => ({ id: c.id, name: c.name, logo_url: c.logo_url ?? null })),
         [companies],
     );
+
+    const pageUrl = usePage().url;
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            const activeElement = document.querySelector('[data-sidebar="content"] [data-active="true"]');
+            if (activeElement) {
+                activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        }, 100);
+        return () => clearTimeout(timeout);
+    }, [pageUrl]);
 
     return (
         <Sidebar collapsible={collapsible} variant={variant}>
