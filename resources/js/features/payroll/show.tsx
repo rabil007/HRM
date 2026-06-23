@@ -1,8 +1,12 @@
-import { useForm, usePage } from '@inertiajs/react';
-import { Building2, Pencil } from 'lucide-react';
+import { router, useForm, usePage } from '@inertiajs/react';
+import { Building2, Calculator, Pencil } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { index as payrollIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
-import { show, storeTimesheet } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import {
+    generateCrewPayroll,
+    index as payrollIndex,
+    show,
+    storeTimesheet,
+} from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -20,12 +24,17 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
 import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
+import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
+import { PayrollRecordsTable } from './components/payroll-records-table';
+import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
+import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import type {
     CrewPayrollRow,
     CrewTimesheetFormData,
@@ -50,6 +59,20 @@ const TIMESHEET_FIELD_KEYS = [
 
 function hasTimesheetErrors(errors: Record<string, string | undefined>): boolean {
     return TIMESHEET_FIELD_KEYS.some((key) => Boolean(errors[key]));
+}
+
+function resolveTimesheetDays(
+    days: string | null | undefined,
+    from: string | null | undefined,
+    to: string | null | undefined,
+): string {
+    const stored = days ?? '';
+
+    if (stored !== '') {
+        return stored;
+    }
+
+    return calculateInclusiveDays(from ?? '', to ?? '');
 }
 
 function emptyTimesheetForm(periodId: number, employeeId: number): CrewTimesheetFormData {
@@ -77,10 +100,18 @@ function rowToFormData(row: CrewPayrollRow): CrewTimesheetFormData {
         employee_id: row.employee.id,
         standby_from: timesheet?.standby_from ?? '',
         standby_to: timesheet?.standby_to ?? '',
-        standby_days: timesheet?.standby_days ?? '',
+        standby_days: resolveTimesheetDays(
+            timesheet?.standby_days,
+            timesheet?.standby_from,
+            timesheet?.standby_to,
+        ),
         onsite_from: timesheet?.onsite_from ?? '',
         onsite_to: timesheet?.onsite_to ?? '',
-        onsite_days: timesheet?.onsite_days ?? '',
+        onsite_days: resolveTimesheetDays(
+            timesheet?.onsite_days,
+            timesheet?.onsite_from,
+            timesheet?.onsite_to,
+        ),
         overtime_amount: timesheet?.overtime_amount ?? '0',
         additional_amount: timesheet?.additional_amount ?? '0',
         deduction_amount: timesheet?.deduction_amount ?? '0',
@@ -94,10 +125,10 @@ function draftToFormData(draft: CrewTimesheetFormData): CrewTimesheetFormData {
         employee_id: draft.employee_id,
         standby_from: draft.standby_from ?? '',
         standby_to: draft.standby_to ?? '',
-        standby_days: draft.standby_days ?? '',
+        standby_days: resolveTimesheetDays(draft.standby_days, draft.standby_from, draft.standby_to),
         onsite_from: draft.onsite_from ?? '',
         onsite_to: draft.onsite_to ?? '',
-        onsite_days: draft.onsite_days ?? '',
+        onsite_days: resolveTimesheetDays(draft.onsite_days, draft.onsite_from, draft.onsite_to),
         overtime_amount: draft.overtime_amount ?? '0',
         additional_amount: draft.additional_amount ?? '0',
         deduction_amount: draft.deduction_amount ?? '0',
@@ -110,16 +141,22 @@ export function PayrollShowContent({
     rows,
     pagination,
     board_summary,
+    payroll_records,
+    payroll_records_pagination,
+    tab,
+    generation_summary,
     search: initialSearch,
     permissions,
     timesheet_draft,
 }: PayrollShowProps) {
     const page = usePage<{ errors: Record<string, string> }>();
+    const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
         search: initialSearch,
-        filters: {},
+        filters: { tab },
         pagination,
     });
 
@@ -178,6 +215,36 @@ export function PayrollShowContent({
         });
     };
 
+    const handleTabChange = (value: string) => {
+        router.get(
+            show.url(period.id),
+            { tab: value, search: initialSearch || undefined },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
+    };
+
+    const handleGeneratePayroll = () => {
+        setIsGenerating(true);
+        router.post(
+            generateCrewPayroll.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsGenerating(false);
+                    setIsGenerateDialogOpen(false);
+                },
+            },
+        );
+    };
+
+    const canGenerate =
+        period.supports_timesheets &&
+        period.can_generate_crew_payroll &&
+        permissions.generate_payroll;
+
+    const recordsPagination = payroll_records_pagination;
+
     return (
         <Main>
             <DetailsHeader
@@ -194,164 +261,65 @@ export function PayrollShowContent({
                 description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
                 backHref={payrollIndex.url()}
                 backLabel="All pay periods"
+                actions={
+                    canGenerate ? (
+                        <Button
+                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                            onClick={() => setIsGenerateDialogOpen(true)}
+                        >
+                            <Calculator className="mr-2 h-4 w-4" />
+                            Generate payroll
+                        </Button>
+                    ) : null
+                }
             />
 
             <PayrollBoardSummaryBar period={period} summary={board_summary} />
 
-            <div className="mb-4">
-                <SearchBar
-                    value={list.searchInput}
-                    onChange={list.onSearchChange}
-                    placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
-                />
-            </div>
+            {period.supports_timesheets ? (
+                <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
+                    <TabsList className="mb-4 h-11 rounded-xl">
+                        <TabsTrigger value="timesheets" className="rounded-lg px-4">
+                            Timesheets
+                        </TabsTrigger>
+                        <TabsTrigger value="payroll" className="rounded-lg px-4">
+                            Payroll
+                        </TabsTrigger>
+                    </TabsList>
 
-            {!period.supports_timesheets ? (
-                <div className="mb-4 flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3.5 text-sm text-muted-foreground">
-                    <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
-                    <p>
-                        Office payroll for this period will be generated from attendance in a later phase. Below are
-                        employees with an active office contract for this run.
-                    </p>
-                </div>
-            ) : null}
+                    <TabsContent value="timesheets">
+                        <div className="mb-4">
+                            <SearchBar
+                                value={list.searchInput}
+                                onChange={list.onSearchChange}
+                                placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                            />
+                        </div>
+                        {renderTimesheetsTab()}
+                    </TabsContent>
 
-            {rows.length === 0 ? (
-                <EmptyState
-                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
-                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
-                />
-            ) : period.supports_timesheets ? (
-                <>
-                    <OrganizationDataTable>
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Code</DataTableHead>
-                                <DataTableHead>Standby days</DataTableHead>
-                                <DataTableHead>Onsite days</DataTableHead>
-                                <DataTableHead>OT</DataTableHead>
-                                <DataTableHead>Additions</DataTableHead>
-                                <DataTableHead>Deductions</DataTableHead>
-                                <DataTableHead>Status</DataTableHead>
-                                <DataTableHead className="text-right">Actions</DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => (
-                                <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
-                                    <TableCell className={dataTableCellPrimaryClass()}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
-                                                {row.employee.name
-                                                    .split(' ')
-                                                    .filter(Boolean)
-                                                    .slice(0, 2)
-                                                    .map((part) => part[0]?.toUpperCase())
-                                                    .join('') || '—'}
-                                            </div>
-                                            <span className="font-semibold">{row.employee.name}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {row.employee.employee_no ?? '—'}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetDays(row.timesheet?.standby_days)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetDays(row.timesheet?.onsite_days)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetAmount(row.timesheet?.overtime_amount)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetAmount(row.timesheet?.additional_amount)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetAmount(row.timesheet?.deduction_amount)}
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <Badge
-                                            variant={row.is_filled ? 'default' : 'outline'}
-                                            className={cn(
-                                                !row.is_filled &&
-                                                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
-                                            )}
-                                        >
-                                            {row.is_filled ? 'Filled' : 'Pending'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
-                                        {canSave ? (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="rounded-lg"
-                                                onClick={() => handleEdit(row)}
-                                            >
-                                                <Pencil className="mr-2 h-4 w-4" />
-                                                {row.is_filled ? 'Edit' : 'Enter'}
-                                            </Button>
-                                        ) : null}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </OrganizationDataTable>
-
-                    <Pagination
-                        currentPage={pagination.current_page}
-                        lastPage={pagination.last_page}
-                        perPage={pagination.per_page}
-                        total={pagination.total}
-                        from={pagination.from}
-                        to={pagination.to}
-                        onPageChange={list.onPageChange}
-                    />
-                </>
+                    <TabsContent value="payroll">
+                        <PayrollSkippedBanner summary={generation_summary} />
+                        {renderPayrollTab()}
+                    </TabsContent>
+                </Tabs>
             ) : (
                 <>
-                    <OrganizationDataTable>
-                        <TableHeader>
-                            <DataTableHeaderRow>
-                                <DataTableHead>Employee</DataTableHead>
-                                <DataTableHead>Code</DataTableHead>
-                            </DataTableHeaderRow>
-                        </TableHeader>
-                        <TableBody>
-                            {rows.map((row) => (
-                                <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
-                                    <TableCell className={dataTableCellPrimaryClass()}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
-                                                {row.employee.name
-                                                    .split(' ')
-                                                    .filter(Boolean)
-                                                    .slice(0, 2)
-                                                    .map((part) => part[0]?.toUpperCase())
-                                                    .join('') || '—'}
-                                            </div>
-                                            <span className="font-semibold">{row.employee.name}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {row.employee.employee_no ?? '—'}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </OrganizationDataTable>
-
-                    <Pagination
-                        currentPage={pagination.current_page}
-                        lastPage={pagination.last_page}
-                        perPage={pagination.per_page}
-                        total={pagination.total}
-                        from={pagination.from}
-                        to={pagination.to}
-                        onPageChange={list.onPageChange}
-                    />
+                    <div className="mb-4 flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3.5 text-sm text-muted-foreground">
+                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
+                        <p>
+                            Office payroll for this period will be generated from attendance in a later phase.
+                            Below are employees with an active office contract for this run.
+                        </p>
+                    </div>
+                    <div className="mb-4">
+                        <SearchBar
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                            placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                        />
+                    </div>
+                    {renderOfficeEmployeesTab()}
                 </>
             )}
 
@@ -366,6 +334,213 @@ export function PayrollShowContent({
                     onSubmit={handleSubmit}
                 />
             ) : null}
+
+            <PayrollGenerateDialog
+                open={isGenerateDialogOpen}
+                onOpenChange={setIsGenerateDialogOpen}
+                onConfirm={handleGeneratePayroll}
+                processing={isGenerating}
+            />
         </Main>
     );
+
+    function renderTimesheetsTab() {
+        if (rows.length === 0) {
+            return (
+                <EmptyState
+                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
+                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                />
+            );
+        }
+
+        return (
+            <>
+                <OrganizationDataTable>
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead>Employee</DataTableHead>
+                            <DataTableHead>Code</DataTableHead>
+                            <DataTableHead>Standby days</DataTableHead>
+                            <DataTableHead>Onsite days</DataTableHead>
+                            <DataTableHead>OT</DataTableHead>
+                            <DataTableHead>Additions</DataTableHead>
+                            <DataTableHead>Deductions</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead className="text-right">Actions</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row) => (
+                            <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                                <TableCell className={dataTableCellPrimaryClass()}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                            {row.employee.name
+                                                .split(' ')
+                                                .filter(Boolean)
+                                                .slice(0, 2)
+                                                .map((part) => part[0]?.toUpperCase())
+                                                .join('') || '—'}
+                                        </div>
+                                        <span className="font-semibold">{row.employee.name}</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {row.employee.employee_no ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetDays(row.timesheet?.standby_days)}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetDays(row.timesheet?.onsite_days)}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetAmount(row.timesheet?.overtime_amount)}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetAmount(row.timesheet?.additional_amount)}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetAmount(row.timesheet?.deduction_amount)}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <Badge
+                                        variant={row.is_filled ? 'default' : 'outline'}
+                                        className={cn(
+                                            !row.is_filled &&
+                                                'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                        )}
+                                    >
+                                        {row.is_filled ? 'Filled' : 'Pending'}
+                                    </Badge>
+                                </TableCell>
+                                <TableCell className={dataTableActionsCellClass()}>
+                                    {canSave ? (
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="rounded-lg"
+                                            onClick={() => handleEdit(row)}
+                                        >
+                                            <Pencil className="mr-2 h-4 w-4" />
+                                            {row.is_filled ? 'Edit' : 'Enter'}
+                                        </Button>
+                                    ) : null}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </OrganizationDataTable>
+
+                <Pagination
+                    currentPage={pagination.current_page}
+                    lastPage={pagination.last_page}
+                    perPage={pagination.per_page}
+                    total={pagination.total}
+                    from={pagination.from}
+                    to={pagination.to}
+                    onPageChange={list.onPageChange}
+                />
+            </>
+        );
+    }
+
+    function renderPayrollTab() {
+        if (payroll_records.length === 0) {
+            return (
+                <EmptyState
+                    title="No payroll records yet"
+                    description="Generate payroll from entered timesheets to review gross and net amounts."
+                    action={
+                        canGenerate ? (
+                            <Button className="rounded-xl" onClick={() => setIsGenerateDialogOpen(true)}>
+                                <Calculator className="mr-2 h-4 w-4" />
+                                Generate payroll
+                            </Button>
+                        ) : undefined
+                    }
+                />
+            );
+        }
+
+        return (
+            <>
+                <PayrollRecordsTable records={payroll_records} />
+                {recordsPagination ? (
+                    <Pagination
+                        currentPage={recordsPagination.current_page}
+                        lastPage={recordsPagination.last_page}
+                        perPage={recordsPagination.per_page}
+                        total={recordsPagination.total}
+                        from={recordsPagination.from}
+                        to={recordsPagination.to}
+                        onPageChange={(page) => {
+                            router.get(
+                                show.url(period.id),
+                                { tab: 'payroll', records_page: page, search: initialSearch || undefined },
+                                { preserveState: true, preserveScroll: true },
+                            );
+                        }}
+                    />
+                ) : null}
+            </>
+        );
+    }
+
+    function renderOfficeEmployeesTab() {
+        if (rows.length === 0) {
+            return (
+                <EmptyState
+                    title={`No ${period.payroll_category_label.toLowerCase()} employees`}
+                    description={`Only employees with an active ${period.payroll_category_label.toLowerCase()} contract appear on this pay run.`}
+                />
+            );
+        }
+
+        return (
+            <>
+                <OrganizationDataTable>
+                    <TableHeader>
+                        <DataTableHeaderRow>
+                            <DataTableHead>Employee</DataTableHead>
+                            <DataTableHead>Code</DataTableHead>
+                        </DataTableHeaderRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row) => (
+                            <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                                <TableCell className={dataTableCellPrimaryClass()}>
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                            {row.employee.name
+                                                .split(' ')
+                                                .filter(Boolean)
+                                                .slice(0, 2)
+                                                .map((part) => part[0]?.toUpperCase())
+                                                .join('') || '—'}
+                                        </div>
+                                        <span className="font-semibold">{row.employee.name}</span>
+                                    </div>
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {row.employee.employee_no ?? '—'}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </OrganizationDataTable>
+
+                <Pagination
+                    currentPage={pagination.current_page}
+                    lastPage={pagination.last_page}
+                    perPage={pagination.per_page}
+                    total={pagination.total}
+                    from={pagination.from}
+                    to={pagination.to}
+                    onPageChange={list.onPageChange}
+                />
+            </>
+        );
+    }
 }

@@ -1,5 +1,6 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/react';
-import { FormEvent, useState } from 'react';
+import type { FormEvent} from 'react';
+import { useState } from 'react';
 
 export default function Query() {
     const { props } = usePage<any>();
@@ -28,8 +29,14 @@ export default function Query() {
     };
 
     const renderCell = (value: any) => {
-        if (value === null) return <span className="text-gray-400 italic">NULL</span>;
-        if (typeof value === 'object') return <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-1 rounded">{JSON.stringify(value)}</pre>;
+        if (value === null) {
+return <span className="text-gray-400 italic">NULL</span>;
+}
+
+        if (typeof value === 'object') {
+return <pre className="text-xs bg-gray-100 dark:bg-gray-800 p-1 rounded">{JSON.stringify(value)}</pre>;
+}
+
         return String(value);
     };
 

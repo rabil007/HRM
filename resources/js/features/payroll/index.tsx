@@ -1,5 +1,5 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import { ChevronRight, Plus, Receipt } from 'lucide-react';
+import { ChevronRight, Filter, Plus, Receipt } from 'lucide-react';
 import { useState } from 'react';
 import { index, storePeriod } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
 import { show } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
@@ -27,7 +27,7 @@ import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
-import { PayrollCategoryFilterChips } from './components/payroll-category-filter-chips';
+import { PayrollFiltersSheet } from './components/payroll-filters-sheet';
 import { PayrollPeriodCard } from './components/payroll-period-card';
 import { PayrollPeriodFormSheet } from './components/payroll-period-form-sheet';
 import { PayrollPeriodProgress } from './components/payroll-period-progress';
@@ -39,6 +39,7 @@ import type {
     PayrollHubSummary,
     PayrollPeriodFormData,
     PayrollPeriodListItem,
+    PayrollPeriodStatusOption,
 } from './types';
 import { getPeriodProgressPercent } from './types';
 
@@ -49,6 +50,7 @@ export function PayrollIndexContent({
     filters: initialFilters,
     summary,
     payroll_categories,
+    payroll_period_statuses,
     permissions,
 }: {
     periods: PayrollPeriodListItem[];
@@ -57,9 +59,11 @@ export function PayrollIndexContent({
     filters: PayrollHubFilters;
     summary: PayrollHubSummary;
     payroll_categories: PayrollCategoryOption[];
+    payroll_period_statuses: PayrollPeriodStatusOption[];
     permissions: PayrollHubPermissions;
 }) {
     const [isSheetOpen, setIsSheetOpen] = useState(false);
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
     const [view, setView] = useViewPreference('payroll:view', 'grid');
 
     const list = useServerPaginationFilters({
@@ -67,6 +71,9 @@ export function PayrollIndexContent({
         search: initialSearch,
         filters: {
             category: initialFilters.category,
+            status: initialFilters.status,
+            date_from: initialFilters.date_from,
+            date_to: initialFilters.date_to,
         },
         pagination,
     });
@@ -95,11 +102,24 @@ export function PayrollIndexContent({
         });
     };
 
-    const handleCategoryChange = (category: PayrollHubFilters['category']) => {
-        list.applyFilters({ category });
+    const handleFiltersChange = (next: PayrollHubFilters) => {
+        list.applyFilters(next);
     };
 
-    const hasActiveFilters = Boolean(initialFilters.category || initialSearch);
+    const activeFiltersCount = [
+        initialFilters.category,
+        initialFilters.status,
+        initialFilters.date_from,
+        initialFilters.date_to,
+    ].filter(Boolean).length;
+
+    const hasActiveFilters = Boolean(
+        initialFilters.category ||
+            initialFilters.status ||
+            initialFilters.date_from ||
+            initialFilters.date_to ||
+            initialSearch,
+    );
 
     return (
         <Main>
@@ -125,11 +145,20 @@ export function PayrollIndexContent({
                 onChange={list.onSearchChange}
                 right={
                     <div className="flex flex-wrap items-center gap-2">
-                        <PayrollCategoryFilterChips
-                            value={initialFilters.category}
-                            onChange={handleCategoryChange}
-                        />
                         <ViewToggle value={view} onChange={setView} />
+                        <Button
+                            variant="outline"
+                            className="glass-card h-11 rounded-xl px-5 hover:bg-accent"
+                            onClick={() => setIsFiltersOpen(true)}
+                        >
+                            <Filter className="mr-2 h-4 w-4" />
+                            Filters
+                            {activeFiltersCount ? (
+                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                    {activeFiltersCount}
+                                </span>
+                            ) : null}
+                        </Button>
                     </div>
                 }
             />
@@ -144,7 +173,7 @@ export function PayrollIndexContent({
                     title={hasActiveFilters ? 'No matching pay runs' : 'No pay periods yet'}
                     description={
                         hasActiveFilters
-                            ? 'Try a different search term or clear the payroll type filter.'
+                            ? 'Try a different search term or clear the filters.'
                             : 'Create a draft pay period to start entering crew timesheets or preparing office payroll.'
                     }
                     action={
@@ -279,6 +308,21 @@ export function PayrollIndexContent({
                 form={form}
                 payrollCategories={payroll_categories}
                 onSubmit={handleSubmit}
+            />
+
+            <PayrollFiltersSheet
+                open={isFiltersOpen}
+                onOpenChange={setIsFiltersOpen}
+                payrollCategories={payroll_categories}
+                payrollPeriodStatuses={payroll_period_statuses}
+                value={{
+                    category: initialFilters.category,
+                    status: initialFilters.status,
+                    date_from: initialFilters.date_from,
+                    date_to: initialFilters.date_to,
+                }}
+                onChange={handleFiltersChange}
+                onReset={() => handleFiltersChange({ category: '', status: '', date_from: '', date_to: '' })}
             />
         </Main>
     );

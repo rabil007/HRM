@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Payroll;
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Organization\Payroll\GenerateCrewPayrollRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\PayrollPeriod;
+use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -17,6 +20,7 @@ use App\Support\Payroll\PayrollPeriodBoardQuery;
 use App\Support\Payroll\PayrollPeriodBoardSummary;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodResource;
+use App\Support\Payroll\PayrollRecordResource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -35,6 +39,9 @@ class PayrollController extends Controller
         $employeeCountsByCategory = $this->employeeCountsByCategory($companyId);
         $search = trim((string) $request->query('search', ''));
         $category = trim((string) $request->query('category', ''));
+        $status = trim((string) $request->query('status', ''));
+        $dateFrom = trim((string) $request->query('date_from', ''));
+        $dateTo = trim((string) $request->query('date_to', ''));
 
         $query = PayrollPeriod::query()
             ->where('company_id', $companyId)
@@ -47,6 +54,18 @@ class PayrollController extends Controller
 
         if (in_array($category, [PayrollCategory::Crew->value, PayrollCategory::Office->value], true)) {
             $query->where('payroll_category', $category);
+        }
+
+        if (in_array($status, PayrollPeriodStatus::values(), true)) {
+            $query->where('status', $status);
+        }
+
+        if ($this->isValidDateFilter($dateFrom)) {
+            $query->whereDate('end_date', '>=', $dateFrom);
+        }
+
+        if ($this->isValidDateFilter($dateTo)) {
+            $query->whereDate('start_date', '<=', $dateTo);
         }
 
         $paginator = $query
@@ -62,9 +81,13 @@ class PayrollController extends Controller
             'search' => $search,
             'filters' => [
                 'category' => $category,
+                'status' => $status,
+                'date_from' => $dateFrom,
+                'date_to' => $dateTo,
             ],
             'summary' => PayrollHubSummary::forCompany($companyId),
             'payroll_categories' => $this->payrollCategoryOptions(),
+            'payroll_period_statuses' => $this->payrollPeriodStatusOptions(),
             'permissions' => [
                 'create_period' => $request->user()?->can('payroll.periods.create') ?? false,
                 'view_crew_timesheets' => $request->user()?->can('payroll.crew_timesheets.view') ?? false,
@@ -84,6 +107,7 @@ class PayrollController extends Controller
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
+        $tab = trim((string) $request->query('tab', 'timesheets'));
         $payrollCategory = $payrollPeriod->payroll_category ?? PayrollCategory::Crew;
 
         $paginator = $boardQuery->paginate(
@@ -94,11 +118,34 @@ class PayrollController extends Controller
             perPage: $perPage,
         );
 
+        $payrollRecords = [];
+        $payrollRecordsPagination = null;
+
+        if ($payrollPeriod->isCrew()) {
+            $recordsPaginator = PayrollRecord::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $payrollPeriod->id)
+                ->with('employee')
+                ->orderBy('id')
+                ->paginate($perPage, ['*'], 'records_page')
+                ->withQueryString();
+
+            $payrollRecords = collect($recordsPaginator->items())
+                ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray($record))
+                ->values()
+                ->all();
+            $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
+        }
+
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'board_summary' => PayrollPeriodBoardSummary::forPeriod($payrollPeriod, (int) $paginator->total()),
+            'payroll_records' => $payrollRecords,
+            'payroll_records_pagination' => $payrollRecordsPagination,
+            'tab' => in_array($tab, ['timesheets', 'payroll'], true) ? $tab : 'timesheets',
+            'generation_summary' => $request->session()->get('crew_payroll_generation'),
             'search' => $search,
             'permissions' => CrewPayrollPagePermissions::for($request->user()),
             'timesheet_draft' => $payrollPeriod->isCrew()
@@ -174,6 +221,34 @@ class PayrollController extends Controller
             ->with('success', 'Crew timesheet saved.');
     }
 
+    public function generateCrewPayroll(
+        GenerateCrewPayrollRequest $request,
+        PayrollPeriod $payrollPeriod,
+        GenerateCrewPayroll $generateCrewPayroll,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        abort_unless($payrollPeriod->isCrew(), 404);
+
+        $result = $generateCrewPayroll->handle($payrollPeriod);
+
+        $message = $result->generatedCount > 0
+            ? "Generated payroll for {$result->generatedCount} employee(s)."
+            : 'No payroll records were generated.';
+
+        if ($result->skippedCount > 0) {
+            $message .= " {$result->skippedCount} employee(s) skipped (no timesheet).";
+        }
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'payroll',
+            ])
+            ->with('success', $message)
+            ->with('crew_payroll_generation', $result->toSessionArray());
+    }
+
     /**
      * @return array<string, int>
      */
@@ -197,6 +272,31 @@ class PayrollController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    /**
+     * @return list<array{value: string, label: string}>
+     */
+    private function payrollPeriodStatusOptions(): array
+    {
+        return collect(PayrollPeriodStatus::cases())
+            ->map(fn (PayrollPeriodStatus $status) => [
+                'value' => $status->value,
+                'label' => $status->label(),
+            ])
+            ->values()
+            ->all();
+    }
+
+    private function isValidDateFilter(string $value): bool
+    {
+        if ($value === '') {
+            return false;
+        }
+
+        $date = \DateTimeImmutable::createFromFormat('Y-m-d', $value);
+
+        return $date !== false && $date->format('Y-m-d') === $value;
     }
 
     private function authorizePayrollHub(Request $request): void

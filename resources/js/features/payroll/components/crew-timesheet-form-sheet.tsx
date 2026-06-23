@@ -11,7 +11,38 @@ import {
     SheetTitle,
 } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
+import { calculateInclusiveDays } from '../lib/calculate-inclusive-days';
 import type { CrewPayrollRow, CrewTimesheetFormData } from '../types';
+
+function updateStandbyRange(
+    form: InertiaFormProps<CrewTimesheetFormData>,
+    field: 'standby_from' | 'standby_to',
+    value: string,
+) {
+    form.setData((data) => {
+        const next = { ...data, [field]: value };
+
+        return {
+            ...next,
+            standby_days: calculateInclusiveDays(next.standby_from, next.standby_to),
+        };
+    });
+}
+
+function updateOnsiteRange(
+    form: InertiaFormProps<CrewTimesheetFormData>,
+    field: 'onsite_from' | 'onsite_to',
+    value: string,
+) {
+    form.setData((data) => {
+        const next = { ...data, [field]: value };
+
+        return {
+            ...next,
+            onsite_days: calculateInclusiveDays(next.onsite_from, next.onsite_to),
+        };
+    });
+}
 
 export function CrewTimesheetFormSheet({
     open,
@@ -68,7 +99,7 @@ export function CrewTimesheetFormSheet({
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.standby_from}
-                                    onChange={(e) => form.setData('standby_from', e.target.value)}
+                                    onChange={(e) => updateStandbyRange(form, 'standby_from', e.target.value)}
                                     disabled={!canSave}
                                 />
                                 <InputError message={errors.standby_from} className="text-xs" />
@@ -81,7 +112,7 @@ export function CrewTimesheetFormSheet({
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.standby_to}
-                                    onChange={(e) => form.setData('standby_to', e.target.value)}
+                                    onChange={(e) => updateStandbyRange(form, 'standby_to', e.target.value)}
                                     disabled={!canSave}
                                 />
                                 <InputError message={errors.standby_to} className="text-xs" />
@@ -101,6 +132,9 @@ export function CrewTimesheetFormSheet({
                                 onChange={(e) => form.setData('standby_days', e.target.value)}
                                 disabled={!canSave}
                             />
+                            <p className="text-xs text-muted-foreground">
+                                Auto-calculated from standby dates (inclusive). You can adjust manually.
+                            </p>
                             <InputError message={errors.standby_days} className="text-xs" />
                         </div>
 
@@ -113,7 +147,7 @@ export function CrewTimesheetFormSheet({
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.onsite_from}
-                                    onChange={(e) => form.setData('onsite_from', e.target.value)}
+                                    onChange={(e) => updateOnsiteRange(form, 'onsite_from', e.target.value)}
                                     disabled={!canSave}
                                 />
                                 <InputError message={errors.onsite_from} className="text-xs" />
@@ -126,7 +160,7 @@ export function CrewTimesheetFormSheet({
                                     type="date"
                                     className="h-11 rounded-xl border-border bg-card"
                                     value={form.data.onsite_to}
-                                    onChange={(e) => form.setData('onsite_to', e.target.value)}
+                                    onChange={(e) => updateOnsiteRange(form, 'onsite_to', e.target.value)}
                                     disabled={!canSave}
                                 />
                                 <InputError message={errors.onsite_to} className="text-xs" />
@@ -146,6 +180,9 @@ export function CrewTimesheetFormSheet({
                                 onChange={(e) => form.setData('onsite_days', e.target.value)}
                                 disabled={!canSave}
                             />
+                            <p className="text-xs text-muted-foreground">
+                                Auto-calculated from onsite dates (inclusive). You can adjust manually.
+                            </p>
                             <InputError message={errors.onsite_days} className="text-xs" />
                         </div>
                     </div>

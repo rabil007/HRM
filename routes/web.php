@@ -6,6 +6,7 @@ use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\LeaveRequestAttachmentController;
 use App\Http\Controllers\Attendance\LeaveRequestController;
 use App\Http\Controllers\Attendance\LeaveTypeController;
+use App\Http\Controllers\DatabaseViewerController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
 use App\Http\Controllers\Organization\ActivityLogController;
@@ -159,6 +160,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
     Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
+    Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generateCrewPayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
 
     Route::get('organization/payroll', fn () => redirect()->route('payroll.index'))->name('organization.payroll.index');
     Route::get('organization/payroll/{payrollPeriod}', fn (PayrollPeriod $payrollPeriod) => redirect()->route('payroll.show', $payrollPeriod))->name('organization.payroll.show');
@@ -413,10 +415,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:hikvision.events.fetch')
         ->name('hikvision.access-events.fetch');
 
-    Route::get('mysql', [\App\Http\Controllers\DatabaseViewerController::class, 'index'])->name('mysql.index');
-    Route::get('mysql/query', [\App\Http\Controllers\DatabaseViewerController::class, 'query'])->name('mysql.query');
-    Route::post('mysql/query/execute', [\App\Http\Controllers\DatabaseViewerController::class, 'execute'])->name('mysql.execute');
-    Route::get('mysql/{table}', [\App\Http\Controllers\DatabaseViewerController::class, 'show'])->name('mysql.show');
-    Route::get('mysql/{table}/export', [\App\Http\Controllers\DatabaseViewerController::class, 'export'])->name('mysql.export');
+    Route::get('mysql', [DatabaseViewerController::class, 'index'])->name('mysql.index');
+    Route::get('mysql/query', [DatabaseViewerController::class, 'query'])->name('mysql.query');
+    Route::post('mysql/query/execute', [DatabaseViewerController::class, 'execute'])->name('mysql.execute');
+    Route::get('mysql/{table}', [DatabaseViewerController::class, 'show'])->name('mysql.show');
+    Route::get('mysql/{table}/export', [DatabaseViewerController::class, 'export'])->name('mysql.export');
 });
 require __DIR__.'/settings.php';

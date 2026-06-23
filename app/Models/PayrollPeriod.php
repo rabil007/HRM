@@ -39,9 +39,20 @@ class PayrollPeriod extends Model
         return $this->hasMany(CrewTimesheet::class, 'period_id');
     }
 
+    public function payrollRecords(): HasMany
+    {
+        return $this->hasMany(PayrollRecord::class, 'period_id');
+    }
+
     public function isEditable(): bool
     {
         return $this->status === PayrollPeriodStatus::Draft;
+    }
+
+    public function canGenerateCrewPayroll(): bool
+    {
+        return $this->isCrew()
+            && in_array($this->status, [PayrollPeriodStatus::Draft, PayrollPeriodStatus::Processing], true);
     }
 
     public function isCrew(): bool

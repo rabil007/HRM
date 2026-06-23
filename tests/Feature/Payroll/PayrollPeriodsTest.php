@@ -105,7 +105,66 @@ test('payroll hub can filter periods by payroll category', function () {
             ->component('payroll/index')
             ->has('periods', 1)
             ->where('periods.0.name', 'June Office')
-            ->where('filters.category', 'office'));
+            ->where('filters.category', 'office')
+            ->where('filters.status', '')
+            ->where('filters.date_from', '')
+            ->where('filters.date_to', ''));
+});
+
+test('payroll hub can filter periods by overlapping period dates', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'June 2026',
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'May 2026',
+        'start_date' => '2026-05-01',
+        'end_date' => '2026-05-31',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', [
+            'date_from' => '2026-06-01',
+            'date_to' => '2026-06-30',
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 1)
+            ->where('periods.0.name', 'June 2026')
+            ->where('filters.date_from', '2026-06-01')
+            ->where('filters.date_to', '2026-06-30'));
+});
+
+test('payroll hub can filter periods by status', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Draft Run',
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Processing Run',
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.index', ['status' => PayrollPeriodStatus::Processing->value]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/index')
+            ->has('periods', 1)
+            ->where('periods.0.name', 'Processing Run')
+            ->where('filters.status', PayrollPeriodStatus::Processing->value));
 });
 
 test('legacy payroll period routes redirect to payroll hub', function () {

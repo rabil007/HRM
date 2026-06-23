@@ -53,6 +53,7 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
 
     const handleSort = (column: string) => {
         let sortDir: 'asc' | 'desc' = 'asc';
+
         if (filters.sort_by === column) {
             sortDir = filters.sort_dir === 'asc' ? 'desc' : 'asc';
         }
@@ -79,11 +80,14 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
     };
 
     const renderCell = (value: any, isModal: boolean = false) => {
-        if (value === null) return <span className="text-gray-400 italic">NULL</span>;
+        if (value === null) {
+return <span className="text-gray-400 italic">NULL</span>;
+}
         
         if (typeof value === 'string') {
             try {
                 const parsed = JSON.parse(value);
+
                 if (typeof parsed === 'object' && parsed !== null) {
                     return (
                         <pre className={`text-xs bg-gray-100 dark:bg-gray-900 p-2 rounded ${!isModal ? 'max-h-32 max-w-sm overflow-auto' : 'overflow-auto whitespace-pre-wrap'}`}>
@@ -97,9 +101,11 @@ export default function Show({ tableName, columns, data, filters }: ShowProps) {
         }
         
         const strValue = String(value);
+
         if (!isModal && strValue.length > 50) {
             return <span title={strValue}>{strValue.substring(0, 50)}...</span>;
         }
+
         return <span className="whitespace-pre-wrap">{strValue}</span>;
     };
 

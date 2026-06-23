@@ -25,6 +25,7 @@ final class PayrollPeriodResource
             'status_label' => $period->status?->label(),
             'notes' => $period->notes,
             'is_editable' => $period->isEditable(),
+            'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'created_at' => $period->created_at?->toDateTimeString(),
         ];
     }

@@ -7,6 +7,18 @@ export type PayrollCategoryOption = {
     label: string;
 };
 
+export type PayrollPeriodStatus =
+    | 'draft'
+    | 'processing'
+    | 'approved'
+    | 'paid'
+    | 'cancelled';
+
+export type PayrollPeriodStatusOption = {
+    value: PayrollPeriodStatus;
+    label: string;
+};
+
 export type PayrollPeriod = {
     id: number;
     name: string;
@@ -20,6 +32,7 @@ export type PayrollPeriod = {
     status_label: string;
     notes: string | null;
     is_editable: boolean;
+    can_generate_crew_payroll: boolean;
     created_at: string | null;
 };
 
@@ -46,6 +59,9 @@ export type PayrollHubPermissions = {
 
 export type PayrollHubFilters = {
     category: PayrollCategory | '';
+    status: PayrollPeriodStatus | '';
+    date_from: string;
+    date_to: string;
 };
 
 export type PayrollHubSummary = {
@@ -108,6 +124,42 @@ export type CrewPayrollPermissions = {
     create: boolean;
     update: boolean;
     delete: boolean;
+    generate_payroll: boolean;
+};
+
+export type PayrollRecordListItem = {
+    id: number;
+    employee: {
+        id: number;
+        name: string;
+        employee_no: string | null;
+    };
+    standby_days: number | null;
+    onsite_days: number | null;
+    standby_pay: string;
+    onsite_pay: string;
+    site_allowance: string;
+    supplementary_allowance: string;
+    overtime_pay: string;
+    additional_amount: string;
+    deduction_amount: string;
+    gross_salary: string;
+    net_salary: string;
+    status: string;
+};
+
+export type CrewPayrollGenerationSummary = {
+    generated_count: number;
+    skipped_count: number;
+    skipped_employees: Array<{
+        id: number;
+        name: string;
+        employee_no: string | null;
+    }>;
+    errors: Array<{
+        employee_id: number;
+        message: string;
+    }>;
 };
 
 export type PayrollShowProps = {
@@ -115,6 +167,10 @@ export type PayrollShowProps = {
     rows: CrewPayrollRow[];
     pagination: PaginationMeta;
     board_summary: PayrollBoardSummary;
+    payroll_records: PayrollRecordListItem[];
+    payroll_records_pagination: PaginationMeta | null;
+    tab: 'timesheets' | 'payroll';
+    generation_summary: CrewPayrollGenerationSummary | null;
     search: string;
     permissions: CrewPayrollPermissions;
     timesheet_draft: CrewTimesheetFormData | null;

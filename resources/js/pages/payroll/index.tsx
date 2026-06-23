@@ -6,6 +6,7 @@ import type {
     PayrollHubPermissions,
     PayrollHubSummary,
     PayrollPeriodListItem,
+    PayrollPeriodStatusOption,
 } from '@/features/payroll/types';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -16,6 +17,7 @@ export default function PayrollIndex({
     filters,
     summary,
     payroll_categories,
+    payroll_period_statuses,
     permissions,
 }: {
     periods: PayrollPeriodListItem[];
@@ -24,6 +26,7 @@ export default function PayrollIndex({
     filters: PayrollHubFilters;
     summary: PayrollHubSummary;
     payroll_categories: PayrollCategoryOption[];
+    payroll_period_statuses: PayrollPeriodStatusOption[];
     permissions: PayrollHubPermissions;
 }) {
     return (
@@ -36,6 +39,7 @@ export default function PayrollIndex({
                 filters={filters}
                 summary={summary}
                 payroll_categories={payroll_categories}
+                payroll_period_statuses={payroll_period_statuses}
                 permissions={permissions}
             />
         </>
