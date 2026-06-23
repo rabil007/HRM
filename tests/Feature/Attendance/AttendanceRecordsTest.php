@@ -660,6 +660,108 @@ test('attendance sync updates stale biometric record when mobile events were bac
         ->and((float) $record->hours_worked)->toBe(10.26);
 });
 
+test('hikvision sync uses last check-in as clock-out when no checkout and multiple check-ins', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'maher-person-1',
+        'full_name' => 'Maher H Jundi',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Maher H Jundi',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    $checkInTimes = [
+        '09:20:00',
+        '13:33:00',
+        '16:14:00',
+        '16:42:00',
+        '16:42:30',
+        '16:42:45',
+        '16:43:00',
+    ];
+
+    foreach ($checkInTimes as $index => $time) {
+        HikvisionAccessEvent::query()->create([
+            'system_id' => "maher:checkin:{$index}",
+            'msg_type' => 'webhook/event/110013',
+            'occurrence_time' => "2026-06-22 {$time}",
+            'person_name' => 'Maher',
+            'person_hikvision_id' => 'maher-person-1',
+            'device_name' => 'OMS-Door',
+            'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+            'event_source' => HikvisionAccessEvent::EVENT_SOURCE_WEBHOOK,
+            'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+            'fetched_at' => now(),
+        ]);
+    }
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-22 00:00:00'),
+        Carbon::parse('2026-06-22 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-22')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->source)->toBe(AttendanceRecord::SOURCE_BIOMETRIC)
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT)
+        ->and($record->clock_in?->format('H:i'))->toBe('09:20')
+        ->and($record->clock_out?->format('H:i'))->toBe('16:43')
+        ->and((float) $record->hours_worked)->toBeGreaterThan(0);
+});
+
+test('hikvision sync leaves clock-out null when only one check-in and no checkout', function () {
+    ['company' => $company] = makeAttendanceRecordsFixtures();
+
+    $person = HikvisionPerson::query()->create([
+        'person_id' => 'single-checkin-person-1',
+        'full_name' => 'Single Checkin Employee',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'name' => 'Single Checkin Employee',
+        'hikvision_person_id' => $person->id,
+    ]);
+
+    HikvisionAccessEvent::query()->create([
+        'system_id' => 'single:checkin',
+        'msg_type' => 'acs/5/38',
+        'occurrence_time' => '2026-06-22 09:20:00',
+        'person_name' => 'Single Checkin Employee',
+        'person_hikvision_id' => 'single-checkin-person-1',
+        'device_name' => 'OMS-Door',
+        'attendance_status' => HikvisionAccessEvent::ATTENDANCE_CHECK_IN,
+        'event_source' => HikvisionAccessEvent::EVENT_SOURCE_ACS_ISAPI,
+        'transaction_source' => HikvisionAccessEvent::TRANSACTION_DEVICE,
+        'fetched_at' => now(),
+    ]);
+
+    app(SyncAttendanceRecordsFromHikvision::class)->syncCompany(
+        $company->id,
+        Carbon::parse('2026-06-22 00:00:00'),
+        Carbon::parse('2026-06-22 23:59:59'),
+    );
+
+    $record = AttendanceRecord::query()
+        ->where('employee_id', $employee->id)
+        ->whereDate('date', '2026-06-22')
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->clock_in?->format('H:i'))->toBe('09:20')
+        ->and($record->clock_out)->toBeNull()
+        ->and($record->status)->toBe(AttendanceRecord::STATUS_PRESENT);
+});
+
 test('cannot create duplicate attendance record for same employee and date', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceRecordsFixtures();
     $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);

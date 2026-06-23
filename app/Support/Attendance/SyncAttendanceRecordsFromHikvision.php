@@ -108,15 +108,7 @@ final class SyncAttendanceRecordsFromHikvision
                 continue;
             }
 
-            $clockIn = $dayEvents
-                ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
-                ->sortBy('occurrence_time')
-                ->first()?->occurrence_time;
-
-            $clockOut = $dayEvents
-                ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
-                ->sortByDesc('occurrence_time')
-                ->first()?->occurrence_time;
+            ['clockIn' => $clockIn, 'clockOut' => $clockOut] = $this->resolveClockTimesForDay($dayEvents);
 
             $source = $this->resolveSourceForDay($dayEvents);
 
@@ -255,6 +247,34 @@ final class SyncAttendanceRecordsFromHikvision
             $aliases,
             fn (string $value): bool => $value !== '',
         )));
+    }
+
+    /**
+     * @param  Collection<int, HikvisionAccessEvent>  $dayEvents
+     * @return array{clockIn: ?\DateTimeInterface, clockOut: ?\DateTimeInterface}
+     */
+    private function resolveClockTimesForDay(Collection $dayEvents): array
+    {
+        $checkIns = $dayEvents
+            ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_IN)
+            ->sortBy('occurrence_time')
+            ->values();
+
+        $clockIn = $checkIns->first()?->occurrence_time;
+
+        $clockOut = $dayEvents
+            ->filter(fn (HikvisionAccessEvent $event): bool => $event->attendance_status === HikvisionAccessEvent::ATTENDANCE_CHECK_OUT)
+            ->sortByDesc('occurrence_time')
+            ->first()?->occurrence_time;
+
+        if ($clockOut === null && $checkIns->count() >= 2) {
+            $clockOut = $checkIns->last()?->occurrence_time;
+        }
+
+        return [
+            'clockIn' => $clockIn,
+            'clockOut' => $clockOut,
+        ];
     }
 
     /**
