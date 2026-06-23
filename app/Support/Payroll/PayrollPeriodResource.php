@@ -26,6 +26,7 @@ final class PayrollPeriodResource
             'notes' => $period->notes,
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
+            'can_generate_payroll' => $period->canGeneratePayroll(),
             'can_revert_to_draft' => $period->canRevertToDraft(),
             'can_approve' => $period->canApprove(),
             'can_mark_paid' => $period->canMarkPaid(),

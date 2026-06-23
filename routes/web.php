@@ -160,7 +160,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
     Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
-    Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generateCrewPayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
+    Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
     Route::post('payroll/{payrollPeriod}/revert-to-draft', [PayrollController::class, 'revertToDraft'])->middleware('can:payroll.periods.revert_to_draft')->name('payroll.revert-to-draft');
     Route::post('payroll/{payrollPeriod}/approve', [PayrollController::class, 'approve'])->middleware('can:payroll.periods.approve')->name('payroll.approve');
     Route::post('payroll/{payrollPeriod}/mark-paid', [PayrollController::class, 'markPaid'])->middleware('can:payroll.periods.mark_paid')->name('payroll.mark-paid');

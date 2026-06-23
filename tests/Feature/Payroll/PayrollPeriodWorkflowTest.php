@@ -2,11 +2,13 @@
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\AttendanceRecord;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
 
 test('users without permission cannot approve pay period', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -239,6 +241,57 @@ test('timesheets remain locked after pay period is approved', function () {
             'standby_days' => 4,
         ])
         ->assertSessionHasErrors('period_id');
+});
+
+test('authorized users can approve office pay period after payroll generation', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.update',
+        'payroll.periods.approve',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $contract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+        'basic_salary' => 10000,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create([
+        'date' => '2026-06-01',
+        'status' => AttendanceRecord::STATUS_PRESENT,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.approve', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Approved);
+
+    $this->assertDatabaseHas('payroll_records', [
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'status' => 'approved',
+        'payroll_category' => PayrollCategory::Office->value,
+    ]);
 });
 
 /**

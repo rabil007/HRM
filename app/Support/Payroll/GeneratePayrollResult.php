@@ -2,7 +2,7 @@
 
 namespace App\Support\Payroll;
 
-final class GenerateCrewPayrollResult
+final class GeneratePayrollResult
 {
     /**
      * @param  list<array{id: int, name: string, employee_no: string|null}>  $skippedEmployees

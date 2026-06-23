@@ -1,14 +1,19 @@
 import { AlertTriangle } from 'lucide-react';
-import type { CrewPayrollGenerationSummary } from '../types';
+import type { PayrollCategory, PayrollGenerationSummary } from '../types';
 
 export function PayrollSkippedBanner({
     summary,
+    payrollCategory,
 }: {
-    summary: CrewPayrollGenerationSummary | null;
+    summary: PayrollGenerationSummary | null;
+    payrollCategory: PayrollCategory;
 }) {
     if (!summary || (summary.skipped_count === 0 && summary.errors.length === 0)) {
         return null;
     }
+
+    const skipLabel =
+        payrollCategory === 'crew' ? 'skipped (no timesheet)' : 'skipped (no attendance)';
 
     return (
         <div className="mb-4 space-y-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3.5">
@@ -25,7 +30,7 @@ export function PayrollSkippedBanner({
                         <div>
                             <p className="font-medium text-amber-700 dark:text-amber-200">
                                 {summary.skipped_count} employee
-                                {summary.skipped_count === 1 ? '' : 's'} skipped (no timesheet)
+                                {summary.skipped_count === 1 ? '' : 's'} {skipLabel}
                             </p>
                             <ul className="mt-1 list-inside list-disc text-muted-foreground">
                                 {summary.skipped_employees.map((employee) => (

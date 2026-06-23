@@ -2,6 +2,7 @@
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\AttendanceRecord;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\EmployeeContract;
@@ -43,7 +44,7 @@ test('crew payroll generation creates records for employees with timesheets and 
         ->post(route('payroll.generate', $period))
         ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
         ->assertSessionHas('success')
-        ->assertSessionHas('crew_payroll_generation');
+        ->assertSessionHas('payroll_generation');
 
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::Processing);
@@ -61,7 +62,7 @@ test('crew payroll generation creates records for employees with timesheets and 
 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
 
-    $summary = session('crew_payroll_generation');
+    $summary = session('payroll_generation');
     expect($summary['generated_count'])->toBe(1)
         ->and($summary['skipped_count'])->toBe(1)
         ->and($summary['skipped_employees'][0]['id'])->toBe($crewWithoutTimesheet->id);
@@ -98,17 +99,39 @@ test('crew payroll generation upserts existing payroll records on re-generate', 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
 });
 
-test('crew payroll generation is blocked on office periods', function () {
+test('crew payroll generation does not run on office periods via crew action', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, ['payroll.periods.update']);
 
-    $period = PayrollPeriod::factory()->for($company)->office()->create();
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $contract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+        'basic_salary' => 10000,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    AttendanceRecord::factory()->forEmployee($employee)->create([
+        'date' => '2026-06-01',
+        'status' => AttendanceRecord::STATUS_PRESENT,
+    ]);
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
-        ->assertNotFound();
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertSessionHas('payroll_generation');
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
 });
 
 test('crew payroll generation is blocked on approved periods', function () {

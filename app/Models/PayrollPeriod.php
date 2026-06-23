@@ -60,6 +60,19 @@ class PayrollPeriod extends Model
             && in_array($this->status, [PayrollPeriodStatus::Draft, PayrollPeriodStatus::Processing], true);
     }
 
+    public function canGenerateOfficePayroll(): bool
+    {
+        return $this->isOffice()
+            && in_array($this->status, [PayrollPeriodStatus::Draft, PayrollPeriodStatus::Processing], true);
+    }
+
+    public function canGeneratePayroll(): bool
+    {
+        return $this->isCrew()
+            ? $this->canGenerateCrewPayroll()
+            : $this->canGenerateOfficePayroll();
+    }
+
     public function canRevertToDraft(): bool
     {
         return in_array($this->status, [
@@ -92,6 +105,11 @@ class PayrollPeriod extends Model
     public function isCrew(): bool
     {
         return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew;
+    }
+
+    public function isOffice(): bool
+    {
+        return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Office;
     }
 
     private function hasPayrollRecords(): bool

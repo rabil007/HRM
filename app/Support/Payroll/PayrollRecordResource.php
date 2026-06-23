@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\PayrollCategory;
 use App\Models\PayrollRecord;
 
 final class PayrollRecordResource
@@ -15,27 +16,44 @@ final class PayrollRecordResource
 
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
+        $category = $record->payroll_category ?? PayrollCategory::Office;
 
-        return [
+        $base = [
             'id' => $record->id,
+            'payroll_category' => $category->value,
             'employee' => [
                 'id' => $record->employee_id,
                 'name' => $record->employee?->name ?? '—',
                 'employee_no' => $record->employee?->employee_no,
             ],
-            'standby_days' => $breakdown['standby_days'] ?? null,
-            'onsite_days' => $breakdown['onsite_days'] ?? null,
-            'standby_pay' => self::formatAmount($lines['standby_pay'] ?? null),
-            'onsite_pay' => self::formatAmount($lines['onsite_pay'] ?? null),
-            'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
-            'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
             'overtime_pay' => self::formatAmount($record->overtime_pay),
             'additional_amount' => self::formatAmount($record->bonus),
-            'deduction_amount' => self::formatAmount($record->other_deductions),
+            'deduction_amount' => self::formatAmount($record->total_deductions),
             'gross_salary' => self::formatAmount($record->gross_salary),
             'net_salary' => self::formatAmount($record->net_salary),
             'status' => $record->status,
         ];
+
+        if ($category === PayrollCategory::Crew) {
+            return array_merge($base, [
+                'standby_days' => $breakdown['standby_days'] ?? null,
+                'onsite_days' => $breakdown['onsite_days'] ?? null,
+                'standby_pay' => self::formatAmount($lines['standby_pay'] ?? null),
+                'onsite_pay' => self::formatAmount($lines['onsite_pay'] ?? null),
+                'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
+                'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
+            ]);
+        }
+
+        return array_merge($base, [
+            'basic_salary' => self::formatAmount($record->basic_salary),
+            'housing_allowance' => self::formatAmount($record->housing_allowance),
+            'transport_allowance' => self::formatAmount($record->transport_allowance),
+            'other_allowances' => self::formatAmount($record->other_allowances),
+            'working_days' => $record->working_days,
+            'present_days' => $record->present_days,
+            'overtime_hours' => self::formatAmount($record->overtime_hours),
+        ]);
     }
 
     private static function formatAmount(mixed $value): string

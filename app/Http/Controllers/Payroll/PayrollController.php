@@ -18,6 +18,7 @@ use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\ApprovePayrollPeriod;
 use App\Support\Payroll\Actions\CancelPayrollPeriod;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
+use App\Support\Payroll\Actions\GenerateOfficePayroll;
 use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
 use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
@@ -117,13 +118,11 @@ class PayrollController extends Controller
 
         $perPage = $this->resolvePerPage($request);
         $search = trim((string) $request->query('search', ''));
-        $tab = trim((string) $request->query('tab', 'timesheets'));
-        $payrollCategory = $payrollPeriod->payroll_category ?? PayrollCategory::Crew;
+        $tab = trim((string) $request->query('tab', ''));
 
         $paginator = $boardQuery->paginate(
             companyId: $companyId,
-            periodId: $payrollPeriod->id,
-            payrollCategory: $payrollCategory,
+            period: $payrollPeriod,
             search: $search !== '' ? $search : null,
             perPage: $perPage,
         );
@@ -131,21 +130,24 @@ class PayrollController extends Controller
         $payrollRecords = [];
         $payrollRecordsPagination = null;
 
-        if ($payrollPeriod->isCrew()) {
-            $recordsPaginator = PayrollRecord::query()
-                ->where('company_id', $companyId)
-                ->where('period_id', $payrollPeriod->id)
-                ->with('employee')
-                ->orderBy('id')
-                ->paginate($perPage, ['*'], 'records_page')
-                ->withQueryString();
+        $recordsPaginator = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->with('employee')
+            ->orderBy('id')
+            ->paginate($perPage, ['*'], 'records_page')
+            ->withQueryString();
 
-            $payrollRecords = collect($recordsPaginator->items())
-                ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray($record))
-                ->values()
-                ->all();
-            $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
-        }
+        $payrollRecords = collect($recordsPaginator->items())
+            ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray($record))
+            ->values()
+            ->all();
+        $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
+
+        $defaultTab = $payrollPeriod->isCrew() ? 'timesheets' : 'employees';
+        $allowedTabs = $payrollPeriod->isCrew()
+            ? ['timesheets', 'payroll']
+            : ['employees', 'payroll'];
 
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
@@ -154,8 +156,9 @@ class PayrollController extends Controller
             'board_summary' => PayrollPeriodBoardSummary::forPeriod($payrollPeriod, (int) $paginator->total()),
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
-            'tab' => in_array($tab, ['timesheets', 'payroll'], true) ? $tab : 'timesheets',
-            'generation_summary' => $request->session()->get('crew_payroll_generation'),
+            'tab' => in_array($tab, $allowedTabs, true) ? $tab : $defaultTab,
+            'generation_summary' => $request->session()->get('payroll_generation')
+                ?? $request->session()->get('crew_payroll_generation'),
             'search' => $search,
             'permissions' => CrewPayrollPagePermissions::for($request->user()),
             'timesheet_draft' => $payrollPeriod->isCrew()
@@ -231,23 +234,26 @@ class PayrollController extends Controller
             ->with('success', 'Crew timesheet saved.');
     }
 
-    public function generateCrewPayroll(
+    public function generatePayroll(
         GenerateCrewPayrollRequest $request,
         PayrollPeriod $payrollPeriod,
         GenerateCrewPayroll $generateCrewPayroll,
+        GenerateOfficePayroll $generateOfficePayroll,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
-        abort_unless($payrollPeriod->isCrew(), 404);
 
-        $result = $generateCrewPayroll->handle($payrollPeriod);
+        $result = $payrollPeriod->isCrew()
+            ? $generateCrewPayroll->handle($payrollPeriod)
+            : $generateOfficePayroll->handle($payrollPeriod);
 
         $message = $result->generatedCount > 0
             ? "Generated payroll for {$result->generatedCount} employee(s)."
             : 'No payroll records were generated.';
 
         if ($result->skippedCount > 0) {
-            $message .= " {$result->skippedCount} employee(s) skipped (no timesheet).";
+            $skipReason = $payrollPeriod->isCrew() ? 'no timesheet' : 'no attendance';
+            $message .= " {$result->skippedCount} employee(s) skipped ({$skipReason}).";
         }
 
         return redirect()
@@ -256,7 +262,7 @@ class PayrollController extends Controller
                 'tab' => 'payroll',
             ])
             ->with('success', $message)
-            ->with('crew_payroll_generation', $result->toSessionArray());
+            ->with('payroll_generation', $result->toSessionArray());
     }
 
     public function revertToDraft(
@@ -269,10 +275,12 @@ class PayrollController extends Controller
 
         $revertPayrollPeriodToDraft->handle($payrollPeriod);
 
+        $defaultTab = $payrollPeriod->isCrew() ? 'timesheets' : 'employees';
+
         return redirect()
             ->route('payroll.show', [
                 'payrollPeriod' => $payrollPeriod,
-                'tab' => 'timesheets',
+                'tab' => $defaultTab,
             ])
             ->with('success', 'Pay period reverted to draft. Timesheets can be edited again.');
     }

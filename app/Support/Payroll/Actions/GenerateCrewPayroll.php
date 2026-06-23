@@ -8,7 +8,7 @@ use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\CrewPayrollCalculator;
-use App\Support\Payroll\GenerateCrewPayrollResult;
+use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -19,7 +19,7 @@ final class GenerateCrewPayroll
         private readonly CrewPayrollCalculator $calculator,
     ) {}
 
-    public function handle(PayrollPeriod $period): GenerateCrewPayrollResult
+    public function handle(PayrollPeriod $period): GeneratePayrollResult
     {
         abort_unless($period->isCrew(), 404);
 
@@ -112,7 +112,7 @@ final class GenerateCrewPayroll
             }
         });
 
-        return new GenerateCrewPayrollResult(
+        return new GeneratePayrollResult(
             generatedCount: $generatedCount,
             skippedCount: count($skippedEmployees),
             skippedEmployees: $skippedEmployees,

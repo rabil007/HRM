@@ -1,10 +1,10 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { Building2, Calculator, Pencil, RotateCcw, XCircle } from 'lucide-react';
+import { Calculator, Pencil, RotateCcw, XCircle } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     approve,
     cancel,
-    generateCrewPayroll,
+    generatePayroll,
     index as payrollIndex,
     markPaid,
     revertToDraft,
@@ -40,13 +40,16 @@ import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
+import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import type {
+    CrewPayrollRecordListItem,
     CrewPayrollRow,
     CrewTimesheetFormData,
+    OfficePayrollRecordListItem,
     PayrollShowProps,
 } from './types';
 import { formatTimesheetAmount, formatTimesheetDays } from './types';
@@ -243,7 +246,7 @@ export function PayrollShowContent({
     const handleGeneratePayroll = () => {
         setIsGenerating(true);
         router.post(
-            generateCrewPayroll.url(period.id),
+            generatePayroll.url(period.id),
             {},
             {
                 preserveScroll: true,
@@ -315,10 +318,7 @@ export function PayrollShowContent({
         );
     };
 
-    const canGenerate =
-        period.supports_timesheets &&
-        period.can_generate_crew_payroll &&
-        permissions.generate_payroll;
+    const canGenerate = period.can_generate_payroll && permissions.generate_payroll;
 
     const canRevertToDraft = period.can_revert_to_draft && permissions.revert_to_draft;
     const canApprove = period.can_approve && permissions.approve;
@@ -426,28 +426,43 @@ export function PayrollShowContent({
                     </TabsContent>
 
                     <TabsContent value="payroll">
-                        <PayrollSkippedBanner summary={generation_summary} />
+                        <PayrollSkippedBanner
+                            summary={generation_summary}
+                            payrollCategory={period.payroll_category}
+                        />
                         {renderPayrollTab()}
                     </TabsContent>
                 </Tabs>
             ) : (
-                <>
-                    <div className="mb-4 flex items-start gap-3 rounded-2xl border border-violet-500/20 bg-violet-500/5 px-4 py-3.5 text-sm text-muted-foreground">
-                        <Building2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-500" />
-                        <p>
-                            Office payroll for this period will be generated from attendance in a later phase.
-                            Below are employees with an active office contract for this run.
-                        </p>
-                    </div>
-                    <div className="mb-4">
-                        <SearchBar
-                            value={list.searchInput}
-                            onChange={list.onSearchChange}
-                            placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
+                    <TabsList className="mb-4 h-11 rounded-xl">
+                        <TabsTrigger value="employees" className="rounded-lg px-4">
+                            Employees
+                        </TabsTrigger>
+                        <TabsTrigger value="payroll" className="rounded-lg px-4">
+                            Payroll
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="employees">
+                        <div className="mb-4">
+                            <SearchBar
+                                value={list.searchInput}
+                                onChange={list.onSearchChange}
+                                placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
+                            />
+                        </div>
+                        {renderOfficeEmployeesTab()}
+                    </TabsContent>
+
+                    <TabsContent value="payroll">
+                        <PayrollSkippedBanner
+                            summary={generation_summary}
+                            payrollCategory={period.payroll_category}
                         />
-                    </div>
-                    {renderOfficeEmployeesTab()}
-                </>
+                        {renderPayrollTab()}
+                    </TabsContent>
+                </Tabs>
             )}
 
             {period.supports_timesheets ? (
@@ -467,6 +482,7 @@ export function PayrollShowContent({
                 onOpenChange={setIsGenerateDialogOpen}
                 onConfirm={handleGeneratePayroll}
                 processing={isGenerating}
+                payrollCategory={period.payroll_category}
             />
 
             <PayrollRevertToDraftDialog
@@ -602,11 +618,15 @@ export function PayrollShowContent({
     }
 
     function renderPayrollTab() {
+        const emptyDescription = period.supports_timesheets
+            ? 'Generate payroll from entered timesheets to review gross and net amounts.'
+            : 'Generate payroll from attendance records to review gross and net amounts.';
+
         if (payroll_records.length === 0) {
             return (
                 <EmptyState
                     title="No payroll records yet"
-                    description="Generate payroll from entered timesheets to review gross and net amounts."
+                    description={emptyDescription}
                     action={
                         canGenerate ? (
                             <Button className="rounded-xl" onClick={() => setIsGenerateDialogOpen(true)}>
@@ -619,9 +639,20 @@ export function PayrollShowContent({
             );
         }
 
+        const crewRecords = payroll_records.filter(
+            (record): record is CrewPayrollRecordListItem => record.payroll_category === 'crew',
+        );
+        const officeRecords = payroll_records.filter(
+            (record): record is OfficePayrollRecordListItem => record.payroll_category === 'office',
+        );
+
         return (
             <>
-                <PayrollRecordsTable records={payroll_records} />
+                {period.supports_timesheets ? (
+                    <PayrollRecordsTable records={crewRecords} />
+                ) : (
+                    <OfficePayrollRecordsTable records={officeRecords} />
+                )}
                 {recordsPagination ? (
                     <Pagination
                         currentPage={recordsPagination.current_page}
@@ -660,6 +691,10 @@ export function PayrollShowContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Employee</DataTableHead>
                             <DataTableHead>Code</DataTableHead>
+                            <DataTableHead>Present</DataTableHead>
+                            <DataTableHead>Absent</DataTableHead>
+                            <DataTableHead>OT hours</DataTableHead>
+                            <DataTableHead>Status</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
@@ -680,6 +715,38 @@ export function PayrollShowContent({
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
                                     {row.employee.employee_no ?? '—'}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetDays(
+                                        row.attendance_summary
+                                            ? String(row.attendance_summary.present_days)
+                                            : null,
+                                    )}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetDays(
+                                        row.attendance_summary
+                                            ? String(row.attendance_summary.absent_days)
+                                            : null,
+                                    )}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    {formatTimesheetDays(
+                                        row.attendance_summary
+                                            ? String(row.attendance_summary.overtime_hours)
+                                            : null,
+                                    )}
+                                </TableCell>
+                                <TableCell className={dataTableCellClass()}>
+                                    <Badge
+                                        variant={row.is_filled ? 'default' : 'outline'}
+                                        className={cn(
+                                            !row.is_filled &&
+                                                'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                        )}
+                                    >
+                                        {row.is_filled ? 'Has attendance' : 'No attendance'}
+                                    </Badge>
                                 </TableCell>
                             </TableRow>
                         ))}

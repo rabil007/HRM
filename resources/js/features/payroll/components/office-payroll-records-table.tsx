@@ -7,17 +7,20 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import type { CrewPayrollRecordListItem } from '../types';
+import type { OfficePayrollRecordListItem } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 
-export function PayrollRecordsTable({ records }: { records: CrewPayrollRecordListItem[] }) {
+export function OfficePayrollRecordsTable({ records }: { records: OfficePayrollRecordListItem[] }) {
     return (
-        <OrganizationDataTable minWidth="min-w-[1100px]">
+        <OrganizationDataTable minWidth="min-w-[1200px]">
             <TableHeader>
                 <DataTableHeaderRow>
                     <DataTableHead className="pl-5">Employee</DataTableHead>
-                    <DataTableHead>Standby</DataTableHead>
-                    <DataTableHead>Onsite</DataTableHead>
+                    <DataTableHead>Basic</DataTableHead>
+                    <DataTableHead>Housing</DataTableHead>
+                    <DataTableHead>Transport</DataTableHead>
+                    <DataTableHead>Present</DataTableHead>
+                    <DataTableHead>OT</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Deductions</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
@@ -33,15 +36,25 @@ export function PayrollRecordsTable({ records }: { records: CrewPayrollRecordLis
                             </div>
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
-                            <div>{formatTimesheetDays(String(record.standby_days ?? ''))} days</div>
-                            <div className="text-xs text-muted-foreground">
-                                {formatTimesheetAmount(record.standby_pay)}
-                            </div>
+                            {formatTimesheetAmount(record.basic_salary)}
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
-                            <div>{formatTimesheetDays(String(record.onsite_days ?? ''))} days</div>
+                            {formatTimesheetAmount(record.housing_allowance)}
+                        </TableCell>
+                        <TableCell className={dataTableCellClass()}>
+                            {formatTimesheetAmount(record.transport_allowance)}
+                        </TableCell>
+                        <TableCell className={dataTableCellClass()}>
+                            <div>
+                                {formatTimesheetDays(String(record.present_days ?? ''))} /{' '}
+                                {formatTimesheetDays(String(record.working_days ?? ''))}
+                            </div>
+                            <div className="text-xs text-muted-foreground">days</div>
+                        </TableCell>
+                        <TableCell className={dataTableCellClass()}>
+                            <div>{formatTimesheetDays(record.overtime_hours)} hrs</div>
                             <div className="text-xs text-muted-foreground">
-                                {formatTimesheetAmount(record.onsite_pay)}
+                                {formatTimesheetAmount(record.overtime_pay)}
                             </div>
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
