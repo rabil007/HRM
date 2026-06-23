@@ -55,6 +55,14 @@ class PayrollPeriod extends Model
             && in_array($this->status, [PayrollPeriodStatus::Draft, PayrollPeriodStatus::Processing], true);
     }
 
+    public function canRevertToDraft(): bool
+    {
+        return in_array($this->status, [
+            PayrollPeriodStatus::Processing,
+            PayrollPeriodStatus::Approved,
+        ], true);
+    }
+
     public function isCrew(): bool
     {
         return ($this->payroll_category ?? PayrollCategory::Crew) === PayrollCategory::Crew;

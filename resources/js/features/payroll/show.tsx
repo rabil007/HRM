@@ -1,9 +1,10 @@
 import { router, useForm, usePage } from '@inertiajs/react';
-import { Building2, Calculator, Pencil } from 'lucide-react';
+import { Building2, Calculator, Pencil, RotateCcw } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     generateCrewPayroll,
     index as payrollIndex,
+    revertToDraft,
     show,
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
@@ -33,6 +34,7 @@ import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollRecordsTable } from './components/payroll-records-table';
+import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import type {
@@ -152,6 +154,8 @@ export function PayrollShowContent({
     const page = usePage<{ errors: Record<string, string> }>();
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
+    const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
+    const [isReverting, setIsReverting] = useState(false);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -238,10 +242,27 @@ export function PayrollShowContent({
         );
     };
 
+    const handleRevertToDraft = () => {
+        setIsReverting(true);
+        router.post(
+            revertToDraft.url(period.id),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => {
+                    setIsReverting(false);
+                    setIsRevertDialogOpen(false);
+                },
+            },
+        );
+    };
+
     const canGenerate =
         period.supports_timesheets &&
         period.can_generate_crew_payroll &&
         permissions.generate_payroll;
+
+    const canRevertToDraft = period.can_revert_to_draft && permissions.revert_to_draft;
 
     const recordsPagination = payroll_records_pagination;
 
@@ -260,16 +281,30 @@ export function PayrollShowContent({
                 }
                 description={`${formatDisplayDate(period.start_date)} — ${formatDisplayDate(period.end_date)} · Payment ${formatDisplayDate(period.payment_date)}`}
                 backHref={payrollIndex.url()}
-                backLabel="All pay periods"
+                backLabel="Go back"
                 actions={
-                    canGenerate ? (
-                        <Button
-                            className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
-                            onClick={() => setIsGenerateDialogOpen(true)}
-                        >
-                            <Calculator className="mr-2 h-4 w-4" />
-                            Generate payroll
-                        </Button>
+                    canGenerate || canRevertToDraft ? (
+                        <div className="flex flex-wrap items-center gap-2">
+                            {canRevertToDraft ? (
+                                <Button
+                                    variant="outline"
+                                    className="h-12 rounded-xl px-6"
+                                    onClick={() => setIsRevertDialogOpen(true)}
+                                >
+                                    <RotateCcw className="mr-2 h-4 w-4" />
+                                    Revert to draft
+                                </Button>
+                            ) : null}
+                            {canGenerate ? (
+                                <Button
+                                    className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    onClick={() => setIsGenerateDialogOpen(true)}
+                                >
+                                    <Calculator className="mr-2 h-4 w-4" />
+                                    Generate payroll
+                                </Button>
+                            ) : null}
+                        </div>
                     ) : null
                 }
             />
@@ -340,6 +375,13 @@ export function PayrollShowContent({
                 onOpenChange={setIsGenerateDialogOpen}
                 onConfirm={handleGeneratePayroll}
                 processing={isGenerating}
+            />
+
+            <PayrollRevertToDraftDialog
+                open={isRevertDialogOpen}
+                onOpenChange={setIsRevertDialogOpen}
+                onConfirm={handleRevertToDraft}
+                processing={isReverting}
             />
         </Main>
     );

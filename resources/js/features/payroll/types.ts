@@ -33,6 +33,7 @@ export type PayrollPeriod = {
     notes: string | null;
     is_editable: boolean;
     can_generate_crew_payroll: boolean;
+    can_revert_to_draft: boolean;
     created_at: string | null;
 };
 
@@ -125,6 +126,7 @@ export type CrewPayrollPermissions = {
     update: boolean;
     delete: boolean;
     generate_payroll: boolean;
+    revert_to_draft: boolean;
 };
 
 export type PayrollRecordListItem = {

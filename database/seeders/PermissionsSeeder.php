@@ -222,6 +222,7 @@ class PermissionsSeeder extends Seeder
             'payroll.periods.create',
             'payroll.periods.update',
             'payroll.periods.delete',
+            'payroll.periods.revert_to_draft',
             'payroll.crew_timesheets.view',
             'payroll.crew_timesheets.create',
             'payroll.crew_timesheets.update',

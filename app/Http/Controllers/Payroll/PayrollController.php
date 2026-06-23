@@ -6,12 +6,14 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\GenerateCrewPayrollRequest;
+use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
+use App\Support\Payroll\Actions\RevertPayrollPeriodToDraft;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
@@ -247,6 +249,24 @@ class PayrollController extends Controller
             ])
             ->with('success', $message)
             ->with('crew_payroll_generation', $result->toSessionArray());
+    }
+
+    public function revertToDraft(
+        RevertPayrollPeriodToDraftRequest $request,
+        PayrollPeriod $payrollPeriod,
+        RevertPayrollPeriodToDraft $revertPayrollPeriodToDraft,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $revertPayrollPeriodToDraft->handle($payrollPeriod);
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'timesheets',
+            ])
+            ->with('success', 'Pay period reverted to draft. Timesheets can be edited again.');
     }
 
     /**

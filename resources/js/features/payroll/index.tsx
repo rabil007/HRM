@@ -146,19 +146,22 @@ export function PayrollIndexContent({
                 right={
                     <div className="flex flex-wrap items-center gap-2">
                         <ViewToggle value={view} onChange={setView} />
-                        <Button
-                            variant="outline"
-                            className="glass-card h-11 rounded-xl px-5 hover:bg-accent"
-                            onClick={() => setIsFiltersOpen(true)}
-                        >
-                            <Filter className="mr-2 h-4 w-4" />
-                            Filters
-                            {activeFiltersCount ? (
-                                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
-                                    {activeFiltersCount}
-                                </span>
-                            ) : null}
-                        </Button>
+                        <div className="glass-card flex items-center rounded-xl p-1">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                className="h-11 rounded-lg px-4 hover:bg-accent"
+                                onClick={() => setIsFiltersOpen(true)}
+                            >
+                                <Filter className="mr-2 h-4 w-4" />
+                                Filters
+                                {activeFiltersCount ? (
+                                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary/20 px-1.5 text-[11px] font-bold text-primary">
+                                        {activeFiltersCount}
+                                    </span>
+                                ) : null}
+                            </Button>
+                        </div>
                     </div>
                 }
             />

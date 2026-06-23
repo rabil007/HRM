@@ -161,6 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
     Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generateCrewPayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
+    Route::post('payroll/{payrollPeriod}/revert-to-draft', [PayrollController::class, 'revertToDraft'])->middleware('can:payroll.periods.revert_to_draft')->name('payroll.revert-to-draft');
 
     Route::get('organization/payroll', fn () => redirect()->route('payroll.index'))->name('organization.payroll.index');
     Route::get('organization/payroll/{payrollPeriod}', fn (PayrollPeriod $payrollPeriod) => redirect()->route('payroll.show', $payrollPeriod))->name('organization.payroll.show');
