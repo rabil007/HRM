@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,12 +25,14 @@ export function PayrollRecordsFiltersSheet({
     onClear: () => void;
 }) {
     const [draft, setDraft] = useState(filters);
+    const [prevOpen, setPrevOpen] = useState(open);
 
-    useEffect(() => {
+    if (open !== prevOpen) {
+        setPrevOpen(open);
         if (open) {
             setDraft(filters);
         }
-    }, [open, filters]);
+    }
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>

@@ -1,6 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
-    AlertTriangle,
     ArrowUpRight,
     BarChart3,
     CalendarDays,
