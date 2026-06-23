@@ -57,6 +57,8 @@ use App\Http\Controllers\Organization\SendWhatsAppDocumentTemplateController;
 use App\Http\Controllers\Organization\UserController;
 use App\Http\Controllers\Organization\VesselManningController;
 use App\Http\Controllers\Payroll\PayrollController;
+use App\Http\Controllers\Payroll\PayrollRecordController;
+use App\Http\Controllers\Payroll\SalaryAdjustmentController;
 use App\Http\Controllers\Webhooks\HikvisionWebhookController;
 use App\Http\Controllers\Webhooks\WhatsAppWebhookController;
 use App\Models\PayrollPeriod;
@@ -157,6 +159,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::put('organization/crew-operations/settings', [CrewOperationsSettingsController::class, 'update'])->middleware('can:crew_operations.planning.update')->name('organization.crew-operations.settings.update');
 
     Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
+    Route::get('payroll/records', [PayrollRecordController::class, 'index'])->middleware('can:payroll.records.view')->name('payroll.records.index');
+    Route::get('payroll/adjustments', [SalaryAdjustmentController::class, 'index'])->middleware('can:payroll.adjustments.view')->name('payroll.adjustments.index');
+    Route::post('payroll/adjustments', [SalaryAdjustmentController::class, 'store'])->middleware('can:payroll.adjustments.create')->name('payroll.adjustments.store');
+    Route::put('payroll/adjustments/{salaryAdjustment}', [SalaryAdjustmentController::class, 'update'])->middleware('can:payroll.adjustments.update')->name('payroll.adjustments.update');
+    Route::delete('payroll/adjustments/{salaryAdjustment}', [SalaryAdjustmentController::class, 'destroy'])->middleware('can:payroll.adjustments.delete')->name('payroll.adjustments.destroy');
+    Route::put('payroll/adjustments/{salaryAdjustment}/approve', [SalaryAdjustmentController::class, 'approve'])->middleware('can:payroll.adjustments.approve')->name('payroll.adjustments.approve');
+    Route::put('payroll/adjustments/{salaryAdjustment}/reject', [SalaryAdjustmentController::class, 'reject'])->middleware('can:payroll.adjustments.approve')->name('payroll.adjustments.reject');
     Route::post('payroll/periods', [PayrollController::class, 'storePeriod'])->middleware('can:payroll.periods.create')->name('payroll.periods.store');
     Route::get('payroll/{payrollPeriod}', [PayrollController::class, 'show'])->name('payroll.show');
     Route::post('payroll/{payrollPeriod}/timesheets', [PayrollController::class, 'storeTimesheet'])->name('payroll.timesheets.store');
