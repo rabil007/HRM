@@ -14,8 +14,9 @@ export function PayrollBoardSummaryBar({
 }) {
     return (
         <div className="mb-6 grid gap-4 md:grid-cols-3">
-            <Card className="glass-card border-border/60 dark:border-white/10 md:col-span-2">
-                <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <Card className="glass-card relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background/90 to-primary/5 hover:to-primary/10 transition-colors duration-500 dark:border-white/10 md:col-span-2">
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] opacity-30"></div>
+                <CardContent className="relative z-10 flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <PayrollCategoryBadge category={period.payroll_category} />
@@ -43,14 +44,15 @@ export function PayrollBoardSummaryBar({
                 </CardContent>
             </Card>
 
-            <Card className="glass-card border-border/60 dark:border-white/10">
-                <CardContent className="space-y-4 p-5">
+            <Card className="glass-card relative overflow-hidden border-border/60 bg-gradient-to-br from-background via-background/90 to-primary/5 hover:to-primary/10 transition-colors duration-500 dark:border-white/10">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-transparent to-transparent opacity-50"></div>
+                <CardContent className="relative z-10 space-y-4 p-5">
                     <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-border/60 bg-muted/30 dark:border-white/10 dark:bg-white/5">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/10 to-primary/20 shadow-inner border border-primary/10">
                             {period.supports_timesheets ? (
-                                <Users className="h-5 w-5 text-primary" />
+                                <Users className="h-6 w-6 text-primary drop-shadow-sm" />
                             ) : (
-                                <Building2 className="h-5 w-5 text-violet-500" />
+                                <Building2 className="h-6 w-6 text-violet-500 drop-shadow-sm" />
                             )}
                         </div>
                         <div>

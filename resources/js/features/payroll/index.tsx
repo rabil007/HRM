@@ -129,8 +129,8 @@ export function PayrollIndexContent({
                 description="Create pay periods, enter crew timesheets, and prepare office payroll from attendance."
                 right={
                     permissions.create_period ? (
-                        <Button onClick={handleAdd} className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20">
-                            <Plus className="mr-2 h-4 w-4" />
+                        <Button onClick={handleAdd} className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95">
+                            <Plus className="mr-2 h-4 w-4 drop-shadow-sm" />
                             New pay period
                         </Button>
                     ) : null
@@ -181,7 +181,7 @@ export function PayrollIndexContent({
                     }
                     action={
                         permissions.create_period ? (
-                            <Button onClick={handleAdd} className="rounded-xl">
+                            <Button onClick={handleAdd} className="rounded-xl bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white shadow-md shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95">
                                 <Plus className="mr-2 h-4 w-4" />
                                 New pay period
                             </Button>
@@ -227,7 +227,7 @@ export function PayrollIndexContent({
                                 return (
                                     <TableRow
                                         key={period.id}
-                                        className={cn(dataTableBodyRowClass(canOpen), canOpen && 'cursor-pointer')}
+                                        className={cn(dataTableBodyRowClass(canOpen), "group hover:bg-muted/40 transition-colors duration-200", canOpen && 'cursor-pointer')}
                                         onClick={
                                             canOpen
                                                 ? () => router.visit(show.url(period.id))

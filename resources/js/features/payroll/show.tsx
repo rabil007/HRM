@@ -353,7 +353,7 @@ export function PayrollShowContent({
                             {canCancelPeriod ? (
                                 <Button
                                     variant="outline"
-                                    className="h-12 rounded-xl border-destructive/30 px-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    className="h-12 rounded-xl border-destructive/30 px-6 text-destructive bg-destructive/5 hover:bg-destructive/15 hover:text-destructive transition-all duration-300"
                                     onClick={() => setIsCancelDialogOpen(true)}
                                 >
                                     <XCircle className="mr-2 h-4 w-4" />
@@ -363,7 +363,7 @@ export function PayrollShowContent({
                             {canRevertToDraft ? (
                                 <Button
                                     variant="outline"
-                                    className="h-12 rounded-xl px-6"
+                                    className="h-12 rounded-xl px-6 bg-secondary/50 backdrop-blur-md border border-border/50 hover:bg-secondary/80 transition-all duration-300"
                                     onClick={() => setIsRevertDialogOpen(true)}
                                 >
                                     <RotateCcw className="mr-2 h-4 w-4" />
@@ -373,7 +373,7 @@ export function PayrollShowContent({
                             {canApprove ? (
                                 <Button
                                     variant="outline"
-                                    className="h-12 rounded-xl px-6"
+                                    className="h-12 rounded-xl px-6 bg-secondary/50 backdrop-blur-md border border-border/50 hover:bg-secondary/80 transition-all duration-300"
                                     onClick={() => setIsApproveDialogOpen(true)}
                                 >
                                     Approve pay run
@@ -381,7 +381,7 @@ export function PayrollShowContent({
                             ) : null}
                             {canMarkPaid ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-600 hover:to-emerald-500 text-white shadow-lg shadow-emerald-500/25 transition-all duration-300 hover:scale-105 active:scale-95"
                                     onClick={() => setIsMarkPaidDialogOpen(true)}
                                 >
                                     Mark as paid
@@ -389,7 +389,7 @@ export function PayrollShowContent({
                             ) : null}
                             {canGenerate ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 shadow-lg shadow-primary/20"
+                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-white shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95"
                                     onClick={() => setIsGenerateDialogOpen(true)}
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
@@ -405,11 +405,11 @@ export function PayrollShowContent({
 
             {period.supports_timesheets ? (
                 <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
-                    <TabsList className="mb-4 h-11 rounded-xl">
-                        <TabsTrigger value="timesheets" className="rounded-lg px-4">
+                    <TabsList className="mb-4 h-12 rounded-xl bg-muted/40 p-1 backdrop-blur-lg">
+                        <TabsTrigger value="timesheets" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
                             Timesheets
                         </TabsTrigger>
-                        <TabsTrigger value="payroll" className="rounded-lg px-4">
+                        <TabsTrigger value="payroll" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
                             Payroll
                         </TabsTrigger>
                     </TabsList>
@@ -435,11 +435,11 @@ export function PayrollShowContent({
                 </Tabs>
             ) : (
                 <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
-                    <TabsList className="mb-4 h-11 rounded-xl">
-                        <TabsTrigger value="employees" className="rounded-lg px-4">
+                    <TabsList className="mb-4 h-12 rounded-xl bg-muted/40 p-1 backdrop-blur-lg">
+                        <TabsTrigger value="employees" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
                             Employees
                         </TabsTrigger>
-                        <TabsTrigger value="payroll" className="rounded-lg px-4">
+                        <TabsTrigger value="payroll" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
                             Payroll
                         </TabsTrigger>
                     </TabsList>
@@ -543,10 +543,10 @@ export function PayrollShowContent({
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => (
-                            <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                            <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
                                             {row.employee.name
                                                 .split(' ')
                                                 .filter(Boolean)
@@ -699,10 +699,10 @@ export function PayrollShowContent({
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => (
-                            <TableRow key={row.employee.id} className={dataTableBodyRowClass()}>
+                            <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-xs font-bold text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
                                             {row.employee.name
                                                 .split(' ')
                                                 .filter(Boolean)

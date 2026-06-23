@@ -29,6 +29,7 @@ export function PayrollPeriodCard({
                 className,
             )}
         >
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] opacity-20"></div>
             {canOpen ? (
                 <Link
                     href={show.url(period.id)}
@@ -37,7 +38,7 @@ export function PayrollPeriodCard({
                 />
             ) : null}
 
-            <CardHeader className="space-y-4 pb-3">
+            <CardHeader className="relative z-10 space-y-4 pb-3">
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
@@ -51,13 +52,13 @@ export function PayrollPeriodCard({
                             {period.name}
                         </CardTitle>
                     </div>
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-muted/30 dark:border-white/10 dark:bg-white/5">
-                        <CalendarDays className="h-5 w-5 text-muted-foreground" />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-border/60 bg-gradient-to-br from-primary/5 to-primary/10 shadow-inner dark:border-white/10">
+                        <CalendarDays className="h-6 w-6 text-primary/70 drop-shadow-sm" />
                     </div>
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-4">
+            <CardContent className="relative z-10 space-y-4">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl border border-border/50 bg-muted/20 px-3 py-2.5 dark:border-white/10 dark:bg-white/5">
                         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">

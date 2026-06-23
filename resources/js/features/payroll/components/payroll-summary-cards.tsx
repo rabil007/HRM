@@ -22,18 +22,19 @@ function SummaryCard({
     return (
         <Card
             className={cn(
-                'glass-card overflow-hidden border-border/60 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg dark:border-white/10',
+                'glass-card relative overflow-hidden border-border/60 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl dark:border-white/10',
                 accentClassName,
             )}
         >
-            <CardContent className="flex items-start gap-4 p-5">
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent opacity-50"></div>
+            <CardContent className="relative z-10 flex items-start gap-4 p-5">
                 <div
                     className={cn(
-                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border',
+                        'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border shadow-inner',
                         iconClassName,
                     )}
                 >
-                    <Icon className="h-5 w-5" />
+                    <Icon className="h-6 w-6 drop-shadow-sm" />
                 </div>
                 <div className="min-w-0">
                     <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground/70">
