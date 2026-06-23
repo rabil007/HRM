@@ -28,7 +28,6 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { PayrollCategoryBadge } from '../components/payroll-category-badge';
-import type { PayrollCategoryOption } from '../types';
 import { formatTimesheetAmount } from '../types';
 import type { PayslipListItem, PayslipsFilters } from './types';
 import type { PaginationMeta } from '@/types/pagination';
@@ -38,16 +37,12 @@ export function PayslipsContent({
     pagination,
     search: initialSearch,
     filters: initialFilters,
-    payroll_categories,
-    status_options,
     permissions,
 }: {
     records: PayslipListItem[];
     pagination: PaginationMeta;
     search: string;
     filters: PayslipsFilters;
-    payroll_categories: PayrollCategoryOption[];
-    status_options: Array<{ value: string; label: string }>;
     permissions: { generate: boolean; email: boolean };
 }) {
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
