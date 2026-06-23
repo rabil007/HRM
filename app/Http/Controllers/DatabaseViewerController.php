@@ -108,22 +108,23 @@ class DatabaseViewerController extends Controller
 
         $callback = function () use ($query, $columns) {
             $file = fopen('php://output', 'w');
+            // Add BOM for UTF-8 Excel compatibility
+            fputs($file, chr(0xEF) . chr(0xBB) . chr(0xBF));
             fputcsv($file, $columns);
 
-            $query->chunk(1000, function ($records) use ($file, $columns) {
-                foreach ($records as $record) {
-                    $row = [];
-                    foreach ($columns as $col) {
-                        $row[] = $record->{$col};
-                    }
-                    fputcsv($file, $row);
+            foreach ($query->cursor() as $record) {
+                $row = [];
+                foreach ($columns as $col) {
+                    $val = $record->{$col};
+                    $row[] = is_scalar($val) || is_null($val) ? $val : json_encode($val);
                 }
-            });
+                fputcsv($file, $row);
+            }
 
             fclose($file);
         };
 
-        return response()->stream($callback, 200, $headers);
+        return response()->streamDownload($callback, "{$table}_export.csv", $headers);
     }
 
     public function query()
