@@ -23,7 +23,7 @@ export type TreePosition = {
 // We define a generic TreeNode that handles Department or Position
 export type OrgTreeNode = {
     id: string; // dept-2, pos-3
-    type: 'department' | 'position';
+    type: 'parent_department' | 'child_department' | 'position';
     name: string;
     subtitle?: string;
     users_count?: number;
@@ -39,9 +39,10 @@ export function buildOrgTree(departments: TreeDepartment[], positions: TreePosit
     // 1. Initialize Department nodes
     departments.forEach((dept) => {
         const id = `dept-${dept.id}`;
+        const type = dept.parent_id === null ? 'parent_department' : 'child_department';
         const node: OrgTreeNode = {
             id,
-            type: 'department',
+            type,
             name: dept.name,
             users_count: dept.users_count,
             originalId: dept.id,
@@ -104,8 +105,9 @@ export function buildOrgTree(departments: TreeDepartment[], positions: TreePosit
 }
 
 const HEADER_COLORS = {
-    department: 'bg-emerald-500/80 text-white',
-    position: 'bg-orange-500/80 text-white',
+    parent_department: 'bg-indigo-500/90 text-white',
+    child_department: 'bg-emerald-500/90 text-white',
+    position: 'bg-orange-500/90 text-white',
 };
 
 function OrgNodeCard({ node }: { node: OrgTreeNode }) {
@@ -114,7 +116,7 @@ function OrgNodeCard({ node }: { node: OrgTreeNode }) {
     const colorClass = HEADER_COLORS[node.type];
 
     const handleClick = () => {
-        if (node.type === 'department') {
+        if (node.type === 'parent_department' || node.type === 'child_department') {
             router.visit(`/organization/departments/${node.originalId}`);
         } else if (node.type === 'position') {
             router.visit(`/organization/positions/${node.originalId}`);
@@ -129,7 +131,7 @@ function OrgNodeCard({ node }: { node: OrgTreeNode }) {
                     onClick={handleClick}
                 >
                     <div className={cn("h-8 flex items-center justify-center px-2 gap-2", colorClass)}>
-                        {node.type === 'department' && <Network className="w-3.5 h-3.5" />}
+                        {(node.type === 'parent_department' || node.type === 'child_department') && <Network className="w-3.5 h-3.5" />}
                         {node.type === 'position' && <Briefcase className="w-3.5 h-3.5" />}
                         <span className="text-xs font-semibold tracking-wider truncate">
                             {node.name}
@@ -191,6 +193,22 @@ export function PositionTreeView({
 
     return (
         <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-8 overflow-x-auto">
+            {/* Legend */}
+            <div className="flex flex-wrap items-center justify-center gap-6 mb-8 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
+                    <span className="text-muted-foreground">Parent Department</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
+                    <span className="text-muted-foreground">Sub-department</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-orange-500/90" />
+                    <span className="text-muted-foreground">Position</span>
+                </div>
+            </div>
+
             {tree.length > 0 ? (
                 <div className="org-tree min-w-max pb-8">
                     <ul>

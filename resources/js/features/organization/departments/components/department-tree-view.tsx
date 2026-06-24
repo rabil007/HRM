@@ -49,16 +49,10 @@ export function buildTree(departments: any[]): DepartmentTreeNode[] {
     return roots;
 }
 
-const HEADER_COLORS = [
-    'bg-blue-500/80 text-white',
-    'bg-orange-400/80 text-white',
-    'bg-indigo-500/80 text-white',
-    'bg-emerald-500/80 text-white',
-    'bg-rose-500/80 text-white',
-    'bg-cyan-400/80 text-white',
-    'bg-violet-500/80 text-white',
-    'bg-amber-500/80 text-white',
-];
+const HEADER_COLORS = {
+    parent_department: 'bg-indigo-500/90 text-white',
+    child_department: 'bg-emerald-500/90 text-white',
+};
 
 function OrgCard({
     node,
@@ -68,8 +62,8 @@ function OrgCard({
     const [isUnfolded, setIsUnfolded] = useState(true);
     const hasChildren = node.children.length > 0;
     
-    // Pick a deterministic color based on ID
-    const colorClass = HEADER_COLORS[node.id % HEADER_COLORS.length];
+    const nodeType = node.parent_id === null ? 'parent_department' : 'child_department';
+    const colorClass = HEADER_COLORS[nodeType];
 
     return (
         <li className="org-tree-node">
@@ -155,6 +149,18 @@ export function DepartmentTreeView({
 
     return (
         <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-8 overflow-x-auto">
+            {/* Legend */}
+            <div className="flex flex-wrap items-center justify-center gap-6 mb-8 text-sm font-medium">
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
+                    <span className="text-muted-foreground">Parent Department</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
+                    <span className="text-muted-foreground">Sub-department</span>
+                </div>
+            </div>
+
             {tree.length > 0 ? (
                 <div className="org-tree min-w-max pb-8">
                     <ul>
