@@ -82,9 +82,36 @@ class LeaveRequestController extends Controller
             );
         }
 
+        $countsQuery = LeaveRequest::query()
+            ->where('company_id', $companyId)
+            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
+            ->when($employeeId, fn ($query) => $query->where('employee_id', $employeeId))
+            ->when($leaveTypeId, fn ($query) => $query->where('leave_type_id', $leaveTypeId))
+            ->when($search, function ($query) use ($search) {
+                $query->whereHas('employee', function ($employeeQuery) use ($search) {
+                    $employeeQuery->where('name', 'like', "%{$search}%")
+                        ->orWhere('employee_no', 'like', "%{$search}%");
+                });
+            });
+
+        $statusCounts = $countsQuery->clone()
+            ->selectRaw('status, count(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status')
+            ->all();
+
+        $totalCount = array_sum($statusCounts);
+
         return Inertia::render('attendance/leave-requests', [
             'leave_requests' => $leaveRequests->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'status_counts' => [
+                'all' => $totalCount,
+                'pending' => $statusCounts['pending'] ?? 0,
+                'approved' => $statusCounts['approved'] ?? 0,
+                'rejected' => $statusCounts['rejected'] ?? 0,
+                'cancelled' => $statusCounts['cancelled'] ?? 0,
+            ],
             'search' => $search,
             'filters' => [
                 'status' => $status,

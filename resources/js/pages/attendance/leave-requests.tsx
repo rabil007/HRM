@@ -12,6 +12,7 @@ import type { PaginationMeta } from '@/types/pagination';
 export default function LeaveRequests({
     leave_requests,
     pagination,
+    status_counts,
     search,
     filters,
     employees,
@@ -21,6 +22,13 @@ export default function LeaveRequests({
 }: {
     leave_requests: LeaveRequest[];
     pagination: PaginationMeta;
+    status_counts: {
+        all: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+        cancelled: number;
+    };
     search: string;
     filters: LeaveRequestFilters;
     employees: LeaveRequestEmployeeOption[];
@@ -34,6 +42,7 @@ export default function LeaveRequests({
             <LeaveRequestsContent
                 leave_requests={leave_requests}
                 pagination={pagination}
+                status_counts={status_counts}
                 search={search}
                 filters={filters}
                 employees={employees}

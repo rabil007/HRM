@@ -21,6 +21,7 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
+import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
 import type { PaginationMeta } from '@/types/pagination';
 import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
@@ -31,7 +32,6 @@ import { LeaveRequestFormSheet } from './components/leave-request-form-sheet';
 import { LeaveRequestRejectDialog } from './components/leave-request-reject-dialog';
 import { LeaveRequestRowActions } from './components/leave-request-row-actions';
 import { LeaveRequestStatusBadge } from './components/leave-request-status-badge';
-import { LeaveRequestStatusFilterChips } from './components/leave-request-status-filter-chips';
 import {
     defaultLeaveRequestFormData,
     leaveRequestToFormData
@@ -46,6 +46,7 @@ import type {LeaveRequest, LeaveRequestEmployeeOption, LeaveRequestFilters, Leav
 export function LeaveRequestsContent({
     leave_requests,
     pagination,
+    status_counts,
     search: initialSearch,
     filters: initialFilters,
     employees,
@@ -55,6 +56,13 @@ export function LeaveRequestsContent({
 }: {
     leave_requests: LeaveRequest[];
     pagination: PaginationMeta;
+    status_counts: {
+        all: number;
+        pending: number;
+        approved: number;
+        rejected: number;
+        cancelled: number;
+    };
     search: string;
     filters: LeaveRequestFilters;
     employees: LeaveRequestEmployeeOption[];
@@ -187,6 +195,44 @@ export function LeaveRequestsContent({
                 }
             />
 
+            {/* Status Counts Filter Cards */}
+            <div className="mb-6 grid grid-cols-2 sm:grid-cols-5 gap-4">
+                {[
+                    { value: '', label: 'All Requests', count: status_counts.all, color: 'bg-primary', activeClass: 'border-primary/30 bg-primary/5 ring-primary/20 text-primary' },
+                    { value: 'pending', label: 'Pending', count: status_counts.pending, color: 'bg-amber-500', activeClass: 'border-amber-500/30 bg-amber-500/5 ring-amber-500/20 text-amber-500' },
+                    { value: 'approved', label: 'Approved', count: status_counts.approved, color: 'bg-emerald-500', activeClass: 'border-emerald-500/30 bg-emerald-500/5 ring-emerald-500/20 text-emerald-500' },
+                    { value: 'rejected', label: 'Rejected', count: status_counts.rejected, color: 'bg-red-500', activeClass: 'border-red-500/30 bg-red-500/5 ring-red-500/20 text-red-500' },
+                    { value: 'cancelled', label: 'Cancelled', count: status_counts.cancelled, color: 'bg-muted-foreground', activeClass: 'border-border bg-muted/20 ring-border/40 text-muted-foreground' }
+                ].map((opt) => {
+                    const isActive = filters.status === opt.value;
+                    return (
+                        <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => list.applyFilters({ status: opt.value })}
+                            className={cn(
+                                'glass-card group relative overflow-hidden rounded-2xl border p-4 text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md cursor-pointer',
+                                isActive 
+                                    ? cn('border-border/80 shadow-xs ring-1', opt.activeClass) 
+                                    : 'border-border/60 bg-card/80 hover:border-border hover:bg-card dark:hover:border-white/10'
+                            )}
+                        >
+                            <div className="flex items-center justify-between gap-3">
+                                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70 group-hover:text-foreground transition-colors">
+                                    {opt.label}
+                                </span>
+                                <span className={cn('h-2 w-2 rounded-full shrink-0', opt.color)} />
+                            </div>
+                            <div className="mt-2 flex items-baseline gap-2">
+                                <span className="text-2xl font-extrabold tracking-tight tabular-nums text-foreground">
+                                    {opt.count}
+                                </span>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
+
             <div className="mb-8 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2">
                 <div className="relative min-w-0 flex-1">
                     <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -199,11 +245,6 @@ export function LeaveRequestsContent({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    <LeaveRequestStatusFilterChips
-                        value={filters.status}
-                        onChange={(status) => list.applyFilters({ status })}
-                    />
-
                     <ViewToggle value={view} onChange={setView} />
                     <Button
                         type="button"

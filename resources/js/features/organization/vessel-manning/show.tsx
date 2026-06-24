@@ -6,12 +6,10 @@ import {
     update as updateVesselManning,
 } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
 import {
-    OrganizationDataTable,
     DataTableHead,
     DataTableHeaderRow,
     dataTableBodyRowClass,
     dataTableCellClass,
-    dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
