@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Network, Briefcase, FoldVertical, UnfoldVertical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -121,16 +121,21 @@ function OrgNodeCard({
     collapseCounter: number;
 }) {
     const [isUnfolded, setIsUnfolded] = useState(true);
+    const [lastExpand, setLastExpand] = useState(expandCounter);
+    const [lastCollapse, setLastCollapse] = useState(collapseCounter);
+
+    if (expandCounter !== lastExpand) {
+        setIsUnfolded(true);
+        setLastExpand(expandCounter);
+    }
+
+    if (collapseCounter !== lastCollapse) {
+        setIsUnfolded(false);
+        setLastCollapse(collapseCounter);
+    }
+
     const hasChildren = node.children.length > 0;
     const colorClass = HEADER_COLORS[node.type];
-
-    useEffect(() => {
-        if (expandCounter > 0) setIsUnfolded(true);
-    }, [expandCounter]);
-
-    useEffect(() => {
-        if (collapseCounter > 0) setIsUnfolded(false);
-    }, [collapseCounter]);
 
     const handleClick = () => {
         if (node.type === 'parent_department' || node.type === 'child_department') {
