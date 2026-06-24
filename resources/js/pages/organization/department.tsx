@@ -34,6 +34,14 @@ type Department = {
     updated_at: string;
 };
 
+type ChildDepartment = {
+    id: number;
+    name: string;
+    code: string | null;
+    positions_count: number;
+    users_count: number;
+};
+
 type ActivityItem = {
     id: number;
     event: string | null;
@@ -95,6 +103,7 @@ function Field({ label, value }: { label: string; value: string }) {
 
 export default function DepartmentDetails({
     department,
+    child_departments,
     companies,
     branches,
     parents,
@@ -103,6 +112,7 @@ export default function DepartmentDetails({
     can_view_audit,
 }: {
     department: Department;
+    child_departments: ChildDepartment[];
     companies: Company[];
     branches: Branch[];
     parents: DepartmentParentOption[];
@@ -238,6 +248,51 @@ export default function DepartmentDetails({
                     </CardContent>
                 </Card>
             </div>
+
+            {child_departments && child_departments.length > 0 && (
+                <Card className="glass-card mt-8 dark:border-white/5 dark:bg-white/5">
+                    <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border dark:border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
+                                <GitBranch className="h-4 w-4" />
+                            </div>
+                            <div>
+                                <CardTitle className="text-base font-bold tracking-tight">
+                                    Sub-departments
+                                </CardTitle>
+                                <div className="text-[10px] text-muted-foreground/50">
+                                    Departments under this department.
+                                </div>
+                            </div>
+                        </div>
+                        <Badge className="bg-muted/50 text-muted-foreground border-border font-mono text-xs dark:bg-white/5 dark:border-white/10">
+                            {child_departments.length}
+                        </Badge>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="divide-y divide-border dark:divide-white/5">
+                            {child_departments.map((child) => (
+                                <div key={child.id} className="flex items-center justify-between px-6 py-4 hover:bg-muted/30 transition-colors dark:hover:bg-white/[0.015]">
+                                    <div className="space-y-1">
+                                        <div className="text-sm font-semibold">{child.name}</div>
+                                        {child.code && <div className="text-xs text-muted-foreground">{child.code}</div>}
+                                    </div>
+                                    <div className="flex items-center gap-6 text-sm">
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Briefcase className="h-4 w-4" />
+                                            <span>{child.positions_count} positions</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-muted-foreground">
+                                            <Users className="h-4 w-4" />
+                                            <span>{child.users_count} employees</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {can_view_audit ? (
             <Card className="glass-card mt-8 dark:border-white/5 dark:bg-white/5">

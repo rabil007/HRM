@@ -151,6 +151,22 @@ class DepartmentController extends Controller
             'manager:id,name',
         ]);
 
+        $childDepartments = Department::query()
+            ->where('company_id', $companyId)
+            ->where('parent_id', $department->id)
+            ->withCount([
+                'positions as positions_count' => fn ($q) => $q->where('company_id', $companyId),
+                'employees as users_count' => fn ($q) => $q->where('company_id', $companyId),
+            ])
+            ->get()
+            ->map(fn ($child) => [
+                'id' => $child->id,
+                'name' => $child->name,
+                'code' => $child->code,
+                'positions_count' => $child->positions_count,
+                'users_count' => $child->users_count,
+            ]);
+
         $request = request();
 
         return Inertia::render('organization/department', [
@@ -182,6 +198,7 @@ class DepartmentController extends Controller
                 'created_at' => $department->created_at,
                 'updated_at' => $department->updated_at,
             ],
+            'child_departments' => $childDepartments,
             'branches' => $branches,
             'parents' => $parents,
             'managers' => $managers,
