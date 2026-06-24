@@ -100,7 +100,7 @@ function OrgCard({
                     </div>
 
                     <div className="flex flex-col justify-between p-4 min-h-[70px]">
-                        {node.manager ? (
+                        {node.parent_id === null && node.manager ? (
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center gap-2">
                                     <Avatar className="h-6 w-6">

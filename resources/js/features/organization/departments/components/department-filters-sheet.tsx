@@ -135,7 +135,7 @@ export function DepartmentFiltersSheet({
                     <AppSelectItem value="">All</AppSelectItem>
                     {managers.map((m) => (
                         <AppSelectItem key={m.id} value={String(m.id)}>
-                            {m.name}
+                            {m.employee_no ? `${m.employee_no} — ${m.name}` : m.name}
                         </AppSelectItem>
                     ))}
                 </AppSelect>

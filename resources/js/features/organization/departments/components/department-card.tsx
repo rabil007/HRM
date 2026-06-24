@@ -44,7 +44,7 @@ export function DepartmentCard({
                                     Parent: {department.parent.name}
                                 </Badge>
                             ) : null}
-                            {department.manager?.name ? (
+                            {!department.parent && department.manager?.name ? (
                                 <Badge variant="secondary" className="bg-muted/40 text-muted-foreground border-border/60 text-[10px] uppercase font-bold tracking-wider dark:bg-white/5 dark:border-white/10">
                                     Manager: {department.manager.name}
                                 </Badge>

@@ -116,6 +116,16 @@ final class EmployeeFormOptions
         ];
     }
 
+    /**
+     * Employee manager options for department and employee forms.
+     *
+     * @return Collection<int, Employee>
+     */
+    public static function managersForSelect(int $companyId): Collection
+    {
+        return self::managers($companyId, excludeManager: null, includeCompanyId: false);
+    }
+
     private static function branchesForDirectory(int $companyId)
     {
         return once(fn () => Branch::query()

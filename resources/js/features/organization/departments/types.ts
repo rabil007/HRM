@@ -13,6 +13,7 @@ export type Branch = {
 export type Manager = {
     id: number;
     name: string;
+    employee_no?: string | null;
 };
 
 export type DepartmentParentOption = {

@@ -27,6 +27,7 @@ export function DepartmentFormSheet({
 }) {
     const availableBranches = branches ?? [];
     const availableParents = parents ?? [];
+    const canAssignManager = !form.data.parent_id;
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -113,7 +114,15 @@ export function DepartmentFormSheet({
                             </Label>
                             <AppSelect
                                 value={String(form.data.parent_id ?? '')}
-                                onValueChange={(v) => form.setData('parent_id', v ? Number(v) : '')}
+                                onValueChange={(v) => {
+                                    const parentId = v ? Number(v) : '';
+
+                                    form.setData((data) => ({
+                                        ...data,
+                                        parent_id: parentId,
+                                        manager_id: parentId ? '' : data.manager_id,
+                                    }));
+                                }}
                                 variant="card"
                                 placeholder="No parent"
                             >
@@ -127,25 +136,31 @@ export function DepartmentFormSheet({
                             {form.errors.parent_id ? <div className="text-xs font-medium text-destructive">{form.errors.parent_id}</div> : null}
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="manager_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                Manager (optional)
-                            </Label>
-                            <AppSelect
-                                value={String(form.data.manager_id ?? '')}
-                                onValueChange={(v) => form.setData('manager_id', v ? Number(v) : '')}
-                                variant="card"
-                                placeholder="No manager"
-                            >
-                                <AppSelectItem value="">No manager</AppSelectItem>
-                                {managers.map((manager) => (
-                                    <AppSelectItem key={manager.id} value={String(manager.id)}>
-                                        {manager.name}
-                                    </AppSelectItem>
-                                ))}
-                            </AppSelect>
-                            {form.errors.manager_id ? <div className="text-xs font-medium text-destructive">{form.errors.manager_id}</div> : null}
-                        </div>
+                        {canAssignManager ? (
+                            <div className="space-y-2">
+                                <Label htmlFor="manager_id" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                    Manager (optional)
+                                </Label>
+                                <AppSelect
+                                    value={String(form.data.manager_id ?? '')}
+                                    onValueChange={(v) => form.setData('manager_id', v ? Number(v) : '')}
+                                    variant="card"
+                                    placeholder="No manager"
+                                >
+                                    <AppSelectItem value="">No manager</AppSelectItem>
+                                    {managers.map((manager) => (
+                                        <AppSelectItem key={manager.id} value={String(manager.id)}>
+                                            {manager.employee_no ? `${manager.employee_no} — ${manager.name}` : manager.name}
+                                        </AppSelectItem>
+                                    ))}
+                                </AppSelect>
+                                {form.errors.manager_id ? <div className="text-xs font-medium text-destructive">{form.errors.manager_id}</div> : null}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                Managers can only be assigned to parent departments. Remove the parent department to assign a manager.
+                            </p>
+                        )}
                     </div>
                 </div>
 

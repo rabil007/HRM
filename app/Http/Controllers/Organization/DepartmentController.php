@@ -11,8 +11,8 @@ use App\Http\Requests\Organization\Department\UpdateDepartmentStatusRequest;
 use App\Models\Branch;
 use App\Models\Department;
 use App\Models\Position;
-use App\Models\User;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Pagination\ResolvesPerPage;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
@@ -50,15 +50,13 @@ class DepartmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'parent_id', 'name']);
 
-        $managers = User::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $managers = EmployeeFormOptions::managersForSelect($companyId);
 
         $paginator = Department::query()
             ->with([
                 'branch:id,name',
                 'parent:id,name',
-                'manager:id,name',
+                'manager:id,name,employee_no',
             ])
             ->where('company_id', $companyId)
             ->when($id, fn ($q) => $q->where('id', $id))
@@ -107,7 +105,7 @@ class DepartmentController extends Controller
             ->with([
                 'branch:id,name',
                 'parent:id,name',
-                'manager:id,name',
+                'manager:id,name,employee_no',
             ])
             ->where('company_id', $companyId)
             ->when($id, fn ($q) => $q->where('id', $id))
@@ -189,14 +187,12 @@ class DepartmentController extends Controller
             ->orderBy('name')
             ->get(['id', 'company_id', 'name']);
 
-        $managers = User::query()
-            ->orderBy('name')
-            ->get(['id', 'name']);
+        $managers = EmployeeFormOptions::managersForSelect($companyId);
 
         $department->load([
             'branch:id,name',
             'parent:id,name',
-            'manager:id,name',
+            'manager:id,name,employee_no',
         ]);
 
         $childDepartments = Department::query()
@@ -274,6 +270,10 @@ class DepartmentController extends Controller
 
         $data['status'] = $data['status'] ?? 'active';
 
+        if (! empty($data['parent_id'])) {
+            $data['manager_id'] = null;
+        }
+
         return $this->createOrReturnExistingQuickCreate(
             $request,
             Department::class,
@@ -301,6 +301,10 @@ class DepartmentController extends Controller
         }
 
         $data['status'] = $data['status'] ?? 'active';
+
+        if (! empty($data['parent_id'])) {
+            $data['manager_id'] = null;
+        }
 
         $department->update($data);
 
@@ -347,7 +351,7 @@ class DepartmentController extends Controller
         $status = trim((string) $request->query('status', ''));
 
         $query = Department::query()
-            ->with(['branch:id,name', 'parent:id,name', 'manager:id,name'])
+            ->with(['branch:id,name', 'parent:id,name', 'manager:id,name,employee_no'])
             ->where('company_id', $companyId)
             ->latest('id');
 

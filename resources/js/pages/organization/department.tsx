@@ -195,7 +195,9 @@ export default function DepartmentDetails({
                             <Field label="Company" value={department.company.name ?? '—'} />
                             <Field label="Branch" value={department.branch?.name ?? '—'} />
                             <Field label="Parent" value={department.parent?.name ?? '—'} />
-                            <Field label="Manager" value={department.manager?.name ?? '—'} />
+                            {!department.parent ? (
+                                <Field label="Manager" value={department.manager?.name ?? '—'} />
+                            ) : null}
                             <Field label="Code" value={department.code ?? '—'} />
                         </div>
                     </CardContent>
