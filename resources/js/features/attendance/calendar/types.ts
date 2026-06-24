@@ -17,6 +17,18 @@ export type CalendarEmployeeOption = {
 
 export type CalendarSelectedEmployee = CalendarEmployeeOption;
 
+export type CalendarFormLeaveType = {
+    id: number;
+    name: string;
+    code: string;
+    color: string | null;
+};
+
+export type CalendarPermissions = {
+    create: boolean;
+    approve: boolean;
+};
+
 export type CalendarLeave = {
     id: number;
     employee: {

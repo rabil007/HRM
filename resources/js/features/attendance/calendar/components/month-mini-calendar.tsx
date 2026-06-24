@@ -1,4 +1,5 @@
 import { Link } from '@inertiajs/react';
+import type { PointerEvent } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -43,17 +44,29 @@ function LeaveDayDetails({ leaves }: { leaves: CalendarLeave[] }) {
 }
 
 function DayCell({
+    date,
     day,
     inMonth,
     isToday,
     isWeekend,
     leaves,
+    canCreate,
+    isInSelection,
+    isSelecting,
+    onBeginSelection,
+    onExtendSelection,
 }: {
+    date: string;
     day: number;
     inMonth: boolean;
     isToday: boolean;
     isWeekend: boolean;
     leaves: CalendarLeave[];
+    canCreate: boolean;
+    isInSelection: boolean;
+    isSelecting: boolean;
+    onBeginSelection: (date: string) => void;
+    onExtendSelection: (date: string) => void;
 }) {
     const hasLeave = leaves.length > 0;
     const primaryColor = leaves[0]?.leave_type?.color ?? FALLBACK_LEAVE_COLOR;
@@ -63,13 +76,15 @@ function DayCell({
             className={cn(
                 'relative flex aspect-square w-full max-w-8 items-center justify-center rounded-lg text-[11px] font-semibold transition-all duration-200',
                 !inMonth && 'text-muted-foreground/30',
-                inMonth && !hasLeave && 'text-foreground/80 hover:bg-muted/50 dark:hover:bg-white/6',
-                inMonth && isWeekend && !hasLeave && 'bg-muted/20 dark:bg-white/3',
-                inMonth && hasLeave && 'text-white shadow-sm hover:scale-105 hover:shadow-md',
+                inMonth && !hasLeave && !isInSelection && 'text-foreground/80 hover:bg-muted/50 dark:hover:bg-white/6',
+                inMonth && isWeekend && !hasLeave && !isInSelection && 'bg-muted/20 dark:bg-white/3',
+                inMonth && hasLeave && !isInSelection && 'text-white shadow-sm hover:scale-105 hover:shadow-md',
+                inMonth && isInSelection && 'bg-primary/25 text-primary ring-1 ring-primary/40',
                 isToday && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
+                canCreate && 'cursor-cell touch-none select-none',
             )}
             style={
-                inMonth && hasLeave
+                inMonth && hasLeave && !isInSelection
                     ? {
                           backgroundColor: primaryColor,
                           boxShadow: `0 4px 14px ${primaryColor}40`,
@@ -92,8 +107,32 @@ function DayCell({
         </div>
     );
 
+    const selectionHandlers = canCreate
+        ? {
+              onPointerDown: (event: PointerEvent) => {
+                  event.preventDefault();
+                  onBeginSelection(date);
+              },
+              onPointerEnter: () => {
+                  onExtendSelection(date);
+              },
+          }
+        : {};
+
     if (!hasLeave) {
-        return cell;
+        return (
+            <div className="w-full" {...selectionHandlers}>
+                {cell}
+            </div>
+        );
+    }
+
+    if (isSelecting) {
+        return (
+            <div className="w-full" {...selectionHandlers}>
+                {cell}
+            </div>
+        );
     }
 
     return (
@@ -102,6 +141,7 @@ function DayCell({
                 <button
                     type="button"
                     className="w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    {...selectionHandlers}
                 >
                     {cell}
                 </button>
@@ -118,11 +158,21 @@ export function MonthMiniCalendar({
     month,
     today,
     leaveDayMap,
+    canCreate,
+    isSelecting,
+    isDateInRange,
+    onBeginSelection,
+    onExtendSelection,
 }: {
     year: number;
     month: number;
     today: string;
     leaveDayMap: Map<string, CalendarLeave[]>;
+    canCreate: boolean;
+    isSelecting: boolean;
+    isDateInRange: (date: string) => boolean;
+    onBeginSelection: (date: string) => void;
+    onExtendSelection: (date: string) => void;
 }) {
     const todayDate = useMemo(() => new Date(`${today}T00:00:00`), [today]);
     const isCurrentMonth = todayDate.getFullYear() === year && todayDate.getMonth() === month;
@@ -162,6 +212,7 @@ export function MonthMiniCalendar({
                 isCurrentMonth
                     ? 'border-primary/30 bg-primary/5 shadow-[0_8px_30px_rgba(99,102,241,0.08)] dark:border-primary/20 dark:bg-primary/5'
                     : 'border-border/60 bg-card/80 hover:border-border dark:border-white/6',
+                isSelecting && canCreate && 'select-none',
             )}
         >
             <div className="mb-4 flex items-center justify-between gap-2">
@@ -208,11 +259,17 @@ export function MonthMiniCalendar({
                                 return (
                                     <DayCell
                                         key={cell.date}
+                                        date={cell.date}
                                         day={cell.day}
                                         inMonth={cell.inMonth}
                                         isToday={cell.date === today}
                                         isWeekend={dayOfWeek === 0 || dayOfWeek === 6}
                                         leaves={leaveDayMap.get(cell.date) ?? []}
+                                        canCreate={canCreate}
+                                        isInSelection={isDateInRange(cell.date)}
+                                        isSelecting={isSelecting}
+                                        onBeginSelection={onBeginSelection}
+                                        onExtendSelection={onExtendSelection}
                                     />
                                 );
                             })}
@@ -223,4 +280,3 @@ export function MonthMiniCalendar({
         </div>
     );
 }
-

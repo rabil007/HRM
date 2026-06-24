@@ -487,3 +487,72 @@ test('cross year approved leave appears in both years on calendar', function () 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('approved_leaves', 1));
 });
+
+test('attendance calendar exposes create form props for users with create permission', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
+
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+        'attendance.leave-requests.approve',
+    ]);
+
+    $response = $this->get(route('attendance.calendar.index', ['year' => 2026]));
+
+    $response
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.create', true)
+            ->where('can.approve', true)
+            ->where('selected_employee_id', $employee->id)
+            ->has('form_leave_types', 2)
+            ->has('form_employees', 2));
+
+    $formEmployeeIds = collect($response->original->getData()['page']['props']['form_employees'])->pluck('id')->all();
+
+    expect($formEmployeeIds)->toEqualCanonicalizing([$employee->id, $otherEmployee->id]);
+});
+
+test('attendance calendar hides create form props without create permission', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee] = makeAttendanceCalendarActors($company);
+
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.create', false)
+            ->where('can.approve', false)
+            ->has('form_employees', 0));
+});
+
+test('attendance calendar form employees are limited to linked employee for non approvers', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employee] = makeAttendanceCalendarActors($company);
+    Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    $employee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('can.create', true)
+            ->where('can.approve', false)
+            ->has('form_employees', 1)
+            ->where('form_employees.0.id', $employee->id));
+});

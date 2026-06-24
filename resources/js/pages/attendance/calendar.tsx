@@ -1,6 +1,14 @@
 import { Head } from '@inertiajs/react';
 import { AttendanceCalendarContent } from '@/features/attendance/calendar';
-import type { CalendarEmployeeOption, CalendarLeave, CalendarLeaveType, CalendarSelectedEmployee } from '@/features/attendance/calendar/types';
+import type {
+    CalendarEmployeeOption,
+    CalendarFormLeaveType,
+    CalendarLeave,
+    CalendarLeaveType,
+    CalendarPermissions,
+    CalendarSelectedEmployee,
+} from '@/features/attendance/calendar/types';
+import type { LeaveRequestEmployeeOption } from '@/features/attendance/leave-requests/types';
 
 export default function AttendanceCalendar({
     year,
@@ -12,6 +20,10 @@ export default function AttendanceCalendar({
     selected_employee,
     employees,
     can_select_employee,
+    linked_employee_id,
+    form_employees,
+    form_leave_types,
+    can,
 }: {
     year: number;
     today: string;
@@ -22,6 +34,10 @@ export default function AttendanceCalendar({
     selected_employee: CalendarSelectedEmployee | null;
     employees: CalendarEmployeeOption[];
     can_select_employee: boolean;
+    linked_employee_id: number | null;
+    form_employees: LeaveRequestEmployeeOption[];
+    form_leave_types: CalendarFormLeaveType[];
+    can: CalendarPermissions;
 }) {
     return (
         <>
@@ -36,6 +52,10 @@ export default function AttendanceCalendar({
                 selected_employee={selected_employee}
                 employees={employees}
                 can_select_employee={can_select_employee}
+                linked_employee_id={linked_employee_id}
+                form_employees={form_employees}
+                form_leave_types={form_leave_types}
+                can={can}
             />
         </>
     );

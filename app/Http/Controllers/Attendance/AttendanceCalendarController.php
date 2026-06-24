@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
+use App\Models\LeaveType;
+use App\Models\User;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
 use Illuminate\Database\Eloquent\Builder;
@@ -60,6 +62,7 @@ class AttendanceCalendarController extends Controller
 
         $employees = $this->calendarEmployeeOptions($companyId, $selectedEmployeeId, $canSelectEmployee);
         $selectedEmployee = $this->selectedEmployeePayload($companyId, $selectedEmployeeId);
+        $canApprove = $this->visibility->canViewAll($user);
 
         return Inertia::render('attendance/calendar', [
             'year' => $year,
@@ -72,7 +75,49 @@ class AttendanceCalendarController extends Controller
             'selected_employee' => $selectedEmployee,
             'employees' => $employees,
             'can_select_employee' => $canSelectEmployee,
+            'form_employees' => $this->formEmployeeOptions($companyId, $user, $canApprove, $linkedEmployeeId),
+            'form_leave_types' => LeaveType::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'color']),
+            'can' => [
+                'create' => $user?->can('attendance.leave-requests.create') ?? false,
+                'approve' => $canApprove,
+            ],
         ]);
+    }
+
+    /**
+     * @return list<array{id: int, employee_no: string|null, name: string}>
+     */
+    private function formEmployeeOptions(int $companyId, ?User $user, bool $canApprove, ?int $linkedEmployeeId): array
+    {
+        if (! ($user?->can('attendance.leave-requests.create') ?? false)) {
+            return [];
+        }
+
+        $employeesQuery = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->orderBy('name');
+
+        if (! $canApprove) {
+            $employeesQuery->when(
+                $linkedEmployeeId !== null,
+                fn ($query) => $query->whereKey($linkedEmployeeId),
+                fn ($query) => $query->whereRaw('1 = 0'),
+            );
+        }
+
+        return $employeesQuery
+            ->get(['id', 'employee_no', 'name'])
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'employee_no' => $employee->employee_no,
+                'name' => $employee->name,
+            ])
+            ->all();
     }
 
     /**
