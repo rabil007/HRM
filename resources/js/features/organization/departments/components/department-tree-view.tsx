@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import { Network } from 'lucide-react';
+import { Network, FoldVertical, UnfoldVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 
@@ -56,14 +57,26 @@ const HEADER_COLORS = {
 
 function OrgCard({
     node,
+    expandCounter,
+    collapseCounter,
 }: {
     node: DepartmentTreeNode;
+    expandCounter: number;
+    collapseCounter: number;
 }) {
     const [isUnfolded, setIsUnfolded] = useState(true);
     const hasChildren = node.children.length > 0;
     
     const nodeType = node.parent_id === null ? 'parent_department' : 'child_department';
     const colorClass = HEADER_COLORS[nodeType];
+
+    useEffect(() => {
+        if (expandCounter > 0) setIsUnfolded(true);
+    }, [expandCounter]);
+
+    useEffect(() => {
+        if (collapseCounter > 0) setIsUnfolded(false);
+    }, [collapseCounter]);
 
     return (
         <li className="org-tree-node">
@@ -132,6 +145,8 @@ function OrgCard({
                         <OrgCard
                             key={child.id}
                             node={child}
+                            expandCounter={expandCounter}
+                            collapseCounter={collapseCounter}
                         />
                     ))}
                 </ul>
@@ -146,18 +161,44 @@ export function DepartmentTreeView({
     departments: any[];
 }) {
     const tree = buildTree(departments);
+    const [expandCounter, setExpandCounter] = useState(0);
+    const [collapseCounter, setCollapseCounter] = useState(0);
 
     return (
         <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-8 overflow-x-auto">
-            {/* Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-6 mb-8 text-sm font-medium">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
-                    <span className="text-muted-foreground">Parent Department</span>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
+                        <span className="text-muted-foreground">Parent Department</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
+                        <span className="text-muted-foreground">Sub-department</span>
+                    </div>
                 </div>
+
+                {/* Actions */}
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
-                    <span className="text-muted-foreground">Sub-department</span>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCollapseCounter(c => c + 1)}
+                        className="h-8 gap-1"
+                    >
+                        <FoldVertical className="w-3.5 h-3.5" />
+                        <span>Fold All</span>
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setExpandCounter(c => c + 1)}
+                        className="h-8 gap-1"
+                    >
+                        <UnfoldVertical className="w-3.5 h-3.5" />
+                        <span>Unfold All</span>
+                    </Button>
                 </div>
             </div>
 
@@ -168,6 +209,8 @@ export function DepartmentTreeView({
                             <OrgCard
                                 key={node.id}
                                 node={node}
+                                expandCounter={expandCounter}
+                                collapseCounter={collapseCounter}
                             />
                         ))}
                     </ul>

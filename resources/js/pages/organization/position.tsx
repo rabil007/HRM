@@ -96,10 +96,7 @@ export default function PositionDetails({
         status: position.status ?? 'active',
     });
 
-    const statusClass =
-        position.status === 'active'
-            ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200'
-            : 'bg-muted/60 text-muted-foreground border-border dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20';
+
 
     return (
         <>

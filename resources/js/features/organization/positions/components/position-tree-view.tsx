@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import { Network, Briefcase } from 'lucide-react';
+import { Network, Briefcase, FoldVertical, UnfoldVertical } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 export type TreeDepartment = {
@@ -110,10 +111,26 @@ const HEADER_COLORS = {
     position: 'bg-orange-500/90 text-white',
 };
 
-function OrgNodeCard({ node }: { node: OrgTreeNode }) {
+function OrgNodeCard({ 
+    node, 
+    expandCounter, 
+    collapseCounter 
+}: { 
+    node: OrgTreeNode; 
+    expandCounter: number; 
+    collapseCounter: number;
+}) {
     const [isUnfolded, setIsUnfolded] = useState(true);
     const hasChildren = node.children.length > 0;
     const colorClass = HEADER_COLORS[node.type];
+
+    useEffect(() => {
+        if (expandCounter > 0) setIsUnfolded(true);
+    }, [expandCounter]);
+
+    useEffect(() => {
+        if (collapseCounter > 0) setIsUnfolded(false);
+    }, [collapseCounter]);
 
     const handleClick = () => {
         if (node.type === 'parent_department' || node.type === 'child_department') {
@@ -174,7 +191,12 @@ function OrgNodeCard({ node }: { node: OrgTreeNode }) {
             {hasChildren && isUnfolded && (
                 <ul>
                     {node.children.map((child) => (
-                        <OrgNodeCard key={child.id} node={child} />
+                        <OrgNodeCard 
+                            key={child.id} 
+                            node={child} 
+                            expandCounter={expandCounter}
+                            collapseCounter={collapseCounter}
+                        />
                     ))}
                 </ul>
             )}
@@ -190,22 +212,48 @@ export function PositionTreeView({
     positions: TreePosition[];
 }) {
     const tree = buildOrgTree(departments, positions);
+    const [expandCounter, setExpandCounter] = useState(0);
+    const [collapseCounter, setCollapseCounter] = useState(0);
 
     return (
         <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-8 overflow-x-auto">
-            {/* Legend */}
-            <div className="flex flex-wrap items-center justify-center gap-6 mb-8 text-sm font-medium">
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
-                    <span className="text-muted-foreground">Parent Department</span>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+                {/* Legend */}
+                <div className="flex flex-wrap items-center gap-6 text-sm font-medium">
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-indigo-500/90" />
+                        <span className="text-muted-foreground">Parent Department</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
+                        <span className="text-muted-foreground">Sub-department</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-orange-500/90" />
+                        <span className="text-muted-foreground">Position</span>
+                    </div>
                 </div>
+
+                {/* Actions */}
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500/90" />
-                    <span className="text-muted-foreground">Sub-department</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-orange-500/90" />
-                    <span className="text-muted-foreground">Position</span>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setCollapseCounter(c => c + 1)}
+                        className="h-8 gap-1"
+                    >
+                        <FoldVertical className="w-3.5 h-3.5" />
+                        <span>Fold All</span>
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setExpandCounter(c => c + 1)}
+                        className="h-8 gap-1"
+                    >
+                        <UnfoldVertical className="w-3.5 h-3.5" />
+                        <span>Unfold All</span>
+                    </Button>
                 </div>
             </div>
 
@@ -213,7 +261,12 @@ export function PositionTreeView({
                 <div className="org-tree min-w-max pb-8">
                     <ul>
                         {tree.map((node) => (
-                            <OrgNodeCard key={node.id} node={node} />
+                            <OrgNodeCard 
+                                key={node.id} 
+                                node={node} 
+                                expandCounter={expandCounter}
+                                collapseCounter={collapseCounter}
+                            />
                         ))}
                     </ul>
                 </div>

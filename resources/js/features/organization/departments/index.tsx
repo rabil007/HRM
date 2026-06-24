@@ -82,14 +82,7 @@ export function DepartmentsContent({
         initialFilters.code.trim(),
     ].filter(Boolean).length;
 
-    const defaultFilters: DepartmentFilters = {
-        id: '',
-        branch_id: '',
-        parent_id: '',
-        manager_id: '',
-        status: '',
-        code: '',
-    };
+
 
     const form = useForm<DepartmentFormData>({
         branch_id: '',
