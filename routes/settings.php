@@ -126,6 +126,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->middleware('can:settings.integrations.email-templates.view')
         ->name('application.email-templates.index');
 
+    Route::get('settings/application/email-templates/{email_template}/preview', [EmailTemplateController::class, 'preview'])
+        ->middleware('can:settings.integrations.email-templates.view')
+        ->name('application.email-templates.preview');
+
+    Route::post('settings/application/email-templates/preview', [EmailTemplateController::class, 'previewDraft'])
+        ->middleware('can:settings.integrations.email-templates.view')
+        ->name('application.email-templates.preview-draft');
+
     Route::post('settings/application/email-templates', [EmailTemplateController::class, 'store'])
         ->middleware('can:settings.integrations.email-templates.create')
         ->name('application.email-templates.store');

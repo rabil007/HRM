@@ -186,3 +186,43 @@ test('marking template as default clears other defaults in category', function (
     expect($existingDefault->fresh()->is_default)->toBeFalse()
         ->and(EmailTemplate::query()->where('slug', 'document_share_alt')->value('is_default'))->toBeTrue();
 });
+
+test('users can preview saved email templates as html', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
+
+    $template = EmailTemplate::query()->where('slug', 'leave_request_submitted')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.preview', $template))
+        ->assertOk()
+        ->assertHeader('Content-Type', 'text/html; charset=UTF-8')
+        ->assertSee('New leave request', false)
+        ->assertSee('Jane Smith', false);
+});
+
+test('users can preview draft email template content', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
+
+    $this->actingAs($user)
+        ->postJson(route('application.email-templates.preview-draft'), [
+            'slug' => 'leave_request_submitted',
+            'subject' => 'Preview — {{employee_name}}',
+            'body_html' => 'Custom intro for {{employee_name}}.',
+        ])
+        ->assertOk()
+        ->assertJsonPath('subject', 'Preview — Jane Smith')
+        ->assertJson(fn ($json) => $json->whereType('html', 'string')->etc());
+});
+
+test('users without email template permission cannot preview templates', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, ['settings.application.view']);
+
+    $template = EmailTemplate::query()->where('slug', 'document_share')->firstOrFail();
+
+    $this->actingAs($user)
+        ->get(route('application.email-templates.preview', $template))
+        ->assertForbidden();
+});

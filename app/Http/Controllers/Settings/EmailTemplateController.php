@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Settings;
 
 use App\Enums\EmailTemplateCategory;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Settings\PreviewEmailTemplateRequest;
 use App\Http\Requests\Settings\StoreEmailTemplateRequest;
 use App\Http\Requests\Settings\UpdateEmailTemplateRequest;
 use App\Models\EmailTemplate;
+use App\Support\Email\EmailTemplatePreview;
 use App\Support\Settings\ApplicationTimezone;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Response as HttpResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -90,5 +94,38 @@ class EmailTemplateController extends Controller
         $emailTemplate->delete();
 
         return back()->with('success', 'Email template deleted.');
+    }
+
+    public function preview(EmailTemplate $emailTemplate): HttpResponse
+    {
+        if (! request()->user()?->can('settings.integrations.email-templates.view')) {
+            abort(403);
+        }
+
+        $companyId = (int) request()->attributes->get('current_company_id');
+        $preview = app(EmailTemplatePreview::class)->render(
+            $emailTemplate,
+            $companyId > 0 ? $companyId : null,
+        );
+
+        return response($preview['html'], 200, [
+            'Content-Type' => 'text/html; charset=UTF-8',
+            'X-Email-Subject' => $preview['subject'],
+        ]);
+    }
+
+    public function previewDraft(PreviewEmailTemplateRequest $request): JsonResponse
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        $validated = $request->validated();
+
+        $preview = app(EmailTemplatePreview::class)->renderFromStrings(
+            slug: $validated['slug'],
+            subject: $validated['subject'],
+            bodyHtml: $validated['body_html'],
+            companyId: $companyId > 0 ? $companyId : null,
+        );
+
+        return response()->json($preview);
     }
 }

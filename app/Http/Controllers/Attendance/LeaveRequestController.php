@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\Actions\SendLeaveRequestSubmittedEmail;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
 use App\Support\Attendance\LeaveRequestAttachments;
@@ -215,6 +216,12 @@ class LeaveRequestController extends Controller
         }
 
         $this->leaveBalances->reserveLeaveRequest($leaveRequest->fresh());
+
+        try {
+            app(SendLeaveRequestSubmittedEmail::class)->handle($leaveRequest->fresh());
+        } catch (\Throwable $exception) {
+            report($exception);
+        }
 
         return redirect()
             ->route('attendance.leave-requests.index')

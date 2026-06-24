@@ -11,6 +11,7 @@ class EmailTemplatesSeeder extends Seeder
     public function run(): void
     {
         self::seedPayslipDeliveryTemplate();
+        self::seedLeaveRequestSubmittedTemplate();
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -37,6 +38,30 @@ class EmailTemplatesSeeder extends Seeder
         return $template->fresh();
     }
 
+    public static function seedLeaveRequestSubmittedTemplate(): EmailTemplate
+    {
+        $template = EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'leave_request_submitted'],
+            [
+                'label' => 'Leave request submitted',
+                'category' => EmailTemplateCategory::Hr,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'New leave request — {{employee_name}} ({{leave_type}})',
+                'body_html' => self::leaveRequestSubmittedBody(),
+                'enabled' => true,
+                'sort_order' => 0,
+            ],
+        );
+
+        if (! $template->is_default) {
+            $template->markAsDefaultForCategory();
+        }
+
+        return $template->fresh();
+    }
+
     private static function payslipDeliveryBody(): string
     {
         return <<<'TEXT'
@@ -51,6 +76,17 @@ If you have any questions about your payslip, please contact HR.
 
 Thank you,
 {{company_name}}
+TEXT;
+    }
+
+    private static function leaveRequestSubmittedBody(): string
+    {
+        return <<<'TEXT'
+A new leave request has been submitted and is pending your review.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
 TEXT;
     }
 }

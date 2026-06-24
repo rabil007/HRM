@@ -25,5 +25,23 @@ test('email templates seeder is idempotent', function () {
     (new EmailTemplatesSeeder)->run();
     (new EmailTemplatesSeeder)->run();
 
-    expect(EmailTemplate::query()->where('slug', 'payslip_delivery')->count())->toBe(1);
+    expect(EmailTemplate::query()->where('slug', 'payslip_delivery')->count())->toBe(1)
+        ->and(EmailTemplate::query()->where('slug', 'leave_request_submitted')->count())->toBe(1);
+});
+
+test('email templates seeder creates default leave request submitted template', function () {
+    EmailTemplate::query()->where('slug', 'leave_request_submitted')->forceDelete();
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template = EmailTemplate::query()->where('slug', 'leave_request_submitted')->first();
+
+    expect($template)->not->toBeNull()
+        ->and($template->category)->toBe(EmailTemplateCategory::Hr)
+        ->and($template->is_default)->toBeTrue()
+        ->and($template->enabled)->toBeTrue()
+        ->and($template->subject)->toContain('{{employee_name}}')
+        ->and($template->subject)->toContain('{{leave_type}}')
+        ->and($template->body_html)->toContain('{{employee_name}}')
+        ->and($template->body_html)->toContain('{{leave_type}}');
 });

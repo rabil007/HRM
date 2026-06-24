@@ -1,15 +1,20 @@
 <?php
 
+use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
+use App\Models\EmailTemplate;
 use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
 use App\Support\Attendance\LeaveBalanceManager;
+use Database\Seeders\EmailTemplatesSeeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -707,4 +712,150 @@ test('users without approve permission cannot manage other employees leave reque
 
     $this->put("/attendance/leave-requests/{$otherLeaveRequest->id}", validLeaveRequestPayload($ownEmployee, $leaveType))
         ->assertNotFound();
+});
+
+/**
+ * @param  array<string, mixed>  $overrides
+ */
+function configureLeaveRequestSubmittedTemplate(array $overrides = []): void
+{
+    EmailTemplatesSeeder::seedLeaveRequestSubmittedTemplate();
+
+    if ($overrides !== []) {
+        EmailTemplate::query()
+            ->where('slug', 'leave_request_submitted')
+            ->update($overrides);
+    }
+}
+
+test('leave request creation queues submitted email when template is enabled', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id, 'name' => 'Alice Crew']);
+
+    configureLeaveRequestSubmittedTemplate([
+        'to_preset' => 'hr@example.com',
+        'enabled' => true,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) use ($leaveType) {
+        return $mail->hasTo('hr@example.com')
+            && str_contains($mail->subjectLine, 'Alice Crew')
+            && str_contains($mail->subjectLine, $leaveType->name)
+            && $mail->employeeName === 'Alice Crew'
+            && $mail->leaveType === $leaveType->name;
+    });
+});
+
+test('leave request submitted email includes department manager address', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+
+    $manager = Employee::factory()->forCompany($company)->create([
+        'work_email' => 'manager@example.com',
+        'name' => 'Line Manager',
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Engineering',
+        'code' => 'ENG',
+        'manager_id' => $manager->id,
+        'status' => 'active',
+    ]);
+
+    $employee->update([
+        'department_id' => $department->id,
+        'user_id' => $user->id,
+    ]);
+
+    configureLeaveRequestSubmittedTemplate([
+        'to_preset' => 'hr@example.com',
+        'enabled' => true,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertQueued(LeaveRequestSubmittedMail::class, function (LeaveRequestSubmittedMail $mail) {
+        return $mail->hasTo('hr@example.com')
+            && $mail->hasCc('manager@example.com');
+    });
+});
+
+test('leave request submitted email is not queued when template is disabled', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['user_id' => $user->id]);
+
+    configureLeaveRequestSubmittedTemplate([
+        'to_preset' => 'hr@example.com',
+        'enabled' => false,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertNothingQueued();
+});
+
+test('leave request submitted email is not queued when no recipients are available', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update([
+        'user_id' => $user->id,
+        'department_id' => null,
+        'work_email' => null,
+        'personal_email' => null,
+    ]);
+
+    configureLeaveRequestSubmittedTemplate([
+        'to_preset' => null,
+        'cc_preset' => null,
+        'enabled' => true,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post('/attendance/leave-requests', validLeaveRequestPayload($employee, $leaveType))
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertNothingQueued();
 });

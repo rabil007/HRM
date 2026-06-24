@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
+import { Eye, FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
     MasterDataActiveToggle,
@@ -30,6 +30,10 @@ import {
     SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import {
+    EmailTemplatePreviewDialog,
+    type EmailTemplatePreviewTarget,
+} from '@/features/settings/email-template-preview-dialog';
 import { toast } from '@/lib/toast';
 
 export type EmailTemplateItem = {
@@ -104,6 +108,7 @@ export default function EmailTemplatesSettings({
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editing, setEditing] = useState<EmailTemplateItem | null>(null);
     const [deleting, setDeleting] = useState<EmailTemplateItem | null>(null);
+    const [previewTarget, setPreviewTarget] = useState<EmailTemplatePreviewTarget | null>(null);
 
     const form = useForm<FormState>(emptyForm());
 
@@ -174,6 +179,30 @@ export default function EmailTemplatesSettings({
         setDeleting(template);
         setDeleteOpen(true);
     };
+
+    const openSavedPreview = (template: EmailTemplateItem) => {
+        setPreviewTarget({
+            mode: 'saved',
+            templateId: template.id,
+            label: template.label,
+            subject: template.subject,
+        });
+    };
+
+    const openDraftPreview = () => {
+        setPreviewTarget({
+            mode: 'draft',
+            slug: form.data.slug,
+            label: form.data.label || 'Email template',
+            subject: form.data.subject,
+            bodyHtml: form.data.body_html,
+        });
+    };
+
+    const canPreviewDraft =
+        form.data.slug !== expiry_alert_template_slug &&
+        form.data.subject.trim() !== '' &&
+        form.data.body_html.trim() !== '';
 
     return (
         <>
@@ -301,33 +330,41 @@ export default function EmailTemplatesSettings({
                                             </span>
                                         </div>
 
-                                        {can.update || can.delete ? (
-                                            <div className="flex flex-wrap gap-2">
-                                                {can.update ? (
-                                                    <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        size="sm"
-                                                        className="rounded-xl"
-                                                        onClick={() => openEdit(template)}
-                                                    >
-                                                        Edit
-                                                    </Button>
-                                                ) : null}
-                                                {can.delete &&
-                                                template.slug !== expiry_alert_template_slug ? (
-                                                    <Button
-                                                        type="button"
-                                                        variant="destructive"
-                                                        size="sm"
-                                                        className="rounded-xl"
-                                                        onClick={() => requestDelete(template)}
-                                                    >
-                                                        Delete
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        ) : null}
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                type="button"
+                                                variant="outline"
+                                                size="sm"
+                                                className="rounded-xl"
+                                                onClick={() => openSavedPreview(template)}
+                                            >
+                                                <Eye className="mr-2 h-4 w-4" />
+                                                Preview
+                                            </Button>
+                                            {can.update ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="rounded-xl"
+                                                    onClick={() => openEdit(template)}
+                                                >
+                                                    Edit
+                                                </Button>
+                                            ) : null}
+                                            {can.delete &&
+                                            template.slug !== expiry_alert_template_slug ? (
+                                                <Button
+                                                    type="button"
+                                                    variant="destructive"
+                                                    size="sm"
+                                                    className="rounded-xl"
+                                                    onClick={() => requestDelete(template)}
+                                                >
+                                                    Delete
+                                                </Button>
+                                            ) : null}
+                                        </div>
                                     </CardContent>
                                 </Card>
                             ))}
@@ -354,13 +391,47 @@ export default function EmailTemplatesSettings({
                 title={editing ? 'Edit email template' : 'New email template'}
                 description="Subject and message are plain text. They prefill the send form; users can edit before sending."
                 footer={
-                    canMutateForm ? (
-                        <MasterDataFormSheetFooter
-                            onCancel={() => setSheetOpen(false)}
-                            onSubmit={submit}
-                            processing={form.processing}
-                            submitLabel={editing ? 'Save changes' : 'Create template'}
-                        />
+                    canMutateForm || canPreviewDraft || editing !== null ? (
+                        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                            {canPreviewDraft ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl sm:mr-auto"
+                                    onClick={openDraftPreview}
+                                >
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    Preview
+                                </Button>
+                            ) : editing !== null ? (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl sm:mr-auto"
+                                    onClick={() => openSavedPreview(editing)}
+                                >
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    Preview saved
+                                </Button>
+                            ) : null}
+                            {canMutateForm ? (
+                                <MasterDataFormSheetFooter
+                                    onCancel={() => setSheetOpen(false)}
+                                    onSubmit={submit}
+                                    processing={form.processing}
+                                    submitLabel={editing ? 'Save changes' : 'Create template'}
+                                />
+                            ) : (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="rounded-xl"
+                                    onClick={() => setSheetOpen(false)}
+                                >
+                                    Close
+                                </Button>
+                            )}
+                        </div>
                     ) : null
                 }
             >
@@ -567,6 +638,15 @@ export default function EmailTemplatesSettings({
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <EmailTemplatePreviewDialog
+                target={previewTarget}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setPreviewTarget(null);
+                    }
+                }}
+            />
         </>
     );
 }
