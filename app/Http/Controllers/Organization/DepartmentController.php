@@ -33,6 +33,7 @@ class DepartmentController extends Controller
         $companyId = (int) request()->attributes->get('current_company_id');
         $perPage = $this->resolvePerPage(request());
         $search = trim((string) request()->query('search', ''));
+        $id = trim((string) request()->query('id', ''));
         $branchId = trim((string) request()->query('branch_id', ''));
         $parentId = trim((string) request()->query('parent_id', ''));
         $managerId = trim((string) request()->query('manager_id', ''));
@@ -47,7 +48,7 @@ class DepartmentController extends Controller
         $parents = Department::query()
             ->where('company_id', $companyId)
             ->orderBy('name')
-            ->get(['id', 'company_id', 'name']);
+            ->get(['id', 'company_id', 'parent_id', 'name']);
 
         $managers = User::query()
             ->orderBy('name')
@@ -60,8 +61,11 @@ class DepartmentController extends Controller
                 'manager:id,name',
             ])
             ->where('company_id', $companyId)
+            ->when($id, fn ($q) => $q->where('id', $id))
             ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
-            ->when($parentId, fn ($q) => $q->where('parent_id', $parentId))
+            ->when($parentId, fn ($q) => $q->where(function ($inner) use ($parentId) {
+                $inner->where('id', $parentId)->orWhere('parent_id', $parentId);
+            }))
             ->when($managerId, fn ($q) => $q->where('manager_id', $managerId))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->when($code, fn ($q) => $q->where('code', 'like', "%{$code}%"))
@@ -106,6 +110,20 @@ class DepartmentController extends Controller
                 'manager:id,name',
             ])
             ->where('company_id', $companyId)
+            ->when($id, fn ($q) => $q->where('id', $id))
+            ->when($branchId, fn ($q) => $q->where('branch_id', $branchId))
+            ->when($parentId, fn ($q) => $q->where(function ($inner) use ($parentId) {
+                $inner->where('id', $parentId)->orWhere('parent_id', $parentId);
+            }))
+            ->when($managerId, fn ($q) => $q->where('manager_id', $managerId))
+            ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($code, fn ($q) => $q->where('code', 'like', "%{$code}%"))
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($inner) use ($search) {
+                    $inner->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%");
+                });
+            })
             ->withCount(['positions', 'employees as users_count'])
             ->orderBy('name')
             ->get()
@@ -133,6 +151,7 @@ class DepartmentController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
             'filters' => [
+                'id' => $id,
                 'branch_id' => $branchId,
                 'parent_id' => $parentId,
                 'manager_id' => $managerId,

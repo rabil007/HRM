@@ -47,7 +47,7 @@ export function DepartmentsContent({
     all_departments: any[];
     pagination: PaginationMeta;
     search: string;
-    filters: { branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
+    filters: { id: string; branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
     branches: Branch[];
     parents: DepartmentParentOption[];
     managers: Manager[];
@@ -65,6 +65,7 @@ export function DepartmentsContent({
     const [currentDepartment, setCurrentDepartment] = useState<Department | null>(null);
 
     const filters: DepartmentFilters = {
+        id: initialFilters.id ?? '',
         branch_id: initialFilters.branch_id,
         parent_id: initialFilters.parent_id,
         manager_id: initialFilters.manager_id,
@@ -73,12 +74,22 @@ export function DepartmentsContent({
     };
 
     const activeFiltersCount = [
+        initialFilters.id,
         initialFilters.branch_id,
         initialFilters.parent_id,
         initialFilters.manager_id,
         initialFilters.status,
         initialFilters.code.trim(),
     ].filter(Boolean).length;
+
+    const defaultFilters: DepartmentFilters = {
+        id: '',
+        branch_id: '',
+        parent_id: '',
+        manager_id: '',
+        status: '',
+        code: '',
+    };
 
     const form = useForm<DepartmentFormData>({
         branch_id: '',
@@ -168,9 +179,13 @@ return;
 params.set('search', initialSearch);
 }
 
+        if (initialFilters.id) {
+            params.set('id', initialFilters.id);
+        }
+
         if (initialFilters.branch_id) {
-params.set('branch_id', initialFilters.branch_id);
-}
+            params.set('branch_id', initialFilters.branch_id);
+        }
 
         if (initialFilters.parent_id) {
 params.set('parent_id', initialFilters.parent_id);

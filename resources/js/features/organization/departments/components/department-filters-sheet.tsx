@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import type { Branch, DepartmentParentOption, Manager } from '../types';
 
 export type DepartmentFilters = {
+    id: string;
     branch_id: string;
     parent_id: string;
     manager_id: string;
@@ -32,7 +33,16 @@ export function DepartmentFiltersSheet({
     onReset: () => void;
 }) {
     const availableBranches = branches;
-    const availableParents = parents;
+    
+    // Parent dropdown shows departments with no parent
+    const availableParents = parents.filter(p => !p.parent_id);
+    
+    // Child dropdown logic:
+    // If a parent is selected, show only children of that parent.
+    // If no parent is selected, show all departments that have a parent.
+    const availableChildren = value.parent_id 
+        ? parents.filter(p => String(p.parent_id) === value.parent_id)
+        : parents.filter(p => p.parent_id !== null);
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
@@ -73,16 +83,38 @@ export function DepartmentFiltersSheet({
 
             <div className="space-y-2">
                 <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                    Parent
+                    Parent Department
                 </Label>
                 <AppSelect
                     value={value.parent_id}
-                    onValueChange={(v) => onChange({ ...value, parent_id: v })}
+                    onValueChange={(v) => {
+                        // Reset child filter if parent changes to avoid invalid state
+                        onChange({ ...value, parent_id: v, id: '' });
+                    }}
                     variant="dark"
-                    placeholder="All"
+                    placeholder="All Parents"
                 >
-                    <AppSelectItem value="">All</AppSelectItem>
+                    <AppSelectItem value="">All Parents</AppSelectItem>
                     {availableParents.map((dept) => (
+                        <AppSelectItem key={dept.id} value={String(dept.id)}>
+                            {dept.name}
+                        </AppSelectItem>
+                    ))}
+                </AppSelect>
+            </div>
+
+            <div className="space-y-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                    Child Department
+                </Label>
+                <AppSelect
+                    value={value.id}
+                    onValueChange={(v) => onChange({ ...value, id: v })}
+                    variant="dark"
+                    placeholder="All Children"
+                >
+                    <AppSelectItem value="">All Children</AppSelectItem>
+                    {availableChildren.map((dept) => (
                         <AppSelectItem key={dept.id} value={String(dept.id)}>
                             {dept.name}
                         </AppSelectItem>
