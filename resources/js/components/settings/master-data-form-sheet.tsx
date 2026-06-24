@@ -62,10 +62,12 @@ export function MasterDataFormSheet({
 
 type MasterDataFormSheetFooterProps = {
     onCancel: () => void;
-    onSubmit: () => void;
+    onSubmit?: () => void;
     processing?: boolean;
     submitLabel?: string;
     cancelLabel?: string;
+    leading?: ReactNode;
+    showSubmit?: boolean;
 };
 
 export function MasterDataFormSheetFooter({
@@ -74,25 +76,48 @@ export function MasterDataFormSheetFooter({
     processing = false,
     submitLabel = 'Save',
     cancelLabel = 'Cancel',
+    leading,
+    showSubmit = true,
 }: MasterDataFormSheetFooterProps) {
-    return (
-        <div className="flex gap-3 border-t border-border/60 bg-background/40 p-6">
+    const actions = (
+        <div className={cn('flex gap-3', leading ? 'w-full sm:w-auto' : 'w-full')}>
             <Button
                 type="button"
                 variant="ghost"
-                className="h-11 flex-1 rounded-xl px-6 text-muted-foreground"
+                className={cn(
+                    'h-11 rounded-xl px-6 text-muted-foreground',
+                    leading ? 'flex-1 sm:flex-none sm:min-w-[7.5rem]' : 'flex-1',
+                )}
                 onClick={onCancel}
             >
                 {cancelLabel}
             </Button>
-            <Button
-                type="button"
-                className="h-11 flex-1 rounded-xl px-6 font-semibold"
-                disabled={processing}
-                onClick={onSubmit}
-            >
-                {processing ? 'Saving…' : submitLabel}
-            </Button>
+            {showSubmit && onSubmit ? (
+                <Button
+                    type="button"
+                    className={cn(
+                        'h-11 rounded-xl px-6 font-semibold',
+                        leading ? 'flex-1 sm:flex-none sm:min-w-[7.5rem]' : 'flex-1',
+                    )}
+                    disabled={processing}
+                    onClick={onSubmit}
+                >
+                    {processing ? 'Saving…' : submitLabel}
+                </Button>
+            ) : null}
+        </div>
+    );
+
+    if (!leading) {
+        return (
+            <div className="border-t border-border/60 bg-background/40 p-6">{actions}</div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-3 border-t border-border/60 bg-background/40 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:w-auto">{leading}</div>
+            {actions}
         </div>
     );
 }

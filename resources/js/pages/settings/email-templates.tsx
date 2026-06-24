@@ -204,6 +204,29 @@ export default function EmailTemplatesSettings({
         form.data.subject.trim() !== '' &&
         form.data.body_html.trim() !== '';
 
+    const previewButton =
+        canPreviewDraft ? (
+            <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl sm:w-auto"
+                onClick={openDraftPreview}
+            >
+                <Eye className="mr-2 h-4 w-4" />
+                Preview
+            </Button>
+        ) : editing !== null ? (
+            <Button
+                type="button"
+                variant="outline"
+                className="h-11 w-full rounded-xl sm:w-auto"
+                onClick={() => openSavedPreview(editing)}
+            >
+                <Eye className="mr-2 h-4 w-4" />
+                Preview
+            </Button>
+        ) : null;
+
     return (
         <>
             <Head title="Email templates" />
@@ -391,47 +414,16 @@ export default function EmailTemplatesSettings({
                 title={editing ? 'Edit email template' : 'New email template'}
                 description="Subject and message are plain text. They prefill the send form; users can edit before sending."
                 footer={
-                    canMutateForm || canPreviewDraft || editing !== null ? (
-                        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                            {canPreviewDraft ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="rounded-xl sm:mr-auto"
-                                    onClick={openDraftPreview}
-                                >
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Preview
-                                </Button>
-                            ) : editing !== null ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="rounded-xl sm:mr-auto"
-                                    onClick={() => openSavedPreview(editing)}
-                                >
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Preview saved
-                                </Button>
-                            ) : null}
-                            {canMutateForm ? (
-                                <MasterDataFormSheetFooter
-                                    onCancel={() => setSheetOpen(false)}
-                                    onSubmit={submit}
-                                    processing={form.processing}
-                                    submitLabel={editing ? 'Save changes' : 'Create template'}
-                                />
-                            ) : (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="rounded-xl"
-                                    onClick={() => setSheetOpen(false)}
-                                >
-                                    Close
-                                </Button>
-                            )}
-                        </div>
+                    canMutateForm || previewButton ? (
+                        <MasterDataFormSheetFooter
+                            leading={previewButton}
+                            onCancel={() => setSheetOpen(false)}
+                            onSubmit={submit}
+                            processing={form.processing}
+                            submitLabel={editing ? 'Save changes' : 'Create template'}
+                            cancelLabel={canMutateForm ? 'Cancel' : 'Close'}
+                            showSubmit={canMutateForm}
+                        />
                     ) : null
                 }
             >
