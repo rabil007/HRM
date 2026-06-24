@@ -30,6 +30,7 @@ import { PositionDeleteDialog } from './components/position-delete-dialog';
 import { PositionFiltersSheet } from './components/position-filters-sheet';
 import type { PositionFilters } from './components/position-filters-sheet';
 import { PositionFormSheet } from './components/position-form-sheet';
+import { PositionTreeView } from './components/position-tree-view';
 import type { DepartmentOption, Position, PositionFormData } from './types';
 
 export function PositionsContent({
@@ -38,12 +39,16 @@ export function PositionsContent({
     search: initialSearch,
     filters: initialFilters,
     departments,
+    tree_departments = [],
+    tree_positions = [],
 }: {
     positions: Position[];
     pagination: PaginationMeta;
     search: string;
     filters: { department_id: string; status: string; grade: string };
     departments: DepartmentOption[];
+    tree_departments?: any[];
+    tree_positions?: any[];
 }) {
     const list = useServerPaginationFilters({
         url: '/organization/positions',
@@ -108,8 +113,8 @@ export function PositionsContent({
 
     const confirmDelete = () => {
         if (!currentPosition) {
-return;
-}
+            return;
+        }
 
         router.delete(`/organization/positions/${currentPosition.id}`, {
             onFinish: () => {
@@ -154,20 +159,20 @@ return;
         const params = new URLSearchParams();
 
         if (initialSearch) {
-params.set('search', initialSearch);
-}
+            params.set('search', initialSearch);
+        }
 
         if (initialFilters.department_id) {
-params.set('department_id', initialFilters.department_id);
-}
+            params.set('department_id', initialFilters.department_id);
+        }
 
         if (initialFilters.status) {
-params.set('status', initialFilters.status);
-}
+            params.set('status', initialFilters.status);
+        }
 
         if (initialFilters.grade) {
-params.set('grade', initialFilters.grade);
-}
+            params.set('grade', initialFilters.grade);
+        }
 
         params.set('format', format);
 
@@ -200,7 +205,7 @@ params.set('grade', initialFilters.grade);
                 onChange={list.onSearchChange}
                 right={
                     <>
-                        <ViewToggle value={view} onChange={setView} />
+                        <ViewToggle value={view} onChange={setView} showTreeView={true} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -219,7 +224,12 @@ params.set('grade', initialFilters.grade);
                 }
             />
 
-            {view === 'grid' ? (
+            {view === 'tree' ? (
+                <PositionTreeView
+                    departments={tree_departments}
+                    positions={tree_positions}
+                />
+            ) : view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {positions.map((position) => (
                         <PositionCard

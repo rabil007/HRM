@@ -75,8 +75,22 @@ class PositionController extends Controller
             'created_at' => $position->created_at,
         ]);
 
+        $treeDepartments = Department::query()
+            ->where('company_id', $companyId)
+            ->withCount(['employees as users_count'])
+            ->orderBy('name')
+            ->get(['id', 'parent_id', 'branch_id', 'name']);
+
+        $treePositions = Position::query()
+            ->where('company_id', $companyId)
+            ->withCount(['employees as users_count'])
+            ->orderBy('title')
+            ->get(['id', 'department_id', 'title', 'status', 'grade']);
+
         return Inertia::render('organization/positions', [
             'positions' => $positions->items(),
+            'tree_departments' => $treeDepartments,
+            'tree_positions' => $treePositions,
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
             'filters' => [

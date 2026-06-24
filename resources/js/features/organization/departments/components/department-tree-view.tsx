@@ -76,17 +76,18 @@ function OrgCard({
             {/* The Card */}
             <div className="flex flex-col items-center">
                 <div 
-                    className="w-56 bg-card/95 border border-border/60 shadow-md hover:shadow-lg transition-all duration-200 text-left overflow-hidden cursor-pointer"
+                    className="w-56 bg-card/95 border border-border/60 shadow-md hover:shadow-lg transition-all duration-200 text-left overflow-hidden rounded-xl cursor-pointer"
                     onClick={() => router.visit(`/organization/departments/${node.id}`)}
                 >
                     {/* Top colored bar with name */}
-                    <div className={cn("h-8 flex items-center justify-center px-2", colorClass)}>
+                    <div className={cn("h-8 flex items-center justify-center px-2 gap-2", colorClass)}>
+                        <Network className="w-3.5 h-3.5" />
                         <span className="text-xs font-semibold tracking-wider truncate">
                             {node.name}
                         </span>
                     </div>
 
-                    <div className="p-4 flex flex-col justify-between min-h-[80px]">
+                    <div className="flex flex-col justify-between p-4 min-h-[70px]">
                         {node.manager ? (
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-center gap-2">
