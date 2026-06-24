@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
-import { Activity } from 'lucide-react';
+import { Activity, BadgeDollarSign, Crown, Users } from 'lucide-react';
 import { useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -62,6 +62,15 @@ function changedKeys(oldValues: Record<string, unknown> | null, newValues: Recor
         .sort((a, b) => a.localeCompare(b));
 }
 
+function Field({ label, value }: { label: string; value: React.ReactNode }) {
+    return (
+        <div className="flex items-center justify-between gap-3 px-6 py-4">
+            <div className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground/80">{label}</div>
+            <div className="text-sm font-medium text-right">{value}</div>
+        </div>
+    );
+}
+
 export default function PositionDetails({
     position,
     companies,
@@ -109,35 +118,82 @@ export default function PositionDetails({
                     }
                 />
 
-                <div className="grid gap-6 lg:grid-cols-2">
-                    <Card className="border-border bg-card dark:border-white/5 dark:bg-white/5">
+                <div className="grid gap-6 lg:grid-cols-3">
+                    <Card className="glass-card lg:col-span-2 dark:border-white/5 dark:bg-white/5">
+                        <CardHeader className="flex flex-row items-start justify-between gap-4">
+                            <div className="space-y-1">
+                                <CardTitle className="text-xl font-bold tracking-tight">Overview</CardTitle>
+                                <div className="text-sm text-muted-foreground/80">Key position information.</div>
+                            </div>
+                            <Badge
+                                className={
+                                    position.status === 'active'
+                                        ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20 dark:text-emerald-200'
+                                        : 'bg-muted/60 text-muted-foreground border border-border/80 dark:bg-zinc-500/10 dark:text-zinc-200 dark:border-zinc-500/20'
+                                }
+                            >
+                                {position.status}
+                            </Badge>
+                        </CardHeader>
                         <CardContent className="p-0">
                             <div className="divide-y divide-border dark:divide-white/5">
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Status</div>
-                                    <Badge className={`text-[10px] uppercase font-bold tracking-wider border ${statusClass}`}>
-                                        {position.status}
-                                    </Badge>
+                                <Field label="Company" value={position.company.name ?? '—'} />
+                                <Field
+                                    label="Department"
+                                    value={
+                                        position.department ? (
+                                            <>
+                                                {position.department.parent ? (
+                                                    <span className="text-muted-foreground font-medium">
+                                                        {position.department.parent.name} /{' '}
+                                                    </span>
+                                                ) : null}
+                                                {position.department.name}
+                                            </>
+                                        ) : (
+                                            '—'
+                                        )
+                                    }
+                                />
+                                <Field label="Grade" value={position.grade ?? '—'} />
+                                <Field label="Min Salary" value={position.min_salary ?? '—'} />
+                                <Field label="Max Salary" value={position.max_salary ?? '—'} />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="glass-card dark:border-white/5 dark:bg-white/5">
+                        <CardHeader>
+                            <CardTitle className="text-xl font-bold tracking-tight">Quick info</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 dark:border-white/5 dark:bg-white/5 p-4">
+                                <Users className="h-5 w-5 text-primary" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        Employees
+                                    </div>
+                                    <div className="text-sm font-semibold truncate">{position.users_count ?? 0}</div>
                                 </div>
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Company</div>
-                                    <div className="text-sm font-bold">{position.company.name ?? '—'}</div>
+                            </div>
+
+                            <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 dark:border-white/5 dark:bg-white/5 p-4">
+                                <BadgeDollarSign className="h-5 w-5 text-primary" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        Grade
+                                    </div>
+                                    <div className="text-sm font-semibold truncate">{position.grade ?? '—'}</div>
                                 </div>
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Department</div>
-                                    <div className="text-sm font-bold">{position.department?.name ?? '—'}</div>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Grade</div>
-                                    <div className="text-sm font-bold">{position.grade ?? '—'}</div>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Min salary</div>
-                                    <div className="text-sm font-bold">{position.min_salary ?? '—'}</div>
-                                </div>
-                                <div className="flex items-center justify-between gap-3 px-6 py-4">
-                                    <div className="text-sm font-semibold text-muted-foreground/80">Max salary</div>
-                                    <div className="text-sm font-bold">{position.max_salary ?? '—'}</div>
+                            </div>
+
+                            <div className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 dark:border-white/5 dark:bg-white/5 p-4">
+                                <Crown className="h-5 w-5 text-primary" />
+                                <div className="min-w-0">
+                                    <div className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        Status
+                                    </div>
+                                    <div className="text-sm font-semibold truncate">{position.status}</div>
                                 </div>
                             </div>
                         </CardContent>
@@ -145,7 +201,7 @@ export default function PositionDetails({
                 </div>
 
                 {can_view_audit ? (
-                <Card className="border-border bg-card mt-8 dark:border-white/5 dark:bg-white/5">
+                <Card className="glass-card mt-8 dark:border-white/5 dark:bg-white/5">
                     <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border dark:border-white/5">
                         <div className="flex items-center gap-3">
                             <div className="h-9 w-9 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">

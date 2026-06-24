@@ -99,7 +99,12 @@ class PositionController extends Controller
             ->get(['id', 'company_id', 'name']);
 
         $position->load([
-            'department:id,name',
+            'department.parent:id,name',
+            'department:id,name,parent_id',
+        ]);
+
+        $position->loadCount([
+            'employees as users_count' => fn ($q) => $q->where('company_id', $companyId),
         ]);
 
         $request = request();
@@ -115,7 +120,12 @@ class PositionController extends Controller
                 'department' => $position->department_id ? [
                     'id' => $position->department_id,
                     'name' => $position->department?->name,
+                    'parent' => $position->department?->parent_id ? [
+                        'id' => $position->department->parent_id,
+                        'name' => $position->department->parent?->name,
+                    ] : null,
                 ] : null,
+                'users_count' => $position->users_count,
                 'title' => $position->title,
                 'grade' => $position->grade,
                 'min_salary' => $position->min_salary,
