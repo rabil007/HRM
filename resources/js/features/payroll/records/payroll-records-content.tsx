@@ -18,6 +18,7 @@ import { PageHeader } from '@/components/page-header';
 import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -36,6 +37,7 @@ export function PayrollRecordsContent({
     filters: initialFilters,
     payroll_categories,
     status_options,
+    counts,
 }: {
     records: PayrollRecordIndexItem[];
     pagination: PaginationMeta;
@@ -43,6 +45,7 @@ export function PayrollRecordsContent({
     filters: PayrollRecordsFilters;
     payroll_categories: PayrollCategoryOption[];
     status_options: Array<{ value: string; label: string }>;
+    counts: { all: number; draft: number; approved: number; paid: number };
 }) {
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
@@ -67,6 +70,72 @@ export function PayrollRecordsContent({
                 title="Payroll records"
                 description="Company-wide payroll records across all pay periods."
             />
+
+            <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <button
+                    type="button"
+                    onClick={() => list.applyFilters({ status: null, page: null })}
+                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                >
+                    <Card className={cn(
+                        "glass-card transition-all duration-200 border-border hover:border-border dark:border-white/5 dark:hover:border-white/10",
+                        !initialFilters.status && "border-primary/30 ring-1 ring-primary/10 dark:border-white/20 dark:ring-white/10"
+                    )}>
+                        <CardContent className="p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Total Records</p>
+                            <p className="mt-1 text-2xl font-bold tabular-nums text-foreground">{counts.all}</p>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => list.applyFilters({ status: 'draft', page: null })}
+                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                >
+                    <Card className={cn(
+                        "glass-card transition-all duration-200 border-orange-500/20 bg-orange-500/[0.06] hover:border-orange-500/35",
+                        initialFilters.status === 'draft' && "border-orange-500/45 ring-1 ring-orange-500/30"
+                    )}>
+                        <CardContent className="p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Draft</p>
+                            <p className="mt-1 text-2xl font-bold tabular-nums text-orange-400">{counts.draft}</p>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => list.applyFilters({ status: 'approved', page: null })}
+                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                >
+                    <Card className={cn(
+                        "glass-card transition-all duration-200 border-sky-500/15 bg-sky-500/[0.04] hover:border-sky-500/30",
+                        initialFilters.status === 'approved' && "border-sky-500/40 ring-1 ring-sky-500/25"
+                    )}>
+                        <CardContent className="p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Approved</p>
+                            <p className="mt-1 text-2xl font-bold tabular-nums text-sky-400">{counts.approved}</p>
+                        </CardContent>
+                    </Card>
+                </button>
+
+                <button
+                    type="button"
+                    onClick={() => list.applyFilters({ status: 'paid', page: null })}
+                    className="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded-xl"
+                >
+                    <Card className={cn(
+                        "glass-card transition-all duration-200 border-emerald-500/20 bg-emerald-500/[0.06] hover:border-emerald-500/35",
+                        initialFilters.status === 'paid' && "border-emerald-500/45 ring-1 ring-emerald-500/30"
+                    )}>
+                        <CardContent className="p-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/80">Paid</p>
+                            <p className="mt-1 text-2xl font-bold tabular-nums text-emerald-500 dark:text-emerald-400">{counts.paid}</p>
+                        </CardContent>
+                    </Card>
+                </button>
+            </div>
 
             <SearchBar
                 value={list.searchInput}

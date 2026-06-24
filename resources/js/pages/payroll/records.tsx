@@ -12,6 +12,7 @@ export default function PayrollRecords({
     filters,
     payroll_categories,
     status_options,
+    counts,
 }: {
     records: PayrollRecordIndexItem[];
     pagination: PaginationMeta;
@@ -19,6 +20,7 @@ export default function PayrollRecords({
     filters: PayrollRecordsFilters;
     payroll_categories: PayrollCategoryOption[];
     status_options: Array<{ value: string; label: string }>;
+    counts: { all: number; draft: number; approved: number; paid: number };
 }) {
     return (
         <>
@@ -30,6 +32,7 @@ export default function PayrollRecords({
                 filters={filters}
                 payroll_categories={payroll_categories}
                 status_options={status_options}
+                counts={counts}
             />
         </>
     );

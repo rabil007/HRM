@@ -49,6 +49,13 @@ class PayrollRecordController extends Controller
             $query->where('period_id', (int) $periodId);
         }
 
+        $counts = [
+            'all' => (clone $query)->count(),
+            'draft' => (clone $query)->where('status', 'draft')->count(),
+            'approved' => (clone $query)->where('status', 'approved')->count(),
+            'paid' => (clone $query)->where('status', 'paid')->count(),
+        ];
+
         if (in_array($status, ['draft', 'approved', 'paid'], true)) {
             $query->where('status', $status);
         }
@@ -88,6 +95,7 @@ class PayrollRecordController extends Controller
                 ['value' => 'approved', 'label' => 'Approved'],
                 ['value' => 'paid', 'label' => 'Paid'],
             ],
+            'counts' => $counts,
         ]);
     }
 
