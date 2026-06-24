@@ -9,6 +9,14 @@ export type CalendarLeaveType = {
     remaining_days: number | null;
 };
 
+export type CalendarEmployeeOption = {
+    id: number;
+    employee_no: string | null;
+    name: string;
+};
+
+export type CalendarSelectedEmployee = CalendarEmployeeOption;
+
 export type CalendarLeave = {
     id: number;
     employee: {

@@ -6,12 +6,20 @@ import { cn } from '@/lib/utils';
 export function CalendarToolbar({
     year,
     currentYear,
+    selectedEmployeeId,
 }: {
     year: number;
     currentYear: number;
+    selectedEmployeeId: number | null;
 }) {
     const navigate = (nextYear: number) => {
-        router.get('/attendance/calendar', { year: nextYear }, { preserveState: true, preserveScroll: true });
+        const params: { year: number; employee_id?: number } = { year: nextYear };
+
+        if (selectedEmployeeId !== null) {
+            params.employee_id = selectedEmployeeId;
+        }
+
+        router.get('/attendance/calendar', params, { preserveState: true, preserveScroll: true });
     };
 
     return (

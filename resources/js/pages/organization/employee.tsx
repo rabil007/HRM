@@ -116,7 +116,7 @@ function EmployeeDetailsPage({
     const isCreateMode = mode === 'create';
 
     const { auth } = usePage().props as unknown as {
-        auth?: { permissions?: string[] };
+        auth?: { permissions?: string[]; user?: { id: number } };
     };
 
     const [localEmployee, setLocalEmployee] = useState(employee);
@@ -211,6 +211,18 @@ function EmployeeDetailsPage({
     }, [form.data.name, form.data.employee_no]);
 
     const canViewLinkedUser = (auth?.permissions ?? []).includes('users.view');
+    const permissions = auth?.permissions ?? [];
+    const canViewAttendanceCalendar = permissions.includes('attendance.leave-requests.view');
+    const canApproveLeaveRequests = permissions.includes('attendance.leave-requests.approve');
+    const isOwnEmployeeProfile = linkedUser?.id === auth?.user?.id;
+    const showAttendanceCalendarButton =
+        !isCreateMode &&
+        canViewAttendanceCalendar &&
+        (canApproveLeaveRequests || isOwnEmployeeProfile);
+    const attendanceCalendarUrl =
+        localEmployee.id !== null
+            ? `/attendance/calendar?employee_id=${localEmployee.id}&year=${new Date().getFullYear()}`
+            : undefined;
     const canCreateUser =
         !isCreateMode &&
         (can?.create_user ?? false) &&
@@ -550,6 +562,8 @@ function EmployeeDetailsPage({
                                     canViewLinkedUser &&
                                     linkedUser !== null
                                 }
+                                showAttendanceCalendarButton={showAttendanceCalendarButton}
+                                attendanceCalendarUrl={attendanceCalendarUrl}
                             />
                         )}
 

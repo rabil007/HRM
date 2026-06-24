@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Http\Request;
 
 final class LeaveRequestVisibility
 {
@@ -66,5 +67,26 @@ final class LeaveRequestVisibility
     public function assertCanAccess(LeaveRequest $leaveRequest, ?User $user, int $companyId): void
     {
         abort_unless($this->canAccess($leaveRequest, $user, $companyId), 404);
+    }
+
+    public function resolveCalendarEmployeeId(Request $request, ?User $user, int $companyId): ?int
+    {
+        $linkedEmployeeId = $this->linkedEmployeeId($user, $companyId);
+        $requestedEmployeeId = trim((string) $request->query('employee_id', ''));
+
+        if (! $this->canViewAll($user)) {
+            return $linkedEmployeeId;
+        }
+
+        if ($requestedEmployeeId === '') {
+            return $linkedEmployeeId;
+        }
+
+        $employeeId = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey((int) $requestedEmployeeId)
+            ->value('id');
+
+        return $employeeId !== null ? (int) $employeeId : $linkedEmployeeId;
     }
 }

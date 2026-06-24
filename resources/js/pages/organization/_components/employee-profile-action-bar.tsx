@@ -1,5 +1,5 @@
 import { Link, router } from '@inertiajs/react';
-import { Anchor, ChevronLeft, ChevronRight, FileText, Printer, ScrollText, User, UserPlus } from 'lucide-react';
+import { Anchor, CalendarDays, ChevronLeft, ChevronRight, FileText, Printer, ScrollText, User, UserPlus } from 'lucide-react';
 import type { ComponentType, ReactElement } from 'react';
 import { show } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { cn } from '@/lib/utils';
@@ -174,6 +174,8 @@ export function EmployeeProfileActionBar({
     onCreateUser,
     linkedUser = null,
     showLinkedUserButton = false,
+    showAttendanceCalendarButton = false,
+    attendanceCalendarUrl,
 }: {
     printCvUrl: string;
     printOffshoreCvUrl: string;
@@ -191,6 +193,8 @@ export function EmployeeProfileActionBar({
         email?: string | null;
     } | null;
     showLinkedUserButton?: boolean;
+    showAttendanceCalendarButton?: boolean;
+    attendanceCalendarUrl?: string;
 }): ReactElement {
     return (
         <div className="flex items-stretch justify-between gap-0 overflow-hidden rounded-2xl border border-border/60 bg-card/80 shadow-sm backdrop-blur-sm dark:border-white/8 dark:bg-white/4">
@@ -222,6 +226,19 @@ export function EmployeeProfileActionBar({
                     iconColor="text-amber-600 dark:text-amber-400"
                     iconBg="bg-amber-500/10"
                 />
+
+                {showAttendanceCalendarButton && attendanceCalendarUrl ? (
+                    <>
+                        <div className="h-5 w-px bg-border/60" />
+                        <SmartButton
+                            icon={CalendarDays}
+                            label="Leave Calendar"
+                            href={attendanceCalendarUrl}
+                            iconColor="text-violet-600 dark:text-violet-400"
+                            iconBg="bg-violet-500/10"
+                        />
+                    </>
+                ) : null}
 
                 {showDocumentsButton && documentsBrowseUrl ? (
                     <>

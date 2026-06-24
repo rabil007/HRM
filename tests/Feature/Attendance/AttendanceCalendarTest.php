@@ -133,6 +133,8 @@ test('attendance calendar legend includes leave type balance for linked employee
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('linked_employee_id', $employee->id)
+            ->where('selected_employee_id', $employee->id)
+            ->where('can_select_employee', false)
             ->has('leave_types', 1)
             ->where('leave_types.0.id', $leaveType->id)
             ->where('leave_types.0.entitled_days', 30)
@@ -141,9 +143,10 @@ test('attendance calendar legend includes leave type balance for linked employee
             ->where('leave_types.0.remaining_days', 25));
 });
 
-test('attendance calendar legend omits balance without linked employee', function () {
+test('attendance calendar shows empty legend for approver without linked employee until employee is selected', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $employee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $leaveType->update(['days_per_year' => 30]);
     $this->actingAs($user);
 
     grantCompanyPermissions($user, $company, [
@@ -163,12 +166,27 @@ test('attendance calendar legend omits balance without linked employee', functio
         'decided_at' => now(),
     ]);
 
+    app(LeaveBalanceManager::class)->syncEmployeeYear($company->id, $employee->id, 2026);
+
     $this->get(route('attendance.calendar.index', ['year' => 2026]))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('linked_employee_id', null)
+            ->where('selected_employee_id', null)
+            ->where('can_select_employee', true)
+            ->has('approved_leaves', 0)
+            ->has('leave_types', 0));
+
+    $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $employee->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $employee->id)
+            ->has('approved_leaves', 1)
             ->has('leave_types', 1)
-            ->where('leave_types.0.remaining_days', null));
+            ->where('leave_types.0.remaining_days', 27));
 });
 
 test('attendance calendar exposes pending request count for selected year', function () {
@@ -286,7 +304,7 @@ test('users without approve permission only see their own approved leaves on cal
             ->where('approved_leaves.0.employee.id', $ownEmployee->id));
 });
 
-test('users with approve permission see all approved leaves on calendar', function () {
+test('users with approve permission default to their own approved leaves on calendar', function () {
     ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
     ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
     ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
@@ -315,7 +333,130 @@ test('users with approve permission see all approved leaves on calendar', functi
 
     $this->get(route('attendance.calendar.index', ['year' => 2026]))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->has('approved_leaves', 2));
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $ownEmployee->id)
+            ->where('can_select_employee', true)
+            ->has('employees', 2)
+            ->has('approved_leaves', 1)
+            ->where('approved_leaves.0.employee.id', $ownEmployee->id));
+
+    $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $otherEmployee->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $otherEmployee->id)
+            ->has('approved_leaves', 1)
+            ->where('approved_leaves.0.employee.id', $otherEmployee->id));
+});
+
+test('calendar employee dropdown only lists employees with leave requests', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $employeeWithRequest, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    Employee::factory()->forCompany($company)->create(['status' => 'active', 'name' => 'No Requests']);
+
+    $employeeWithRequest->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employeeWithRequest->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-02',
+        'total_days' => 2,
+        'status' => 'pending',
+    ]);
+
+    $this->get(route('attendance.calendar.index', ['year' => 2026]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('employees', 1)
+            ->where('employees.0.id', $employeeWithRequest->id));
+});
+
+test('calendar honors employee_id for inactive employees without leave requests', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $linkedEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    $inactiveEmployee = Employee::factory()->forCompany($company)->create([
+        'status' => 'inactive',
+        'name' => 'Alice Tech',
+    ]);
+
+    $linkedEmployee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.approve',
+    ]);
+
+    LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $linkedEmployee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+        'total_days' => 5,
+        'status' => 'approved',
+        'approved_by' => $user->id,
+        'decided_at' => now(),
+    ]);
+
+    $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $inactiveEmployee->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $inactiveEmployee->id)
+            ->where('selected_employee.id', $inactiveEmployee->id)
+            ->where('selected_employee.name', 'Alice Tech')
+            ->has('approved_leaves', 0)
+            ->where('pending_request_count', 0)
+            ->where('employees.0.id', $inactiveEmployee->id));
+});
+
+test('users without approve permission cannot view another employee via employee_id query', function () {
+    ['user' => $user, 'company' => $company] = makeAttendanceCalendarFixtures();
+    ['employee' => $ownEmployee, 'leaveType' => $leaveType] = makeAttendanceCalendarActors($company);
+    ['employee' => $otherEmployee] = makeAttendanceCalendarActors($company);
+
+    $ownEmployee->update(['user_id' => $user->id]);
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['attendance.leave-requests.view']);
+
+    foreach ([$ownEmployee, $otherEmployee] as $employee) {
+        LeaveRequest::query()->create([
+            'company_id' => $company->id,
+            'employee_id' => $employee->id,
+            'leave_type_id' => $leaveType->id,
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-02',
+            'total_days' => 2,
+            'status' => 'approved',
+            'approved_by' => $user->id,
+            'decided_at' => now(),
+        ]);
+    }
+
+    $this->get(route('attendance.calendar.index', [
+        'year' => 2026,
+        'employee_id' => $otherEmployee->id,
+    ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('selected_employee_id', $ownEmployee->id)
+            ->where('can_select_employee', false)
+            ->has('approved_leaves', 1)
+            ->where('approved_leaves.0.employee.id', $ownEmployee->id));
 });
 
 test('cross year approved leave appears in both years on calendar', function () {

@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
+use App\Models\Employee;
 use App\Models\LeaveRequest;
-use App\Models\LeaveType;
 use App\Support\Attendance\LeaveRequestVisibility;
 use App\Support\Attendance\LeaveTypeYearBalance;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -25,11 +25,13 @@ class AttendanceCalendarController extends Controller
         $user = $request->user();
         $year = $this->resolveYear($request);
         $linkedEmployeeId = $this->visibility->linkedEmployeeId($user, $companyId);
+        $selectedEmployeeId = $this->visibility->resolveCalendarEmployeeId($request, $user, $companyId);
+        $canSelectEmployee = $this->visibility->canViewAll($user);
 
         $leaveRequests = LeaveRequest::query()
             ->where('company_id', $companyId)
             ->where('status', 'approved')
-            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
+            ->tap(fn (Builder $query) => $this->applyEmployeeScope($query, $selectedEmployeeId))
             ->where('start_date', '<=', "{$year}-12-31")
             ->where('end_date', '>=', "{$year}-01-01")
             ->with([
@@ -44,15 +46,20 @@ class AttendanceCalendarController extends Controller
             ->values()
             ->all();
 
-        $leaveTypes = $this->resolveLegendLeaveTypes($companyId, $linkedEmployeeId, $year, $leaveRequests);
+        $leaveTypes = $selectedEmployeeId !== null
+            ? $this->leaveTypeYearBalance->forEmployee($companyId, $selectedEmployeeId, $year)
+            : [];
 
         $pendingRequestCount = LeaveRequest::query()
             ->where('company_id', $companyId)
             ->where('status', 'pending')
-            ->tap(fn ($query) => $this->visibility->applyIndexScope($query, $user, $companyId))
+            ->tap(fn (Builder $query) => $this->applyEmployeeScope($query, $selectedEmployeeId))
             ->where('start_date', '<=', "{$year}-12-31")
             ->where('end_date', '>=', "{$year}-01-01")
             ->count();
+
+        $employees = $this->calendarEmployeeOptions($companyId, $selectedEmployeeId, $canSelectEmployee);
+        $selectedEmployee = $this->selectedEmployeePayload($companyId, $selectedEmployeeId);
 
         return Inertia::render('attendance/calendar', [
             'year' => $year,
@@ -61,36 +68,90 @@ class AttendanceCalendarController extends Controller
             'leave_types' => $leaveTypes,
             'pending_request_count' => $pendingRequestCount,
             'linked_employee_id' => $linkedEmployeeId,
+            'selected_employee_id' => $selectedEmployeeId,
+            'selected_employee' => $selectedEmployee,
+            'employees' => $employees,
+            'can_select_employee' => $canSelectEmployee,
         ]);
     }
 
     /**
-     * @param  Collection<int, LeaveRequest>  $approvedLeaveRequests
-     * @return list<array<string, mixed>>
+     * @return list<array{id: int, employee_no: string|null, name: string}>
      */
-    private function resolveLegendLeaveTypes(int $companyId, ?int $linkedEmployeeId, int $year, $approvedLeaveRequests): array
+    private function calendarEmployeeOptions(int $companyId, ?int $selectedEmployeeId, bool $canSelectEmployee): array
     {
-        if ($linkedEmployeeId !== null) {
-            return $this->leaveTypeYearBalance->forEmployee($companyId, $linkedEmployeeId, $year);
+        if (! $canSelectEmployee) {
+            return [];
         }
 
-        return $approvedLeaveRequests
-            ->pluck('leaveType')
-            ->filter()
-            ->unique('id')
-            ->sortBy('name')
-            ->values()
-            ->map(fn (LeaveType $leaveType) => [
-                'id' => $leaveType->id,
-                'name' => $leaveType->name,
-                'code' => $leaveType->code,
-                'color' => $leaveType->color,
-                'entitled_days' => null,
-                'used_days' => null,
-                'pending_days' => null,
-                'remaining_days' => null,
+        $employees = Employee::query()
+            ->where('company_id', $companyId)
+            ->where('status', 'active')
+            ->whereIn('id', LeaveRequest::query()
+                ->where('company_id', $companyId)
+                ->select('employee_id')
+                ->distinct())
+            ->orderBy('name')
+            ->get(['id', 'employee_no', 'name']);
+
+        if ($selectedEmployeeId !== null && ! $employees->contains('id', $selectedEmployeeId)) {
+            $selected = Employee::query()
+                ->where('company_id', $companyId)
+                ->whereKey($selectedEmployeeId)
+                ->first(['id', 'employee_no', 'name']);
+
+            if ($selected !== null) {
+                $employees->push($selected);
+                $employees = $employees->sortBy('name')->values();
+            }
+        }
+
+        return $employees
+            ->map(fn (Employee $employee) => [
+                'id' => $employee->id,
+                'employee_no' => $employee->employee_no,
+                'name' => $employee->name,
             ])
             ->all();
+    }
+
+    /**
+     * @return array{id: int, employee_no: string|null, name: string}|null
+     */
+    private function selectedEmployeePayload(int $companyId, ?int $selectedEmployeeId): ?array
+    {
+        if ($selectedEmployeeId === null) {
+            return null;
+        }
+
+        $employee = Employee::query()
+            ->where('company_id', $companyId)
+            ->whereKey($selectedEmployeeId)
+            ->first(['id', 'employee_no', 'name']);
+
+        if ($employee === null) {
+            return null;
+        }
+
+        return [
+            'id' => $employee->id,
+            'employee_no' => $employee->employee_no,
+            'name' => $employee->name,
+        ];
+    }
+
+    /**
+     * @param  Builder<LeaveRequest>  $query
+     */
+    private function applyEmployeeScope(Builder $query, ?int $selectedEmployeeId): void
+    {
+        if ($selectedEmployeeId === null) {
+            $query->whereRaw('1 = 0');
+
+            return;
+        }
+
+        $query->where('employee_id', $selectedEmployeeId);
     }
 
     private function resolveYear(Request $request): int
