@@ -33,6 +33,7 @@ final class PayslipData
 
         $base = [
             'company_name' => (string) ($company?->name ?? ''),
+            'company_logo' => $company?->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($company->logo) : null,
             'employee_name' => (string) ($employee?->name ?? ''),
             'employee_no' => (string) ($employee?->employee_no ?? ''),
             'designation' => (string) ($employee?->position?->title ?? ''),
@@ -79,12 +80,7 @@ final class PayslipData
                 ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
                 ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)],
             ],
-            'deductions' => [
-                ['label' => 'Unpaid leave', 'amount' => self::formatAmount($record->unpaid_leave_deduction)],
-                ['label' => 'Late deduction', 'amount' => self::formatAmount($record->late_deduction)],
-                ['label' => 'Loan deduction', 'amount' => self::formatAmount($record->loan_deduction)],
-                ['label' => 'Other deductions', 'amount' => self::formatAmount($record->other_deductions)],
-            ],
+            'deductions' => [],
             'working_days' => $record->working_days,
             'present_days' => $record->present_days,
             'absent_days' => $record->absent_days,
