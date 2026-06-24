@@ -164,6 +164,44 @@ test('sync command rebuilds used and pending days from leave requests', function
         ->and((float) $balance->remaining_days)->toBe(25.0);
 });
 
+test('first leave request succeeds when employee has no pre-provisioned balance', function () {
+    ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'status' => 'active',
+        'user_id' => $user->id,
+    ]);
+    $leaveType = LeaveType::factory()->for($company)->create([
+        'days_per_year' => 30,
+        'status' => 'active',
+    ]);
+
+    expect(LeaveBalance::query()->where('employee_id', $employee->id)->count())->toBe(0);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.view',
+        'attendance.leave-requests.create',
+    ]);
+
+    $this->post('/attendance/leave-requests', [
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-21',
+        'end_date' => '2026-06-23',
+        'reason' => 'First request',
+    ])->assertRedirect(route('attendance.leave-requests.index'));
+
+    $balance = LeaveBalance::query()
+        ->where('employee_id', $employee->id)
+        ->where('leave_type_id', $leaveType->id)
+        ->where('year', 2026)
+        ->first();
+
+    expect($balance)->not->toBeNull()
+        ->and((float) $balance->pending_days)->toBe(3.0)
+        ->and((float) $balance->remaining_days)->toBe(27.0);
+});
+
 test('leave requests cannot exceed available balance', function () {
     ['user' => $user, 'company' => $company] = makeLeaveBalanceFixtures();
     $employee = Employee::factory()->forCompany($company)->create([

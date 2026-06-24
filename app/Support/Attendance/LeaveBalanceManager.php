@@ -55,7 +55,7 @@ final class LeaveBalanceManager
 
     public function findOrCreateBalance(int $companyId, int $employeeId, LeaveType $leaveType, int $year): LeaveBalance
     {
-        return LeaveBalance::query()->firstOrCreate(
+        $balance = LeaveBalance::query()->firstOrCreate(
             [
                 'company_id' => $companyId,
                 'employee_id' => $employeeId,
@@ -69,6 +69,12 @@ final class LeaveBalanceManager
                 'pending_days' => 0,
             ],
         );
+
+        if ($balance->wasRecentlyCreated) {
+            $balance->refresh();
+        }
+
+        return $balance;
     }
 
     public function reserveLeaveRequest(LeaveRequest $leaveRequest): void
