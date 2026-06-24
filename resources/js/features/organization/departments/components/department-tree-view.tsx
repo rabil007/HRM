@@ -1,9 +1,8 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import type { Department } from '../types';
 import { router } from '@inertiajs/react';
-import { Users } from 'lucide-react';
+import { Network } from 'lucide-react';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { cn } from '@/lib/utils';
 
 // We define a Tree Node type which extends the flat department
 export type DepartmentTreeNode = {
@@ -50,6 +49,17 @@ export function buildTree(departments: any[]): DepartmentTreeNode[] {
     return roots;
 }
 
+const HEADER_COLORS = [
+    'bg-blue-500/80 text-white',
+    'bg-orange-400/80 text-white',
+    'bg-indigo-500/80 text-white',
+    'bg-emerald-500/80 text-white',
+    'bg-rose-500/80 text-white',
+    'bg-cyan-400/80 text-white',
+    'bg-violet-500/80 text-white',
+    'bg-amber-500/80 text-white',
+];
+
 function OrgCard({
     node,
 }: {
@@ -57,51 +67,63 @@ function OrgCard({
 }) {
     const [isUnfolded, setIsUnfolded] = useState(true);
     const hasChildren = node.children.length > 0;
+    
+    // Pick a deterministic color based on ID
+    const colorClass = HEADER_COLORS[node.id % HEADER_COLORS.length];
 
     return (
         <li className="org-tree-node">
             {/* The Card */}
             <div className="flex flex-col items-center">
                 <div 
-                    className="w-64 glass-card rounded-md shadow-sm border border-border/60 overflow-hidden text-left bg-card hover:border-primary/50 transition-colors cursor-pointer"
+                    className="w-56 bg-card/95 border border-border/60 shadow-md hover:shadow-lg transition-all duration-200 text-left overflow-hidden cursor-pointer"
                     onClick={() => router.visit(`/organization/departments/${node.id}`)}
                 >
-                    {/* Top colored bar based on some logic or just a nice gradient/color */}
-                    <div className="h-8 bg-primary/20 border-b border-border/40 flex items-center justify-center">
-                        <span className="text-xs font-semibold uppercase tracking-wider text-primary truncate px-2">
+                    {/* Top colored bar with name */}
+                    <div className={cn("h-8 flex items-center justify-center px-2", colorClass)}>
+                        <span className="text-xs font-semibold tracking-wider truncate">
                             {node.name}
                         </span>
                     </div>
 
-                    <div className="p-3">
-                        <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs text-muted-foreground font-medium">
-                                {node.users_count} Employee{node.users_count !== 1 ? 's' : ''}
-                            </span>
-                        </div>
-                        {node.manager && (
-                            <div className="flex items-center gap-2 mt-2 pt-2 border-t border-border/40">
-                                <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center shrink-0">
-                                    <span className="text-[9px] font-bold text-accent-foreground">
-                                        {node.manager.name.charAt(0)}
+                    <div className="p-4 flex flex-col justify-between min-h-[80px]">
+                        {node.manager ? (
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-center gap-2">
+                                    <Avatar className="h-6 w-6">
+                                        <AvatarFallback className="text-[10px] bg-primary/10 text-primary font-bold">
+                                            {node.manager.name.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-semibold text-foreground truncate">
+                                        {node.manager.name}
                                     </span>
                                 </div>
-                                <span className="text-[11px] font-medium truncate">{node.manager.name}</span>
+                                <span className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">
+                                    {node.users_count} Employee{node.users_count !== 1 ? 's' : ''}
+                                </span>
                             </div>
+                        ) : (
+                            <span className="text-xs font-semibold text-emerald-500 dark:text-emerald-400">
+                                {node.users_count} Employee{node.users_count !== 1 ? 's' : ''}
+                            </span>
                         )}
                     </div>
 
                     {hasChildren && (
                         <div 
-                            className="w-full bg-muted/30 border-t border-border/40 py-1.5 flex items-center justify-center hover:bg-muted/50 transition-colors cursor-pointer"
+                            className="w-full bg-muted/50 border-t border-border/40 py-2 flex items-center justify-center hover:bg-muted/80 transition-colors cursor-pointer"
                             onClick={(e) => {
                                 e.stopPropagation();
                                 setIsUnfolded(!isUnfolded);
                             }}
                         >
-                            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center justify-between w-full px-4">
+                            <span className="text-[11px] font-semibold text-muted-foreground flex items-center justify-between w-full px-4">
                                 <span>{isUnfolded ? 'Fold' : 'Unfold'}</span>
-                                <span className="flex items-center gap-1"><Users className="w-3 h-3"/> {node.children.length}</span>
+                                <span className="flex items-center gap-1.5">
+                                    {node.children.length}
+                                    <Network className="w-3.5 h-3.5"/> 
+                                </span>
                             </span>
                         </div>
                     )}
@@ -131,9 +153,9 @@ export function DepartmentTreeView({
     const tree = buildTree(departments);
 
     return (
-        <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-6 overflow-x-auto">
+        <div className="glass-card rounded-xl border border-border/50 bg-background/50 backdrop-blur-sm p-8 overflow-x-auto">
             {tree.length > 0 ? (
-                <div className="org-tree min-w-max">
+                <div className="org-tree min-w-max pb-8">
                     <ul>
                         {tree.map((node) => (
                             <OrgCard
