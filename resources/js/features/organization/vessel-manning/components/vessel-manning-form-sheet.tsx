@@ -102,7 +102,13 @@ export function VesselManningFormSheet({
                             <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                                 Rank requirements
                             </Label>
-                            <Button type="button" variant="outline" size="sm" onClick={addRow}>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={addRow}
+                                className="border-primary/25 bg-primary/5 text-primary hover:bg-primary/10 transition-colors rounded-xl"
+                            >
                                 <Plus className="mr-1.5 h-4 w-4" />
                                 Add rank
                             </Button>
@@ -126,7 +132,7 @@ export function VesselManningFormSheet({
                                     return (
                                         <div
                                             key={`requirement-${index}`}
-                                            className="grid grid-cols-[1fr_120px_auto] items-start gap-3 rounded-xl border border-border/60 p-4"
+                                            className="grid grid-cols-[1fr_120px_auto] items-start gap-3 rounded-xl border border-border/60 bg-muted/20 p-4 transition-all duration-200 hover:border-border/80 hover:bg-muted/30"
                                         >
                                             <div className="space-y-2">
                                                 <Label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/70">
@@ -189,7 +195,7 @@ export function VesselManningFormSheet({
                                                 type="button"
                                                 variant="ghost"
                                                 size="icon"
-                                                className="mt-7 shrink-0 text-muted-foreground hover:text-destructive"
+                                                className="mt-7 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors duration-200 rounded-lg"
                                                 aria-label="Remove rank row"
                                                 onClick={() => removeRow(index)}
                                             >

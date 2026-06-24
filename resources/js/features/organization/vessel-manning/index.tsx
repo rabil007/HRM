@@ -1,5 +1,5 @@
 import { Link, router, useForm } from '@inertiajs/react';
-import { Anchor, Filter } from 'lucide-react';
+import { Anchor, Filter, Ship, Users, CheckCircle2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { show as vesselManningShow, update as updateVesselManning } from '@/actions/App/Http/Controllers/Organization/VesselManningController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -35,6 +35,41 @@ import type {
     VesselTypeOption,
 } from './types';
 import { toVesselManningFormData, toVesselManningPayload } from './vessel-manning-form-utils';
+
+function StatCard({
+    label,
+    value,
+    hint,
+    icon: Icon,
+    accent,
+}: {
+    label: string;
+    value: string | number;
+    hint: string;
+    icon: any;
+    accent: string;
+}) {
+    return (
+        <div className="glass-card group relative overflow-hidden rounded-2xl border border-border/60 bg-card/80 p-5 transition-all duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md dark:hover:border-white/10">
+            <div
+                className={cn(
+                    'pointer-events-none absolute -right-4 -top-4 size-24 rounded-full opacity-20 blur-2xl transition-opacity group-hover:opacity-30',
+                    accent,
+                )}
+            />
+            <div className="relative flex items-start justify-between gap-4">
+                <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</p>
+                    <p className="text-3xl font-extrabold tracking-tight tabular-nums">{value}</p>
+                    <p className="text-xs font-medium text-muted-foreground/75">{hint}</p>
+                </div>
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-muted/40 dark:border-white/8 dark:bg-white/6">
+                    <Icon className="size-5 text-muted-foreground" />
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export function VesselManningContent({
     vessels,
@@ -137,7 +172,32 @@ export function VesselManningContent({
                 description="Define how many crew of each rank each vessel needs."
             />
 
-            <Card className="mb-6 border-border bg-card dark:border-white/5 dark:bg-white/[0.03]">
+            {/* Metrics Overview Grid */}
+            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <StatCard
+                    label="Active Fleet"
+                    value={pagination.total}
+                    hint="Vessels registered in system"
+                    icon={Ship}
+                    accent="bg-primary"
+                />
+                <StatCard
+                    label="Configured Manning"
+                    value={`${vessels.filter((v) => v.manning.length > 0).length} / ${vessels.length}`}
+                    hint="Vessels with crew requirements set (this page)"
+                    icon={CheckCircle2}
+                    accent="bg-emerald-500"
+                />
+                <StatCard
+                    label="Required Headcount"
+                    value={vessels.reduce((acc, v) => acc + (v.total_required || 0), 0)}
+                    hint="Total headcount required (this page)"
+                    icon={Users}
+                    accent="bg-blue-500"
+                />
+            </div>
+
+            <Card className="mb-6 border-border/60 bg-card/60 backdrop-blur-md dark:border-white/5 dark:bg-white/[0.02]">
                 <CardContent className="p-5">
                     <div className="mb-4 flex flex-wrap items-center gap-3">
                         <Filter className="h-4 w-4 text-muted-foreground/50" />
@@ -231,7 +291,7 @@ export function VesselManningContent({
                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.vessel_type_name ?? '—'}
                                 </TableCell>
-                                <TableCell className={dataTableCellClass()}>
+                                 <TableCell className={dataTableCellClass()}>
                                     {vessel.manning.length === 0 ? (
                                         <span className="text-muted-foreground">
                                             No ranks configured
@@ -241,17 +301,27 @@ export function VesselManningContent({
                                             {vessel.manning.map((line) => (
                                                 <Badge
                                                     key={line.id}
-                                                    variant="secondary"
-                                                    className="font-normal"
+                                                    variant="outline"
+                                                    className="border-primary/20 bg-primary/5 text-foreground font-medium px-2 py-0.5"
                                                 >
-                                                    {line.rank_name} ×{line.required_count}
+                                                    {line.rank_name}
+                                                    <span className="ml-1 text-xs font-bold text-primary">
+                                                        ×{line.required_count}
+                                                    </span>
                                                 </Badge>
                                             ))}
                                         </div>
                                     )}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {vessel.total_required > 0 ? vessel.total_required : '—'}
+                                    {vessel.total_required > 0 ? (
+                                        <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                                            <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                                            {vessel.total_required}
+                                        </span>
+                                    ) : (
+                                        <span className="text-muted-foreground">—</span>
+                                    )}
                                 </TableCell>
                                 <TableCell className={dataTableActionsCellClass()}>
                                     <ListTableCrudActions
