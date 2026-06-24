@@ -19,7 +19,7 @@ Both payroll types share:
 - `payroll_periods`
 - `payroll_records`
 - Payslips (PDF + email)
-- WPS export (SIF file download)
+- WPS export (SIF + Excel download)
 
 Each payroll type has its **own calculation engine** but writes to the **same** `payroll_records` table.
 
@@ -276,22 +276,46 @@ Both engines write `payroll_records`; one payslip + WPS layer on top.
 
 | Feature | Implementation |
 |---------|----------------|
-| UI | `/payroll/wps` — pick period, see eligible vs skipped |
-| File | UAE-style SIF `.sif` download (comma-separated SCR + EDR lines) |
-| On export | Sets `wps_status = submitted`, `wps_reference`, `wps_submitted_at` |
+| UI | `/payroll/wps` — pick period, preview eligible vs skipped, export dropdown |
+| Period board | Approved/paid periods → `?tab=payroll` delivery panel (payslips + WPS export) |
+| Formats | **SIF** (`.sif`) or **Excel** (`.xlsx`) — `POST /payroll/wps/export` with `format=sif\|xlsx` |
+| On export | Sets `wps_status = submitted`, `wps_reference`, `wps_submitted_at` (both formats) |
+
+### SIF file (`.sif`)
+
+UAE bank upload format — comma-separated text:
+
+| Row | Order | Notes |
+|-----|-------|--------|
+| SCR | First | MOL UID, agent code, `dmY` file date, `Hi` time, salary month `mY`, record count, total net, `AED`, reference |
+| EDR | One per employee | Labour ID, routing code, IBAN (no spaces), `dmY` period dates, days, fixed income, variable income, leave days |
+
+### Excel file (`.xlsx`)
+
+Odoo-compatible layout — one row per record type, columns A–J, sheet name `WPS`:
+
+| Row | Order | Notes |
+|-----|-------|--------|
+| EDR | One per employee (first) | Labour ID, routing, IBAN (spaced groups of 4), ISO period dates (`Y-m-d`), days, **net salary** as fixed income, `0.00` variable, leave days |
+| SCR | Last row | MOL UID, agent code, ISO file date, `Hi` time, salary month `mY`, count, total net, `AED`, `/` reference |
+
+Shared row builder: `WpsExportRows`. SIF uses `WpsSifExporter`; Excel uses `WpsExcelExporter` (PhpSpreadsheet).
 
 **Requirements before export:**
 
 | Entity | Field |
 |--------|--------|
 | Company | `wps_mol_uid`, `wps_agent_code` |
-| Employee | `labor_card_number` |
+| Employee contract | Active contract `labor_contract_id` (preferred labour identifier) |
+| Employee | `labor_card_number` (fallback if contract ID missing) |
 | Employee bank | Primary `iban`, bank `uae_routing_code_agent_id` |
 | Payroll record | `status` = `approved` or `paid` |
 
 **Not implemented:** Upload/submit to bank WPS portal API (download only).
 
-**Key code:** `WpsSifExporter`, `WpsExportValidator`, `WpsExportController`
+**Key code:** `WpsExportController`, `WpsExportValidator`, `WpsExportPreview`, `WpsLaborIdentifier`, `WpsExportRows`, `WpsSifExporter`, `WpsExcelExporter`
+
+**Frontend:** `resources/js/features/payroll/wps/` — `wps-export-content.tsx`, `wps-export-button.tsx`, `submit-wps-export.ts`; also used from `payroll-period-delivery-panel.tsx`
 
 ### `payroll_records` WPS / payslip columns
 
@@ -356,7 +380,7 @@ POST /payroll/payslips/generate
 POST /payroll/payslips/email
 
 GET  /payroll/wps
-POST /payroll/wps/export
+POST /payroll/wps/export          # body: period_id, format (sif | xlsx)
 ```
 
 Legacy redirects: `/organization/payroll`, `/organization/crew-payroll` → unified payroll routes.
@@ -382,8 +406,12 @@ app/Support/Payroll/
   Actions/GeneratePayslip.php
   Actions/SendPayslipEmails.php
   Services/CrewTimesheetImportOrchestrator.php
-  Wps/WpsSifExporter.php
+  Wps/WpsExportRows.php
   Wps/WpsExportValidator.php
+  Wps/WpsExportPreview.php
+  Wps/WpsLaborIdentifier.php
+  Wps/WpsSifExporter.php
+  Wps/WpsExcelExporter.php
 
 app/Imports/CrewTimesheetsImport.php
 ```
@@ -399,9 +427,11 @@ resources/js/features/payroll/
   overview/              — payroll overview dashboard
   records/               — company-wide records
   payslips/              — payslip list & actions
+  wps/                   — WPS export page + shared export button
   components/
     crew-timesheet-form-sheet.tsx
     crew-timesheet-import-dialog.tsx
+    payroll-period-delivery-panel.tsx
 
 resources/js/pages/payroll/
   index.tsx, show.tsx, overview.tsx, records.tsx, payslips.tsx, wps.tsx
@@ -418,11 +448,14 @@ tests/Feature/Payroll/
   GenerateOfficePayrollTest.php
   CrewTimesheetImportTest.php
   PayslipTest.php
-  WpsExportTest.php
+  WpsExportTest.php          # SIF + Excel export, preview UI props
   PayrollPeriodsTest.php
   PayrollPeriodWorkflowTest.php
   PayrollRecordsIndexTest.php
   ...
+
+tests/Unit/Support/Payroll/
+  WpsLaborIdentifierTest.php # contract labor_contract_id vs employee fallback
 
 tests/Feature/Settings/EmailTemplatesSeederTest.php
 ```
@@ -466,5 +499,5 @@ payroll_periods (per company, per category)
 
 payroll_records
 ├── payslips (PDF + email)
-└── WPS (SIF export)
+└── WPS (SIF + Excel export)
 ```

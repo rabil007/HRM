@@ -25,7 +25,7 @@ final class WpsExportPreview
         $records = PayrollRecord::query()
             ->where('company_id', $company->id)
             ->where('period_id', $period->id)
-            ->with(['employee.primaryBankAccount.bank'])
+            ->with(['employee.currentContract', 'employee.contracts', 'employee.primaryBankAccount.bank'])
             ->orderBy('id')
             ->get();
 

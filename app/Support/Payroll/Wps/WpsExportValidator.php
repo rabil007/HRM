@@ -46,7 +46,11 @@ final class WpsExportValidator
         }
 
         foreach ($records as $record) {
-            $record->loadMissing(['employee.primaryBankAccount.bank']);
+            $record->loadMissing([
+                'employee.currentContract',
+                'employee.contracts',
+                'employee.primaryBankAccount.bank',
+            ]);
             $employee = $record->employee;
             $reason = $this->skipReason($record);
 
@@ -75,8 +79,8 @@ final class WpsExportValidator
 
         $employee = $record->employee;
 
-        if (! filled($employee?->labor_card_number)) {
-            return 'Labor card number is missing.';
+        if (! filled(WpsLaborIdentifier::forPayrollRecord($record))) {
+            return 'Labor contract ID is missing.';
         }
 
         $bankAccount = $employee?->primaryBankAccount;

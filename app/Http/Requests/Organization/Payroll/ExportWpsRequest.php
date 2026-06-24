@@ -26,6 +26,7 @@ class ExportWpsRequest extends FormRequest
                 'integer',
                 Rule::exists('payroll_periods', 'id')->where('company_id', $companyId),
             ],
+            'format' => ['required', 'string', Rule::in(['sif', 'xlsx'])],
         ];
     }
 }

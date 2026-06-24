@@ -1,11 +1,11 @@
 import { router } from '@inertiajs/react';
-import { ChevronDown, Download, Mail, Sparkles } from 'lucide-react';
+import { ChevronDown, Mail, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import {
     email as emailPayslips,
     generate as generatePayslips,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
-import { exportMethod as exportWps } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
+import { WpsExportButton } from '../wps/wps-export-button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,31 +66,6 @@ export function PayrollPeriodDeliveryPanel({
                 onFinish: () => setProcessing(null),
             },
         );
-    };
-
-    const handleWpsExport = () => {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = exportWps.url();
-
-        const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
-        if (csrf) {
-            const tokenInput = document.createElement('input');
-            tokenInput.type = 'hidden';
-            tokenInput.name = '_token';
-            tokenInput.value = csrf;
-            form.appendChild(tokenInput);
-        }
-
-        const periodInput = document.createElement('input');
-        periodInput.type = 'hidden';
-        periodInput.name = 'period_id';
-        periodInput.value = String(period.id);
-        form.appendChild(periodInput);
-
-        document.body.appendChild(form);
-        form.submit();
-        document.body.removeChild(form);
     };
 
     return (
@@ -204,15 +179,12 @@ export function PayrollPeriodDeliveryPanel({
                         ) : null}
 
                         {permissions.wps_export ? (
-                            <Button
+                            <WpsExportButton
+                                periodId={period.id}
                                 size="sm"
                                 className="rounded-xl"
                                 disabled={wps_preview.eligible_count === 0}
-                                onClick={handleWpsExport}
-                            >
-                                <Download className="mr-2 h-4 w-4" />
-                                Export SIF file
-                            </Button>
+                            />
                         ) : null}
                     </CardContent>
                 </Card>

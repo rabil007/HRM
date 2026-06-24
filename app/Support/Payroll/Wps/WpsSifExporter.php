@@ -2,7 +2,6 @@
 
 namespace App\Support\Payroll\Wps;
 
-use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -17,6 +16,7 @@ final class WpsSifExporter
      */
     public function export(Company $company, PayrollPeriod $period, Collection $records, string $reference): string
     {
+        $rows = new WpsExportRows($company, $period, $records, $reference);
         $now = CarbonImmutable::now($company->timezone ?? config('app.timezone'));
         $salaryMonth = $period->end_date?->format('mY') ?? $now->format('mY');
         $totalSalary = number_format($records->sum(fn (PayrollRecord $record) => (float) $record->net_salary), 2, '.', '');
@@ -40,19 +40,21 @@ final class WpsSifExporter
 
         foreach ($records as $record) {
             $record->loadMissing([
+                'employee.currentContract',
+                'employee.contracts',
                 'employee.primaryBankAccount.bank',
             ]);
 
-            $employee = $record->employee;
-            $bankAccount = $employee?->primaryBankAccount;
-            $fixedIncome = $this->fixedIncome($record);
+            $bankAccount = $record->employee?->primaryBankAccount;
+            $fixedIncome = $rows->fixedIncome($record);
             $variableIncome = max((float) $record->net_salary - $fixedIncome, 0);
+            $iban = strtoupper(preg_replace('/\s+/', '', (string) ($bankAccount?->iban ?? '')) ?? '');
 
             $lines[] = implode(',', [
                 'EDR',
-                (string) ($employee?->labor_card_number ?? ''),
+                (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
                 (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
-                (string) ($bankAccount?->iban ?? ''),
+                $iban,
                 $period->start_date?->format('dmY') ?? '',
                 $period->end_date?->format('dmY') ?? '',
                 (string) max((int) ($record->present_days ?: $record->working_days), 0),
@@ -63,20 +65,6 @@ final class WpsSifExporter
         }
 
         return implode(PHP_EOL, $lines).PHP_EOL;
-    }
-
-    private function fixedIncome(PayrollRecord $record): float
-    {
-        if ($record->payroll_category === PayrollCategory::Crew) {
-            $breakdown = $record->calculation_breakdown ?? [];
-            $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
-
-            return (float) ($lines['standby_pay'] ?? 0) + (float) ($lines['onsite_pay'] ?? 0);
-        }
-
-        return (float) $record->basic_salary
-            + (float) $record->housing_allowance
-            + (float) $record->transport_allowance;
     }
 
     public function makeReference(Company $company, PayrollPeriod $period): string

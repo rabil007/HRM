@@ -18,7 +18,8 @@ final class PayrollRecordResource
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
         $category = $record->payroll_category ?? PayrollCategory::Office;
-        $wpsStatus = $record->wps_status !== null ? WpsStatus::from($record->wps_status) : null;
+        /** @var WpsStatus|null $wpsStatus */
+        $wpsStatus = $record->wps_status;
 
         $base = [
             'id' => $record->id,

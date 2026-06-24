@@ -16,7 +16,8 @@ final class PayslipListResource
         $record->loadMissing(['employee', 'period']);
 
         $category = $record->payroll_category ?? PayrollCategory::Office;
-        $wpsStatus = $record->wps_status !== null ? WpsStatus::from($record->wps_status) : null;
+        /** @var WpsStatus|null $wpsStatus */
+        $wpsStatus = $record->wps_status;
 
         return [
             'id' => $record->id,
