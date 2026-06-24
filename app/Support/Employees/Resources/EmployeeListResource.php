@@ -20,7 +20,6 @@ final class EmployeeListResource
             'branch_id' => $employee->branch_id,
             'department_id' => $employee->department_id,
             'position_id' => $employee->position_id,
-            'manager_id' => $employee->manager_id,
             'employee_no' => $employee->employee_no,
             'image' => $employee->image,
             'name' => $employee->name,

@@ -17,7 +17,6 @@ test('employee list resource exposes directory row keys', function () {
         'branch:id,name',
         'department:id,name',
         'position:id,title',
-        'manager:id,name,employee_no',
         'religionRef:id,name',
         'genderRef:id,name',
         'nationalityRef:id,name,code',

@@ -28,7 +28,6 @@ final class EmployeeFormOptions
      *     branches: Collection,
      *     departments: Collection,
      *     positions: Collection,
-     *     managers: Collection,
      *     users: Collection,
      *     countries: Collection,
      *     religions: Collection,
@@ -41,13 +40,12 @@ final class EmployeeFormOptions
      *     banks: Collection
      * }
      */
-    public static function for(int $companyId, ?Employee $excludeManager = null): array
+    public static function for(int $companyId): array
     {
         return [
             'branches' => self::branchesForDirectory($companyId),
             'departments' => self::departmentsForDirectory($companyId),
             'positions' => self::positionsForDirectory($companyId),
-            'managers' => self::managers($companyId, $excludeManager, includeCompanyId: true),
             'users' => self::users($companyId),
             'countries' => self::countries(),
             'religions' => self::religions(),
@@ -68,7 +66,6 @@ final class EmployeeFormOptions
      *     branches: Collection,
      *     departments: Collection,
      *     positions: Collection,
-     *     managers: Collection,
      *     countries: Collection,
      *     religions: Collection,
      *     genders: Collection,
@@ -85,7 +82,6 @@ final class EmployeeFormOptions
             'branches' => self::branchesForCreate($companyId),
             'departments' => self::departmentsForCreate($companyId),
             'positions' => self::positionsForCreate($companyId),
-            'managers' => self::managers($companyId, excludeManager: null, includeCompanyId: false),
             'countries' => self::countries(),
             'religions' => self::religions(),
             'genders' => self::genders(),
@@ -117,13 +113,43 @@ final class EmployeeFormOptions
     }
 
     /**
-     * Employee manager options for department and employee forms.
+     * Employees assigned as managers on parent departments (directory filter options).
+     *
+     * @return Collection<int, Employee>
+     */
+    public static function departmentManagersForFilter(int $companyId): Collection
+    {
+        $managerIds = Department::query()
+            ->where('company_id', $companyId)
+            ->whereNull('parent_id')
+            ->whereNotNull('manager_id')
+            ->pluck('manager_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        if ($managerIds === []) {
+            return collect();
+        }
+
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->whereIn('id', $managerIds)
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no']);
+    }
+
+    /**
+     * Employee manager options for department forms.
      *
      * @return Collection<int, Employee>
      */
     public static function managersForSelect(int $companyId): Collection
     {
-        return self::managers($companyId, excludeManager: null, includeCompanyId: false);
+        return Employee::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_no']);
     }
 
     private static function branchesForDirectory(int $companyId)
@@ -172,19 +198,6 @@ final class EmployeeFormOptions
             ->where('company_id', $companyId)
             ->orderBy('title')
             ->get(['id', 'department_id', 'title']));
-    }
-
-    private static function managers(int $companyId, ?Employee $excludeManager, bool $includeCompanyId)
-    {
-        $columns = $includeCompanyId
-            ? ['id', 'company_id', 'name', 'employee_no']
-            : ['id', 'name', 'employee_no'];
-
-        return Employee::query()
-            ->where('company_id', $companyId)
-            ->when($excludeManager, fn ($query) => $query->where('id', '!=', $excludeManager->id))
-            ->orderBy('name')
-            ->get($columns);
     }
 
     private static function users(int $companyId)

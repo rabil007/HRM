@@ -2081,6 +2081,14 @@ test('employee directory index can be filtered by manager and gender', function 
         'name' => 'Team Lead',
     ]);
 
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'manager_id' => $manager->id,
+        'status' => 'active',
+    ]);
+
     $maleGender = Gender::query()->create([
         'name' => 'Male',
         'is_active' => true,
@@ -2091,21 +2099,18 @@ test('employee directory index can be filtered by manager and gender', function 
         'is_active' => true,
     ]);
 
-    $matchedEmployee = Employee::factory()->forCompany($company)->create([
+    $matchedEmployee = Employee::factory()->forCompany($company)->inDepartment($department)->create([
         'employee_no' => 'MGF001',
-        'manager_id' => $manager->id,
         'gender_id' => $maleGender->id,
     ]);
 
-    Employee::factory()->forCompany($company)->create([
+    Employee::factory()->forCompany($company)->inDepartment($department)->create([
         'employee_no' => 'MGF002',
-        'manager_id' => $manager->id,
         'gender_id' => $femaleGender->id,
     ]);
 
     Employee::factory()->forCompany($company)->create([
         'employee_no' => 'MGF003',
-        'manager_id' => null,
         'gender_id' => $maleGender->id,
     ]);
 
@@ -2119,6 +2124,132 @@ test('employee directory index can be filtered by manager and gender', function 
     $ids = collect($response->viewData('page')['props']['employees'])->pluck('id')->all();
 
     expect($ids)->toBe([$matchedEmployee->id]);
+});
+
+test('employee profile exposes manager derived from department hierarchy', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = Company::query()->create([
+        'name' => 'Derived Manager Co',
+        'slug' => 'derived-manager-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => Country::query()->create([
+            'code' => 'DMC',
+            'name' => 'Derived Manager Country',
+            'dial_code' => '+971',
+            'is_active' => true,
+        ])->id,
+        'currency_id' => Currency::query()->create([
+            'code' => 'DMC',
+            'name' => 'Derived Manager Currency',
+            'symbol' => 'D$',
+            'is_active' => true,
+        ])->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $manager = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DM200',
+        'name' => 'Department Manager',
+    ]);
+
+    $parent = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'manager_id' => $manager->id,
+        'status' => 'active',
+    ]);
+
+    $child = Department::query()->create([
+        'company_id' => $company->id,
+        'parent_id' => $parent->id,
+        'name' => 'IT',
+        'code' => 'IT',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->inDepartment($child)->create([
+        'employee_no' => 'EMP200',
+        'name' => 'Child Department Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('organization/employee')
+            ->where('employee.manager.id', $manager->id)
+            ->where('employee.manager.employee_no', 'DM200')
+            ->where('employee.manager.name', 'Department Manager')
+        );
+});
+
+test('employee update ignores manager_id because manager is department derived', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $company = Company::query()->create([
+        'name' => 'Ignore Manager Co',
+        'slug' => 'ignore-manager-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => Country::query()->create([
+            'code' => 'IMC',
+            'name' => 'Ignore Manager Country',
+            'dial_code' => '+971',
+            'is_active' => true,
+        ])->id,
+        'currency_id' => Currency::query()->create([
+            'code' => 'IMC',
+            'name' => 'Ignore Manager Currency',
+            'symbol' => 'I$',
+            'is_active' => true,
+        ])->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $departmentManager = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DM300',
+        'name' => 'Assigned Manager',
+    ]);
+
+    $otherEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'OTH300',
+        'name' => 'Other Employee',
+    ]);
+
+    $department = Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Finance',
+        'code' => 'FIN',
+        'manager_id' => $departmentManager->id,
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()->forCompany($company)->inDepartment($department)->create([
+        'employee_no' => 'EMP300',
+        'name' => 'Finance Employee',
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.update']);
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => 'EMP300',
+        'name' => 'Finance Employee',
+        'manager_id' => $otherEmployee->id,
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    $this->get("/organization/employees/{$employee->id}")
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('employee.manager.id', $departmentManager->id)
+        );
 });
 
 test('employee directory index can be filtered by approval location and sssa option', function () {

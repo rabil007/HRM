@@ -4,6 +4,7 @@ namespace App\Support\Employees;
 
 use App\Models\Department;
 use App\Models\Employee;
+use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use Illuminate\Database\Eloquent\Builder;
 
 final class EmployeeDirectoryQuery
@@ -47,7 +48,20 @@ final class EmployeeDirectoryQuery
             })
             ->when(! $exceptPosition && $filters->positionId, fn (Builder $q) => $q->where('position_id', $filters->positionId))
             ->when($filters->status, fn (Builder $q) => $q->where('status', $filters->status))
-            ->when($filters->managerId, fn (Builder $q) => $q->where('manager_id', $filters->managerId))
+            ->when($filters->managerId, function (Builder $q) use ($companyId, $filters): void {
+                $departmentIds = ResolveDepartmentEffectiveManager::departmentIdsForManager(
+                    $companyId,
+                    (int) $filters->managerId,
+                );
+
+                if ($departmentIds === []) {
+                    $q->whereRaw('1 = 0');
+
+                    return;
+                }
+
+                $q->whereIn('department_id', $departmentIds);
+            })
             ->when($filters->genderId, fn (Builder $q) => $q->where('gender_id', $filters->genderId))
             ->when($filters->nationalityId, fn (Builder $q) => $q->where('nationality_id', $filters->nationalityId))
             ->when($filters->visaTypeId, fn (Builder $q) => $q->where('visa_type_id', $filters->visaTypeId))

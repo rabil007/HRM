@@ -6,7 +6,6 @@ const EMPLOYEE_REQUIRED_FIELD_LABELS: Record<string, string> = {
     department_id: 'Department',
     position_id: 'Position',
     rank_id: 'Rank',
-    manager_id: 'Manager',
     date_of_birth: 'Date of birth',
     hire_date: 'Date of hire',
     place_of_birth: 'Place of birth',

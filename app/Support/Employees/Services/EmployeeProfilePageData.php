@@ -48,7 +48,6 @@ final class EmployeeProfilePageData
             'department:id,name',
             'position:id,title',
             'rank:id,name',
-            'manager:id,name,employee_no',
             'user:id,name,email,avatar',
             'religionRef:id,name',
             'genderRef:id,name',
@@ -76,7 +75,7 @@ final class EmployeeProfilePageData
             $directoryFilters,
         );
 
-        $formOptions = EmployeeFormOptions::for($companyId, $employee);
+        $formOptions = EmployeeFormOptions::for($companyId);
 
         $roles = SpatieRole::query()
             ->where('company_id', $companyId)
@@ -120,7 +119,6 @@ final class EmployeeProfilePageData
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],
-            'managers' => $formOptions['managers'],
             'countries' => $formOptions['countries'],
             'religions' => $formOptions['religions'],
             'genders' => $formOptions['genders'],
@@ -206,7 +204,7 @@ final class EmployeeProfilePageData
 
         $profileTemplates = self::activeProfileTemplates($companyId);
 
-        $formOptions = EmployeeFormOptions::for($companyId, $employee);
+        $formOptions = EmployeeFormOptions::for($companyId);
         $profileLookups = $employee !== null
             ? EmployeeFormOptions::forProfile($companyId, $employee, [])
             : ['ranks' => EmployeeFormOptions::forCreate($companyId)['ranks']];
@@ -235,7 +233,6 @@ final class EmployeeProfilePageData
             'branches' => $formOptions['branches'],
             'departments' => $formOptions['departments'],
             'positions' => $formOptions['positions'],
-            'managers' => $formOptions['managers'],
             'countries' => $formOptions['countries'],
             'religions' => $formOptions['religions'],
             'genders' => $formOptions['genders'],

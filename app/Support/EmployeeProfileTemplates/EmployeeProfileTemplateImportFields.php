@@ -35,7 +35,6 @@ final class EmployeeProfileTemplateImportFields
         'branch_id' => 'branch',
         'department_id' => 'department',
         'position_id' => 'position',
-        'manager_id' => 'manager_employee_no',
         'gender_id' => 'gender',
         'religion_id' => 'religion',
         'nationality_id' => 'nationality',

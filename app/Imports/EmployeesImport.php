@@ -72,8 +72,6 @@ class EmployeesImport
         'branch' => ['branch', 'branch name'],
         'department' => ['department', 'department name', 'dept'],
         'position' => ['position', 'position title', 'job title', 'title'],
-        'manager' => ['manager', 'manager name', 'reports to'],
-        'manager_employee_no' => ['manager_employee_no', 'manager employee no', 'manager id', 'reports to id'],
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
@@ -122,8 +120,6 @@ class EmployeesImport
             'branch' => ['employees', 'branch_id'],
             'department' => ['employees', 'department_id'],
             'position' => ['employees', 'position_id'],
-            'manager_employee_no' => ['employees', 'manager_id'],
-            'manager' => ['employees', 'manager_id'],
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
@@ -209,7 +205,6 @@ class EmployeesImport
         'branch',
         'department',
         'position',
-        'manager_employee_no',
         'gender',
         'religion',
         'nationality',
@@ -244,16 +239,6 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $positionMap = null;
-
-    /**
-     * @var array<string, int>|null
-     */
-    private ?array $managerByNoMap = null;
-
-    /**
-     * @var array<string, int>|null
-     */
-    private ?array $managerByNameMap = null;
 
     /**
      * @var array<string, int>|null
@@ -577,7 +562,6 @@ class EmployeesImport
                         'branch_id' => $resolved['branch_id'] ?? null,
                         'department_id' => $resolved['department_id'] ?? null,
                         'position_id' => $resolved['position_id'] ?? null,
-                        'manager_id' => $resolved['manager_id'] ?? null,
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
@@ -634,10 +618,6 @@ class EmployeesImport
 
                     $existingNos[] = strtolower($no);
                     $created++;
-
-                    if (isset($this->managerByNoMap)) {
-                        $this->managerByNoMap[strtolower($no)] = $employee->id;
-                    }
                 } catch (\Throwable $e) {
                     $failed[] = [
                         'row' => $rowNumber,
@@ -826,20 +806,6 @@ class EmployeesImport
             }
         }
 
-        if (! empty($row['manager_employee_no'])) {
-            $no = strtolower((string) $row['manager_employee_no']);
-
-            if (! isset($this->managerByNoMap[$no])) {
-                $unresolved['manager_employee_no'] = sprintf('Manager with employee no "%s" not found.', $row['manager_employee_no']);
-            }
-        } elseif (! empty($row['manager'])) {
-            $name = self::normalize((string) $row['manager']);
-
-            if (! isset($this->managerByNameMap[$name])) {
-                $unresolved['manager'] = sprintf('Manager "%s" not found.', $row['manager']);
-            }
-        }
-
         foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'bank' => $this->bankMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
@@ -863,7 +829,6 @@ class EmployeesImport
             'branch_id' => null,
             'department_id' => null,
             'position_id' => null,
-            'manager_id' => null,
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
@@ -876,12 +841,6 @@ class EmployeesImport
                 $map = $key === 'branch' ? $this->branchMap : ($key === 'department' ? $this->departmentMap : $this->positionMap);
                 $resolved[$field] = $map[$name] ?? null;
             }
-        }
-
-        if (! empty($row['manager_employee_no'])) {
-            $resolved['manager_id'] = $this->managerByNoMap[strtolower((string) $row['manager_employee_no'])] ?? null;
-        } elseif (! empty($row['manager'])) {
-            $resolved['manager_id'] = $this->managerByNameMap[self::normalize((string) $row['manager'])] ?? null;
         }
 
         foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'bank' => 'bank_id'] as $key => $field) {
@@ -917,18 +876,6 @@ class EmployeesImport
             ->where('company_id', $this->companyId)
             ->pluck('id', 'title')
             ->mapWithKeys(fn ($id, $title) => [self::normalize((string) $title) => (int) $id])
-            ->all();
-
-        $this->managerByNoMap = Employee::query()
-            ->where('company_id', $this->companyId)
-            ->pluck('id', 'employee_no')
-            ->mapWithKeys(fn ($id, $no) => [strtolower((string) $no) => (int) $id])
-            ->all();
-
-        $this->managerByNameMap = Employee::query()
-            ->where('company_id', $this->companyId)
-            ->get(['id', 'name'])
-            ->mapWithKeys(fn ($e) => [self::normalize((string) $e->name) => (int) $e->id])
             ->all();
 
         $this->genderMap = Gender::query()

@@ -42,7 +42,7 @@
                 <td>{{ $employee->branch?->name ?? '—' }}</td>
                 <td>{{ $employee->department?->name ?? '—' }}</td>
                 <td>{{ $employee->position?->title ?? '—' }}</td>
-                <td>{{ $employee->manager?->name ?? '—' }}</td>
+                <td>{{ \App\Support\Departments\ResolveDepartmentEffectiveManager::managerForEmployee($employee)?->name ?? '—' }}</td>
                 <td>{{ $employee->work_email ?? '—' }}</td>
                 <td>{{ $employee->phone ?? '—' }}</td>
                 <td>{{ $employee->status }}</td>

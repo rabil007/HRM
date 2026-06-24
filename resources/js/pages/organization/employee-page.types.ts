@@ -334,7 +334,6 @@ export type EmployeePageProps = {
     branches: BranchOption[];
     departments: DepartmentOption[];
     positions: PositionOption[];
-    managers: ManagerOption[];
     countries: CountryOption[];
     religions: ReligionOption[];
     genders: GenderOption[];

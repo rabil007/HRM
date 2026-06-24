@@ -99,7 +99,6 @@ function EmployeeDetailsPage({
     branches,
     departments,
     positions,
-    managers,
     countries,
     religions,
     genders,
@@ -170,7 +169,6 @@ function EmployeeDetailsPage({
     void branches;
     void departments;
     void positions;
-    void managers;
 
     const ensureEmployee = useEnsureEmployee({
         employeeId: localEmployee.id,
@@ -573,7 +571,6 @@ function EmployeeDetailsPage({
                             departments={departments}
                             positions={positions}
                             ranks={ranks}
-                            managers={managers}
                             countries={countries}
                             genders={genders}
                             religions={religions}

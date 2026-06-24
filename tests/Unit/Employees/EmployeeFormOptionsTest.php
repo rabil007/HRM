@@ -4,6 +4,7 @@ use App\Models\Branch;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Department;
 use App\Models\Employee;
 use App\Support\Employees\EmployeeFormOptions;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -62,15 +63,27 @@ test('employee form options scopes company bound lookups to the requested compan
         ->and($options['branches']->first()->id)->toBe($branchA->id);
 });
 
-test('employee form options excludes the current employee from managers on profile pages', function () {
+test('employee form options exposes department managers for directory filters', function () {
     $employee = Employee::factory()->create();
-    $otherManager = Employee::factory()->forCompany($employee->company)->create();
+    $company = $employee->company;
 
-    $options = EmployeeFormOptions::for($employee->company_id, $employee);
+    $manager = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'DM100',
+        'name' => 'Department Manager',
+    ]);
 
-    expect($options['managers']->pluck('id')->all())
-        ->toContain($otherManager->id)
-        ->not->toContain($employee->id);
+    Department::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Operations',
+        'code' => 'OPS',
+        'manager_id' => $manager->id,
+        'status' => 'active',
+    ]);
+
+    $options = EmployeeFormOptions::departmentManagersForFilter($company->id);
+
+    expect($options)->toHaveCount(1)
+        ->and($options->first()->id)->toBe($manager->id);
 });
 
 test('employee form options for create returns nested onboarding option keys', function () {
@@ -82,7 +95,6 @@ test('employee form options for create returns nested onboarding option keys', f
         'branches',
         'departments',
         'positions',
-        'managers',
         'countries',
         'religions',
         'genders',

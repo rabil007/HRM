@@ -93,7 +93,6 @@ export type Employee = {
     branch_id: number | null;
     department_id: number | null;
     position_id: number | null;
-    manager_id: number | null;
     employee_no: string;
     image?: string | null;
     name: string;
@@ -150,7 +149,6 @@ export type EmployeeFormData = {
     branch_id: number | '';
     department_id: number | '';
     position_id: number | '';
-    manager_id: number | '';
     employee_no: string;
     name: string;
     image: File | null;

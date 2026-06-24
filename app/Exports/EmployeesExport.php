@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\Employee;
+use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
 use Maatwebsite\Excel\Concerns\WithHeadings;
@@ -48,7 +49,7 @@ class EmployeesExport implements FromQuery, WithHeadings, WithMapping, WithStric
             $employee->branch?->name,
             $employee->department?->name,
             $employee->position?->title,
-            $employee->manager?->name,
+            ResolveDepartmentEffectiveManager::managerForEmployee($employee)?->name,
             $employee->work_email,
             $employee->phone,
             $employee->status,

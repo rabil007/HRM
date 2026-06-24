@@ -3,6 +3,7 @@
 namespace App\Support\Employees\Resources;
 
 use App\Models\Employee;
+use App\Support\Departments\ResolveDepartmentEffectiveManager;
 use App\Support\Users\UserAvatar;
 
 final class EmployeeDetailResource
@@ -37,11 +38,7 @@ final class EmployeeDetailResource
                 'id' => $employee->rank_id,
                 'name' => $employee->rank?->name,
             ] : null,
-            'manager' => $employee->manager_id ? [
-                'id' => $employee->manager_id,
-                'employee_no' => $employee->manager?->employee_no,
-                'name' => $employee->manager?->name,
-            ] : null,
+            'manager' => ResolveDepartmentEffectiveManager::managerPayloadForEmployee($employee),
             'employee_no' => $employee->employee_no,
             'name' => $employee->name,
             'image' => $employee->image,

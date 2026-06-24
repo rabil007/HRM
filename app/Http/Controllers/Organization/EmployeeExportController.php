@@ -26,7 +26,6 @@ class EmployeeExportController extends Controller
                     'branch:id,name',
                     'department:id,name',
                     'position:id,title',
-                    'manager:id,name,employee_no',
                     'user:id,name,email',
                     'currentContract',
                 ]),

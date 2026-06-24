@@ -184,7 +184,6 @@ export function EmployeeHeaderCard({
     employee,
     departments,
     positions,
-    managers,
     countries,
     genders,
     religions,
@@ -208,7 +207,6 @@ export function EmployeeHeaderCard({
     employee: any;
     departments: Option[];
     positions: Option[];
-    managers: any[];
     countries: CountryOption[];
     genders: Option[];
     religions: Option[];
@@ -445,23 +443,6 @@ export function EmployeeHeaderCard({
                                         title: 'Select position',
                                         description: 'Search positions...',
                                     },
-                                    {
-                                        field: 'manager_id',
-                                        label: 'Manager',
-                                        current:
-                                            managers.find((m) => String(m.id) === String(form.data.manager_id || employee.manager?.id || ''))?.name ??
-                                            employee.manager?.name ??
-                                            '—',
-                                        items: managers.map((m) => ({
-                                            id: m.id,
-                                            label: m.name || `#${m.id}`,
-                                            value: String(m.id),
-                                            extra: m.employee_no,
-                                            search: `${m.name} ${m.employee_no}`,
-                                        })),
-                                        title: 'Select manager',
-                                        description: 'Search employees...',
-                                    },
                                 ].map((item) => (
                                     <EditableCommandSelectCell
                                          key={item.field}
@@ -483,6 +464,17 @@ export function EmployeeHeaderCard({
                                         highlightMissing={isMissingRequired(item.field)}
                                     />
                                 ))}
+                                <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
+                                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                        Manager
+                                    </div>
+                                    <div className="mt-0.5 truncate font-medium text-foreground">
+                                        {employee.manager?.employee_no
+                                            ? `${employee.manager.employee_no} — ${employee.manager.name ?? '—'}`
+                                            : (employee.manager?.name ?? '—')}
+                                    </div>
+                                    <div className="mt-1 text-[10px] text-muted-foreground">Managed via department</div>
+                                </div>
                             </div>
                         </div>
 

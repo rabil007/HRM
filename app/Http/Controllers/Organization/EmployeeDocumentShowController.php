@@ -38,7 +38,7 @@ class EmployeeDocumentShowController extends Controller
                 'email' => $employee->work_email ?: $employee->personal_email,
                 'phone' => $employee->phone,
             ],
-            'countries' => EmployeeFormOptions::for($companyId, $employee)['countries'],
+            'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
             'back' => DocumentShowBackNavigation::resolve($request, $employee),
             'recent_activity' => RecentActivityQuery::for(

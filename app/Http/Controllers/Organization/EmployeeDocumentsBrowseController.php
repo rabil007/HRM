@@ -25,7 +25,7 @@ class EmployeeDocumentsBrowseController extends Controller
             'employee' => $result['employee'],
             'documents' => $result['documents'],
             'summary' => $browse->expirySummary($companyId, $employee->id),
-            'countries' => EmployeeFormOptions::for($companyId, $employee)['countries'],
+            'countries' => EmployeeFormOptions::for($companyId)['countries'],
             'can' => DocumentPagePermissions::for($request->user()),
         ]);
     }
