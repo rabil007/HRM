@@ -1,4 +1,4 @@
-@extends('mail.layout')
+@extends('mail.layout', ['includeCompanyFooter' => $includeCompanyFooter ?? true])
 
 @section('title', $subjectLine)
 
@@ -85,7 +85,7 @@
                 </tbody>
             </table>
 
-            <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:28px auto 8px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:28px auto 0;">
                 <tr>
                     <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
                         <a
@@ -98,10 +98,6 @@
                     </td>
                 </tr>
             </table>
-
-            <p class="email-muted" style="margin:0;font-size:12px;line-height:1.6;color:#a1a1aa;text-align:center;word-break:break-all;">
-                {{ $requestUrl }}
-            </p>
         </td>
     </tr>
 @endsection

@@ -47,6 +47,7 @@ export type EmailTemplateItem = {
     dispatch_at: string | null;
     subject: string;
     body_html: string;
+    include_company_footer: boolean;
     is_default: boolean;
     enabled: boolean;
     sort_order: number;
@@ -71,6 +72,7 @@ type FormState = {
     dispatch_at: string;
     subject: string;
     body_html: string;
+    include_company_footer: boolean;
     is_default: boolean;
     enabled: boolean;
     sort_order: number;
@@ -85,6 +87,7 @@ const emptyForm = (category = 'document'): FormState => ({
     dispatch_at: '08:00',
     subject: 'Documents from Overseas Marine Services',
     body_html: 'Hello,\n\nPlease find the attached employee documents.\n\nThank you.',
+    include_company_footer: true,
     is_default: false,
     enabled: true,
     sort_order: 0,
@@ -131,6 +134,7 @@ export default function EmailTemplatesSettings({
             dispatch_at: template.dispatch_at ?? '08:00',
             subject: template.subject,
             body_html: template.body_html,
+            include_company_footer: template.include_company_footer,
             is_default: template.is_default,
             enabled: template.enabled,
             sort_order: template.sort_order,
@@ -196,6 +200,7 @@ export default function EmailTemplatesSettings({
             label: form.data.label || 'Email template',
             subject: form.data.subject,
             bodyHtml: form.data.body_html,
+            includeCompanyFooter: form.data.include_company_footer,
         });
     };
 
@@ -292,6 +297,9 @@ export default function EmailTemplatesSettings({
                                                     ) : null}
                                                     {!template.enabled ? (
                                                         <Badge variant="outline">Disabled</Badge>
+                                                    ) : null}
+                                                    {!template.include_company_footer ? (
+                                                        <Badge variant="outline">No footer</Badge>
                                                     ) : null}
                                                 </div>
                                                 {template.slug === expiry_alert_template_slug ? (
@@ -571,6 +579,15 @@ export default function EmailTemplatesSettings({
                         below.
                     </p>
                 )}
+
+                <MasterDataActiveToggle
+                    checked={form.data.include_company_footer}
+                    onCheckedChange={(checked) =>
+                        form.setData('include_company_footer', checked)
+                    }
+                    title="Include company footer"
+                    description="Adds your company logo, contact details, and certification bar at the bottom of the email."
+                />
 
                 <MasterDataField id="sort_order" label="Sort order" error={form.errors.sort_order}>
                     <Input

@@ -29,6 +29,7 @@ class EmailTemplateFactory extends Factory
             'cc_preset' => null,
             'subject' => 'Message from Overseas Marine Services',
             'body_html' => "Hello,\n\nPlease see the details below.\n\nThank you.",
+            'include_company_footer' => true,
             'is_default' => false,
             'enabled' => true,
             'sort_order' => 0,

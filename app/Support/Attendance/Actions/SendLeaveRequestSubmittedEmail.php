@@ -63,6 +63,7 @@ final class SendLeaveRequestSubmittedEmail
             totalDays: $payload['totalDays'],
             reason: $payload['reason'],
             requestUrl: $payload['requestUrl'],
+            includeCompanyFooter: $template->include_company_footer,
         ));
     }
 

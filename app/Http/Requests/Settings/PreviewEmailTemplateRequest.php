@@ -20,6 +20,7 @@ class PreviewEmailTemplateRequest extends FormRequest
             'slug' => ['required', 'string', 'max:255'],
             'subject' => ['required', 'string', 'max:255'],
             'body_html' => ['required', 'string'],
+            'include_company_footer' => ['sometimes', 'boolean'],
         ];
     }
 }

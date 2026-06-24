@@ -47,6 +47,7 @@ test('email templates can be created and customized', function () {
             'cc_preset' => 'manager@example.com',
             'subject' => 'Welcome to the team',
             'body_html' => "Hello,\n\nWelcome aboard.",
+            'include_company_footer' => true,
             'is_default' => false,
             'enabled' => true,
             'sort_order' => 1,
@@ -79,6 +80,7 @@ test('email template can be updated', function () {
             'category' => 'document',
             'subject' => 'Updated document subject',
             'body_html' => 'Updated message body.',
+            'include_company_footer' => true,
             'is_default' => true,
             'enabled' => true,
             'sort_order' => 0,
@@ -108,6 +110,7 @@ test('email template rejects invalid comma-separated preset addresses', function
             'cc_preset' => '',
             'subject' => 'Test',
             'body_html' => 'Body',
+            'include_company_footer' => true,
             'is_default' => false,
             'enabled' => true,
             'sort_order' => 0,
@@ -151,6 +154,7 @@ test('document expiry alert template can set daily dispatch time', function () {
             'dispatch_at' => '10:45',
             'subject' => $template->subject,
             'body_html' => $template->body_html,
+            'include_company_footer' => true,
             'is_default' => true,
             'enabled' => true,
             'sort_order' => 0,
@@ -177,6 +181,7 @@ test('marking template as default clears other defaults in category', function (
             'category' => 'document',
             'subject' => 'Alt subject',
             'body_html' => '<p>Alt body</p>',
+            'include_company_footer' => true,
             'is_default' => true,
             'enabled' => true,
             'sort_order' => 1,
@@ -205,15 +210,45 @@ test('users can preview draft email template content', function () {
     $user = User::factory()->create();
     setupCompanyWithSettingsPermissions($user, ['settings.integrations.email-templates.view']);
 
-    $this->actingAs($user)
+    $response = $this->actingAs($user)
         ->postJson(route('application.email-templates.preview-draft'), [
             'slug' => 'leave_request_submitted',
             'subject' => 'Preview — {{employee_name}}',
             'body_html' => 'Custom intro for {{employee_name}}.',
+            'include_company_footer' => false,
         ])
         ->assertOk()
         ->assertJsonPath('subject', 'Preview — Jane Smith')
         ->assertJson(fn ($json) => $json->whereType('html', 'string')->etc());
+
+    expect((string) $response->json('html'))->not->toContain('background-color:#1e2930');
+});
+
+test('email template can store include company footer preference', function () {
+    $user = User::factory()->create();
+    setupCompanyWithSettingsPermissions($user, [
+        'settings.integrations.email-templates.view',
+        'settings.integrations.email-templates.update',
+    ]);
+
+    $template = EmailTemplate::query()->where('slug', 'leave_request_submitted')->firstOrFail();
+
+    $this->actingAs($user)
+        ->put(route('application.email-templates.update', $template), [
+            'slug' => 'leave_request_submitted',
+            'label' => $template->label,
+            'category' => 'hr',
+            'subject' => $template->subject,
+            'body_html' => $template->body_html,
+            'include_company_footer' => false,
+            'is_default' => true,
+            'enabled' => true,
+            'sort_order' => 0,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect($template->fresh()->include_company_footer)->toBeFalse();
 });
 
 test('users without email template permission cannot preview templates', function () {

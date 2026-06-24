@@ -21,6 +21,7 @@ type DraftPreview = {
     label: string;
     subject: string;
     bodyHtml: string;
+    includeCompanyFooter: boolean;
 };
 
 export type EmailTemplatePreviewTarget = SavedPreview | DraftPreview;
@@ -74,6 +75,7 @@ export function EmailTemplatePreviewDialog({
                         slug: target.slug,
                         subject: target.subject,
                         body_html: target.bodyHtml,
+                        include_company_footer: target.includeCompanyFooter,
                     }),
                 });
 

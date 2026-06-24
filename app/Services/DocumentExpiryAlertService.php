@@ -59,6 +59,7 @@ class DocumentExpiryAlertService
             organizationName: (string) $company->name,
             rows: $rows,
             alertWindowDays: $alertDays,
+            includeCompanyFooter: (bool) ($this->resolveAlertTemplate()?->include_company_footer ?? true),
         ));
 
         $this->recordAlerts($documents, $companyId);

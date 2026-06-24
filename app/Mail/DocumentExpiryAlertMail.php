@@ -19,6 +19,7 @@ class DocumentExpiryAlertMail extends Mailable
         public string $organizationName,
         public array $rows,
         public int $alertWindowDays,
+        public bool $includeCompanyFooter = true,
     ) {}
 
     public function envelope(): Envelope

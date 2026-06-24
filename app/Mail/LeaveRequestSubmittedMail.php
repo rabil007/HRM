@@ -28,6 +28,7 @@ class LeaveRequestSubmittedMail extends Mailable implements ShouldQueue
         public string $totalDays,
         public string $reason,
         public string $requestUrl,
+        public bool $includeCompanyFooter = true,
     ) {}
 
     public function envelope(): Envelope

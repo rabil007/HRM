@@ -19,14 +19,20 @@ final class EmailTemplatePreview
             subject: $template->subject,
             bodyHtml: $template->body_html,
             companyId: $companyId,
+            includeCompanyFooter: $template->include_company_footer,
         );
     }
 
     /**
      * @return array{subject: string, html: string}
      */
-    public function renderFromStrings(string $slug, string $subject, string $bodyHtml, ?int $companyId = null): array
-    {
+    public function renderFromStrings(
+        string $slug,
+        string $subject,
+        string $bodyHtml,
+        ?int $companyId = null,
+        bool $includeCompanyFooter = true,
+    ): array {
         $organizationName = $this->resolveOrganizationName($companyId);
         $placeholders = $this->samplePlaceholders($organizationName);
         $renderedSubject = $this->applyPlaceholders($subject, $placeholders);
@@ -38,10 +44,11 @@ final class EmailTemplatePreview
                 organizationName: $organizationName,
                 introMessage: trim($renderedBody),
                 placeholders: $placeholders,
+                includeCompanyFooter: $includeCompanyFooter,
             ),
-            'document_expiry_alert' => $this->renderDocumentExpiryAlert($organizationName),
-            'document_share' => $this->renderDocumentShare($organizationName, $renderedSubject, $renderedBody),
-            default => $this->renderPlainPreview($renderedSubject, $renderedBody),
+            'document_expiry_alert' => $this->renderDocumentExpiryAlert($organizationName, $includeCompanyFooter),
+            'document_share' => $this->renderDocumentShare($organizationName, $renderedSubject, $renderedBody, $includeCompanyFooter),
+            default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
         };
 
         return [
@@ -55,6 +62,7 @@ final class EmailTemplatePreview
         string $organizationName,
         string $introMessage,
         array $placeholders,
+        bool $includeCompanyFooter,
     ): string {
         return View::make('mail.leave-request-submitted', [
             'subjectLine' => $subject,
@@ -71,13 +79,15 @@ final class EmailTemplatePreview
             'totalDays' => $placeholders['{{total_days}}'],
             'reason' => $placeholders['{{reason}}'],
             'requestUrl' => $placeholders['{{request_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }
 
-    private function renderDocumentExpiryAlert(string $organizationName): string
+    private function renderDocumentExpiryAlert(string $organizationName, bool $includeCompanyFooter): string
     {
         return View::make('mail.document-expiry-alert', [
             'organizationName' => $organizationName,
+            'includeCompanyFooter' => $includeCompanyFooter,
             'alertWindowDays' => 30,
             'rows' => [
                 [
@@ -98,13 +108,18 @@ final class EmailTemplatePreview
         ])->render();
     }
 
-    private function renderDocumentShare(string $organizationName, string $subject, string $body): string
-    {
+    private function renderDocumentShare(
+        string $organizationName,
+        string $subject,
+        string $body,
+        bool $includeCompanyFooter,
+    ): string {
         return View::make('mail.documents-shared', [
             'organizationName' => $organizationName,
             'senderName' => 'HR Team',
             'subjectLine' => $subject,
             'bodyMessage' => $body,
+            'includeCompanyFooter' => $includeCompanyFooter,
             'attachmentSummaries' => [
                 ['name' => 'Passport.pdf', 'size_bytes' => 245_760],
                 ['name' => 'Visa.pdf', 'size_bytes' => 184_320],
@@ -112,11 +127,12 @@ final class EmailTemplatePreview
         ])->render();
     }
 
-    private function renderPlainPreview(string $subject, string $body): string
+    private function renderPlainPreview(string $subject, string $body, bool $includeCompanyFooter): string
     {
         return View::make('mail.email-template-plain-preview', [
             'subjectLine' => $subject,
             'bodyMessage' => $body,
+            'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }
 

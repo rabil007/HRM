@@ -91,11 +91,15 @@
         <td align="center">
             <table role="presentation" class="email-card" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background-color:#ffffff;border:1px solid #e4e4e7;border-radius:16px;overflow:hidden;">
                 @yield('content')
-                @include('mail.partials.branding-footer')
+                @if ($includeCompanyFooter ?? true)
+                    @include('mail.partials.branding-footer')
+                @endif
             </table>
+            @if ($includeCompanyFooter ?? true)
             <p class="email-footer-copy" style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#a1a1aa;text-align:center;">
                 &copy; {{ now()->year }} {{ $mailBranding['brand_name'] ?? config('app.name') }}. All rights reserved.
             </p>
+            @endif
         </td>
     </tr>
 </table>

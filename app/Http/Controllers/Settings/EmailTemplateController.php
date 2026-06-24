@@ -124,6 +124,7 @@ class EmailTemplateController extends Controller
             subject: $validated['subject'],
             bodyHtml: $validated['body_html'],
             companyId: $companyId > 0 ? $companyId : null,
+            includeCompanyFooter: (bool) ($validated['include_company_footer'] ?? true),
         );
 
         return response()->json($preview);

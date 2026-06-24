@@ -64,6 +64,7 @@ abstract class EmailTemplateRequest extends FormRequest
             'dispatch_at' => ['nullable', 'string', 'regex:/^([01]\d|2[0-3]):[0-5]\d$/'],
             'subject' => ['required', 'string', 'max:255'],
             'body_html' => ['required', 'string', 'max:65535'],
+            'include_company_footer' => ['required', 'boolean'],
             'is_default' => ['required', 'boolean'],
             'enabled' => ['required', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:9999'],

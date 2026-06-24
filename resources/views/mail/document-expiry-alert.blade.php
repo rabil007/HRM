@@ -1,4 +1,4 @@
-@extends('mail.layout')
+@extends('mail.layout', ['includeCompanyFooter' => $includeCompanyFooter ?? true])
 
 @section('title', "Document Expiry Alert - Next {$alertWindowDays} Days")
 

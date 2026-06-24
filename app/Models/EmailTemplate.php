@@ -27,6 +27,7 @@ class EmailTemplate extends Model
         'dispatch_at',
         'subject',
         'body_html',
+        'include_company_footer',
         'is_default',
         'enabled',
         'sort_order',
@@ -40,6 +41,7 @@ class EmailTemplate extends Model
         return [
             'is_default' => 'boolean',
             'enabled' => 'boolean',
+            'include_company_footer' => 'boolean',
             'sort_order' => 'integer',
             'category' => EmailTemplateCategory::class,
         ];
@@ -125,6 +127,7 @@ class EmailTemplate extends Model
             'dispatch_at' => $this->dispatch_at,
             'subject' => $this->subject,
             'body_html' => $this->body_html,
+            'include_company_footer' => $this->include_company_footer,
             'is_default' => $this->is_default,
             'enabled' => $this->enabled,
             'sort_order' => $this->sort_order,
