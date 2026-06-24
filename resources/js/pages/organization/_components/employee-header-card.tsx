@@ -10,6 +10,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { DeploymentStatusBadge } from '@/features/organization/crew-deployments/deployment-status-badge';
 import { EmployeeAvatar } from '@/features/organization/employees/components/employee-avatar';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
@@ -464,17 +465,21 @@ export function EmployeeHeaderCard({
                                         highlightMissing={isMissingRequired(item.field)}
                                     />
                                 ))}
-                                <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
-                                    <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                        Manager
-                                    </div>
-                                    <div className="mt-0.5 truncate font-medium text-foreground">
-                                        {employee.manager?.employee_no
-                                            ? `${employee.manager.employee_no} — ${employee.manager.name ?? '—'}`
-                                            : (employee.manager?.name ?? '—')}
-                                    </div>
-                                    <div className="mt-1 text-[10px] text-muted-foreground">Managed via department</div>
-                                </div>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="rounded-lg border border-border/60 bg-muted/20 px-2.5 py-2">
+                                            <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                                Manager
+                                            </div>
+                                            <div className="mt-0.5 truncate font-medium text-foreground">
+                                                {employee.manager?.name ?? '—'}
+                                            </div>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="text-xs">
+                                        Managed via department
+                                    </TooltipContent>
+                                </Tooltip>
                             </div>
                         </div>
 
