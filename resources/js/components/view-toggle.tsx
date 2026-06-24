@@ -1,4 +1,4 @@
-import { Folder, LayoutGrid, List, Pin } from 'lucide-react';
+import { Folder, LayoutGrid, List, Network, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { setOrganizationDefaultView } from '@/hooks/use-view-preference';
 import type { ViewPreference } from '@/hooks/use-view-preference';
@@ -10,7 +10,9 @@ export function ViewToggle({
     gridLabel = 'Grid view',
     listLabel = 'List view',
     employeeLabel = 'By employee',
+    treeLabel = 'Tree view',
     showEmployeeView = false,
+    showTreeView = false,
     defaultLabel = 'Set as default',
 }: {
     value: ViewPreference;
@@ -18,7 +20,9 @@ export function ViewToggle({
     gridLabel?: string;
     listLabel?: string;
     employeeLabel?: string;
+    treeLabel?: string;
     showEmployeeView?: boolean;
+    showTreeView?: boolean;
     defaultLabel?: string;
 }) {
     return (
@@ -41,6 +45,17 @@ export function ViewToggle({
             >
                 <List className="h-4 w-4" />
             </Button>
+            {showTreeView ? (
+                <Button
+                    type="button"
+                    variant={value === 'tree' ? 'default' : 'ghost'}
+                    className={value === 'tree' ? 'rounded-lg h-11 px-3' : 'rounded-lg h-11 px-3 hover:bg-accent'}
+                    onClick={() => onChange('tree')}
+                    title={treeLabel}
+                >
+                    <Network className="h-4 w-4" aria-hidden />
+                </Button>
+            ) : null}
             {showEmployeeView ? (
                 <Button
                     type="button"

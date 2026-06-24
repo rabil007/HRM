@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-export type ViewPreference = 'grid' | 'list' | 'employee';
+export type ViewPreference = 'grid' | 'list' | 'employee' | 'tree';
 
 const DEFAULT_VIEW_STORAGE_KEY = 'view:default';
 
@@ -35,7 +35,7 @@ export function setOrganizationDefaultView(next: ViewPreference): void {
 
 export function useViewPreference(storageKey: string, defaultValue: ViewPreference = 'grid') {
     const isValid = (v: string | null): v is ViewPreference =>
-        v === 'grid' || v === 'list' || v === 'employee';
+        v === 'grid' || v === 'list' || v === 'employee' || v === 'tree';
 
     const getSnapshot = (): ViewPreference => {
         if (typeof window === 'undefined') {

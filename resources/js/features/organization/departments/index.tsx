@@ -30,10 +30,12 @@ import { DepartmentDeleteDialog } from './components/department-delete-dialog';
 import { DepartmentFiltersSheet } from './components/department-filters-sheet';
 import type { DepartmentFilters } from './components/department-filters-sheet';
 import { DepartmentFormSheet } from './components/department-form-sheet';
+import { DepartmentTreeView } from './components/department-tree-view';
 import type { Branch, Department, DepartmentFormData, DepartmentParentOption, Manager } from './types';
 
 export function DepartmentsContent({
     departments,
+    all_departments,
     pagination,
     search: initialSearch,
     filters: initialFilters,
@@ -42,6 +44,7 @@ export function DepartmentsContent({
     managers,
 }: {
     departments: Department[];
+    all_departments: any[];
     pagination: PaginationMeta;
     search: string;
     filters: { branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
@@ -216,7 +219,7 @@ params.set('code', initialFilters.code);
                 onChange={list.onSearchChange}
                 right={
                     <>
-                        <ViewToggle value={view} onChange={setView} />
+                        <ViewToggle value={view} onChange={setView} showTreeView={true} />
                         <Button
                             type="button"
                             variant="secondary"
@@ -235,7 +238,11 @@ params.set('code', initialFilters.code);
                 }
             />
 
-            {view === 'grid' ? (
+            {view === 'tree' ? (
+                <DepartmentTreeView
+                    departments={all_departments}
+                />
+            ) : view === 'grid' ? (
                 <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                     {departments.map((department) => (
                         <DepartmentCard
@@ -284,27 +291,27 @@ params.set('code', initialFilters.code);
                                             </div>
                                         </TableCell>
                                         <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/departments/${department.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(department);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDelete(department);
-                                                }}
-                                            />
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                </OrganizationDataTable>
+                                                <ListTableCrudActions
+                                                    viewHref={`/organization/departments/${department.id}`}
+                                                    onEdit={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(department);
+                                                    }}
+                                                    onDelete={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(department);
+                                                    }}
+                                                />
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                    </OrganizationDataTable>
             )}
 
-            {departments.length === 0 ? <EmptyState title="No departments found." /> : null}
+            {view !== 'tree' && departments.length === 0 ? <EmptyState title="No departments found." /> : null}
 
-            <Pagination {...list.paginationProps} label="departments" />
+            {view !== 'tree' ? <Pagination {...list.paginationProps} label="departments" /> : null}
 
             <DepartmentFormSheet
                 open={isSheetOpen}

@@ -1,0 +1,87 @@
+.org-tree {
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+    padding: 2rem;
+}
+
+.org-tree ul {
+    padding-top: 20px;
+    position: relative;
+    transition: all 0.5s;
+    display: flex;
+    justify-content: center;
+    padding-left: 0;
+}
+
+.org-tree li {
+    float: left;
+    text-align: center;
+    list-style-type: none;
+    position: relative;
+    padding: 20px 10px 0 10px;
+    transition: all 0.5s;
+}
+
+/* We will use ::before and ::after to draw the connectors */
+.org-tree li::before,
+.org-tree li::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 50%;
+    border-top: 1.5px solid var(--border);
+    width: 50%;
+    height: 20px;
+}
+
+.org-tree li::after {
+    right: auto;
+    left: 50%;
+    border-left: 1.5px solid var(--border);
+}
+
+/* We need to remove left-right connectors from elements without any siblings */
+.org-tree li:only-child::after,
+.org-tree li:only-child::before {
+    display: none;
+}
+
+/* Remove space from the top of single children */
+.org-tree li:only-child {
+    padding-top: 0;
+}
+
+/* Remove left connector from first child and right connector from last child */
+.org-tree li:first-child::before,
+.org-tree li:last-child::after {
+    border: 0 none;
+}
+
+/* Adding back the vertical connector to the last nodes */
+.org-tree li:last-child::before {
+    border-right: 1.5px solid var(--border);
+    border-radius: 0 4px 0 0;
+}
+
+.org-tree li:first-child::after {
+    border-radius: 4px 0 0 0;
+}
+
+/* Time to add downward connectors from parents */
+.org-tree ul ul::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    border-left: 1.5px solid var(--border);
+    width: 0;
+    height: 20px;
+    transform: translateX(-50%);
+}
+
+.org-tree-node {
+    display: inline-block;
+    position: relative;
+    z-index: 10;
+}

@@ -5,6 +5,7 @@ import type { PaginationMeta } from '@/types/pagination';
 
 export default function Departments({
     departments,
+    all_departments,
     pagination,
     search,
     filters,
@@ -13,6 +14,7 @@ export default function Departments({
     managers,
 }: {
     departments: Department[];
+    all_departments: any[];
     pagination: PaginationMeta;
     search: string;
     filters: { branch_id: string; parent_id: string; manager_id: string; status: string; code: string };
@@ -25,6 +27,7 @@ export default function Departments({
             <Head title="Departments Management" />
             <DepartmentsContent
                 departments={departments}
+                all_departments={all_departments}
                 pagination={pagination}
                 search={search}
                 filters={filters}

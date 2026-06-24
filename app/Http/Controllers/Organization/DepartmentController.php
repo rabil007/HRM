@@ -99,8 +99,37 @@ class DepartmentController extends Controller
             'created_at' => $department->created_at,
         ]);
 
+        $allDepartments = Department::query()
+            ->with([
+                'branch:id,name',
+                'parent:id,name',
+                'manager:id,name',
+            ])
+            ->where('company_id', $companyId)
+            ->withCount(['positions', 'employees as users_count'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($department) => [
+                'id' => $department->id,
+                'parent_id' => $department->parent_id,
+                'name' => $department->name,
+                'code' => $department->code,
+                'status' => $department->status,
+                'manager' => $department->manager_id ? [
+                    'id' => $department->manager_id,
+                    'name' => $department->manager?->name,
+                ] : null,
+                'branch' => $department->branch_id ? [
+                    'id' => $department->branch_id,
+                    'name' => $department->branch?->name,
+                ] : null,
+                'positions_count' => $department->positions_count,
+                'users_count' => $department->users_count,
+            ]);
+
         return Inertia::render('organization/departments', [
             'departments' => $departments->items(),
+            'all_departments' => $allDepartments,
             'pagination' => $this->paginationMeta($paginator),
             'search' => $search,
             'filters' => [
