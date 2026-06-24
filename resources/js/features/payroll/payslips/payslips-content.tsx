@@ -25,15 +25,15 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from '../components/payroll-category-badge';
 import { formatTimesheetAmount } from '../types';
 import type { PayslipListItem, PayslipsFilters } from './types';
-import type { PaginationMeta } from '@/types/pagination';
 
 export function PayslipsContent({
     records,
