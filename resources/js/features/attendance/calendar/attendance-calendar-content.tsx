@@ -121,8 +121,8 @@ export function AttendanceCalendarContent({
                 title="Leave Calendar"
                 description={
                     canCreateFromCalendar
-                        ? 'Approved leave for the selected employee. Drag across days to create a leave request.'
-                        : 'Approved leave for the selected employee.'
+                        ? 'Approved leave for the selected employee. Hover or click colored days for details. Drag across empty days to create a request.'
+                        : 'Approved leave for the selected employee. Hover or click colored days for details.'
                 }
             />
 

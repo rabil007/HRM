@@ -3,6 +3,7 @@ import type { PointerEvent } from 'react';
 import { useMemo } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { buildMonthGrid, getIsoWeekNumber } from '../lib/build-month-grid';
@@ -43,6 +44,28 @@ function LeaveDayDetails({ leaves }: { leaves: CalendarLeave[] }) {
     );
 }
 
+function LeaveDayTooltipContent({ leaves }: { leaves: CalendarLeave[] }) {
+    return (
+        <div className="space-y-2 text-left">
+            {leaves.map((leave) => (
+                <div key={leave.id} className="space-y-0.5">
+                    <div className="flex items-center gap-2 font-semibold">
+                        <span
+                            className="size-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: leave.leave_type?.color ?? FALLBACK_LEAVE_COLOR }}
+                        />
+                        <span>{leave.leave_type?.name ?? 'Leave'}</span>
+                    </div>
+                    <div className="pl-4 text-[11px] text-muted-foreground">
+                        {formatDisplayDate(leave.start_date)} — {formatDisplayDate(leave.end_date)}
+                    </div>
+                </div>
+            ))}
+            <p className="text-[10px] text-muted-foreground/80">Click for details</p>
+        </div>
+    );
+}
+
 function DayCell({
     date,
     day,
@@ -70,21 +93,23 @@ function DayCell({
 }) {
     const hasLeave = leaves.length > 0;
     const primaryColor = leaves[0]?.leave_type?.color ?? FALLBACK_LEAVE_COLOR;
+    const showSelectionHighlight = isInSelection && (!hasLeave || isSelecting);
 
     const cell = (
         <div
             className={cn(
                 'relative flex aspect-square w-full max-w-8 items-center justify-center rounded-lg text-[11px] font-semibold transition-all duration-200',
                 !inMonth && 'text-muted-foreground/30',
-                inMonth && !hasLeave && !isInSelection && 'text-foreground/80 hover:bg-muted/50 dark:hover:bg-white/6',
-                inMonth && isWeekend && !hasLeave && !isInSelection && 'bg-muted/20 dark:bg-white/3',
-                inMonth && hasLeave && !isInSelection && 'text-white shadow-sm hover:scale-105 hover:shadow-md',
-                inMonth && isInSelection && 'bg-primary/25 text-primary ring-1 ring-primary/40',
+                inMonth && !hasLeave && !showSelectionHighlight && 'text-foreground/80 hover:bg-muted/50 dark:hover:bg-white/6',
+                inMonth && isWeekend && !hasLeave && !showSelectionHighlight && 'bg-muted/20 dark:bg-white/3',
+                inMonth && hasLeave && !showSelectionHighlight && 'text-white shadow-sm hover:scale-105 hover:shadow-md',
+                inMonth && showSelectionHighlight && 'bg-primary/25 text-primary ring-1 ring-primary/40',
                 isToday && 'ring-2 ring-primary ring-offset-2 ring-offset-background',
-                canCreate && 'cursor-cell touch-none select-none',
+                canCreate && !hasLeave && 'cursor-cell touch-none select-none',
+                hasLeave && !isSelecting && 'cursor-pointer',
             )}
             style={
-                inMonth && hasLeave && !isInSelection
+                inMonth && hasLeave && !showSelectionHighlight
                     ? {
                           backgroundColor: primaryColor,
                           boxShadow: `0 4px 14px ${primaryColor}40`,
@@ -107,7 +132,7 @@ function DayCell({
         </div>
     );
 
-    const selectionHandlers = canCreate
+    const emptyDaySelectionHandlers = canCreate
         ? {
               onPointerDown: (event: PointerEvent) => {
                   event.preventDefault();
@@ -119,9 +144,17 @@ function DayCell({
           }
         : {};
 
+    const leaveDayDragExtendHandlers = isSelecting
+        ? {
+              onPointerEnter: () => {
+                  onExtendSelection(date);
+              },
+          }
+        : {};
+
     if (!hasLeave) {
         return (
-            <div className="w-full" {...selectionHandlers}>
+            <div className="w-full" {...emptyDaySelectionHandlers}>
                 {cell}
             </div>
         );
@@ -129,7 +162,7 @@ function DayCell({
 
     if (isSelecting) {
         return (
-            <div className="w-full" {...selectionHandlers}>
+            <div className="w-full" {...leaveDayDragExtendHandlers}>
                 {cell}
             </div>
         );
@@ -137,15 +170,21 @@ function DayCell({
 
     return (
         <Popover>
-            <PopoverTrigger asChild>
-                <button
-                    type="button"
-                    className="w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    {...selectionHandlers}
-                >
-                    {cell}
-                </button>
-            </PopoverTrigger>
+            <Tooltip delayDuration={250}>
+                <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                        <button
+                            type="button"
+                            className="w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                            {cell}
+                        </button>
+                    </PopoverTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="top" align="center" className="max-w-56 p-3">
+                    <LeaveDayTooltipContent leaves={leaves} />
+                </TooltipContent>
+            </Tooltip>
             <PopoverContent side="top" align="center" className="w-64 p-3">
                 <LeaveDayDetails leaves={leaves} />
             </PopoverContent>
