@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { Eye, Filter } from 'lucide-react';
 import { useState } from 'react';
-import { index as recordsIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollRecordController';
 import { show as payrollShow } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import { index as recordsIndex } from '@/actions/App/Http/Controllers/Payroll/PayrollRecordController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -23,12 +23,12 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 import { PayrollCategoryBadge } from '../components/payroll-category-badge';
+import { formatTimesheetAmount } from '../types';
+import type { PayrollCategoryOption } from '../types';
 import { PayrollRecordsFiltersSheet } from './components/payroll-records-filters-sheet';
 import type { PayrollRecordIndexItem, PayrollRecordsFilters } from './types';
-import { formatTimesheetAmount } from '../types';
-import type { PaginationMeta } from '@/types/pagination';
-import type { PayrollCategoryOption } from '../types';
 
 export function PayrollRecordsContent({
     records,

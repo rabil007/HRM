@@ -1,9 +1,9 @@
 import { Head } from '@inertiajs/react';
 import { PayrollRecordsContent } from '@/features/payroll/records/payroll-records-content';
 import type { PayrollRecordsFilters } from '@/features/payroll/records/types';
+import type { PayrollRecordIndexItem } from '@/features/payroll/records/types';
 import type { PayrollCategoryOption } from '@/features/payroll/types';
 import type { PaginationMeta } from '@/types/pagination';
-import type { PayrollRecordIndexItem } from '@/features/payroll/records/types';
 
 export default function PayrollRecords({
     records,

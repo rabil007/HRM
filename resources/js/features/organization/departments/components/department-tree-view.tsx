@@ -1,8 +1,8 @@
-import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Network, FoldVertical, UnfoldVertical } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
 // We define a Tree Node type which extends the flat department
@@ -32,11 +32,13 @@ export function buildTree(departments: any[]): DepartmentTreeNode[] {
     // Build the tree
     departments.forEach((dept) => {
         const node = map.get(dept.id);
+
         if (node) {
             if (dept.parent_id === null) {
                 roots.push(node);
             } else {
                 const parent = map.get(dept.parent_id);
+
                 if (parent) {
                     parent.children.push(node);
                 } else {

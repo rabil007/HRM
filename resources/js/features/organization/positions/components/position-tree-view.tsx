@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { Network, Briefcase, FoldVertical, UnfoldVertical } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -71,10 +71,14 @@ export function buildOrgTree(departments: TreeDepartment[], positions: TreePosit
     // 3. Link Departments to Parent Departments
     departments.forEach((dept) => {
         const node = nodeMap.get(`dept-${dept.id}`);
-        if (!node) return;
+
+        if (!node) {
+return;
+}
 
         if (dept.parent_id !== null) {
             const parent = nodeMap.get(`dept-${dept.parent_id}`);
+
             if (parent) {
                 parent.children.push(node);
             } else {
@@ -88,10 +92,14 @@ export function buildOrgTree(departments: TreeDepartment[], positions: TreePosit
     // 4. Link Positions to Departments
     positions.forEach((pos) => {
         const node = nodeMap.get(`pos-${pos.id}`);
-        if (!node) return;
+
+        if (!node) {
+return;
+}
 
         if (pos.department_id !== null) {
             const parent = nodeMap.get(`dept-${pos.department_id}`);
+
             if (parent) {
                 parent.children.push(node);
             } else {

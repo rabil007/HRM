@@ -8,6 +8,7 @@ export function submitWpsExport(periodId: number, format: WpsExportFormat = 'sif
     form.action = exportWps.url();
 
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
+
     if (csrf) {
         const tokenInput = document.createElement('input');
         tokenInput.type = 'hidden';

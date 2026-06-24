@@ -8,12 +8,12 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import type { OfficePayrollRecordListItem } from '../types';
+import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 import {
     PayrollRecordPayslipActionsCell,
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
-import type { OfficePayrollRecordListItem } from '../types';
-import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 
 export function OfficePayrollRecordsTable({
     records,

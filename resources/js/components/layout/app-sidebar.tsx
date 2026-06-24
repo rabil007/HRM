@@ -32,10 +32,12 @@ export function AppSidebar() {
     useEffect(() => {
         const timeout = setTimeout(() => {
             const activeElement = document.querySelector('[data-sidebar="content"] [data-active="true"]');
+
             if (activeElement) {
                 activeElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         }, 100);
+
         return () => clearTimeout(timeout);
     }, [pageUrl]);
 

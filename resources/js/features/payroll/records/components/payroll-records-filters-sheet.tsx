@@ -29,6 +29,7 @@ export function PayrollRecordsFiltersSheet({
 
     if (open !== prevOpen) {
         setPrevOpen(open);
+
         if (open) {
             setDraft(filters);
         }

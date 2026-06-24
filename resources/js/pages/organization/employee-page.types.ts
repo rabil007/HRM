@@ -7,7 +7,6 @@ import type {
     CountryOption,
     DepartmentOption,
     GenderOption,
-    ManagerOption,
     PositionOption,
     RankOption,
     ReligionOption,

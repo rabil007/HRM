@@ -5,7 +5,6 @@ import {
     email as emailPayslips,
     generate as generatePayslips,
 } from '@/actions/App/Http/Controllers/Payroll/PayslipController';
-import { WpsExportButton } from '../wps/wps-export-button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -29,6 +28,7 @@ import type {
     PayslipSummary,
     WpsPreview,
 } from '../types';
+import { WpsExportButton } from '../wps/wps-export-button';
 
 export function PayrollPeriodDeliveryPanel({
     period,
