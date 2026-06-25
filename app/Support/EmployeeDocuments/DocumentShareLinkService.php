@@ -3,6 +3,7 @@
 namespace App\Support\EmployeeDocuments;
 
 use App\Models\EmployeeDocument;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +21,7 @@ class DocumentShareLinkService
             ?? $document->document_type_label);
     }
 
-    public function shareUrl(EmployeeDocument $document): string
+    public function shareUrl(EmployeeDocument $document, ?string $password = null, ?string $expiresAt = null): string
     {
         if (! $this->downloads->isShareable($document)) {
             throw ValidationException::withMessages([
@@ -28,10 +29,17 @@ class DocumentShareLinkService
             ]);
         }
 
+        $expiry = $expiresAt ? Carbon::parse($expiresAt) : now()->addHours(24);
+
+        $params = ['document' => $document->id];
+        if ($password !== null && $password !== '') {
+            $params['pwd_hash'] = hash_hmac('sha256', $password, config('app.key'));
+        }
+
         return URL::temporarySignedRoute(
             'organization.documents.share',
-            now()->addHours(24),
-            ['document' => $document->id],
+            $expiry,
+            $params,
         );
     }
 
@@ -39,13 +47,13 @@ class DocumentShareLinkService
      * @param  Collection<int, EmployeeDocument>  $documents
      * @return list<array{id: int, name: string, share_url: string}>
      */
-    public function sharePayload(Collection $documents): array
+    public function sharePayload(Collection $documents, ?string $password = null, ?string $expiresAt = null): array
     {
         return $documents
             ->map(fn (EmployeeDocument $document): array => [
                 'id' => $document->id,
                 'name' => $this->displayName($document),
-                'share_url' => $this->shareUrl($document),
+                'share_url' => $this->shareUrl($document, $password, $expiresAt),
             ])
             ->values()
             ->all();

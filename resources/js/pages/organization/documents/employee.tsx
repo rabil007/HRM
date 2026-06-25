@@ -43,8 +43,7 @@ import type {
 } from '@/features/organization/documents/shared/types';
 import { useBulkSelection } from '@/features/organization/documents/shared/use-bulk-selection';
 import {
-    buildWhatsAppMessage,
-    fetchDocumentShareLinks,
+    ShareLinksModal,
 } from '@/features/organization/documents/whatsapp-share';
 import { ConfirmSendWhatsAppDocumentDialog } from '@/features/organization/documents/whatsapp-template/confirm-send-dialog';
 import {
@@ -110,7 +109,7 @@ export default function EmployeeDocumentsBrowse({
     const [emailDocuments, setEmailDocuments] = useState<EmailDocumentItem[]>([]);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
-    const [isWhatsAppSharing, setIsWhatsAppSharing] = useState(false);
+    const [shareLinksModalOpen, setShareLinksModalOpen] = useState(false);
     const [whatsappTemplateDocument, setWhatsappTemplateDocument] = useState<{
         id: number;
         name: string;
@@ -233,39 +232,14 @@ export default function EmployeeDocumentsBrowse({
         });
     };
 
-    const handleWhatsAppShare = async () => {
+    const handleWhatsAppShare = () => {
         if (selectedDocumentIds.length === 0) {
             toast.error('Select at least one document to share.');
 
             return;
         }
 
-        setIsWhatsAppSharing(true);
-
-        try {
-            const { documents: shareDocuments } = await fetchDocumentShareLinks(
-                shareLinks.url({ employee: employee.id }),
-                selectedDocumentIds,
-            );
-
-            const message = buildWhatsAppMessage(employee.name, shareDocuments);
-
-            window.open(
-                `https://wa.me/?text=${encodeURIComponent(message)}`,
-                '_blank',
-                'noopener,noreferrer',
-            );
-
-            clearDocumentSelection();
-        } catch (error) {
-            toast.error(
-                error instanceof Error
-                    ? error.message
-                    : 'Failed to generate share links. Please try again.',
-            );
-        } finally {
-            setIsWhatsAppSharing(false);
-        }
+        setShareLinksModalOpen(true);
     };
 
     const handleBulkDelete = () => {
@@ -375,14 +349,10 @@ export default function EmployeeDocumentsBrowse({
                                 size="sm"
                                 variant="outline"
                                 className="rounded-lg"
-                                disabled={isWhatsAppSharing || selectedDocumentCount === 0}
+                                disabled={selectedDocumentCount === 0}
                                 onClick={handleWhatsAppShare}
                             >
-                                {isWhatsAppSharing ? (
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                    <MessageCircle className="mr-2 h-4 w-4" />
-                                )}
+                                <MessageCircle className="mr-2 h-4 w-4" />
                                 Share links
                             </Button>
                         ) : null}
@@ -524,6 +494,15 @@ export default function EmployeeDocumentsBrowse({
                 documents={emailDocuments}
                 emailTemplates={emailTemplates}
                 onSendComplete={clearDocumentSelection}
+            />
+
+            <ShareLinksModal
+                open={shareLinksModalOpen}
+                onOpenChange={setShareLinksModalOpen}
+                employee={employee}
+                documentIds={selectedDocumentIds}
+                shareLinksUrl={shareLinks.url({ employee: employee.id })}
+                onComplete={clearDocumentSelection}
             />
 
             <ConfirmSendWhatsAppDocumentDialog

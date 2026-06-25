@@ -194,3 +194,59 @@ test('share links request rejects documents with missing files', function () {
     ])->assertUnprocessable()
         ->assertJsonValidationErrors(['document_ids']);
 });
+
+test('users can request share links with password and custom expiration', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.share']);
+
+    $path = "employee-documents/{$company->id}/{$employee->id}/passport/a.pdf";
+    $doc = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport.pdf');
+
+    $expiryDate = now()->addDays(5)->toDateTimeString();
+
+    $response = $this->postJson(route('organization.documents.employee.files.share-links', $employee), [
+        'document_ids' => [$doc->id],
+        'password' => 'secret123',
+        'expires_at' => $expiryDate,
+    ])->assertOk();
+
+    $shareUrl = $response->json('documents.0.share_url');
+    expect($shareUrl)->toBeString()
+        ->and($shareUrl)->toContain('pwd_hash=')
+        ->and($shareUrl)->toContain('expires=');
+});
+
+test('password protected share link requires password input', function () {
+    Storage::fake('public');
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    $path = "employee-documents/{$company->id}/{$employee->id}/passport/passport.pdf";
+    $document = createEmployeePdfDocument($company->id, $employee->id, $passportType->id, $path, 'Passport Copy.pdf');
+
+    $shareUrl = app(DocumentShareLinkService::class)->shareUrl($document, 'secret-password');
+
+    // GET request without password renders password prompt view
+    $this->get($shareUrl)
+        ->assertOk()
+        ->assertViewIs('documents.share-password')
+        ->assertSee('This link is password protected')
+        ->assertSee('Passport Copy.pdf');
+
+    // POST request with incorrect password shows error
+    $this->post($shareUrl, ['password' => 'wrong-pass'])
+        ->assertOk()
+        ->assertViewIs('documents.share-password')
+        ->assertSee('Incorrect password. Please try again.');
+
+    // POST request with correct password downloads file
+    $this->post($shareUrl, ['password' => 'secret-password'])
+        ->assertOk()
+        ->assertDownload('Passport_Copy.pdf');
+});

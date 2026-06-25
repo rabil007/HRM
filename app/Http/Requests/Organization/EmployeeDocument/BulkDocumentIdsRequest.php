@@ -19,6 +19,8 @@ class BulkDocumentIdsRequest extends FormRequest
         return [
             'document_ids' => ['required', 'array', 'min:1'],
             'document_ids.*' => ['integer', 'distinct'],
+            'password' => ['nullable', 'string', 'min:1'],
+            'expires_at' => ['nullable', 'date'],
         ];
     }
 }

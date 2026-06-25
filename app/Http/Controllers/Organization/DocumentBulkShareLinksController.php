@@ -29,7 +29,11 @@ class DocumentBulkShareLinksController extends Controller
         );
 
         return response()->json([
-            'documents' => $shareLinks->sharePayload($documents),
+            'documents' => $shareLinks->sharePayload(
+                $documents,
+                $request->validated('password'),
+                $request->validated('expires_at')
+            ),
         ]);
     }
 }

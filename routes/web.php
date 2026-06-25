@@ -69,7 +69,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect()->route('login'))->name('home');
 
-Route::get('organization/documents/share/{document}', DocumentShareController::class)
+Route::match(['get', 'post'], 'organization/documents/share/{document}', DocumentShareController::class)
     ->middleware('signed')
     ->name('organization.documents.share');
 

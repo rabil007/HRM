@@ -19,6 +19,8 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 export async function fetchDocumentShareLinks(
     url: string,
     documentIds: number[],
+    password?: string,
+    expiresAt?: string,
     errorFallback = 'Failed to generate share links. Please try again.',
 ): Promise<ShareLinksResponse> {
     const csrf = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content;
@@ -30,7 +32,11 @@ export async function fetchDocumentShareLinks(
             Accept: 'application/json',
             ...(csrf ? { 'X-CSRF-TOKEN': csrf } : {}),
         },
-        body: JSON.stringify({ document_ids: documentIds }),
+        body: JSON.stringify({
+            document_ids: documentIds,
+            password: password || null,
+            expires_at: expiresAt || null,
+        }),
     });
 
     const contentType = response.headers.get('Content-Type') ?? '';
