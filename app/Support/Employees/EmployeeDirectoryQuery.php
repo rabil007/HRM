@@ -123,7 +123,14 @@ final class EmployeeDirectoryQuery
 
                     $q->whereIn('id', $matchingIds);
                 },
-            );
+            )
+            ->when($filters->roleId, function (Builder $q) use ($filters): void {
+                $q->whereHas('user', function (Builder $inner) use ($filters): void {
+                    $inner->whereHas('roles', function (Builder $r) use ($filters): void {
+                        $r->whereKey($filters->roleId);
+                    });
+                });
+            });
     }
 
     public function base(): Builder

@@ -1,5 +1,5 @@
 import { router, useForm } from '@inertiajs/react';
-import { Filter, Plus } from 'lucide-react';
+import { Filter, Plus, Users } from 'lucide-react';
 import { useState } from 'react';
 import {
     OrganizationDataTable,
@@ -212,17 +212,30 @@ params.set('has_permissions', initialFilters.has_permissions);
                                             {role.permissions.length > 4 ? ` (+${role.permissions.length - 4} more)` : ''}
                                         </TableCell>
                                         <TableCell className={dataTableActionsCellClass()}>
-                                            <ListTableCrudActions
-                                                viewHref={`/organization/roles/${role.id}`}
-                                                onEdit={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEdit(role);
-                                                }}
-                                                onDelete={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDelete(role);
-                                                }}
-                                            />
+                                            <div className="flex items-center justify-end gap-1">
+                                                <Button
+                                                    asChild
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                                                    title="View Assigned Employees"
+                                                >
+                                                    <a href={`/organization/employees?role_id=${role.id}`} onClick={(e) => e.stopPropagation()}>
+                                                        <Users className="h-4 w-4" />
+                                                    </a>
+                                                </Button>
+                                                <ListTableCrudActions
+                                                    viewHref={`/organization/roles/${role.id}`}
+                                                    onEdit={(e) => {
+                                                        e.stopPropagation();
+                                                        handleEdit(role);
+                                                    }}
+                                                    onDelete={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDelete(role);
+                                                    }}
+                                                />
+                                            </div>
                                         </TableCell>
                                     </TableRow>
                                 ))}

@@ -12,6 +12,7 @@ import type {
     ManagerOption,
     PositionOption,
     RankOption,
+    RoleOption,
     SssaOption,
     VisaTypeOption,
 } from '../types';
@@ -30,6 +31,7 @@ export type EmployeeFilters = {
     approval_location_id: string;
     sssa_option_id: string;
     crew_status: string;
+    role_id: string;
 };
 
 export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
@@ -46,6 +48,7 @@ export const EMPTY_EMPLOYEE_FILTERS: EmployeeFilters = {
     approval_location_id: '',
     sssa_option_id: '',
     crew_status: '',
+    role_id: '',
 };
 
 function csvIdSet(csv: string): Set<string> {
@@ -86,6 +89,7 @@ export function EmployeeFiltersSheet({
     approvalLocations,
     sssaOptions,
     ranks,
+    roles,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -102,6 +106,7 @@ export function EmployeeFiltersSheet({
     approvalLocations: ApprovalLocationOption[];
     sssaOptions: SssaOption[];
     ranks: RankOption[];
+    roles: RoleOption[];
 }) {
     const selectedApprovalLocationIds = csvIdSet(value.approval_location_id);
     const selectedSssaOptionIds = csvIdSet(value.sssa_option_id);
@@ -142,6 +147,25 @@ export function EmployeeFiltersSheet({
                         {positions.map((p) => (
                             <AppSelectItem key={p.id} value={String(p.id)}>
                                 {p.title ?? `#${p.id}`}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Role
+                    </Label>
+                    <AppSelect
+                        value={value.role_id}
+                        onValueChange={(v) => onChange({ ...value, role_id: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {roles.map((r) => (
+                            <AppSelectItem key={r.id} value={String(r.id)}>
+                                {r.name}
                             </AppSelectItem>
                         ))}
                     </AppSelect>

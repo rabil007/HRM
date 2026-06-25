@@ -80,6 +80,11 @@ export type BankOption = {
     name: string;
 };
 
+export type RoleOption = {
+    id: number;
+    name: string;
+};
+
 export type CountryOption = {
     id: number;
     name: string;

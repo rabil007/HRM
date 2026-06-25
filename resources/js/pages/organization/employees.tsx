@@ -13,6 +13,7 @@ import type {
     PositionOption,
     RankOption,
     ReligionOption,
+    RoleOption,
     SssaOption,
     UserOption,
     VisaTypeOption,
@@ -40,6 +41,7 @@ export default function Employees({
     sssa_options,
     ranks,
     banks,
+    roles,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -58,6 +60,7 @@ export default function Employees({
         approval_location_id: string;
         sssa_option_id: string;
         crew_status: string;
+        role_id: string;
     };
     department_tree: DepartmentTreeNode[];
     department_tree_selected_id: number | null;
@@ -75,6 +78,7 @@ export default function Employees({
     sssa_options: SssaOption[];
     ranks: RankOption[];
     banks: BankOption[];
+    roles: RoleOption[];
 }) {
     return (
         <>
@@ -100,6 +104,7 @@ export default function Employees({
                 sssa_options={sssa_options}
                 ranks={ranks}
                 banks={banks}
+                roles={roles}
             />
         </>
     );

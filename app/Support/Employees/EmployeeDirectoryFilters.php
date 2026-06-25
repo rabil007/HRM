@@ -21,6 +21,7 @@ final class EmployeeDirectoryFilters
         public readonly string $approvalLocationId = '',
         public readonly string $sssaOptionId = '',
         public readonly string $crewStatus = '',
+        public readonly string $roleId = '',
     ) {}
 
     public static function fromRequest(Request $request): self
@@ -40,6 +41,7 @@ final class EmployeeDirectoryFilters
             approvalLocationId: trim((string) $request->query('approval_location_id', '')),
             sssaOptionId: trim((string) $request->query('sssa_option_id', '')),
             crewStatus: trim((string) $request->query('crew_status', '')),
+            roleId: trim((string) $request->query('role_id', '')),
         );
     }
 
@@ -104,6 +106,10 @@ final class EmployeeDirectoryFilters
 
         if ($this->crewStatus !== '') {
             $query['crew_status'] = $this->crewStatus;
+        }
+
+        if ($this->roleId !== '') {
+            $query['role_id'] = $this->roleId;
         }
 
         return $query;

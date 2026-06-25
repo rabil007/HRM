@@ -22,6 +22,8 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Activitylog\Models\Activity;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 test('guests cannot access employees page', function () {
     $this->get('/organization/employees')->assertRedirect(route('login'));
@@ -2625,4 +2627,67 @@ test('employee update rejects employee number reserved by a soft deleted employe
         ->assertSessionHasErrors('employee_no');
 
     expect($employee->fresh()->employee_no)->toBe('DRAFT-NEW');
+});
+
+test('employee directory index can be filtered by role', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'ERF',
+        'name' => 'Role Filter Land',
+        'dial_code' => '+972',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'ERF',
+        'name' => 'Role Filter Currency',
+        'symbol' => 'R$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Role Filter Co',
+        'slug' => 'role-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Engineer',
+        'guard_name' => 'web',
+    ]);
+
+    $userWithRole = User::factory()->create(['company_id' => $company->id]);
+    $userWithRole->assignRole($role);
+
+    $matchedEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'ERF001',
+        'user_id' => $userWithRole->id,
+    ]);
+
+    // Create another employee without the role
+    $otherUser = User::factory()->create(['company_id' => $company->id]);
+    Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'ERF002',
+        'user_id' => $otherUser->id,
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view']);
+
+    $response = $this->get('/organization/employees?'.http_build_query([
+        'role_id' => $role->id,
+    ]))->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['employees'])->pluck('id')->all();
+
+    expect($ids)->toBe([$matchedEmployee->id]);
 });

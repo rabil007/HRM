@@ -15,6 +15,7 @@ export type EmployeeListQuery = {
     approval_location_id?: string;
     sssa_option_id?: string;
     crew_status?: string;
+    role_id?: string;
 };
 
 export function buildEmployeeListQuery(
@@ -77,6 +78,10 @@ export function buildEmployeeListQuery(
 
     if (filters.crew_status) {
         query.crew_status = filters.crew_status;
+    }
+
+    if (filters.role_id) {
+        query.role_id = filters.role_id;
     }
 
     return query;

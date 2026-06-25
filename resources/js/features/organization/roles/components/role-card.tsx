@@ -1,4 +1,4 @@
-import { Eye, Pencil, Shield, Trash2 } from 'lucide-react';
+import { Eye, Pencil, Shield, Trash2, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -55,6 +55,18 @@ export function RoleCard({
                     >
                         <a href={`/organization/roles/${role.id}`} onClick={(e) => e.stopPropagation()}>
                             <Eye className="h-4 w-4" />
+                        </a>
+                    </Button>
+                    <Button
+                        asChild
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
+                        title="View Employees"
+                    >
+                        <a href={`/organization/employees?role_id=${role.id}`} onClick={(e) => e.stopPropagation()}>
+                            <Users className="h-4 w-4" />
                         </a>
                     </Button>
                     <Button

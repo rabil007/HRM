@@ -18,6 +18,7 @@ use App\Models\SssaOption;
 use App\Models\User;
 use App\Models\VisaType;
 use Illuminate\Support\Collection;
+use Spatie\Permission\Models\Role;
 
 final class EmployeeFormOptions
 {
@@ -37,7 +38,8 @@ final class EmployeeFormOptions
      *     approval_locations: Collection,
      *     sssa_options: Collection,
      *     ranks: Collection,
-     *     banks: Collection
+     *     banks: Collection,
+     *     roles: Collection
      * }
      */
     public static function for(int $companyId): array
@@ -56,6 +58,7 @@ final class EmployeeFormOptions
             'sssa_options' => self::sssaOptions(),
             'ranks' => self::activeRanks(),
             'banks' => self::banks(),
+            'roles' => self::roles($companyId),
         ];
     }
 
@@ -286,6 +289,14 @@ final class EmployeeFormOptions
             ->where('is_active', true)
             ->orderBy('title')
             ->get(['id', 'title']));
+    }
+
+    private static function roles(int $companyId)
+    {
+        return once(fn () => Role::query()
+            ->where('company_id', $companyId)
+            ->orderBy('name')
+            ->get(['id', 'company_id', 'name']));
     }
 
     /**

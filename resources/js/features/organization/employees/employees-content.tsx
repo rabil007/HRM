@@ -51,6 +51,7 @@ import type {
     PositionOption,
     RankOption,
     ReligionOption,
+    RoleOption,
     SssaOption,
     UserOption,
     VisaTypeOption,
@@ -77,6 +78,7 @@ export function EmployeesContent({
     sssa_options,
     ranks,
     banks: _banks,
+    roles,
 }: {
     employees: Employee[];
     pagination: PaginationMeta;
@@ -98,6 +100,7 @@ export function EmployeesContent({
     sssa_options: SssaOption[];
     ranks: RankOption[];
     banks: BankOption[];
+    roles: RoleOption[];
 }) {
     void _users;
     void _religions;
@@ -130,6 +133,7 @@ export function EmployeesContent({
         approval_location_id: initialFilters.approval_location_id ?? '',
         sssa_option_id: initialFilters.sssa_option_id ?? '',
         crew_status: initialFilters.crew_status ?? '',
+        role_id: initialFilters.role_id ?? '',
     };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
@@ -478,6 +482,7 @@ params.set('search', initialSearch);
                 approvalLocations={approval_locations}
                 sssaOptions={sssa_options}
                 ranks={ranks}
+                roles={roles}
             />
 
             <EmployeeDeleteDialog

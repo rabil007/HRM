@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Search, Shield, CheckCircle2, Circle, LayoutGrid } from 'lucide-react';
+import { Search, Shield, CheckCircle2, Circle, LayoutGrid, Users } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { DetailsHeader } from '@/components/details-header';
 import { Main } from '@/components/layout/main';
@@ -140,24 +140,36 @@ return name;
                     backHref="/organization/roles"
                     backLabel="Back to roles"
                     actions={
-                        <Button
-                            className="rounded-xl h-11 px-5"
-                            onClick={() => {
-                                router.put(
-                                    `/organization/roles/${role.id}`,
-                                    {
-                                        name: form.data.name,
-                                        permissions: selectedPermissions,
-                                    },
-                                    {
-                                        preserveScroll: true,
-                                    },
-                                );
-                            }}
-                            disabled={form.processing}
-                        >
-                            Save
-                        </Button>
+                        <div className="flex items-center gap-3">
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="rounded-xl h-11 px-5 border-border bg-card dark:border-white/10 dark:bg-white/5"
+                            >
+                                <a href={`/organization/employees?role_id=${role.id}`}>
+                                    <Users className="mr-2 h-4 w-4" />
+                                    View Employees
+                                </a>
+                            </Button>
+                            <Button
+                                className="rounded-xl h-11 px-5"
+                                onClick={() => {
+                                    router.put(
+                                        `/organization/roles/${role.id}`,
+                                        {
+                                            name: form.data.name,
+                                            permissions: selectedPermissions,
+                                        },
+                                        {
+                                            preserveScroll: true,
+                                        },
+                                    );
+                                }}
+                                disabled={form.processing}
+                            >
+                                Save
+                            </Button>
+                        </div>
                     }
                 />
 
