@@ -273,6 +273,48 @@ test('users with permission can replace a document file and keep version history
     ]);
 });
 
+test('users with permission can replace a document file and update document number, issue date and expiry date', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    ['company' => $company, 'employee' => $employee, 'passportType' => $passportType] = makeDocumentFixtures();
+
+    grantCompanyPermissions($user, $company, ['documents.upload']);
+
+    $doc = EmployeeDocument::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'document_type_id' => $passportType->id,
+        'type' => 'other',
+        'document_type' => (string) $passportType->id,
+        'file_path' => 'employee-documents/test/old.pdf',
+        'original_filename' => 'old.pdf',
+        'mime_type' => 'application/pdf',
+        'current_version' => 1,
+        'document_number' => 'OLD-NUM-123',
+        'issue_date' => '2026-01-01',
+        'expiry_date' => '2027-01-01',
+        'status' => 'valid',
+    ]);
+
+    $this->post("/organization/employees/{$employee->id}/documents/{$doc->id}/replace", [
+        'file' => UploadedFile::fake()->create('new.pdf', 100, 'application/pdf'),
+        'document_number' => 'NEW-NUM-456',
+        'issue_date' => '2026-06-01',
+        'expiry_date' => '2028-02-02',
+    ])->assertRedirect();
+
+    $doc->refresh();
+
+    expect($doc->current_version)->toBe(2);
+    expect($doc->document_number)->toBe('NEW-NUM-456');
+    expect($doc->issue_date->toDateString())->toBe('2026-06-01');
+    expect($doc->expiry_date->toDateString())->toBe('2028-02-02');
+    expect($doc->status)->toBe('valid');
+});
+
 test('documents folder index lists employees with uploads', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

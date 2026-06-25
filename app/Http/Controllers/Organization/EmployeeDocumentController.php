@@ -140,7 +140,14 @@ class EmployeeDocumentController extends Controller
 
         DocumentAccess::assertDocumentBelongsToEmployee($employee, $document, $companyId);
 
-        $store->replace($document, $request->file('file'), $companyId, $employee->id, $request->user()?->id);
+        $store->replace(
+            $document,
+            $request->file('file'),
+            $companyId,
+            $employee->id,
+            $request->user()?->id,
+            $request->validated()
+        );
 
         return back()->with('success', 'Document file replaced.');
     }

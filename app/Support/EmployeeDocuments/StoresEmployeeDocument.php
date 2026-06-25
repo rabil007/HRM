@@ -47,12 +47,12 @@ class StoresEmployeeDocument
         }
     }
 
-    public function replace(EmployeeDocument $document, UploadedFile $file, int $companyId, int $employeeId, ?int $userId): EmployeeDocument
+    public function replace(EmployeeDocument $document, UploadedFile $file, int $companyId, int $employeeId, ?int $userId, array $data = []): EmployeeDocument
     {
         $prepared = $this->optimizer->prepare($file);
 
         try {
-            return DB::transaction(function () use ($document, $prepared, $file, $companyId, $employeeId, $userId) {
+            return DB::transaction(function () use ($document, $prepared, $file, $companyId, $employeeId, $userId, $data) {
                 EmployeeDocumentVersion::query()->create([
                     'employee_document_id' => $document->id,
                     'company_id' => $document->company_id,
@@ -74,6 +74,10 @@ class StoresEmployeeDocument
 
                 $path = $this->storeFile($prepared->file, $companyId, $employeeId, $segment);
 
+                $expiryDate = array_key_exists('expiry_date', $data)
+                    ? ($data['expiry_date'] ?? null)
+                    : $document->expiry_date?->toDateString();
+
                 $document->update([
                     'file_path' => $path,
                     'original_filename' => $file->getClientOriginalName(),
@@ -82,6 +86,14 @@ class StoresEmployeeDocument
                     'checksum' => hash_file('sha256', $prepared->file->getRealPath() ?: ''),
                     'current_version' => ((int) $document->current_version) + 1,
                     'replaced_at' => now(),
+                    'document_number' => array_key_exists('document_number', $data)
+                        ? ($data['document_number'] ?? null)
+                        : $document->document_number,
+                    'issue_date' => array_key_exists('issue_date', $data)
+                        ? ($data['issue_date'] ?? null)
+                        : $document->issue_date?->toDateString(),
+                    'expiry_date' => $expiryDate,
+                    'status' => DocumentExpiry::persistedStatus($expiryDate),
                 ]);
 
                 return $document->refresh();

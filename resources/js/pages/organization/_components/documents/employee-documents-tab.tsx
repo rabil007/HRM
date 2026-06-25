@@ -245,6 +245,7 @@ export function EmployeeDocumentsTab({
                     document={replaceDoc}
                     employeeId={employeeId}
                     onOpenChange={(open) => !open && setReplaceDoc(null)}
+                    templateFields={templateFields}
                 />
             ) : null}
 
