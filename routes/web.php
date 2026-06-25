@@ -85,6 +85,7 @@ Route::match(['get', 'post'], 'webhooks/hikvision', HikvisionWebhookController::
 
 Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
+    Route::get('log/export', [ApplicationLogController::class, 'export'])->name('log.export');
     Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');

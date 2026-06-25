@@ -92,3 +92,32 @@ test('application log reader filters by level and search', function () {
         ->and($result['entries'][0]['message'])->toBe('File upload failed.')
         ->and($result['entries'][0]['context']['reason'] ?? null)->toBe('validation');
 });
+
+test('guests cannot export application logs', function () {
+    $this->get(route('log.export'))->assertRedirect(route('login'));
+});
+
+test('authenticated users can export the selected application log file as txt', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    File::ensureDirectoryExists(storage_path('logs'));
+    $path = storage_path('logs/laravel-test-export.log');
+    File::put($path, "[2026-06-10 10:00:00] local.ERROR: log details to export\n");
+
+    $response = $this->get(route('log.export', ['file' => 'laravel-test-export.log']))
+        ->assertOk()
+        ->assertHeader('Content-Disposition', 'attachment; filename=laravel-test-export.txt');
+
+    expect($response->streamedContent())->toContain('log details to export');
+});
+
+test('exporting rejects invalid log file names', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    File::ensureDirectoryExists(storage_path('logs'));
+    File::put(storage_path('logs/laravel.log'), "[2026-06-10 10:00:00] local.INFO: ok\n");
+
+    $this->get(route('log.export', ['file' => '../.env']))->assertNotFound();
+});

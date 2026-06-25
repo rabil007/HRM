@@ -1,7 +1,7 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { AlertTriangle, FileText, Search, Terminal, Trash2 } from 'lucide-react';
+import { AlertTriangle, FileText, Search, Terminal, Trash2, Download } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { destroy as clearApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
+import { destroy as clearApplicationLogs, exportMethod as exportApplicationLogs } from '@/actions/App/Http/Controllers/ApplicationLogController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog';
 import { Main } from '@/components/layout/main';
@@ -178,6 +178,31 @@ export default function ApplicationLogViewer({
                     <div className="flex flex-col items-stretch gap-3 sm:items-end">
                         {hasLogFiles ? (
                             <div className="flex flex-wrap justify-end gap-2">
+                                {selectedFileName ? (
+                                    <Button
+                                        asChild
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-9 gap-1.5 border-border/60 hover:bg-muted/10"
+                                    >
+                                        <a href={exportApplicationLogs.url({ query: { file: selectedFileName } })} download>
+                                            <Download className="size-3.5" />
+                                            Export
+                                        </a>
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-9 gap-1.5 border-border/60"
+                                        disabled
+                                    >
+                                        <Download className="size-3.5" />
+                                        Export
+                                    </Button>
+                                )}
                                 <Button
                                     type="button"
                                     size="sm"

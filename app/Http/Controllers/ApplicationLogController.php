@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class ApplicationLogController extends Controller
 {
@@ -49,6 +50,37 @@ class ApplicationLogController extends Controller
             ],
             'file_meta' => $result['file'],
         ]);
+    }
+
+    public function export(Request $request, ApplicationLogReader $reader): BinaryFileResponse|RedirectResponse
+    {
+        $validated = $request->validate([
+            'file' => ['nullable', 'string', 'max:255'],
+        ]);
+
+        try {
+            $files = $reader->listFiles();
+
+            if ($files === []) {
+                return back()->with('error', 'No log files to export.');
+            }
+
+            $fileName = $validated['file'] ?? $files[0]['name'];
+            $path = $reader->resolvePath($fileName);
+
+            $downloadName = basename($path);
+            if (str_ends_with($downloadName, '.log')) {
+                $downloadName = substr($downloadName, 0, -4).'.txt';
+            } else {
+                $downloadName .= '.txt';
+            }
+
+            return response()->download($path, $downloadName, [
+                'Content-Type' => 'text/plain',
+            ]);
+        } catch (RuntimeException) {
+            abort(404);
+        }
     }
 
     public function destroy(Request $request, ApplicationLogReader $reader): RedirectResponse

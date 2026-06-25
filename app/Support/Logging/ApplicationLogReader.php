@@ -172,7 +172,7 @@ final class ApplicationLogReader
         return basename($fileName);
     }
 
-    private function resolvePath(string $fileName): string
+    public function resolvePath(string $fileName): string
     {
         $basename = basename($fileName);
         $path = storage_path('logs/'.$basename);
