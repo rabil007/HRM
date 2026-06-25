@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Support\Activity\RecentActivityQuery;
+use App\Support\Attendance\Actions\SendLeaveRequestDecidedEmail;
 use App\Support\Attendance\Actions\SendLeaveRequestSubmittedEmail;
 use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Attendance\LeaveBalanceManager;
@@ -310,6 +311,8 @@ class LeaveRequestController extends Controller
             'cancellation_reason' => null,
         ]);
 
+        app(SendLeaveRequestDecidedEmail::class)->handle($leaveRequest->fresh());
+
         return redirect()
             ->route('attendance.leave-requests.index')
             ->with('success', 'Leave request approved successfully.');
@@ -334,6 +337,8 @@ class LeaveRequestController extends Controller
             'decided_at' => now(),
             'rejection_reason' => $request->validated('rejection_reason'),
         ]);
+
+        app(SendLeaveRequestDecidedEmail::class)->handle($leaveRequest->fresh());
 
         return redirect()
             ->route('attendance.leave-requests.index')

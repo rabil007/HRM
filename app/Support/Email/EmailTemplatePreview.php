@@ -46,6 +46,24 @@ final class EmailTemplatePreview
                 placeholders: $placeholders,
                 includeCompanyFooter: $includeCompanyFooter,
             ),
+            'leave_request_approved' => $this->renderLeaveRequestDecided(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                status: 'approved',
+                rejectionReason: null,
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
+            'leave_request_rejected' => $this->renderLeaveRequestDecided(
+                subject: $renderedSubject,
+                organizationName: $organizationName,
+                introMessage: trim($renderedBody),
+                placeholders: $placeholders,
+                status: 'rejected',
+                rejectionReason: $placeholders['{{rejection_reason}}'],
+                includeCompanyFooter: $includeCompanyFooter,
+            ),
             'document_expiry_alert' => $this->renderDocumentExpiryAlert($organizationName, $includeCompanyFooter),
             'document_share' => $this->renderDocumentShare($organizationName, $renderedSubject, $renderedBody, $includeCompanyFooter),
             default => $this->renderPlainPreview($renderedSubject, $renderedBody, $includeCompanyFooter),
@@ -79,6 +97,36 @@ final class EmailTemplatePreview
             'totalDays' => $placeholders['{{total_days}}'],
             'reason' => $placeholders['{{reason}}'],
             'requestUrl' => $placeholders['{{request_url}}'],
+            'includeCompanyFooter' => $includeCompanyFooter,
+        ])->render();
+    }
+
+    private function renderLeaveRequestDecided(
+        string $subject,
+        string $organizationName,
+        string $introMessage,
+        array $placeholders,
+        string $status,
+        ?string $rejectionReason,
+        bool $includeCompanyFooter,
+    ): string {
+        return View::make('mail.leave-request-decided', [
+            'subjectLine' => $subject,
+            'organizationName' => $organizationName,
+            'introMessage' => $introMessage !== '' ? $introMessage : null,
+            'employeeName' => $placeholders['{{employee_name}}'],
+            'employeeNo' => $placeholders['{{employee_no}}'],
+            'departmentName' => $placeholders['{{department_name}}'],
+            'managerName' => $placeholders['{{manager_name}}'],
+            'leaveType' => $placeholders['{{leave_type}}'],
+            'leaveTypeColor' => '#8b5cf6',
+            'startDate' => $placeholders['{{start_date}}'],
+            'endDate' => $placeholders['{{end_date}}'],
+            'totalDays' => $placeholders['{{total_days}}'],
+            'reason' => $placeholders['{{reason}}'],
+            'requestUrl' => $placeholders['{{request_url}}'],
+            'status' => $status,
+            'rejectionReason' => $rejectionReason,
             'includeCompanyFooter' => $includeCompanyFooter,
         ])->render();
     }
@@ -155,6 +203,7 @@ final class EmailTemplatePreview
             '{{request_url}}' => url('/attendance/leave-requests/1'),
             '{{period_name}}' => now()->format('F Y'),
             '{{net_salary}}' => '12,500.00',
+            '{{rejection_reason}}' => 'Resource planning constraints during this period.',
         ];
     }
 

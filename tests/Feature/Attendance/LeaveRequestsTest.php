@@ -1,5 +1,6 @@
 <?php
 
+use App\Mail\LeaveRequestDecidedMail;
 use App\Mail\LeaveRequestSubmittedMail;
 use App\Models\Company;
 use App\Models\Country;
@@ -858,4 +859,105 @@ test('leave request submitted email is not queued when no recipients are availab
         ->assertRedirect(route('attendance.leave-requests.index'));
 
     Mail::assertNothingQueued();
+});
+
+function configureLeaveRequestApprovedTemplate(array $overrides = []): void
+{
+    EmailTemplatesSeeder::seedLeaveRequestApprovedTemplate();
+
+    if ($overrides !== []) {
+        EmailTemplate::query()
+            ->where('slug', 'leave_request_approved')
+            ->update($overrides);
+    }
+}
+
+function configureLeaveRequestRejectedTemplate(array $overrides = []): void
+{
+    EmailTemplatesSeeder::seedLeaveRequestRejectedTemplate();
+
+    if ($overrides !== []) {
+        EmailTemplate::query()
+            ->where('slug', 'leave_request_rejected')
+            ->update($overrides);
+    }
+}
+
+test('leave request approval queues approved email when template is enabled', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['work_email' => 'employee@example.com', 'name' => 'Alice Crew']);
+
+    configureLeaveRequestApprovedTemplate([
+        'enabled' => true,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.approve',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-25',
+        'end_date' => '2026-06-27',
+        'status' => 'pending',
+        'total_days' => 3.0,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/leave-requests/{$leaveRequest->id}/approve")
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertQueued(LeaveRequestDecidedMail::class, function (LeaveRequestDecidedMail $mail) use ($leaveType) {
+        return $mail->hasTo('employee@example.com')
+            && str_contains($mail->subjectLine, $leaveType->name)
+            && $mail->employeeName === 'Alice Crew'
+            && $mail->status === 'approved';
+    });
+});
+
+test('leave request rejection queues rejected email with reason when template is enabled', function () {
+    Mail::fake();
+
+    ['user' => $user, 'company' => $company] = makeLeaveRequestsFixtures();
+    ['employee' => $employee, 'leaveType' => $leaveType] = makeLeaveRequestActors($company);
+    $employee->update(['work_email' => 'employee@example.com', 'name' => 'Alice Crew']);
+
+    configureLeaveRequestRejectedTemplate([
+        'enabled' => true,
+    ]);
+
+    $this->actingAs($user);
+    grantCompanyPermissions($user, $company, [
+        'attendance.leave-requests.approve',
+    ]);
+
+    $leaveRequest = LeaveRequest::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'leave_type_id' => $leaveType->id,
+        'start_date' => '2026-06-25',
+        'end_date' => '2026-06-27',
+        'status' => 'pending',
+        'total_days' => 3.0,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->put("/attendance/leave-requests/{$leaveRequest->id}/reject", [
+            'rejection_reason' => 'Resource planning constraints',
+        ])
+        ->assertRedirect(route('attendance.leave-requests.index'));
+
+    Mail::assertQueued(LeaveRequestDecidedMail::class, function (LeaveRequestDecidedMail $mail) use ($leaveType) {
+        return $mail->hasTo('employee@example.com')
+            && str_contains($mail->subjectLine, $leaveType->name)
+            && $mail->employeeName === 'Alice Crew'
+            && $mail->status === 'rejected'
+            && $mail->rejectionReason === 'Resource planning constraints';
+    });
 });

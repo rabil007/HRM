@@ -12,6 +12,8 @@ class EmailTemplatesSeeder extends Seeder
     {
         self::seedPayslipDeliveryTemplate();
         self::seedLeaveRequestSubmittedTemplate();
+        self::seedLeaveRequestApprovedTemplate();
+        self::seedLeaveRequestRejectedTemplate();
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -62,6 +64,46 @@ class EmailTemplatesSeeder extends Seeder
         return $template->fresh();
     }
 
+    public static function seedLeaveRequestApprovedTemplate(): EmailTemplate
+    {
+        $template = EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'leave_request_approved'],
+            [
+                'label' => 'Leave request approved',
+                'category' => EmailTemplateCategory::Hr,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Leave request approved — {{leave_type}}',
+                'body_html' => self::leaveRequestApprovedBody(),
+                'enabled' => true,
+                'sort_order' => 1,
+            ],
+        );
+
+        return $template->fresh();
+    }
+
+    public static function seedLeaveRequestRejectedTemplate(): EmailTemplate
+    {
+        $template = EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'leave_request_rejected'],
+            [
+                'label' => 'Leave request declined',
+                'category' => EmailTemplateCategory::Hr,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Leave request declined — {{leave_type}}',
+                'body_html' => self::leaveRequestRejectedBody(),
+                'enabled' => true,
+                'sort_order' => 2,
+            ],
+        );
+
+        return $template->fresh();
+    }
+
     private static function payslipDeliveryBody(): string
     {
         return <<<'TEXT'
@@ -83,6 +125,30 @@ TEXT;
     {
         return <<<'TEXT'
 A new leave request has been submitted and is pending your review.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
+TEXT;
+    }
+
+    private static function leaveRequestApprovedBody(): string
+    {
+        return <<<'TEXT'
+Your leave request has been approved.
+
+Employee: {{employee_name}}
+Leave type: {{leave_type}}
+Dates: {{start_date}} to {{end_date}}
+TEXT;
+    }
+
+    private static function leaveRequestRejectedBody(): string
+    {
+        return <<<'TEXT'
+Your leave request has been declined.
+
+Reason for decline: {{rejection_reason}}
 
 Employee: {{employee_name}}
 Leave type: {{leave_type}}
