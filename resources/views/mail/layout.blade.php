@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="color-scheme" content="light dark">
-    <meta name="supported-color-schemes" content="light dark">
+    <meta name="color-scheme" content="light">
+    <meta name="supported-color-schemes" content="light">
     <title>@yield('title', $mailBranding['brand_name'] ?? config('app.name'))</title>
     <!--[if mso]>
     <noscript>
@@ -18,7 +18,7 @@
     <![endif]-->
     <style>
         :root {
-            color-scheme: light dark;
+            color-scheme: light;
         }
 
         body,
@@ -28,60 +28,6 @@
         a {
             -webkit-text-size-adjust: 100%;
             -ms-text-size-adjust: 100%;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .email-body {
-                background-color: #0b1220 !important;
-            }
-
-            .email-card {
-                background-color: #111827 !important;
-                border-color: #1f2937 !important;
-            }
-
-            .email-heading {
-                color: #f8fafc !important;
-            }
-
-            .email-text {
-                color: #e2e8f0 !important;
-            }
-
-            .email-muted {
-                color: #94a3b8 !important;
-            }
-
-            .email-border {
-                border-color: #1f2937 !important;
-            }
-
-            .email-kicker {
-                color: #94a3b8 !important;
-            }
-
-            .email-url-box {
-                background-color: #0f172a !important;
-                border-color: #334155 !important;
-            }
-
-            .email-url-link {
-                color: #93c5fd !important;
-            }
-
-            .email-btn-cell {
-                background-color: #3b82f6 !important;
-            }
-
-            .email-btn-link {
-                color: #ffffff !important;
-                background-color: #3b82f6 !important;
-                border-color: #3b82f6 !important;
-            }
-
-            .email-footer-copy {
-                color: #64748b !important;
-            }
         }
     </style>
 </head>
