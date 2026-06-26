@@ -119,13 +119,9 @@ Unique per `(company_id, employee_id, period_id)`.
 
 # Phase 5 — Office Payroll Engine ✅
 
-**Source:** Attendance module (`attendance_records`, leave, etc.)
+**Source:** Approved leave requests in the pay period (`leave_requests` → `leave_days` on records). Full monthly salary; deductions not applied yet.
 
-**Calculation:** Basic + allowances + OT + bonus − deductions = net
-
-**Output:** `payroll_records` (`payroll_category = office`)
-
-**Key code:** `GenerateOfficePayroll`, `OfficePayrollCalculator`, `OfficeAttendanceSummary`
+**Key code:** `GenerateOfficePayroll`, `OfficePayrollCalculator`, `OfficeLeavePeriodSummary`
 
 ---
 
@@ -493,7 +489,7 @@ employees
         └── contract_salary_components
 
 payroll_periods (per company, per category)
-├── office → attendance → OfficePayrollCalculator → payroll_records
+├── office → approved leave usage + full monthly salary → payroll_records
 └── crew   → crew_timesheets → CrewPayrollCalculator → payroll_records
                 └── Excel import (Salary Sheet template)
 

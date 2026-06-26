@@ -12,6 +12,7 @@ final class OfficePayrollCalculator
 {
     /**
      * @param  Collection<int, ContractSalaryComponent>  $components
+     * @param  list<array{leave_type_id: int, code: string, name: string, color: string|null, days: float}>  $leaveUsage
      * @return array{
      *     basic_salary: string,
      *     housing_allowance: string,
@@ -29,20 +30,21 @@ final class OfficePayrollCalculator
      *     working_days: int,
      *     present_days: float,
      *     absent_days: float,
+     *     leave_days: float,
      *     overtime_hours: float,
      *     calculation_breakdown: array<string, mixed>
      * }
      */
     public function calculate(
-        OfficeAttendanceSummary $summary,
         Collection $components,
         int $workingDays,
+        float $totalLeaveDays = 0.0,
+        array $leaveUsage = [],
     ): array {
         $monthlyBasic = $this->activeAmount($components, SalaryComponentCode::Basic);
         $monthlyHousing = $this->activeAmount($components, SalaryComponentCode::Housing) ?? 0.0;
         $monthlyTransport = $this->activeAmount($components, SalaryComponentCode::Transport) ?? 0.0;
         $monthlyOther = $this->activeAmount($components, SalaryComponentCode::Other) ?? 0.0;
-        $otRate = $this->activeAmount($components, SalaryComponentCode::OtRate);
 
         if ($monthlyBasic === null) {
             throw ValidationException::withMessages([
@@ -50,20 +52,12 @@ final class OfficePayrollCalculator
             ]);
         }
 
-        $ratio = $workingDays > 0
-            ? min(1.0, $summary->presentDays / $workingDays)
-            : 0.0;
+        $earnedBasic = round($monthlyBasic, 2);
+        $earnedHousing = round($monthlyHousing, 2);
+        $earnedTransport = round($monthlyTransport, 2);
+        $earnedOther = round($monthlyOther, 2);
 
-        $earnedBasic = round($monthlyBasic * $ratio, 2);
-        $earnedHousing = round($monthlyHousing * $ratio, 2);
-        $earnedTransport = round($monthlyTransport * $ratio, 2);
-        $earnedOther = round($monthlyOther * $ratio, 2);
-
-        $hourlyRate = $otRate ?? ($workingDays > 0
-            ? $monthlyBasic / ($workingDays * 8)
-            : 0.0);
-
-        $overtimePay = round($summary->overtimeHours * $hourlyRate, 2);
+        $overtimePay = 0.0;
         $bonus = 0.0;
         $unpaidLeaveDeduction = 0.0;
         $lateDeduction = 0.0;
@@ -81,6 +75,8 @@ final class OfficePayrollCalculator
         );
 
         $netSalary = round($grossSalary - $totalDeductions, 2);
+        $presentDays = max(0.0, round($workingDays - $totalLeaveDays, 2));
+        $absentDays = round($totalLeaveDays, 2);
 
         return [
             'basic_salary' => $this->formatMoney($earnedBasic),
@@ -97,22 +93,21 @@ final class OfficePayrollCalculator
             'gross_salary' => $this->formatMoney($grossSalary),
             'net_salary' => $this->formatMoney($netSalary),
             'working_days' => $workingDays,
-            'present_days' => $summary->presentDays,
-            'absent_days' => $summary->absentDays,
-            'overtime_hours' => $summary->overtimeHours,
+            'present_days' => $presentDays,
+            'absent_days' => $absentDays,
+            'leave_days' => $absentDays,
+            'overtime_hours' => 0.0,
             'calculation_breakdown' => [
                 'working_days' => $workingDays,
-                'present_days' => $summary->presentDays,
-                'absent_days' => $summary->absentDays,
-                'overtime_hours' => $summary->overtimeHours,
-                'late_minutes' => $summary->lateMinutes,
-                'proration_ratio' => round($ratio, 4),
+                'present_days' => $presentDays,
+                'absent_days' => $absentDays,
+                'leave_days' => $absentDays,
+                'leave_usage' => $leaveUsage,
                 'rates' => [
                     'basic_monthly' => $monthlyBasic,
                     'housing_monthly' => $monthlyHousing,
                     'transport_monthly' => $monthlyTransport,
                     'other_monthly' => $monthlyOther,
-                    'overtime_hourly' => round($hourlyRate, 4),
                 ],
                 'lines' => [
                     'basic' => $earnedBasic,

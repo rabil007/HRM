@@ -97,7 +97,7 @@ export function PayrollPeriodCard({
                     </div>
                 ) : (
                     <div className="rounded-xl border border-dashed border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground dark:border-white/10">
-                        Attendance payroll — generated from leave &amp; records
+                        Leave-based payroll — approved leave usage per type
                     </div>
                 )}
 

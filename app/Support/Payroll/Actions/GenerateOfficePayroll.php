@@ -4,17 +4,15 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
-use App\Models\AttendanceRecord;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\CountWorkingDaysInRange;
 use App\Support\Payroll\GeneratePayrollResult;
-use App\Support\Payroll\OfficeAttendanceSummary;
+use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -23,6 +21,7 @@ final class GenerateOfficePayroll
     public function __construct(
         private readonly OfficePayrollCalculator $calculator,
         private readonly CountWorkingDaysInRange $countWorkingDays,
+        private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
     ) {}
 
     public function handle(PayrollPeriod $period): GeneratePayrollResult
@@ -47,42 +46,27 @@ final class GenerateOfficePayroll
             ->orderBy('employees.name')
             ->get();
 
-        $attendanceByEmployee = $this->loadAttendanceByEmployee(
+        $employeeIds = $employees->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $leaveByEmployee = $this->leavePeriodSummary->forEmployees(
             $period->company_id,
             $period->start_date->toDateString(),
             $period->end_date->toDateString(),
-            $employees->pluck('id')->all(),
+            $employeeIds,
         );
 
         $generatedCount = 0;
-        $skippedEmployees = [];
         $errors = [];
 
         DB::transaction(function () use (
             $period,
             $employees,
-            $attendanceByEmployee,
-            $companyWorkingDays,
+            $leaveByEmployee,
             $workingDaysInPeriod,
             &$generatedCount,
-            &$skippedEmployees,
             &$errors,
         ): void {
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
-                /** @var Collection<int, AttendanceRecord> $records */
-                $records = $attendanceByEmployee->get($employee->id, Collection::make());
-
-                if ($records->isEmpty()) {
-                    $skippedEmployees[] = [
-                        'id' => $employee->id,
-                        'name' => $employee->name,
-                        'employee_no' => $employee->employee_no,
-                    ];
-
-                    continue;
-                }
-
                 $contract = $employee->currentContract;
 
                 if ($contract === null) {
@@ -94,17 +78,17 @@ final class GenerateOfficePayroll
                     continue;
                 }
 
-                $summary = OfficeAttendanceSummary::fromRecords(
-                    $records,
-                    $workingDaysInPeriod,
-                    $companyWorkingDays,
+                $leaveSummary = $leaveByEmployee->get(
+                    $employee->id,
+                    $this->leavePeriodSummary->empty($period->company_id),
                 );
 
                 try {
                     $calculated = $this->calculator->calculate(
-                        $summary,
                         $contract->salaryComponents,
                         $workingDaysInPeriod,
+                        $leaveSummary->totalLeaveDays,
+                        $leaveSummary->toLeaveUsageArray(),
                     );
                 } catch (ValidationException $exception) {
                     $errors[] = [
@@ -139,6 +123,7 @@ final class GenerateOfficePayroll
                         'working_days' => $calculated['working_days'],
                         'present_days' => (int) round($calculated['present_days']),
                         'absent_days' => (int) round($calculated['absent_days']),
+                        'leave_days' => $calculated['leave_days'],
                         'overtime_hours' => $calculated['overtime_hours'],
                         'calculation_breakdown' => $calculated['calculation_breakdown'],
                         'status' => 'draft',
@@ -157,34 +142,10 @@ final class GenerateOfficePayroll
 
         return new GeneratePayrollResult(
             generatedCount: $generatedCount,
-            skippedCount: count($skippedEmployees),
-            skippedEmployees: $skippedEmployees,
+            skippedCount: 0,
+            skippedEmployees: [],
             errors: $errors,
         );
-    }
-
-    /**
-     * @param  list<int>  $employeeIds
-     * @return Collection<int, Collection<int, AttendanceRecord>>
-     */
-    private function loadAttendanceByEmployee(
-        int $companyId,
-        string $startDate,
-        string $endDate,
-        array $employeeIds,
-    ): Collection {
-        if ($employeeIds === []) {
-            return Collection::make();
-        }
-
-        return AttendanceRecord::query()
-            ->where('company_id', $companyId)
-            ->whereIn('employee_id', $employeeIds)
-            ->whereDate('date', '>=', $startDate)
-            ->whereDate('date', '<=', $endDate)
-            ->orderBy('date')
-            ->get()
-            ->groupBy('employee_id');
     }
 
     /**

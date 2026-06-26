@@ -35,7 +35,7 @@ export function PayrollGenerateDialog({
                     <AlertDialogDescription>
                         {isCrew
                             ? 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.'
-                            : 'Payroll will be calculated from attendance records in this period. Employees without attendance will be skipped.'}{' '}
+                            : 'Payroll will use full monthly salary for all office employees on this run. Leave usage is shown for review; deductions are not applied yet.'}{' '}
                         You can re-generate while the period is in draft or processing.
                     </AlertDialogDescription>
                 </AlertDialogHeader>

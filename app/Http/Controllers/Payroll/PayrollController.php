@@ -14,6 +14,7 @@ use App\Http\Requests\Organization\Payroll\RevertPayrollPeriodToDraftRequest;
 use App\Http\Requests\Organization\Payroll\StorePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\UpsertCrewTimesheetRequest;
 use App\Models\Company;
+use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Pagination\ResolvesPerPage;
@@ -163,7 +164,7 @@ class PayrollController extends Controller
         $recordsPaginator = PayrollRecord::query()
             ->where('company_id', $companyId)
             ->where('period_id', $payrollPeriod->id)
-            ->with('employee')
+            ->with(['employee.primaryBankAccount.bank:id,name'])
             ->orderBy('id')
             ->paginate($perPage, ['*'], 'records_page')
             ->withQueryString();
@@ -187,8 +188,25 @@ class PayrollController extends Controller
             ? app(WpsExportPreview::class)->forPeriod($company, $payrollPeriod)
             : null;
 
+        $leaveTypes = $payrollPeriod->isOffice()
+            ? LeaveType::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'color'])
+                ->map(fn (LeaveType $leaveType) => [
+                    'id' => $leaveType->id,
+                    'name' => $leaveType->name,
+                    'code' => $leaveType->code,
+                    'color' => $leaveType->color,
+                ])
+                ->values()
+                ->all()
+            : [];
+
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
+            'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
             'board_summary' => PayrollPeriodBoardSummary::forPeriod($payrollPeriod, (int) $paginator->total()),

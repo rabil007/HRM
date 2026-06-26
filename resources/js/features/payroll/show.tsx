@@ -29,6 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
@@ -52,10 +53,21 @@ import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
     CrewTimesheetFormData,
+    LeaveTypeColumn,
     OfficePayrollRecordListItem,
     PayrollShowProps,
 } from './types';
 import { formatTimesheetAmount, formatTimesheetDays } from './types';
+
+function leaveDaysForType(row: CrewPayrollRow, leaveTypeId: number): number | null {
+    const usage = row.leave_usage?.find((item) => item.leave_type_id === leaveTypeId);
+
+    if (!usage) {
+        return null;
+    }
+
+    return usage.days;
+}
 
 const TIMESHEET_FIELD_KEYS = [
     'period_id',
@@ -153,6 +165,7 @@ function draftToFormData(draft: CrewTimesheetFormData): CrewTimesheetFormData {
 
 export function PayrollShowContent({
     period,
+    leave_types,
     rows,
     pagination,
     board_summary,
@@ -654,7 +667,7 @@ export function PayrollShowContent({
     function renderPayrollTab() {
         const emptyDescription = period.supports_timesheets
             ? 'Generate payroll from entered timesheets to review gross and net amounts.'
-            : 'Generate payroll from attendance records to review gross and net amounts.';
+            : 'Generate payroll to review full monthly salary and leave usage for this period.';
 
         if (payroll_records.length === 0) {
             return (
@@ -737,10 +750,26 @@ export function PayrollShowContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Employee</DataTableHead>
                             <DataTableHead>Code</DataTableHead>
-                            <DataTableHead>Present</DataTableHead>
-                            <DataTableHead>Absent</DataTableHead>
-                            <DataTableHead>OT hours</DataTableHead>
-                            <DataTableHead>Status</DataTableHead>
+                            <DataTableHead>Bank</DataTableHead>
+                            <DataTableHead>IBAN</DataTableHead>
+                            {leave_types.map((leaveType: LeaveTypeColumn) => (
+                                <DataTableHead key={leaveType.id}>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <span className="inline-flex items-center gap-1.5">
+                                                {leaveType.color ? (
+                                                    <span
+                                                        className="h-2 w-2 shrink-0 rounded-full"
+                                                        style={{ backgroundColor: leaveType.color }}
+                                                    />
+                                                ) : null}
+                                                {leaveType.code}
+                                            </span>
+                                        </TooltipTrigger>
+                                        <TooltipContent>{leaveType.name}</TooltipContent>
+                                    </Tooltip>
+                                </DataTableHead>
+                            ))}
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
@@ -771,37 +800,18 @@ export function PayrollShowContent({
                                     {row.employee.employee_no ?? '—'}
                                 </TableCell>
                                 <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetDays(
-                                        row.attendance_summary
-                                            ? String(row.attendance_summary.present_days)
-                                            : null,
-                                    )}
+                                    {row.primary_account?.bank_name ?? '—'}
                                 </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetDays(
-                                        row.attendance_summary
-                                            ? String(row.attendance_summary.absent_days)
-                                            : null,
-                                    )}
+                                <TableCell className={cn(dataTableCellClass(), 'font-mono text-xs')}>
+                                    {row.primary_account?.iban ?? '—'}
                                 </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetDays(
-                                        row.attendance_summary
-                                            ? String(row.attendance_summary.overtime_hours)
-                                            : null,
-                                    )}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <Badge
-                                        variant={row.is_filled ? 'default' : 'outline'}
-                                        className={cn(
-                                            !row.is_filled &&
-                                                'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                {leave_types.map((leaveType: LeaveTypeColumn) => (
+                                    <TableCell key={leaveType.id} className={dataTableCellClass()}>
+                                        {formatTimesheetDays(
+                                            String(leaveDaysForType(row, leaveType.id) ?? 0),
                                         )}
-                                    >
-                                        {row.is_filled ? 'Has attendance' : 'No attendance'}
-                                    </Badge>
-                                </TableCell>
+                                    </TableCell>
+                                ))}
                             </TableRow>
                         ))}
                     </TableBody>

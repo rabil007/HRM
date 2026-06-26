@@ -3,8 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
-use App\Models\AttendanceRecord;
-use App\Models\Company;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -15,7 +13,7 @@ use Illuminate\Support\Collection;
 final class PayrollPeriodBoardQuery
 {
     public function __construct(
-        private readonly CountWorkingDaysInRange $countWorkingDays,
+        private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
     ) {}
 
     /**
@@ -37,24 +35,23 @@ final class PayrollPeriodBoardQuery
             ]);
         }
 
+        if ($payrollCategory === PayrollCategory::Office) {
+            $query->with([
+                'primaryBankAccount.bank:id,name',
+            ]);
+        }
+
         $this->applySearch($query, $search);
 
-        $attendanceByEmployee = $payrollCategory === PayrollCategory::Office
-            ? $this->loadOfficeAttendanceByEmployee($companyId, $period)
+        $leaveByEmployee = $payrollCategory === PayrollCategory::Office
+            ? $this->loadOfficeLeaveByEmployee($companyId, $period)
             : Collection::make();
-
-        $companyWorkingDays = $this->resolveCompanyWorkingDays($companyId);
-        $workingDaysInPeriod = $this->countWorkingDays->count(
-            $period->start_date,
-            $period->end_date,
-            $companyWorkingDays,
-        );
 
         return $query
             ->orderBy('employees.name')
             ->paginate($perPage)
             ->withQueryString()
-            ->through(function (Employee $employee) use ($period, $payrollCategory, $attendanceByEmployee, $companyWorkingDays, $workingDaysInPeriod) {
+            ->through(function (Employee $employee) use ($period, $payrollCategory, $leaveByEmployee, $companyId) {
                 if ($payrollCategory === PayrollCategory::Crew) {
                     /** @var CrewTimesheet|null $timesheet */
                     $timesheet = $employee->crewTimesheets->first();
@@ -62,37 +59,31 @@ final class PayrollPeriodBoardQuery
                     return CrewTimesheetResource::toBoardRow($employee, $timesheet, $period->id);
                 }
 
-                /** @var Collection<int, AttendanceRecord> $records */
-                $records = $attendanceByEmployee->get($employee->id, Collection::make());
-
-                $summary = $records->isEmpty()
-                    ? null
-                    : OfficeAttendanceSummary::fromRecords($records, $workingDaysInPeriod, $companyWorkingDays);
+                $summary = $leaveByEmployee->get(
+                    $employee->id,
+                    $this->leavePeriodSummary->empty($companyId),
+                );
 
                 return OfficePayrollBoardRow::toArray($employee, $period->id, $summary);
             });
     }
 
     /**
-     * @return Collection<int, Collection<int, AttendanceRecord>>
+     * @return Collection<int, EmployeeLeavePeriodSummary>
      */
-    private function loadOfficeAttendanceByEmployee(int $companyId, PayrollPeriod $period): Collection
+    private function loadOfficeLeaveByEmployee(int $companyId, PayrollPeriod $period): Collection
     {
         $employeeIds = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office)
-            ->pluck('employees.id');
+            ->pluck('employees.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
 
-        if ($employeeIds->isEmpty()) {
-            return Collection::make();
-        }
-
-        return AttendanceRecord::query()
-            ->where('company_id', $companyId)
-            ->whereIn('employee_id', $employeeIds)
-            ->whereDate('date', '>=', $period->start_date)
-            ->whereDate('date', '<=', $period->end_date)
-            ->orderBy('date')
-            ->get()
-            ->groupBy('employee_id');
+        return $this->leavePeriodSummary->forEmployees(
+            $companyId,
+            $period->start_date->toDateString(),
+            $period->end_date->toDateString(),
+            $employeeIds,
+        );
     }
 
     /**
@@ -111,21 +102,5 @@ final class PayrollPeriodBoardQuery
                 ->whereRaw('LOWER(employees.employee_no) LIKE ?', [$term])
                 ->orWhereRaw('LOWER(employees.name) LIKE ?', [$term]);
         });
-    }
-
-    /**
-     * @return list<int>
-     */
-    private function resolveCompanyWorkingDays(int $companyId): array
-    {
-        $workingDays = Company::query()
-            ->whereKey($companyId)
-            ->value('working_days');
-
-        if (! is_array($workingDays) || $workingDays === []) {
-            return [1, 2, 3, 4, 5];
-        }
-
-        return array_map(intval(...), $workingDays);
     }
 }

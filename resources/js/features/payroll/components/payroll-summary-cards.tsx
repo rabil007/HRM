@@ -81,7 +81,7 @@ export function PayrollSummaryCards({ summary }: { summary: PayrollHubSummary })
             <SummaryCard
                 title="Office"
                 value={summary.office_periods.toLocaleString()}
-                hint="Attendance-based payroll"
+                hint="Leave-based payroll"
                 icon={Building2}
                 iconClassName="border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
                 accentClassName="hover:border-violet-500/25"

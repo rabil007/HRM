@@ -13,7 +13,7 @@ final class PayrollRecordResource
      */
     public static function toArray(PayrollRecord $record): array
     {
-        $record->loadMissing('employee');
+        $record->loadMissing('employee.primaryBankAccount.bank');
 
         $breakdown = $record->calculation_breakdown ?? [];
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
@@ -57,9 +57,7 @@ final class PayrollRecordResource
             'housing_allowance' => self::formatAmount($record->housing_allowance),
             'transport_allowance' => self::formatAmount($record->transport_allowance),
             'other_allowances' => self::formatAmount($record->other_allowances),
-            'working_days' => $record->working_days,
-            'present_days' => $record->present_days,
-            'overtime_hours' => self::formatAmount($record->overtime_hours),
+            'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
         ]);
     }
 

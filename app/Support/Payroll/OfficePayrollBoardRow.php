@@ -9,7 +9,7 @@ final class OfficePayrollBoardRow
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(Employee $employee, int $periodId, ?OfficeAttendanceSummary $summary): array
+    public static function toArray(Employee $employee, int $periodId, EmployeeLeavePeriodSummary $summary): array
     {
         return [
             'employee' => [
@@ -20,13 +20,10 @@ final class OfficePayrollBoardRow
             ],
             'period_id' => $periodId,
             'timesheet' => null,
-            'is_filled' => $summary !== null && $summary->recordCount > 0,
-            'attendance_summary' => $summary === null ? null : [
-                'present_days' => $summary->presentDays,
-                'absent_days' => $summary->absentDays,
-                'overtime_hours' => $summary->overtimeHours,
-                'record_count' => $summary->recordCount,
-            ],
+            'is_filled' => $summary->hasLeaveUsage(),
+            'leave_usage' => $summary->toLeaveUsageArray(),
+            'total_leave_days' => $summary->totalLeaveDays,
+            'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
         ];
     }
 }

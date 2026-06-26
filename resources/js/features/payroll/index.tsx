@@ -126,7 +126,7 @@ export function PayrollIndexContent({
             <PageHeader
                 kicker="Payroll"
                 title="Pay runs"
-                description="Create pay periods, enter crew timesheets, and prepare office payroll from attendance."
+                description="Create pay periods, enter crew timesheets, and prepare office payroll from approved leave usage."
                 right={
                     permissions.create_period ? (
                         <Button onClick={handleAdd} className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95">
@@ -262,7 +262,7 @@ export function PayrollIndexContent({
                                                 </div>
                                             ) : (
                                                 <span className="text-sm text-muted-foreground">
-                                                    Attendance payroll
+                                                    Leave-based payroll
                                                 </span>
                                             )}
                                         </TableCell>

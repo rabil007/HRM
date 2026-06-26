@@ -21,13 +21,13 @@ export function PayrollBoardSummaryBar({
                         <div className="flex flex-wrap items-center gap-2">
                             <PayrollCategoryBadge category={period.payroll_category} />
                             <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                {period.supports_timesheets ? 'Timesheet entry' : 'Attendance payroll'}
+                                {period.supports_timesheets ? 'Timesheet entry' : 'Leave-based payroll'}
                             </span>
                         </div>
                         <p className="text-sm text-muted-foreground">
                             {period.supports_timesheets
                                 ? 'Track standby, onsite days, allowances, and adjustments for each crew member.'
-                                : 'Office employees on this run will be calculated from attendance records in a later phase.'}
+                                : 'Review approved leave usage per type for each office employee in this pay period.'}
                         </p>
                     </div>
                     {period.supports_timesheets ? (

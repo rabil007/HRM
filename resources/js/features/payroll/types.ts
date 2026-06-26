@@ -102,6 +102,27 @@ export type CrewTimesheet = {
     remarks: string | null;
 };
 
+export type LeaveTypeColumn = {
+    id: number;
+    name: string;
+    code: string;
+    color: string | null;
+};
+
+export type OfficeLeaveUsage = {
+    leave_type_id: number;
+    code: string;
+    name: string;
+    color: string | null;
+    days: number;
+};
+
+export type OfficePrimaryAccount = {
+    bank_name: string | null;
+    account_name: string | null;
+    iban: string | null;
+};
+
 export type CrewPayrollRow = {
     employee: {
         id: number;
@@ -112,14 +133,9 @@ export type CrewPayrollRow = {
     period_id: number;
     timesheet: CrewTimesheet | null;
     is_filled: boolean;
-    attendance_summary?: OfficeAttendanceSummary | null;
-};
-
-export type OfficeAttendanceSummary = {
-    present_days: number;
-    absent_days: number;
-    overtime_hours: number;
-    record_count: number;
+    leave_usage?: OfficeLeaveUsage[];
+    total_leave_days?: number;
+    primary_account?: OfficePrimaryAccount | null;
 };
 
 export type CrewTimesheetFormData = {
@@ -217,9 +233,7 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     housing_allowance: string;
     transport_allowance: string;
     other_allowances: string;
-    working_days: number;
-    present_days: number;
-    overtime_hours: string;
+    primary_account: OfficePrimaryAccount | null;
     overtime_pay: string;
     additional_amount: string;
     deduction_amount: string;
@@ -246,6 +260,7 @@ export type PayrollGenerationSummary = {
 
 export type PayrollShowProps = {
     period: PayrollPeriod;
+    leave_types: LeaveTypeColumn[];
     rows: CrewPayrollRow[];
     pagination: PaginationMeta;
     board_summary: PayrollBoardSummary;

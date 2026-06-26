@@ -8,8 +8,9 @@ import {
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import type { OfficePayrollRecordListItem } from '../types';
-import { formatTimesheetAmount, formatTimesheetDays } from '../types';
+import { formatTimesheetAmount } from '../types';
 import {
     PayrollRecordPayslipActionsCell,
     PayrollRecordPayslipStatusCell,
@@ -27,11 +28,11 @@ export function OfficePayrollRecordsTable({
             <TableHeader>
                 <DataTableHeaderRow>
                     <DataTableHead className="pl-5">Employee</DataTableHead>
+                    <DataTableHead>Bank</DataTableHead>
+                    <DataTableHead>IBAN</DataTableHead>
                     <DataTableHead>Basic</DataTableHead>
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
-                    <DataTableHead>Present</DataTableHead>
-                    <DataTableHead>OT</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Deductions</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
@@ -49,6 +50,12 @@ export function OfficePayrollRecordsTable({
                             </div>
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
+                            {record.primary_account?.bank_name ?? '—'}
+                        </TableCell>
+                        <TableCell className={cn(dataTableCellClass(), 'font-mono text-xs')}>
+                            {record.primary_account?.iban ?? '—'}
+                        </TableCell>
+                        <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.basic_salary)}
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
@@ -56,19 +63,6 @@ export function OfficePayrollRecordsTable({
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.transport_allowance)}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <div>
-                                {formatTimesheetDays(String(record.present_days ?? ''))} /{' '}
-                                {formatTimesheetDays(String(record.working_days ?? ''))}
-                            </div>
-                            <div className="text-xs text-muted-foreground">days</div>
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            <div>{formatTimesheetDays(record.overtime_hours)} hrs</div>
-                            <div className="text-xs text-muted-foreground">
-                                {formatTimesheetAmount(record.overtime_pay)}
-                            </div>
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.gross_salary)}
