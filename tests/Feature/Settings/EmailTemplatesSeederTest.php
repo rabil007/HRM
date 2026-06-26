@@ -80,3 +80,20 @@ test('email templates seeder creates default leave request rejected template', f
         ->and($template->body_html)->toContain('{{employee_name}}')
         ->and($template->body_html)->toContain('{{leave_type}}');
 });
+
+test('email templates seeder creates default password reset template', function () {
+    EmailTemplate::query()->where('slug', 'password_reset')->forceDelete();
+
+    (new EmailTemplatesSeeder)->run();
+
+    $template = EmailTemplate::query()->where('slug', 'password_reset')->first();
+
+    expect($template)->not->toBeNull()
+        ->and($template->category)->toBe(EmailTemplateCategory::Notification)
+        ->and($template->is_default)->toBeFalse()
+        ->and($template->enabled)->toBeTrue()
+        ->and($template->subject)->toContain('{{brand_name}}')
+        ->and($template->body_html)->toContain('{{user_name}}')
+        ->and($template->body_html)->toContain('{{reset_url}}')
+        ->and($template->body_html)->toContain('{{expire_minutes}}');
+});

@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\EmailTemplate;
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
 use App\Support\Queue\JobRunRecorder;
@@ -94,6 +95,67 @@ class AppServiceProvider extends ServiceProvider
             $mailBranding = app(SettingService::class)->mailBranding();
             $brandName = $mailBranding['brand_name'] ?? config('app.name');
 
+            // Load password reset template from database
+            $template = EmailTemplate::query()
+                ->where('slug', 'password_reset')
+                ->where('enabled', true)
+                ->first();
+
+            if ($template) {
+                $subjectTemplate = $template->subject;
+                $bodyTemplate = $template->body_html;
+                $userName = $notifiable->name ?? 'User';
+
+                $buttonHtml = '<table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:20px auto 24px;">
+                    <tr>
+                        <td align="center" style="border-radius:12px;background-color:#2563eb;">
+                            <a href="'.e($url).'" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;">
+                                Reset password
+                            </a>
+                        </td>
+                    </tr>
+                </table>';
+
+                // HTML replacements
+                $htmlReplacements = [
+                    '{{user_name}}' => e($userName),
+                    '{{reset_url}}' => $buttonHtml,
+                    '{{expire_minutes}}' => $expireMinutes,
+                    '{{brand_name}}' => e($brandName),
+                ];
+
+                // Text replacements
+                $textReplacements = [
+                    '{{user_name}}' => $userName,
+                    '{{reset_url}}' => $url,
+                    '{{expire_minutes}}' => $expireMinutes,
+                    '{{brand_name}}' => $brandName,
+                ];
+
+                $subject = str_replace(array_keys($textReplacements), array_values($textReplacements), $subjectTemplate);
+                $bodyHtml = str_replace('{{reset_url}}', $buttonHtml, str_replace(
+                    array_filter(array_keys($htmlReplacements), fn ($k) => $k !== '{{reset_url}}'),
+                    array_filter(array_values($htmlReplacements), fn ($v) => $v !== $buttonHtml),
+                    nl2br(e($bodyTemplate))
+                ));
+                $bodyText = str_replace(array_keys($textReplacements), array_values($textReplacements), $bodyTemplate);
+
+                return (new MailMessage)
+                    ->subject($subject)
+                    ->view([
+                        'html' => 'mail.reset-password',
+                        'text' => 'mail.reset-password-text',
+                    ], [
+                        'url' => $url,
+                        'userName' => $userName,
+                        'expireMinutes' => $expireMinutes,
+                        'mailBranding' => $mailBranding,
+                        'body' => $bodyHtml,
+                        'subject' => $subject,
+                    ]);
+            }
+
+            // Fallback to original hardcoded notification
             return (new MailMessage)
                 ->subject("Reset your password — {$brandName}")
                 ->view([

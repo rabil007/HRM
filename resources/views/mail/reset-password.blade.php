@@ -29,35 +29,42 @@
     </tr>
     <tr>
         <td style="padding:28px 32px 8px;">
-            <p class="email-text" style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#18181b;font-weight:600;">
-                {{ $greeting }}
-            </p>
-            <p class="email-text" style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#3f3f46;">
-                We received a request to reset the password for your account. Use the button below to choose a new password.
-            </p>
+            @if (isset($body) && filled($body))
+                <div class="email-text" style="margin:0;font-size:15px;line-height:1.7;color:#3f3f46;">
+                    {!! $body !!}
+                </div>
+            @else
+                <p class="email-text" style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#18181b;font-weight:600;">
+                    {{ $greeting }}
+                </p>
+                <p class="email-text" style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#3f3f46;">
+                    We received a request to reset the password for your account. Use the button below to choose a new password.
+                </p>
 
-            <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
-                <tr>
-                    <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
-                        <a
-                            href="{{ $url }}"
-                            class="email-btn-link"
-                            style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;"
-                        >
-                            Reset password
-                        </a>
-                    </td>
-                </tr>
-            </table>
+                <table role="presentation" cellspacing="0" cellpadding="0" align="center" style="margin:0 auto 24px;">
+                    <tr>
+                        <td class="email-btn-cell" align="center" style="border-radius:12px;background-color:#2563eb;">
+                            <a
+                                href="{{ $url }}"
+                                class="email-btn-link"
+                                style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:700;line-height:1;color:#ffffff;text-decoration:none;border-radius:12px;background-color:#2563eb;border:1px solid #2563eb;"
+                            >
+                                Reset password
+                            </a>
+                        </td>
+                    </tr>
+                </table>
 
-            <p class="email-muted" style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#71717a;text-align:center;">
-                This link expires in <strong style="color:inherit;">{{ $expireMinutes }} minutes</strong>.
-            </p>
-            <p class="email-muted" style="margin:0;font-size:14px;line-height:1.6;color:#71717a;text-align:center;">
-                If you did not request a password reset, you can safely ignore this email.
-            </p>
+                <p class="email-muted" style="margin:0 0 12px;font-size:14px;line-height:1.6;color:#71717a;text-align:center;">
+                    This link expires in <strong style="color:inherit;">{{ $expireMinutes }} minutes</strong>.
+                </p>
+                <p class="email-muted" style="margin:0;font-size:14px;line-height:1.6;color:#71717a;text-align:center;">
+                    If you did not request a password reset, you can safely ignore this email.
+                </p>
+            @endif
         </td>
     </tr>
+    @if (!isset($body) || empty($body))
     <tr>
         <td class="email-border" style="padding:20px 32px 28px;border-top:1px solid #e4e4e7;">
             <p class="email-muted" style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#71717a;">
@@ -70,4 +77,5 @@
             </p>
         </td>
     </tr>
+    @endif
 @endsection

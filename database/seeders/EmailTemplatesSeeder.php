@@ -14,6 +14,7 @@ class EmailTemplatesSeeder extends Seeder
         self::seedLeaveRequestSubmittedTemplate();
         self::seedLeaveRequestApprovedTemplate();
         self::seedLeaveRequestRejectedTemplate();
+        self::seedPasswordResetTemplate();
     }
 
     public static function seedPayslipDeliveryTemplate(): EmailTemplate
@@ -153,6 +154,43 @@ Reason for decline: {{rejection_reason}}
 Employee: {{employee_name}}
 Leave type: {{leave_type}}
 Dates: {{start_date}} to {{end_date}}
+TEXT;
+    }
+
+    public static function seedPasswordResetTemplate(): EmailTemplate
+    {
+        $template = EmailTemplate::query()->updateOrCreate(
+            ['slug' => 'password_reset'],
+            [
+                'label' => 'Password reset',
+                'category' => EmailTemplateCategory::Notification,
+                'to_preset' => null,
+                'cc_preset' => null,
+                'dispatch_at' => null,
+                'subject' => 'Reset your password — {{brand_name}}',
+                'body_html' => self::passwordResetBody(),
+                'enabled' => true,
+                'sort_order' => 3,
+            ],
+        );
+
+        return $template->fresh();
+    }
+
+    private static function passwordResetBody(): string
+    {
+        return <<<'TEXT'
+Hello {{user_name}},
+
+You are receiving this email because we received a password reset request for your account.
+
+Click the button below to reset your password:
+
+{{reset_url}}
+
+This password reset link will expire in {{expire_minutes}} minutes.
+
+If you did not request a password reset, no further action is required.
 TEXT;
     }
 }
