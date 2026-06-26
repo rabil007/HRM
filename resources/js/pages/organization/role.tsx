@@ -146,9 +146,9 @@ return name;
                                 variant="outline"
                                 className="rounded-xl h-11 px-5 border-border bg-card dark:border-white/10 dark:bg-white/5"
                             >
-                                <a href={`/organization/employees?role_id=${role.id}`}>
+                                <a href={`/organization/users?role_id=${role.id}`}>
                                     <Users className="mr-2 h-4 w-4" />
-                                    View Employees
+                                    View Users
                                 </a>
                             </Button>
                             <Button

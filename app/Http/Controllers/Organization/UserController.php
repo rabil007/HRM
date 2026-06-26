@@ -96,10 +96,16 @@ class UserController extends Controller
         $perPage = $this->resolvePerPage(request());
         $search = trim((string) request()->query('search', ''));
         $status = trim((string) request()->query('status', ''));
+        $roleId = trim((string) request()->query('role_id', ''));
 
         $paginator = User::query()
             ->where('company_id', $companyId)
             ->when($status, fn ($q) => $q->where('status', $status))
+            ->when($roleId, function ($q) use ($roleId) {
+                $q->whereHas('roles', function ($inner) use ($roleId) {
+                    $inner->whereKey($roleId);
+                });
+            })
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($inner) use ($search) {
                     $inner->where('name', 'like', "%{$search}%")
@@ -170,6 +176,7 @@ class UserController extends Controller
             'search' => $search,
             'filters' => [
                 'status' => $status,
+                'role_id' => $roleId,
             ],
             'roles' => $roles,
             'employees_for_linking' => $this->employeesForLinking($companyId),

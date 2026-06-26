@@ -9,6 +9,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 use Spatie\Permission\Models\Role;
+use Spatie\Permission\PermissionRegistrar;
 
 test('guests cannot access users page', function () {
     $this->get('/organization/users')->assertRedirect(route('login'));
@@ -467,4 +468,59 @@ test('user update requires matching password confirmation when changing password
         ])
         ->assertRedirect('/organization/users')
         ->assertSessionHasErrors('password');
+});
+
+test('user directory index can be filtered by role', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    $country = Country::query()->create([
+        'code' => 'URF',
+        'name' => 'User Role Filter Land',
+        'dial_code' => '+973',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'URF',
+        'name' => 'User Role Filter Currency',
+        'symbol' => 'U$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'User Role Filter Co',
+        'slug' => 'user-role-filter-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($company->id);
+
+    $role = Role::query()->create([
+        'company_id' => $company->id,
+        'name' => 'Tester',
+        'guard_name' => 'web',
+    ]);
+
+    $userWithRole = User::factory()->create(['company_id' => $company->id]);
+    $userWithRole->assignRole($role);
+
+    // Create another user without the role
+    $otherUser = User::factory()->create(['company_id' => $company->id]);
+
+    grantCompanyPermissions($auth, $company, ['users.view']);
+
+    $response = $this->get('/organization/users?'.http_build_query([
+        'role_id' => $role->id,
+    ]))->assertOk();
+
+    $ids = collect($response->viewData('page')['props']['users'])->pluck('id')->all();
+
+    expect($ids)->toContain($userWithRole->id);
+    expect($ids)->not->toContain($otherUser->id);
 });

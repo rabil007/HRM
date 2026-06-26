@@ -14,7 +14,7 @@ export default function Users({
     users: User[];
     pagination: PaginationMeta;
     search: string;
-    filters: { status: string };
+    filters: { status: string; role_id: string };
     roles: { id: number; name: string }[];
     employees_for_linking: EmployeeForLinking[];
 }) {

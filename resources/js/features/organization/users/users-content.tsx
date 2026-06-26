@@ -43,7 +43,7 @@ export function UsersContent({
     users: User[];
     pagination: PaginationMeta;
     search: string;
-    filters: { status: string };
+    filters: { status: string; role_id: string };
     roles: { id: number; name: string }[];
     employeesForLinking: EmployeeForLinking[];
 }) {
@@ -60,10 +60,11 @@ export function UsersContent({
     const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const filters: UserFilters = {
-        status: initialFilters.status,
+        status: (initialFilters.status as any) ?? '',
+        role_id: initialFilters.role_id ?? '',
     };
 
-    const activeFiltersCount = [initialFilters.status].filter(Boolean).length;
+    const activeFiltersCount = [initialFilters.status, initialFilters.role_id].filter(Boolean).length;
 
     const form = useForm<UserFormData>({
         name: '',
@@ -298,7 +299,8 @@ params.set('status', initialFilters.status);
                 onOpenChange={setIsFiltersOpen}
                 value={filters}
                 onChange={handleFiltersChange}
-                onReset={() => handleFiltersChange({ status: '' })}
+                onReset={() => handleFiltersChange({ status: '', role_id: '' })}
+                roles={roles}
             />
 
             <UserDeleteDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen} user={currentUser} onConfirm={confirmDelete} />

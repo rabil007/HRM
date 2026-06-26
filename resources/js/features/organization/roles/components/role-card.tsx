@@ -63,9 +63,9 @@ export function RoleCard({
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-lg hover:bg-accent dark:hover:bg-white/10"
-                        title="View Employees"
+                        title="View Users"
                     >
-                        <a href={`/organization/employees?role_id=${role.id}`} onClick={(e) => e.stopPropagation()}>
+                        <a href={`/organization/users?role_id=${role.id}`} onClick={(e) => e.stopPropagation()}>
                             <Users className="h-4 w-4" />
                         </a>
                     </Button>
