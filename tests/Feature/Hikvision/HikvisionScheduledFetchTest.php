@@ -3,6 +3,7 @@
 use App\Jobs\FetchHikvisionAccessEventsJob;
 use App\Models\HikvisionSetting;
 use App\Models\User;
+use App\Services\HikvisionService;
 use Illuminate\Support\Facades\Queue;
 
 test('scheduled fetch command dispatches job when schedule is enabled', function () {
@@ -50,6 +51,26 @@ test('scheduled fetch command can be forced when schedule is disabled', function
         ->assertSuccessful();
 
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
+});
+
+test('scheduled fetch job syncs attendance once after fetching both days', function () {
+    $hikvision = Mockery::mock(HikvisionService::class);
+    $hikvision->shouldReceive('fetchScheduledAccessEvents')
+        ->once()
+        ->andReturn(['fetched_count' => 0, 'message' => 'ok']);
+    $hikvision->shouldReceive('syncAttendanceForScheduledDays')->once();
+
+    (new FetchHikvisionAccessEventsJob)->handle($hikvision);
+});
+
+test('fetchScheduledAccessEvents does not sync attendance itself', function () {
+    $hikvision = Mockery::mock(HikvisionService::class)->makePartial();
+    $hikvision->shouldReceive('fetchAccessEvents')
+        ->twice()
+        ->andReturn(['fetched_count' => 0, 'message' => 'ok']);
+    $hikvision->shouldNotReceive('syncAttendanceForScheduledDays');
+
+    $hikvision->fetchScheduledAccessEvents();
 });
 
 test('hikvision settings can save automatic fetch schedule', function () {

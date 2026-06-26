@@ -48,6 +48,10 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         } finally {
             if (filled($this->date) && $date instanceof Carbon) {
                 $hikvision->syncAttendanceForDay($date);
+
+                if ($date->isToday()) {
+                    $hikvision->syncAttendanceForDay($date->copy()->subDay());
+                }
             } elseif (! filled($this->date)) {
                 $hikvision->syncAttendanceForScheduledDays();
             }
