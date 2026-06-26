@@ -1,6 +1,7 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { Eye, FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
+import { CheckCircle2, Clock, Eye, FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     MasterDataActiveToggle,
     MasterDataField,
@@ -107,6 +108,7 @@ export default function EmailTemplatesSettings({
         }));
     }, [categories, templates]);
 
+    const [activeCategory, setActiveCategory] = useState(categories[0]?.value || 'document');
     const [sheetOpen, setSheetOpen] = useState(false);
     const [deleteOpen, setDeleteOpen] = useState(false);
     const [editing, setEditing] = useState<EmailTemplateItem | null>(null);
@@ -114,6 +116,10 @@ export default function EmailTemplatesSettings({
     const [previewTarget, setPreviewTarget] = useState<EmailTemplatePreviewTarget | null>(null);
 
     const form = useForm<FormState>(emptyForm());
+
+    const expiryAlertTemplate = useMemo(() => {
+        return templates.find((t) => t.slug === expiry_alert_template_slug);
+    }, [templates, expiry_alert_template_slug]);
 
     const openCreate = (category: string) => {
         setEditing(null);
@@ -237,6 +243,7 @@ export default function EmailTemplatesSettings({
             <Head title="Email templates" />
 
             <div className="space-y-8">
+                {/* Premium Page Header */}
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2">
@@ -246,14 +253,14 @@ export default function EmailTemplatesSettings({
                             </span>
                         </div>
                         <h1 className="text-4xl font-extrabold tracking-tight">Email templates</h1>
-                        <p className="max-w-2xl text-sm text-muted-foreground">
+                        <p className="max-w-2xl text-sm text-muted-foreground leading-relaxed">
                             Manage default subject and message text for outbound emails, grouped by
                             category. What you save is what users see when they pick a template—they
                             can still edit before sending.
                         </p>
                     </div>
 
-                    <Button asChild variant="outline" className="rounded-xl">
+                    <Button asChild variant="outline" className="rounded-xl hover:bg-accent h-10 px-4 shrink-0">
                         <Link href="/settings/application">
                             <SlidersHorizontal className="mr-2 h-4 w-4" />
                             Application settings
@@ -261,158 +268,263 @@ export default function EmailTemplatesSettings({
                     </Button>
                 </div>
 
-                {grouped.map((group) => (
-                    <section key={group.value} className="space-y-4">
-                        <div className="flex items-center justify-between gap-3">
+                {/* Dashboard Stats Panel */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                        <CardContent className="flex items-center gap-4 p-5">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+                                <Mail className="h-5 w-5" />
+                            </div>
                             <div>
-                                <h2 className="text-lg font-semibold">{group.label}</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    {group.templates.length}{' '}
-                                    {group.templates.length === 1 ? 'template' : 'templates'}
+                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Total Templates</p>
+                                <p className="text-2xl font-bold tracking-tight mt-0.5">{templates.length}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                        <CardContent className="flex items-center gap-4 p-5">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                <CheckCircle2 className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Active Templates</p>
+                                <div className="flex items-baseline gap-2 mt-0.5">
+                                    <p className="text-2xl font-bold tracking-tight">{templates.filter((t) => t.enabled).length}</p>
+                                    {templates.filter((t) => !t.enabled).length > 0 && (
+                                        <span className="text-[10px] text-muted-foreground">
+                                            ({templates.filter((t) => !t.enabled).length} disabled)
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card className="border-border/60 bg-muted/25 dark:border-white/5 dark:bg-white/[0.02] shadow-xs">
+                        <CardContent className="flex items-center gap-4 p-5">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400">
+                                <Clock className="h-5 w-5" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Daily Expiry Alert</p>
+                                <p className="text-sm font-semibold mt-1 truncate">
+                                    {expiryAlertTemplate && expiryAlertTemplate.enabled
+                                        ? `${expiryAlertTemplate.dispatch_at || '08:00'} (${scheduler_timezone})`
+                                        : 'Disabled'}
                                 </p>
                             </div>
-                            {can.create ? (
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    className="rounded-xl"
-                                    onClick={() => openCreate(group.value)}
-                                >
-                                    <Plus className="mr-2 h-4 w-4" />
-                                    Add {group.label.toLowerCase()} template
-                                </Button>
-                            ) : null}
-                        </div>
+                        </CardContent>
+                    </Card>
+                </div>
 
-                        <div className="grid gap-4 lg:grid-cols-2">
-                            {group.templates.map((template) => (
-                                <Card key={template.id} className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
-                                    <CardContent className="space-y-4 p-5">
-                                        <div className="flex items-start justify-between gap-3">
-                                            <div className="space-y-1">
-                                                <div className="flex flex-wrap items-center gap-2">
-                                                    <h3 className="font-semibold">{template.label}</h3>
-                                                    {template.is_default ? (
-                                                        <Badge variant="secondary">Default</Badge>
-                                                    ) : null}
-                                                    {!template.enabled ? (
-                                                        <Badge variant="outline">Disabled</Badge>
-                                                    ) : null}
-                                                    {!template.include_company_footer ? (
-                                                        <Badge variant="outline">No footer</Badge>
-                                                    ) : null}
+                {/* Tabs for Categories */}
+                <Tabs value={activeCategory} onValueChange={setActiveCategory} className="space-y-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-border/40 pb-4">
+                        <TabsList className="bg-muted/40 p-1 border border-border/40 rounded-xl h-11 self-start">
+                            {categories.map((category) => {
+                                const count = templates.filter((t) => t.category === category.value).length;
+                                return (
+                                    <TabsTrigger
+                                        key={category.value}
+                                        value={category.value}
+                                        className="rounded-lg px-4 py-1.5 text-xs font-semibold data-[state=active]:bg-background dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-foreground data-[state=active]:shadow-xs"
+                                    >
+                                        {category.label}
+                                        <Badge variant="secondary" className="ml-2 bg-muted-foreground/10 hover:bg-muted-foreground/15 text-[10px] px-1.5 py-0">
+                                            {count}
+                                        </Badge>
+                                    </TabsTrigger>
+                                );
+                            })}
+                        </TabsList>
+
+                        {can.create && (
+                            <Button
+                                type="button"
+                                variant="default"
+                                className="rounded-xl h-10 px-5 shadow-xs self-start sm:self-auto"
+                                onClick={() => openCreate(activeCategory)}
+                            >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Template
+                            </Button>
+                        )}
+                    </div>
+
+                    {grouped.map((group) => (
+                        <TabsContent key={group.value} value={group.value} className="space-y-6 outline-none">
+                            <div className="grid gap-6 lg:grid-cols-2">
+                                {group.templates.map((template) => (
+                                    <Card
+                                        key={template.id}
+                                        className="group relative overflow-hidden border-border/60 bg-card hover:bg-muted/10 dark:border-white/5 dark:bg-white/[0.02] transition-all duration-300 hover:shadow-md hover:border-primary/20 hover:-translate-y-0.5"
+                                    >
+                                        {template.is_default && (
+                                            <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-primary/80 to-blue-500/80" />
+                                        )}
+
+                                        <CardContent className="space-y-5 p-6">
+                                            {/* Card Top Title Row */}
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div className="space-y-1.5 flex-1 min-w-0">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <h3 className="font-semibold text-lg text-foreground tracking-tight group-hover:text-primary transition-colors truncate">
+                                                            {template.label}
+                                                        </h3>
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {template.is_default && (
+                                                                <Badge variant="secondary" className="bg-primary/10 text-primary border-transparent text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                    Default
+                                                                </Badge>
+                                                            )}
+                                                            {!template.enabled && (
+                                                                <Badge variant="outline" className="text-muted-foreground/80 border-border text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                    Disabled
+                                                                </Badge>
+                                                            )}
+                                                            {!template.include_company_footer && (
+                                                                <Badge variant="outline" className="text-amber-600 dark:text-amber-400 border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-medium">
+                                                                    No Footer
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {template.slug === expiry_alert_template_slug ? (
+                                                        <p className="text-xs text-muted-foreground leading-relaxed">
+                                                            Automated daily summary email with an HTML table of expiring documents.
+                                                        </p>
+                                                    ) : (
+                                                        <p className="text-xs text-muted-foreground font-mono truncate bg-muted/40 dark:bg-black/20 px-2 py-1 rounded border border-border/20 w-fit">
+                                                            Subject: {template.subject}
+                                                        </p>
+                                                    )}
                                                 </div>
-                                                {template.slug === expiry_alert_template_slug ? (
-                                                    <p className="text-sm text-muted-foreground">
-                                                        Automated daily summary email with an HTML
-                                                        table of expiring documents.
-                                                    </p>
-                                                ) : (
-                                                    <p className="text-sm text-muted-foreground">
-                                                        {template.subject}
-                                                    </p>
+
+                                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/5 text-primary shadow-inner">
+                                                    <Mail className="h-5 w-5" />
+                                                </div>
+                                            </div>
+
+                                            {/* Configs Row */}
+                                            <div className="space-y-2.5 border-t border-border/40 pt-4">
+                                                {template.slug === expiry_alert_template_slug && template.dispatch_at && (
+                                                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                        <Clock className="h-3.5 w-3.5 text-muted-foreground/70" />
+                                                        <span className="font-semibold text-foreground dark:text-zinc-300">Daily dispatch:</span>
+                                                        <span>{template.dispatch_at} ({scheduler_timezone})</span>
+                                                    </div>
+                                                )}
+
+                                                {template.to_preset && (
+                                                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                        <span className="font-semibold text-foreground dark:text-zinc-300 mt-0.5 min-w-[24px]">To:</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {template.to_preset.split(',').map((email, idx) => (
+                                                                <span key={idx} className="inline-flex items-center rounded-md bg-primary/5 px-2 py-0.5 font-mono text-[10px] text-primary border border-primary/10">
+                                                                    {email.trim()}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {template.cc_preset && (
+                                                    <div className="flex items-start gap-2 text-xs text-muted-foreground">
+                                                        <span className="font-semibold text-foreground dark:text-zinc-300 mt-0.5 min-w-[24px]">CC:</span>
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {template.cc_preset.split(',').map((email, idx) => (
+                                                                <span key={idx} className="inline-flex items-center rounded-md bg-muted px-2 py-0.5 font-mono text-[10px] text-muted-foreground border border-border/40">
+                                                                    {email.trim()}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
                                                 )}
                                             </div>
-                                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
-                                                <Mail className="h-5 w-5 text-primary" />
-                                            </div>
-                                        </div>
 
-                                        {template.slug === expiry_alert_template_slug &&
-                                        template.dispatch_at ? (
-                                            <p className="text-xs text-muted-foreground">
-                                                <span className="font-medium text-foreground dark:text-zinc-300">
-                                                    Daily dispatch:
-                                                </span>{' '}
-                                                {template.dispatch_at} ({scheduler_timezone})
-                                            </p>
-                                        ) : null}
-
-                                        {template.to_preset || template.cc_preset ? (
-                                            <div className="space-y-1 text-xs text-muted-foreground">
-                                                {template.to_preset ? (
-                                                    <p>
-                                                        <span className="font-medium text-foreground dark:text-zinc-300">
-                                                            To:
-                                                        </span>{' '}
-                                                        {template.to_preset}
+                                            {/* Body HTML Frame */}
+                                            {template.slug !== expiry_alert_template_slug && (
+                                                <div className="relative rounded-xl border border-border/40 bg-muted/20 dark:bg-black/20 p-4">
+                                                    <div className="absolute top-2.5 right-3 flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-muted-foreground/30" />
+                                                    </div>
+                                                    <div className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-widest border-b border-border/20 pb-1.5 mb-2.5">
+                                                        Template Body
+                                                    </div>
+                                                    <p className="line-clamp-4 whitespace-pre-wrap text-xs text-muted-foreground leading-relaxed">
+                                                        {template.body_html}
                                                     </p>
-                                                ) : null}
-                                                {template.cc_preset ? (
-                                                    <p>
-                                                        <span className="font-medium text-foreground dark:text-zinc-300">
-                                                            CC:
-                                                        </span>{' '}
-                                                        {template.cc_preset}
-                                                    </p>
-                                                ) : null}
+                                                </div>
+                                            )}
+
+                                            {/* Bottom row */}
+                                            <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-4">
+                                                <span className="text-[10px] font-mono text-muted-foreground/60 bg-muted/40 dark:bg-white/5 px-2 py-0.5 rounded border border-border/20">
+                                                    Slug: {template.slug}
+                                                </span>
+
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors text-xs px-2.5 font-medium"
+                                                        onClick={() => openSavedPreview(template)}
+                                                    >
+                                                        <Eye className="mr-1.5 h-3.5 w-3.5" />
+                                                        Preview
+                                                    </Button>
+                                                    {can.update && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 rounded-lg hover:bg-muted/80 text-xs px-2.5 font-medium border border-transparent hover:border-border/60"
+                                                            onClick={() => openEdit(template)}
+                                                        >
+                                                            Edit
+                                                        </Button>
+                                                    )}
+                                                    {can.delete && template.slug !== expiry_alert_template_slug && (
+                                                        <Button
+                                                            type="button"
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-8 rounded-lg text-destructive hover:bg-destructive/10 hover:text-destructive transition-colors text-xs px-2.5 font-medium"
+                                                            onClick={() => requestDelete(template)}
+                                                        >
+                                                            Delete
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
-                                        ) : null}
+                                        </CardContent>
+                                    </Card>
+                                ))}
 
-                                        {template.slug !== expiry_alert_template_slug ? (
-                                            <p className="line-clamp-4 whitespace-pre-wrap text-sm text-muted-foreground">
-                                                {template.body_html}
-                                            </p>
-                                        ) : null}
-
-                                        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                            <span className="rounded-md bg-muted/60 dark:bg-white/5 px-2 py-1">
-                                                Slug: {template.slug}
-                                            </span>
-                                        </div>
-
-                                        <div className="flex flex-wrap gap-2">
-                                            <Button
-                                                type="button"
-                                                variant="outline"
-                                                size="sm"
-                                                className="rounded-xl"
-                                                onClick={() => openSavedPreview(template)}
-                                            >
-                                                <Eye className="mr-2 h-4 w-4" />
-                                                Preview
-                                            </Button>
-                                            {can.update ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="rounded-xl"
-                                                    onClick={() => openEdit(template)}
-                                                >
-                                                    Edit
-                                                </Button>
-                                            ) : null}
-                                            {can.delete &&
-                                            template.slug !== expiry_alert_template_slug ? (
-                                                <Button
-                                                    type="button"
-                                                    variant="destructive"
-                                                    size="sm"
-                                                    className="rounded-xl"
-                                                    onClick={() => requestDelete(template)}
-                                                >
-                                                    Delete
-                                                </Button>
-                                            ) : null}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))}
-
-                            {group.templates.length === 0 ? (
-                                <Card className="border-dashed border-border/80 dark:border-white/10 bg-transparent lg:col-span-2">
-                                    <CardContent className="flex flex-col items-center justify-center gap-3 p-10 text-center">
-                                        <FileText className="h-8 w-8 text-muted-foreground" />
-                                        <p className="text-sm text-muted-foreground">
-                                            No {group.label.toLowerCase()} templates yet.
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            ) : null}
-                        </div>
-                    </section>
-                ))}
+                                {group.templates.length === 0 && (
+                                    <Card className="border-dashed border-border/80 dark:border-white/10 bg-transparent lg:col-span-2 shadow-none">
+                                        <CardContent className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+                                            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted text-muted-foreground/60 border border-border/40">
+                                                <FileText className="h-6 w-6" />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="font-semibold text-foreground">No templates yet</p>
+                                                <p className="text-xs text-muted-foreground max-w-xs">
+                                                    Create a new {group.label.toLowerCase()} template to get started with automated messaging presets.
+                                                </p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
+                            </div>
+                        </TabsContent>
+                    ))}
+                </Tabs>
             </div>
 
             <MasterDataFormSheet
