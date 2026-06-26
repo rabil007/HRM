@@ -14,7 +14,6 @@ use App\Support\Settings\ApplicationTimezone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
 class HikvisionService
@@ -663,15 +662,6 @@ class HikvisionService
         $mobileCount = $this->fetchAttendanceMobileEvents($startTime, $endTime);
         $totalCount = $fetchedCount + $mobileCount;
 
-        Log::info('hikvision.fetch_access_events_completed', [
-            'date_label' => $dateLabel,
-            'range_start' => $startTime->toIso8601String(),
-            'range_end' => $endTime->toIso8601String(),
-            'device_event_count' => $fetchedCount,
-            'mobile_event_count' => $mobileCount,
-            'total_event_count' => $totalCount,
-        ]);
-
         $this->syncAttendanceRecordsForWindow($startTime, $endTime);
 
         if ($day->isToday()) {
@@ -690,11 +680,6 @@ class HikvisionService
 
     private function syncAttendanceRecordsForWindow(CarbonInterface $startTime, CarbonInterface $endTime): void
     {
-        Log::info('hikvision.attendance_sync_window_started', [
-            'range_start' => $startTime->toIso8601String(),
-            'range_end' => $endTime->toIso8601String(),
-        ]);
-
         $companyIds = Employee::query()
             ->where('status', 'active')
             ->whereNotNull('hikvision_person_id')

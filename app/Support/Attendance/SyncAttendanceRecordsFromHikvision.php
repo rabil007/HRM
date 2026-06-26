@@ -11,7 +11,6 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 
 final class SyncAttendanceRecordsFromHikvision
 {
@@ -31,14 +30,6 @@ final class SyncAttendanceRecordsFromHikvision
         foreach ($employees as $employee) {
             $synced += $this->syncEmployee($employee, $from, $to, $timezone, $workingDays);
         }
-
-        Log::info('attendance_sync.company_completed', [
-            'company_id' => $companyId,
-            'range_start' => $from->copy()->timezone($timezone)->startOfDay()->toIso8601String(),
-            'range_end' => $to->copy()->timezone($timezone)->endOfDay()->toIso8601String(),
-            'employee_count' => $employees->count(),
-            'days_synced' => $synced,
-        ]);
 
         return $synced;
     }
@@ -75,8 +66,6 @@ final class SyncAttendanceRecordsFromHikvision
         $rangeStart = $from->copy()->timezone($timezone)->startOfDay();
         $rangeEnd = $to->copy()->timezone($timezone)->endOfDay();
 
-        $aliases = $this->employeeMatchAliases($employee);
-
         $events = HikvisionAccessEvent::query()
             ->accessRecords()
             ->whereBetween('occurrence_time', [$rangeStart, $rangeEnd])
@@ -85,19 +74,6 @@ final class SyncAttendanceRecordsFromHikvision
             })
             ->orderBy('occurrence_time')
             ->get(['id', 'occurrence_time', 'attendance_status', 'transaction_source', 'person_name', 'person_hikvision_id']);
-
-        Log::info('attendance_sync.employee_events_matched', [
-            'employee_id' => $employee->id,
-            'employee_name' => $employee->name,
-            'person_id' => $personId,
-            'person_code' => $employee->hikvisionPerson?->person_code,
-            'hikvision_full_name' => $employee->hikvisionPerson?->full_name,
-            'aliases' => $aliases,
-            'range_start' => $rangeStart->toIso8601String(),
-            'range_end' => $rangeEnd->toIso8601String(),
-            'matched_event_count' => $events->count(),
-            'matched_event_ids' => $events->pluck('id')->all(),
-        ]);
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByDate */
         $eventsByDate = $events->groupBy(
@@ -127,10 +103,6 @@ final class SyncAttendanceRecordsFromHikvision
                 ->first();
 
             if ($existing !== null && $existing->source === AttendanceRecord::SOURCE_MANUAL) {
-                Log::info('attendance_sync.day_skipped_manual', [
-                    'employee_id' => $employee->id,
-                    'date' => $date,
-                ]);
                 $current->addDay();
 
                 continue;
@@ -161,19 +133,6 @@ final class SyncAttendanceRecordsFromHikvision
                     ...$attributes,
                 ]);
             }
-
-            Log::info('attendance_sync.day_result', [
-                'employee_id' => $employee->id,
-                'employee_name' => $employee->name,
-                'date' => $date,
-                'day_event_count' => $dayEvents->count(),
-                'clock_in' => $clockIn?->format('Y-m-d H:i:s'),
-                'clock_out' => $clockOut?->format('Y-m-d H:i:s'),
-                'source' => $source,
-                'status' => $attributes['status'],
-                'had_existing' => $existing !== null,
-                'existing_source' => $existing?->source,
-            ]);
 
             $synced++;
             $current->addDay();

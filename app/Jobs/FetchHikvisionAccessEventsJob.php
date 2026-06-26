@@ -7,7 +7,6 @@ use App\Services\HikvisionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Log;
 use RuntimeException;
 use Throwable;
 
@@ -46,10 +45,6 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
         } catch (RuntimeException $exception) {
             $fetchFailed = true;
             $settings->markEventsFetchFailed($exception->getMessage());
-            Log::error('hikvision.fetch_access_events_failed', [
-                'date' => $this->date,
-                'message' => $exception->getMessage(),
-            ]);
         } finally {
             if (filled($this->date) && $date instanceof Carbon) {
                 $hikvision->syncAttendanceForDay($date);
@@ -60,11 +55,6 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
         if (! $fetchFailed && $result !== null) {
             $settings->markEventsFetchCompleted($result['message']);
-            Log::info('hikvision.fetch_access_events_job_completed', [
-                'date' => $this->date,
-                'fetched_count' => $result['fetched_count'],
-                'message' => $result['message'],
-            ]);
         }
     }
 
