@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\HikvisionSetting;
+use App\Models\JobRun;
 use App\Services\HikvisionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -55,6 +56,17 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
 
         if (! $fetchFailed && $result !== null) {
             $settings->markEventsFetchCompleted($result['message']);
+
+            $jobId = $this->job ? $this->job->uuid() : null;
+            if ($jobId) {
+                JobRun::query()->where('correlation_id', $jobId)->update([
+                    'message' => $result['message'],
+                    'context' => [
+                        'fetched_count' => $result['fetched_count'],
+                        'date' => $this->date,
+                    ],
+                ]);
+            }
         }
     }
 

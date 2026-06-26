@@ -34,7 +34,8 @@ test('authenticated users can view job runs history tab', function () {
             ->where('stats.completed_count', 0)
             ->where('stats.failed_count', 0)
             ->where('stats.pending_count', 0)
-            ->where('stats.avg_duration_ms', 0));
+            ->where('stats.avg_duration_ms', 0)
+            ->has('registry'));
 });
 
 test('authenticated users can view failed and pending tabs', function () {

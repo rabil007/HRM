@@ -668,7 +668,7 @@ class HikvisionService
         ];
     }
 
-    private function syncAttendanceRecordsForWindow(CarbonInterface $startTime, CarbonInterface $endTime): void
+    private function syncAttendanceRecordsForWindow(CarbonInterface $startTime, CarbonInterface $endTime): int
     {
         $companyIds = Employee::query()
             ->where('status', 'active')
@@ -676,9 +676,13 @@ class HikvisionService
             ->distinct()
             ->pluck('company_id');
 
+        $synced = 0;
+
         foreach ($companyIds as $companyId) {
-            $this->attendanceSync->syncCompany((int) $companyId, $startTime, $endTime);
+            $synced += $this->attendanceSync->syncCompany((int) $companyId, $startTime, $endTime);
         }
+
+        return $synced;
     }
 
     /**
@@ -697,32 +701,36 @@ class HikvisionService
         ];
     }
 
-    public function syncAttendanceForDay(CarbonInterface $day): void
+    public function syncAttendanceForDay(CarbonInterface $day): int
     {
         $timezone = ApplicationTimezone::identifier();
         $normalizedDay = $day->copy()->timezone($timezone);
 
-        $this->syncAttendanceRecordsForWindow(
+        return $this->syncAttendanceRecordsForWindow(
             $normalizedDay->copy()->startOfDay(),
             $normalizedDay->copy()->endOfDay(),
         );
     }
 
-    public function syncAttendanceForScheduledDays(): void
+    public function syncAttendanceForScheduledDays(): int
     {
         $timezone = ApplicationTimezone::identifier();
         $today = now($timezone)->copy()->timezone($timezone)->startOfDay();
         $yesterday = $today->copy()->subDay();
 
-        $this->syncAttendanceRecordsForWindow(
+        $synced = 0;
+
+        $synced += $this->syncAttendanceRecordsForWindow(
             $yesterday->copy()->startOfDay(),
             $yesterday->copy()->endOfDay(),
         );
 
-        $this->syncAttendanceRecordsForWindow(
+        $synced += $this->syncAttendanceRecordsForWindow(
             $today->copy()->startOfDay(),
             $today->copy()->endOfDay(),
         );
+
+        return $synced;
     }
 
     public function fetchCertificateRecords(

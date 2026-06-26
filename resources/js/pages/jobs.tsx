@@ -13,6 +13,10 @@ import {
     Timer,
     Trash2,
     Workflow,
+    BookOpen,
+    Info,
+    Calendar,
+    Settings,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
@@ -36,7 +40,7 @@ import { formatDisplayDateTime } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
-type Tab = 'history' | 'failed' | 'pending';
+type Tab = 'history' | 'failed' | 'pending' | 'registry';
 
 type HistoryRun = {
     id: number;
@@ -78,6 +82,21 @@ type PendingJob = {
     payload: Record<string, unknown> | null;
 };
 
+type RegistryItem = {
+    type: 'job' | 'command';
+    name: string;
+    class: string;
+    purpose: string;
+    trigger: string;
+    queue?: string;
+    connection?: string;
+    schedule?: string;
+    signature?: string;
+    parameters?: Record<string, string>;
+    details?: string;
+    code_snippet: string;
+};
+
 type Stats = {
     history_count: number;
     completed_count: number;
@@ -95,6 +114,7 @@ type Props = {
     names: string[];
     statuses: string[];
     stats: Stats;
+    registry: RegistryItem[];
     filters: {
         status: string;
         name: string;
@@ -171,6 +191,7 @@ export default function JobRunsViewer({
     names,
     statuses,
     stats,
+    registry,
     filters,
 }: Props) {
     const [openId, setOpenId] = useState<string | null>(null);
@@ -279,6 +300,24 @@ export default function JobRunsViewer({
             : tab === 'failed'
               ? failed_jobs.length
               : pending_jobs.length;
+
+    // Filter registry items client-side based on search query
+    const filteredRegistry = useMemo(() => {
+        const query = (filters.q || list.searchInput || '').toLowerCase().trim();
+        if (!query) {
+            return registry;
+        }
+        return registry.filter(
+            (item) =>
+                item.name.toLowerCase().includes(query) ||
+                item.purpose.toLowerCase().includes(query) ||
+                item.class.toLowerCase().includes(query) ||
+                (item.signature && item.signature.toLowerCase().includes(query)),
+        );
+    }, [registry, filters.q, list.searchInput]);
+
+    const jobsList = useMemo(() => filteredRegistry.filter((item) => item.type === 'job'), [filteredRegistry]);
+    const commandsList = useMemo(() => filteredRegistry.filter((item) => item.type === 'command'), [filteredRegistry]);
 
     return (
         <>
@@ -433,6 +472,13 @@ export default function JobRunsViewer({
                     >
                         Pending
                     </button>
+                    <button
+                        type="button"
+                        className={tabButtonClass(tab === 'registry')}
+                        onClick={() => switchTab('registry')}
+                    >
+                        Registry
+                    </button>
                 </div>
 
                 <Card className="mb-6 border-border/40 bg-card/45 backdrop-blur-md">
@@ -447,7 +493,9 @@ export default function JobRunsViewer({
                                     placeholder={
                                         tab === 'history'
                                             ? 'Search name, message, exception, or correlation ID...'
-                                            : 'Search queue, payload, or exception...'
+                                            : tab === 'registry'
+                                              ? 'Search name, class, signature, or purpose...'
+                                              : 'Search queue, payload, or exception...'
                                     }
                                     className="h-10 rounded-xl border-border/40 bg-background/45 pl-9 transition-all duration-200 focus:border-primary/50"
                                 />
@@ -518,7 +566,11 @@ export default function JobRunsViewer({
 
                 <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span>
-                        {pagination.total} total · showing {rowsCount} on this page
+                        {tab === 'registry' ? (
+                            `${filteredRegistry.length} jobs & commands documented`
+                        ) : (
+                            `${pagination.total} total · showing ${rowsCount} on this page`
+                        )}
                         {activeFilterCount > 0 ? ` · ${activeFilterCount} filter(s) active` : ''}
                     </span>
 
@@ -643,10 +695,36 @@ export default function JobRunsViewer({
                                             </CollapsibleTrigger>
                                             <CollapsibleContent>
                                                 <CardContent className="space-y-4 border-t border-border/40 p-4 text-xs">
+                                                    {run.status === 'completed' && (
+                                                        <div className="space-y-2 bg-emerald-500/[0.03] dark:bg-emerald-500/[0.02] p-3 rounded-lg border border-emerald-500/10">
+                                                            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                                                                <CheckCircle2 className="size-3.5" />
+                                                                <span>Execution Result & Changes Done</span>
+                                                            </div>
+                                                            <div className="text-xs text-muted-foreground space-y-2 pl-5">
+                                                                <p className="font-medium text-foreground">{run.message || 'Job completed successfully.'}</p>
+                                                                {run.context && Object.keys(run.context).length > 0 && (
+                                                                    <div className="mt-2 grid grid-cols-2 gap-3 max-w-lg pt-2 border-t border-emerald-500/10">
+                                                                        {Object.entries(run.context).map(([key, value]) => {
+                                                                            if (value === null || value === undefined) return null;
+                                                                            const formattedKey = key.replace(/_/g, ' ');
+                                                                            return (
+                                                                                <div key={key} className="flex flex-col">
+                                                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{formattedKey}</span>
+                                                                                    <span className="font-mono text-foreground mt-0.5">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
                                                     {run.context ? (
                                                         <div className="space-y-1.5">
                                                             <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
-                                                                <span>Context Payload</span>
+                                                                <span>Context Payload (Technical Details)</span>
                                                                 <CopyButton
                                                                     text={JSON.stringify(run.context, null, 2)}
                                                                 />
@@ -898,9 +976,170 @@ export default function JobRunsViewer({
                     </div>
                 ) : null}
 
-                <div className="mt-8">
-                    <Pagination pagination={pagination} onPageChange={list.onPageChange} />
-                </div>
+                {/* Registry Tab content */}
+                {tab === 'registry' ? (
+                    <div className="space-y-8">
+                        {/* Queueable Jobs Directory */}
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+                                <Workflow className="size-5 text-primary" />
+                                <h2 className="text-lg font-bold text-foreground">Queueable Jobs</h2>
+                                <span className="text-xs text-muted-foreground">({jobsList.length} items)</span>
+                            </div>
+
+                            {jobsList.length === 0 ? (
+                                <p className="text-sm text-muted-foreground italic">No matching queueable jobs found.</p>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {jobsList.map((item) => (
+                                        <Card key={item.name} className="border-border/40 bg-card/45 backdrop-blur-md hover:border-primary/20 transition-all duration-300 flex flex-col justify-between">
+                                            <CardContent className="p-4 space-y-3 flex-grow">
+                                                <div>
+                                                    <h3 className="font-bold text-base text-foreground">{item.name}</h3>
+                                                    <div className="flex items-center gap-1.5 mt-1 font-mono text-[10px] text-muted-foreground bg-muted/40 p-1.5 rounded border border-border/30 overflow-x-auto">
+                                                        <span className="text-primary/70">class:</span>
+                                                        <span className="truncate">{item.class}</span>
+                                                        <div className="ml-auto">
+                                                            <CopyButton text={item.class} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2 text-xs">
+                                                    <div className="space-y-0.5">
+                                                        <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                                                            <Info className="size-3 text-primary/70" /> Purpose & Usage
+                                                        </span>
+                                                        <p className="text-muted-foreground leading-relaxed">{item.purpose}</p>
+                                                    </div>
+
+                                                    <div className="space-y-0.5">
+                                                        <span className="font-semibold text-muted-foreground">Dispatched by</span>
+                                                        <p className="text-muted-foreground leading-relaxed">{item.trigger}</p>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        {item.queue && (
+                                                            <Badge variant="outline" className="font-mono bg-muted/20 border-border/60">
+                                                                queue: {item.queue}
+                                                            </Badge>
+                                                        )}
+                                                        {item.connection && (
+                                                            <Badge variant="outline" className="font-mono bg-muted/20 border-border/60">
+                                                                connection: {item.connection}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+
+                                                    {item.details && (
+                                                        <p className="text-[11px] text-muted-foreground/80 bg-muted/20 p-2 rounded-lg border border-border/20 italic">
+                                                            {item.details}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+
+                                            {/* Code Execution Snippet */}
+                                            <div className="border-t border-border/30 bg-muted/20 p-3 rounded-b-xl space-y-1">
+                                                <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                                    <span>How to dispatch in PHP</span>
+                                                    <CopyButton text={item.code_snippet} />
+                                                </div>
+                                                <pre className="overflow-x-auto text-[11px] font-mono text-foreground bg-background/50 p-2 rounded border border-border/40 leading-normal">
+                                                    {item.code_snippet}
+                                                </pre>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Scheduled artisan commands */}
+                        <div className="space-y-4 pt-4">
+                            <div className="flex items-center gap-2 border-b border-border/40 pb-2">
+                                <Terminal className="size-5 text-primary" />
+                                <h2 className="text-lg font-bold text-foreground">Scheduled & Artisan Commands</h2>
+                                <span className="text-xs text-muted-foreground">({commandsList.length} items)</span>
+                            </div>
+
+                            {commandsList.length === 0 ? (
+                                <p className="text-sm text-muted-foreground italic">No matching commands found.</p>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    {commandsList.map((item) => (
+                                        <Card key={item.name} className="border-border/40 bg-card/45 backdrop-blur-md hover:border-primary/20 transition-all duration-300 flex flex-col justify-between">
+                                            <CardContent className="p-4 space-y-3 flex-grow">
+                                                <div>
+                                                    <h3 className="font-bold text-base text-foreground font-mono text-primary/95">{item.name}</h3>
+                                                    <div className="flex items-center gap-1.5 mt-1 font-mono text-[10px] text-muted-foreground bg-muted/40 p-1.5 rounded border border-border/30 overflow-x-auto">
+                                                        <span className="text-primary/70">class:</span>
+                                                        <span className="truncate">{item.class}</span>
+                                                        <div className="ml-auto">
+                                                            <CopyButton text={item.class} />
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-2 text-xs">
+                                                    <div className="space-y-0.5">
+                                                        <span className="font-semibold text-muted-foreground flex items-center gap-1">
+                                                            <Info className="size-3 text-primary/70" /> Purpose & Action
+                                                        </span>
+                                                        <p className="text-muted-foreground leading-relaxed">{item.purpose}</p>
+                                                    </div>
+
+                                                    <div className="space-y-0.5">
+                                                        <span className="font-semibold text-muted-foreground">Trigger / Run Frequency</span>
+                                                        <p className="text-muted-foreground leading-relaxed">{item.trigger}</p>
+                                                    </div>
+
+                                                    <div className="flex flex-wrap gap-2 pt-1">
+                                                        {item.schedule && (
+                                                            <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 font-mono gap-1">
+                                                                <Calendar className="size-3" />
+                                                                {item.schedule}
+                                                            </Badge>
+                                                        )}
+                                                        {item.signature && (
+                                                            <Badge variant="outline" className="font-mono bg-muted/20 border-border/60 text-muted-foreground/80">
+                                                                sig: {item.signature.split(' ')[0]}
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+
+                                                    {item.details && (
+                                                        <p className="text-[11px] text-muted-foreground/80 bg-muted/20 p-2 rounded-lg border border-border/20 italic">
+                                                            {item.details}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+
+                                            {/* Code Execution Snippet */}
+                                            <div className="border-t border-border/30 bg-muted/20 p-3 rounded-b-xl space-y-1">
+                                                <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                                                    <span>How to run in Terminal</span>
+                                                    <CopyButton text={item.code_snippet} />
+                                                </div>
+                                                <pre className="overflow-x-auto text-[11px] font-mono text-foreground bg-background/50 p-2 rounded border border-border/40 leading-normal">
+                                                    {item.code_snippet}
+                                                </pre>
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                ) : null}
+
+                {/* Pagination */}
+                {tab !== 'registry' && (
+                    <div className="mt-8">
+                        <Pagination pagination={pagination} onPageChange={list.onPageChange} />
+                    </div>
+                )}
             </Main>
 
             <ConfirmDeleteDialog

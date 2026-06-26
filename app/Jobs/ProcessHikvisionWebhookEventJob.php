@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
+use App\Models\JobRun;
 use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -25,6 +26,13 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
         $storedEvent = HikvisionAccessEvent::upsertFromWebhook($this->payload);
 
         if ($storedEvent?->occurrence_time === null) {
+            $jobId = $this->job ? $this->job->uuid() : null;
+            if ($jobId) {
+                JobRun::query()->where('correlation_id', $jobId)->update([
+                    'message' => 'Ignored webhook event: occurrence time is missing.',
+                ]);
+            }
+
             return;
         }
 
@@ -39,8 +47,22 @@ class ProcessHikvisionWebhookEventJob implements ShouldQueue
             ->distinct()
             ->pluck('company_id');
 
+        $synced = 0;
+
         foreach ($companyIds as $companyId) {
-            $attendanceSync->syncCompany((int) $companyId, $start, $end);
+            $synced += $attendanceSync->syncCompany((int) $companyId, $start, $end);
+        }
+
+        $jobId = $this->job ? $this->job->uuid() : null;
+        if ($jobId) {
+            JobRun::query()->where('correlation_id', $jobId)->update([
+                'message' => "Processed webhook scan event for {$storedEvent->person_name}. Synced {$synced} attendance record(s) for {$eventDay->toDateString()}.",
+                'context' => [
+                    'person_name' => $storedEvent->person_name,
+                    'synced_records_count' => $synced,
+                    'event_date' => $eventDay->toDateString(),
+                ],
+            ]);
         }
     }
 }

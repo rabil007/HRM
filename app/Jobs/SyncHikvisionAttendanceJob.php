@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\JobRun;
 use App\Services\HikvisionService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -20,18 +21,28 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
     public function handle(HikvisionService $hikvision): void
     {
         $timezone = (string) config('app.timezone', 'UTC');
+        $synced = 0;
 
         if (filled($this->date)) {
             $day = Carbon::parse($this->date, $timezone)->startOfDay();
-            $hikvision->syncAttendanceForDay($day);
+            $synced += $hikvision->syncAttendanceForDay($day);
 
             if ($day->isToday()) {
-                $hikvision->syncAttendanceForDay($day->copy()->subDay());
+                $synced += $hikvision->syncAttendanceForDay($day->copy()->subDay());
             }
-
-            return;
+        } else {
+            $synced += $hikvision->syncAttendanceForScheduledDays();
         }
 
-        $hikvision->syncAttendanceForScheduledDays();
+        $jobId = $this->job ? $this->job->uuid() : null;
+        if ($jobId) {
+            JobRun::query()->where('correlation_id', $jobId)->update([
+                'message' => "Successfully synchronized {$synced} attendance record(s).",
+                'context' => [
+                    'synced_records_count' => $synced,
+                    'date' => $this->date,
+                ],
+            ]);
+        }
     }
 }
