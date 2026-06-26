@@ -33,6 +33,8 @@ class HikvisionSetting extends Model
         'events_fetch_started_at',
         'events_fetch_schedule_enabled',
         'events_fetch_schedule_at',
+        'events_evening_fetch_schedule_enabled',
+        'events_evening_fetch_schedule_at',
         'webhook_verify_token',
         'webhook_enabled',
         'webhook_callback_url',
@@ -53,6 +55,7 @@ class HikvisionSetting extends Model
             'events_last_fetched_at' => 'datetime',
             'events_fetch_started_at' => 'datetime',
             'events_fetch_schedule_enabled' => 'boolean',
+            'events_evening_fetch_schedule_enabled' => 'boolean',
             'webhook_enabled' => 'boolean',
             'webhook_registered_at' => 'datetime',
             'webhook_last_event_at' => 'datetime',
@@ -202,6 +205,9 @@ class HikvisionSetting extends Model
             'events_fetch_schedule_enabled' => (bool) $this->events_fetch_schedule_enabled,
             'events_fetch_schedule_at' => $this->events_fetch_schedule_at
                 ?? (string) config('hikvision.events_fetch_schedule_at', '18:00'),
+            'events_evening_fetch_schedule_enabled' => (bool) $this->events_evening_fetch_schedule_enabled,
+            'events_evening_fetch_schedule_at' => $this->events_evening_fetch_schedule_at
+                ?? (string) config('hikvision.events_evening_fetch_schedule_at', '20:00'),
             'events_last_fetched_at' => $this->events_last_fetched_at?->toIso8601String(),
         ];
     }
@@ -239,6 +245,16 @@ class HikvisionSetting extends Model
         if (array_key_exists('events_fetch_schedule_at', $data)) {
             $this->events_fetch_schedule_at = filled($data['events_fetch_schedule_at'])
                 ? (string) $data['events_fetch_schedule_at']
+                : null;
+        }
+
+        if (array_key_exists('events_evening_fetch_schedule_enabled', $data)) {
+            $this->events_evening_fetch_schedule_enabled = (bool) $data['events_evening_fetch_schedule_enabled'];
+        }
+
+        if (array_key_exists('events_evening_fetch_schedule_at', $data)) {
+            $this->events_evening_fetch_schedule_at = filled($data['events_evening_fetch_schedule_at'])
+                ? (string) $data['events_evening_fetch_schedule_at']
                 : null;
         }
 

@@ -16,6 +16,8 @@ return [
 
     'events_fetch_schedule_at' => env('HIKVISION_EVENTS_FETCH_SCHEDULE_AT', '18:00'),
 
+    'events_evening_fetch_schedule_at' => env('HIKVISION_EVENING_FETCH_SCHEDULE_AT', '20:00'),
+
     'api_host' => env('HIKVISION_API_HOST'),
 
     'api_key' => env('HIKVISION_API_KEY'),

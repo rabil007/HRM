@@ -30,6 +30,13 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
                 'regex:/^([01]\d|2[0-3]):[0-5]\d$/',
                 'required_if:events_fetch_schedule_enabled,true,1',
             ],
+            'events_evening_fetch_schedule_enabled' => ['sometimes', 'boolean'],
+            'events_evening_fetch_schedule_at' => [
+                'nullable',
+                'string',
+                'regex:/^([01]\d|2[0-3]):[0-5]\d$/',
+                'required_if:events_evening_fetch_schedule_enabled,true,1',
+            ],
         ];
     }
 
@@ -39,6 +46,8 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
         return [
             'events_fetch_schedule_at.required_if' => 'Choose a daily fetch time when automatic fetch is enabled.',
             'events_fetch_schedule_at.regex' => 'Use 24-hour time in HH:MM format (e.g. 18:00).',
+            'events_evening_fetch_schedule_at.required_if' => 'Choose an evening fetch time when evening fetch is enabled.',
+            'events_evening_fetch_schedule_at.regex' => 'Use 24-hour time in HH:MM format (e.g. 20:00).',
         ];
     }
 
@@ -54,6 +63,8 @@ class UpdateHikvisionIntegrationRequest extends FormRequest
             'webhook_verify_token',
             'events_fetch_schedule_enabled',
             'events_fetch_schedule_at',
+            'events_evening_fetch_schedule_enabled',
+            'events_evening_fetch_schedule_at',
         ]);
     }
 }

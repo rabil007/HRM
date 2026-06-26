@@ -2,6 +2,7 @@
 
 use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
 use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
+use App\Support\Hikvision\HikvisionEveningAccessEventsFetchSchedule;
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('documents:dispatch-expiry-alerts')
@@ -18,4 +19,11 @@ Schedule::command('hikvision:fetch-access-events')
     ->dailyAt(HikvisionAccessEventsFetchSchedule::dispatchAt())
     ->timezone(HikvisionAccessEventsFetchSchedule::timezone())
     ->when(fn () => HikvisionAccessEventsFetchSchedule::isEnabled())
+    ->withoutOverlapping();
+
+Schedule::command('hikvision:fetch-todays-access-events')
+    ->dailyAt(HikvisionEveningAccessEventsFetchSchedule::dispatchAt())
+    ->timezone(HikvisionEveningAccessEventsFetchSchedule::timezone())
+    ->when(fn () => HikvisionEveningAccessEventsFetchSchedule::isEnabled())
+    ->name('hikvision-evening-access-events')
     ->withoutOverlapping();

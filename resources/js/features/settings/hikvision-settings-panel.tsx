@@ -48,6 +48,8 @@ export type HikvisionSettingsPanelProps = {
         has_webhook_verify_token: boolean;
         events_fetch_schedule_enabled: boolean;
         events_fetch_schedule_at: string;
+        events_evening_fetch_schedule_enabled: boolean;
+        events_evening_fetch_schedule_at: string;
         events_last_fetched_at: string | null;
     };
     webhook_url: string;
@@ -120,6 +122,8 @@ export function HikvisionSettingsPanel({
         webhook_verify_token: settings.webhook_verify_token ?? '',
         events_fetch_schedule_enabled: settings.events_fetch_schedule_enabled ?? false,
         events_fetch_schedule_at: settings.events_fetch_schedule_at ?? '18:00',
+        events_evening_fetch_schedule_enabled: settings.events_evening_fetch_schedule_enabled ?? false,
+        events_evening_fetch_schedule_at: settings.events_evening_fetch_schedule_at ?? '20:00',
     });
 
     const submit = (event: React.FormEvent) => {
@@ -479,6 +483,91 @@ export function HikvisionSettingsPanel({
                                     available the next day; yesterday is included on each run for backfill.
                                 </p>
                                 <InputError message={form.errors.events_fetch_schedule_at} />
+                            </div>
+                        ) : null}
+
+                        {can.update ? (
+                            <div className="flex justify-end">
+                                <Button
+                                    type="submit"
+                                    className="rounded-xl h-11 px-6"
+                                    disabled={form.processing}
+                                >
+                                    {form.processing ? <Spinner /> : null}
+                                    Save Hikvision settings
+                                </Button>
+                            </div>
+                        ) : null}
+                    </CardContent>
+                </Card>
+
+                <Card className="border-border/80 bg-card dark:border-white/5 dark:bg-white/5">
+                    <CardContent className="space-y-5 p-6">
+                        <div className="flex items-center gap-4">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10">
+                                <Clock className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-bold tracking-tight">Evening fetch (manual-style)</h2>
+                                <p className="mt-0.5 text-xs text-muted-foreground">
+                                    Runs the same fetch as manual Access Events for today&apos;s date — ideal after mobile
+                                    check-outs are complete.
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            <StatusItem label="Scheduled time">
+                                <span className="text-sm">
+                                    {form.data.events_evening_fetch_schedule_enabled
+                                        ? `${form.data.events_evening_fetch_schedule_at} (${scheduler_timezone})`
+                                        : 'Disabled'}
+                                </span>
+                            </StatusItem>
+                            <StatusItem label="Fetch scope">
+                                <span className="text-sm">Today (manual fetch path)</span>
+                            </StatusItem>
+                            <StatusItem label="Separate from morning">
+                                <span className="text-sm">Independent schedule</span>
+                            </StatusItem>
+                        </div>
+
+                        <div className="flex items-center justify-between rounded-xl border border-border/80 bg-muted/20 dark:border-white/5 dark:bg-white/5 px-4 py-3">
+                            <div>
+                                <p className="text-sm font-medium">Enable evening fetch</p>
+                                <p className="text-xs text-muted-foreground">
+                                    Fetches today&apos;s door and mobile records using the manual fetch job. Does not
+                                    change the morning schedule above.
+                                </p>
+                            </div>
+                            <Switch
+                                checked={form.data.events_evening_fetch_schedule_enabled}
+                                onCheckedChange={(checked) =>
+                                    form.setData('events_evening_fetch_schedule_enabled', checked)
+                                }
+                                disabled={!can.update || !settings.is_configured}
+                            />
+                        </div>
+
+                        {form.data.events_evening_fetch_schedule_enabled ? (
+                            <div className="space-y-1.5 max-w-xs">
+                                <FieldLabel htmlFor="events_evening_fetch_schedule_at">
+                                    Evening fetch time
+                                </FieldLabel>
+                                <FieldInput
+                                    id="events_evening_fetch_schedule_at"
+                                    type="time"
+                                    value={form.data.events_evening_fetch_schedule_at}
+                                    onChange={(event) =>
+                                        form.setData('events_evening_fetch_schedule_at', event.target.value)
+                                    }
+                                    disabled={!can.update}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Uses application timezone ({scheduler_timezone}). Recommended around 20:00 after
+                                    mobile check-outs.
+                                </p>
+                                <InputError message={form.errors.events_evening_fetch_schedule_at} />
                             </div>
                         ) : null}
 

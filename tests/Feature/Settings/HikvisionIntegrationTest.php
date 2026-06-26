@@ -72,7 +72,9 @@ test('owner can view hikvision integration settings page', function () {
             ->has('hikvision.webhook_url')
             ->has('hikvision.scheduler_timezone')
             ->has('hikvision.settings.events_fetch_schedule_enabled')
-            ->has('hikvision.settings.events_fetch_schedule_at'),
+            ->has('hikvision.settings.events_fetch_schedule_at')
+            ->has('hikvision.settings.events_evening_fetch_schedule_enabled')
+            ->has('hikvision.settings.events_evening_fetch_schedule_at'),
         );
 });
 
