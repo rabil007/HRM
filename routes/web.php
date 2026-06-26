@@ -9,6 +9,7 @@ use App\Http\Controllers\Attendance\LeaveTypeController;
 use App\Http\Controllers\DatabaseViewerController;
 use App\Http\Controllers\Hikvision\HikvisionAccessEventController;
 use App\Http\Controllers\Hikvision\HikvisionPersonController;
+use App\Http\Controllers\JobRunController;
 use App\Http\Controllers\Organization\ActivityLogController;
 use App\Http\Controllers\Organization\BranchController;
 use App\Http\Controllers\Organization\CompanyController;
@@ -87,6 +88,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('log', [ApplicationLogController::class, 'index'])->name('log');
     Route::get('log/export', [ApplicationLogController::class, 'export'])->name('log.export');
     Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
+
+    Route::get('jobs', [JobRunController::class, 'index'])->name('jobs.index');
+    Route::post('jobs/failed/{uuid}/retry', [JobRunController::class, 'retryFailed'])->name('jobs.failed.retry');
+    Route::delete('jobs/failed/{uuid}', [JobRunController::class, 'destroyFailed'])->name('jobs.failed.destroy');
 
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('organization/companies', [CompanyController::class, 'index'])->middleware('can:companies.view')->name('organization.companies');

@@ -4,12 +4,20 @@ namespace App\Providers;
 
 use App\Services\Settings\MailSettingsService;
 use App\Services\Settings\SettingService;
+use App\Support\Queue\JobRunRecorder;
 use App\Support\Settings\SettingKey;
 use Carbon\CarbonImmutable;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Console\Events\ScheduledTaskFailed;
+use Illuminate\Console\Events\ScheduledTaskFinished;
+use Illuminate\Console\Events\ScheduledTaskStarting;
 use Illuminate\Notifications\Messages\MailMessage;
+use Illuminate\Queue\Events\JobFailed;
+use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
@@ -52,6 +60,19 @@ class AppServiceProvider extends ServiceProvider
         $this->configureApplicationSettings();
         $this->configureMailViews();
         $this->configurePasswordResetNotifications();
+        $this->configureJobRunRecording();
+    }
+
+    protected function configureJobRunRecording(): void
+    {
+        $recorder = app(JobRunRecorder::class);
+
+        Event::listen(JobProcessing::class, [$recorder, 'recordQueueStarting']);
+        Event::listen(JobProcessed::class, [$recorder, 'recordQueueFinished']);
+        Event::listen(JobFailed::class, [$recorder, 'recordQueueFailed']);
+        Event::listen(ScheduledTaskStarting::class, [$recorder, 'recordScheduledStarting']);
+        Event::listen(ScheduledTaskFinished::class, [$recorder, 'recordScheduledFinished']);
+        Event::listen(ScheduledTaskFailed::class, [$recorder, 'recordScheduledFailed']);
     }
 
     protected function configureMailViews(): void
