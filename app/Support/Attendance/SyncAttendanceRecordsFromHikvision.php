@@ -89,6 +89,15 @@ final class SyncAttendanceRecordsFromHikvision
             ->whereDate('end_date', '>=', $rangeStart->toDateString())
             ->get(['start_date', 'end_date']);
 
+        /** @var Collection<string, AttendanceRecord> $existingRecords */
+        $existingRecords = AttendanceRecord::query()
+            ->where('company_id', $employee->company_id)
+            ->where('employee_id', $employee->id)
+            ->whereDate('date', '>=', $rangeStart->toDateString())
+            ->whereDate('date', '<=', $rangeEnd->toDateString())
+            ->get()
+            ->keyBy(fn (AttendanceRecord $record): string => $record->date->toDateString());
+
         $current = $rangeStart->copy();
 
         while ($current->lte($rangeEnd)) {
@@ -96,11 +105,7 @@ final class SyncAttendanceRecordsFromHikvision
             /** @var Collection<int, HikvisionAccessEvent> $dayEvents */
             $dayEvents = $eventsByDate->get($date, collect());
 
-            $existing = AttendanceRecord::query()
-                ->where('company_id', $employee->company_id)
-                ->where('employee_id', $employee->id)
-                ->whereDate('date', $date)
-                ->first();
+            $existing = $existingRecords->get($date);
 
             if ($existing !== null && $existing->source === AttendanceRecord::SOURCE_MANUAL) {
                 $current->addDay();
@@ -124,7 +129,13 @@ final class SyncAttendanceRecordsFromHikvision
             ];
 
             if ($existing !== null) {
-                $existing->update($attributes);
+                if ($this->attendanceAttributesMatch($existing, $attributes)) {
+                    $current->addDay();
+
+                    continue;
+                }
+
+                AttendanceRecord::query()->whereKey($existing->id)->update($attributes);
             } else {
                 AttendanceRecord::query()->create([
                     'company_id' => $employee->company_id,
@@ -275,6 +286,30 @@ final class SyncAttendanceRecordsFromHikvision
             'clockIn' => $clockIn,
             'clockOut' => $clockOut,
         ];
+    }
+
+    /**
+     * @param  array{
+     *     clock_in: ?\DateTimeInterface,
+     *     clock_out: ?\DateTimeInterface,
+     *     hours_worked: float|string|null,
+     *     overtime_hours: float|int,
+     *     late_minutes: int,
+     *     source: ?string,
+     *     status: string,
+     *     notes: ?string
+     * }  $attributes
+     */
+    private function attendanceAttributesMatch(AttendanceRecord $existing, array $attributes): bool
+    {
+        return $existing->clock_in?->getTimestamp() === $attributes['clock_in']?->getTimestamp()
+            && $existing->clock_out?->getTimestamp() === $attributes['clock_out']?->getTimestamp()
+            && (float) $existing->hours_worked === (float) $attributes['hours_worked']
+            && (float) $existing->overtime_hours === (float) $attributes['overtime_hours']
+            && (int) $existing->late_minutes === (int) $attributes['late_minutes']
+            && $existing->source === $attributes['source']
+            && $existing->status === $attributes['status']
+            && $existing->notes === $attributes['notes'];
     }
 
     /**

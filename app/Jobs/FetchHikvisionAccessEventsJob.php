@@ -47,13 +47,9 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
             $settings->markEventsFetchFailed($exception->getMessage());
         } finally {
             if (filled($this->date) && $date instanceof Carbon) {
-                $hikvision->syncAttendanceForDay($date);
-
-                if ($date->isToday()) {
-                    $hikvision->syncAttendanceForDay($date->copy()->subDay());
-                }
+                SyncHikvisionAttendanceJob::dispatch($date->toDateString());
             } elseif (! filled($this->date)) {
-                $hikvision->syncAttendanceForScheduledDays();
+                SyncHikvisionAttendanceJob::dispatch();
             }
         }
 

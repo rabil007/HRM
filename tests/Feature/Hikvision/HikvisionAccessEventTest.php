@@ -1,6 +1,7 @@
 <?php
 
 use App\Jobs\FetchHikvisionAccessEventsJob;
+use App\Jobs\SyncHikvisionAttendanceJob;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\HikvisionAccessEvent;
@@ -37,7 +38,10 @@ function postHikvisionAccessEventsFetch(User $user, ?string $date = null): TestR
 
 function runHikvisionAccessEventsFetchJob(?string $date = null): void
 {
-    (new FetchHikvisionAccessEventsJob($date))->handle(app(HikvisionService::class));
+    $hikvision = app(HikvisionService::class);
+
+    (new FetchHikvisionAccessEventsJob($date))->handle($hikvision);
+    (new SyncHikvisionAttendanceJob($date))->handle($hikvision);
 }
 
 function fakeHikvisionAcsEventsFetch(array $attendanceReportDataList = []): void
