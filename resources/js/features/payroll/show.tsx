@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
+import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
@@ -571,13 +572,21 @@ export function PayrollShowContent({
                             <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
-                                            {row.employee.name
-                                                .split(' ')
-                                                .filter(Boolean)
-                                                .slice(0, 2)
-                                                .map((part) => part[0]?.toUpperCase())
-                                                .join('') || '—'}
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                                            {row.employee.image ? (
+                                                <img
+                                                    src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
+                                                    alt=""
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                row.employee.name
+                                                    .split(' ')
+                                                    .filter(Boolean)
+                                                    .slice(0, 2)
+                                                    .map((part) => part[0]?.toUpperCase())
+                                                    .join('') || '—'
+                                            )}
                                         </div>
                                         <span className="font-semibold">{row.employee.name}</span>
                                     </div>
@@ -739,13 +748,21 @@ export function PayrollShowContent({
                             <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
                                 <TableCell className={dataTableCellPrimaryClass()}>
                                     <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner group-hover:scale-105 transition-transform">
-                                            {row.employee.name
-                                                .split(' ')
-                                                .filter(Boolean)
-                                                .slice(0, 2)
-                                                .map((part) => part[0]?.toUpperCase())
-                                                .join('') || '—'}
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                                            {row.employee.image ? (
+                                                <img
+                                                    src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
+                                                    alt=""
+                                                    className="h-full w-full object-cover"
+                                                />
+                                            ) : (
+                                                row.employee.name
+                                                    .split(' ')
+                                                    .filter(Boolean)
+                                                    .slice(0, 2)
+                                                    .map((part) => part[0]?.toUpperCase())
+                                                    .join('') || '—'
+                                            )}
                                         </div>
                                         <span className="font-semibold">{row.employee.name}</span>
                                     </div>

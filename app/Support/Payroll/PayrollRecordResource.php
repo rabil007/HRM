@@ -28,6 +28,7 @@ final class PayrollRecordResource
                 'id' => $record->employee_id,
                 'name' => $record->employee?->name ?? '—',
                 'employee_no' => $record->employee?->employee_no,
+                'image' => $record->employee?->image,
             ],
             'overtime_pay' => self::formatAmount($record->overtime_pay),
             'additional_amount' => self::formatAmount($record->bonus),

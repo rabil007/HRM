@@ -28,6 +28,7 @@ final class PayslipListResource
                 'name' => $record->employee?->name ?? '—',
                 'employee_no' => $record->employee?->employee_no,
                 'work_email' => $record->employee?->work_email,
+                'image' => $record->employee?->image,
             ],
             'period' => [
                 'id' => $record->period_id,

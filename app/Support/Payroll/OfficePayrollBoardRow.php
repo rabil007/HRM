@@ -16,6 +16,7 @@ final class OfficePayrollBoardRow
                 'id' => $employee->id,
                 'name' => $employee->name,
                 'employee_no' => $employee->employee_no,
+                'image' => $employee->image,
             ],
             'period_id' => $periodId,
             'timesheet' => null,

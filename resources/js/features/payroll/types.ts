@@ -107,6 +107,7 @@ export type CrewPayrollRow = {
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     };
     period_id: number;
     timesheet: CrewTimesheet | null;
@@ -187,6 +188,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     };
     standby_days: number | null;
     onsite_days: number | null;
@@ -209,6 +211,7 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
         id: number;
         name: string;
         employee_no: string | null;
+        image?: string | null;
     };
     basic_salary: string;
     housing_allowance: string;

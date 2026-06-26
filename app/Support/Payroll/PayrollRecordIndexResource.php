@@ -24,6 +24,7 @@ final class PayrollRecordIndexResource
                 'id' => $record->employee_id,
                 'name' => $record->employee?->name ?? '—',
                 'employee_no' => $record->employee?->employee_no,
+                'image' => $record->employee?->image,
             ],
             'period' => [
                 'id' => $record->period_id,
