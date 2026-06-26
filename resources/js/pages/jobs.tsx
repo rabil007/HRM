@@ -13,10 +13,8 @@ import {
     Timer,
     Trash2,
     Workflow,
-    BookOpen,
     Info,
     Calendar,
-    Settings,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
