@@ -31,7 +31,7 @@ class SyncHikvisionAttendanceJob implements ShouldQueue
                 $synced += $hikvision->syncAttendanceForDay($day->copy()->subDay());
             }
         } else {
-            $synced += $hikvision->syncAttendanceForScheduledDays();
+            $synced += $hikvision->syncAttendanceForYesterday();
         }
 
         $jobId = $this->job ? $this->job->uuid() : null;

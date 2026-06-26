@@ -542,7 +542,7 @@ test('fetch ignores door system events without person identity', function () {
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->count())->toBe(1)
         ->and(HikvisionAccessEvent::query()->value('person_name'))->toBe('Dil')
@@ -622,7 +622,7 @@ test('background job stores mobile app attendance records from total time card a
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Mathew')->where('attendance_status', 'checkIn')->exists())->toBeTrue()
@@ -712,7 +712,7 @@ test('background job stores person hikvision id on mobile app access events when
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_hikvision_id', 'hv-person-7')->count())->toBe(2);
@@ -723,7 +723,7 @@ test('background job stores acs access records from isapi proxypass', function (
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionAccessEvent::query()->where('event_source', 'acs_isapi')->count())->toBe(2)
         ->and(HikvisionAccessEvent::query()->where('person_name', 'Dil')->value('attendance_status'))->toBe('checkIn')
@@ -742,7 +742,7 @@ test('daily fetch does not call certificate records api', function () {
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     Http::assertNotSent(fn ($request) => str_contains($request->url(), 'certificaterecords/search'));
     expect(HikvisionSetting::current()->events_fetch_message)->not->toContain('certificate');
@@ -789,7 +789,7 @@ test('background job fails when no access controller devices exist', function ()
     configuredHikvisionSettings();
     HikvisionSetting::current()->beginEventsFetch();
 
-    runHikvisionAccessEventsFetchJob();
+    runHikvisionAccessEventsFetchJob('2026-06-05');
 
     expect(HikvisionSetting::current()->events_fetch_status)->toBe(HikvisionSetting::EVENTS_FETCH_FAILED)
         ->and(HikvisionSetting::current()->events_fetch_message)->toContain('No access controller devices found');
@@ -996,8 +996,8 @@ function fakeHikvisionEveningScheduledFetchJune11(): void
     });
 }
 
-test('scheduled evening fetch stores door events but zero mobile when hikconnect has not published same day mobile', function () {
-    Carbon::setTestNow('2026-06-11 20:01:00', 'Asia/Dubai');
+test('scheduled morning fetch stores yesterdays door events but zero mobile when hikconnect has not published them yet', function () {
+    Carbon::setTestNow('2026-06-12 08:50:00', 'Asia/Dubai');
 
     fakeHikvisionEveningScheduledFetchJune11();
     configuredHikvisionSettings();
@@ -1009,11 +1009,11 @@ test('scheduled evening fetch stores door events but zero mobile when hikconnect
         ->and(HikvisionAccessEvent::query()->where('transaction_source', 'mobile_app')->count())->toBe(0)
         ->and(HikvisionSetting::current()->events_fetch_message)->toContain('Scheduled fetch:')
         ->and(HikvisionSetting::current()->events_fetch_message)->toContain('1 device, 0 mobile app')
-        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('for today');
+        ->and(HikvisionSetting::current()->events_fetch_message)->toContain('2026-06-11');
 });
 
-test('scheduled fetch backfills yesterdays mobile on the next evenings run', function () {
-    Carbon::setTestNow('2026-06-12 20:01:00', 'Asia/Dubai');
+test('scheduled fetch backfills yesterdays mobile on the next mornings run', function () {
+    Carbon::setTestNow('2026-06-12 08:50:00', 'Asia/Dubai');
 
     $acsPayload = json_encode([
         'AcsEvent' => [
@@ -1023,7 +1023,7 @@ test('scheduled fetch backfills yesterdays mobile on the next evenings run', fun
                 [
                     'major' => 5,
                     'minor' => 38,
-                    'time' => '2026-06-12T08:28:00+04:00',
+                    'time' => '2026-06-11T08:28:00+04:00',
                     'name' => 'Employee One',
                     'doorNo' => 1,
                     'cardReaderNo' => 1,

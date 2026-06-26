@@ -413,8 +413,8 @@ export function HikvisionSettingsPanel({
                             <div>
                                 <h2 className="text-base font-bold tracking-tight">Automatic daily fetch</h2>
                                 <p className="mt-0.5 text-xs text-muted-foreground">
-                                    Pull yesterday and today&apos;s door and mobile app access records from Hik-Connect on a
-                                    schedule.
+                                    Pull yesterday&apos;s door and mobile app access records from Hik-Connect on a schedule.
+                                    Today is covered by webhooks and the evening fetch.
                                 </p>
                             </div>
                         </div>

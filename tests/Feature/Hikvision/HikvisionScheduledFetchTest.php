@@ -5,6 +5,7 @@ use App\Jobs\SyncHikvisionAttendanceJob;
 use App\Models\HikvisionSetting;
 use App\Models\User;
 use App\Services\HikvisionService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Queue;
 
 test('scheduled fetch command dispatches job when schedule is enabled', function () {
@@ -59,7 +60,7 @@ test('scheduled fetch job dispatches attendance sync as a separate job', functio
     $hikvision->shouldReceive('fetchScheduledAccessEvents')
         ->once()
         ->andReturn(['fetched_count' => 0, 'message' => 'ok']);
-    $hikvision->shouldNotReceive('syncAttendanceForScheduledDays');
+    $hikvision->shouldNotReceive('syncAttendanceForYesterday');
 
     Queue::fake();
 
@@ -68,12 +69,30 @@ test('scheduled fetch job dispatches attendance sync as a separate job', functio
     Queue::assertPushed(SyncHikvisionAttendanceJob::class);
 });
 
+test('fetchScheduledAccessEvents only fetches yesterday', function () {
+    Carbon::setTestNow('2026-06-26 08:50:00', config('app.timezone'));
+
+    $hikvision = Mockery::mock(HikvisionService::class)->makePartial();
+    $hikvision->shouldReceive('fetchAccessEvents')
+        ->once()
+        ->with(Mockery::on(
+            fn ($date): bool => $date->toDateString() === '2026-06-25',
+        ))
+        ->andReturn(['fetched_count' => 3, 'message' => 'Fetched 3 access record(s) for 2026-06-25 (2 device, 1 mobile app).']);
+    $hikvision->shouldNotReceive('syncAttendanceForYesterday');
+
+    $result = $hikvision->fetchScheduledAccessEvents();
+
+    expect($result['fetched_count'])->toBe(3)
+        ->and($result['message'])->toContain('2026-06-25');
+});
+
 test('fetchScheduledAccessEvents does not sync attendance itself', function () {
     $hikvision = Mockery::mock(HikvisionService::class)->makePartial();
     $hikvision->shouldReceive('fetchAccessEvents')
-        ->twice()
+        ->once()
         ->andReturn(['fetched_count' => 0, 'message' => 'ok']);
-    $hikvision->shouldNotReceive('syncAttendanceForScheduledDays');
+    $hikvision->shouldNotReceive('syncAttendanceForYesterday');
 
     $hikvision->fetchScheduledAccessEvents();
 });

@@ -693,11 +693,10 @@ class HikvisionService
         $timezone = ApplicationTimezone::identifier();
         $yesterday = now($timezone)->copy()->subDay()->startOfDay();
         $yesterdayResult = $this->fetchAccessEvents($yesterday);
-        $todayResult = $this->fetchAccessEvents(null);
 
         return [
-            'fetched_count' => $yesterdayResult['fetched_count'] + $todayResult['fetched_count'],
-            'message' => "Scheduled fetch: {$yesterdayResult['message']} {$todayResult['message']}",
+            'fetched_count' => $yesterdayResult['fetched_count'],
+            'message' => "Scheduled fetch: {$yesterdayResult['message']}",
         ];
     }
 
@@ -712,25 +711,15 @@ class HikvisionService
         );
     }
 
-    public function syncAttendanceForScheduledDays(): int
+    public function syncAttendanceForYesterday(): int
     {
         $timezone = ApplicationTimezone::identifier();
-        $today = now($timezone)->copy()->timezone($timezone)->startOfDay();
-        $yesterday = $today->copy()->subDay();
+        $yesterday = now($timezone)->copy()->timezone($timezone)->subDay()->startOfDay();
 
-        $synced = 0;
-
-        $synced += $this->syncAttendanceRecordsForWindow(
+        return $this->syncAttendanceRecordsForWindow(
             $yesterday->copy()->startOfDay(),
             $yesterday->copy()->endOfDay(),
         );
-
-        $synced += $this->syncAttendanceRecordsForWindow(
-            $today->copy()->startOfDay(),
-            $today->copy()->endOfDay(),
-        );
-
-        return $synced;
     }
 
     public function fetchCertificateRecords(

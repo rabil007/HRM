@@ -10,9 +10,9 @@ use App\Support\Attendance\SyncAttendanceRecordsFromHikvision;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
-test('sync hikvision attendance job syncs scheduled days', function () {
+test('sync hikvision attendance job syncs yesterday when scheduled', function () {
     $hikvision = Mockery::mock(HikvisionService::class);
-    $hikvision->shouldReceive('syncAttendanceForScheduledDays')->once();
+    $hikvision->shouldReceive('syncAttendanceForYesterday')->once();
 
     (new SyncHikvisionAttendanceJob)->handle($hikvision);
 });
@@ -29,18 +29,19 @@ test('sync hikvision attendance job syncs a dated day and backfills yesterday wh
 test('sync attendance skips unchanged records to avoid expensive model updates', function () {
     Carbon::setTestNow('2026-06-26 10:00:00', config('app.timezone'));
 
-    ['company' => $company] = makeAttendanceRecordsFixtures();
     $person = HikvisionPerson::query()->create([
         'person_id' => 'perf-person-1',
         'full_name' => 'Perf Employee',
         'person_code' => '99',
     ]);
 
-    $employee = Employee::factory()->forCompany($company)->create([
+    $employee = Employee::factory()->create([
         'status' => 'active',
         'name' => 'Perf Employee',
         'hikvision_person_id' => $person->id,
     ]);
+
+    $company = $employee->company;
 
     HikvisionAccessEvent::query()->create([
         'system_id' => 'perf:checkin',
