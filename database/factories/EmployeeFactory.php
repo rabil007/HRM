@@ -29,30 +29,36 @@ class EmployeeFactory extends Factory
             'company_id' => function () {
                 $code = strtoupper((string) $this->faker->unique()->lexify('??'));
 
-                $country = Country::query()->create([
-                    'code' => $code,
-                    'name' => "Test {$code}",
-                    'dial_code' => '+999',
-                    'is_active' => true,
-                ]);
+                $country = Country::query()->firstOrCreate(
+                    ['code' => $code],
+                    [
+                        'name' => "Test {$code}",
+                        'dial_code' => '+999',
+                        'is_active' => true,
+                    ]
+                );
 
-                $currency = Currency::query()->create([
-                    'code' => $code,
-                    'name' => "Test {$code}",
-                    'symbol' => '$',
-                    'is_active' => true,
-                ]);
+                $currency = Currency::query()->firstOrCreate(
+                    ['code' => $code],
+                    [
+                        'name' => "Test {$code}",
+                        'symbol' => '$',
+                        'is_active' => true,
+                    ]
+                );
 
-                return Company::query()->create([
-                    'name' => "Company {$code}",
-                    'slug' => strtolower($code),
-                    'working_days' => [1, 2, 3, 4, 5],
-                    'country_id' => $country->id,
-                    'currency_id' => $currency->id,
-                    'timezone' => 'Asia/Dubai',
-                    'payroll_cycle' => 'monthly',
-                    'status' => 'active',
-                ])->id;
+                return Company::query()->firstOrCreate(
+                    ['slug' => strtolower($code)],
+                    [
+                        'name' => "Company {$code}",
+                        'working_days' => [1, 2, 3, 4, 5],
+                        'country_id' => $country->id,
+                        'currency_id' => $currency->id,
+                        'timezone' => 'Asia/Dubai',
+                        'payroll_cycle' => 'monthly',
+                        'status' => 'active',
+                    ]
+                )->id;
             },
             'user_id' => null,
             'branch_id' => null,
@@ -66,12 +72,14 @@ class EmployeeFactory extends Factory
             'nationality_id' => function () {
                 $code = strtoupper((string) $this->faker->unique()->lexify('??'));
 
-                return Country::query()->create([
-                    'code' => $code,
-                    'name' => "Test {$code}",
-                    'dial_code' => '+999',
-                    'is_active' => true,
-                ])->id;
+                return Country::query()->firstOrCreate(
+                    ['code' => $code],
+                    [
+                        'name' => "Test {$code}",
+                        'dial_code' => '+999',
+                        'is_active' => true,
+                    ]
+                )->id;
             },
             'marital_status' => $this->faker->optional()->randomElement(['single', 'married', 'divorced', 'widowed']),
             'spouse_name' => $this->faker->optional()->name(),
