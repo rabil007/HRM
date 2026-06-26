@@ -714,12 +714,9 @@ class HikvisionService
     public function syncAttendanceForYesterday(): int
     {
         $timezone = ApplicationTimezone::identifier();
-        $yesterday = now($timezone)->copy()->timezone($timezone)->subDay()->startOfDay();
+        $yesterday = now($timezone)->copy()->subDay()->startOfDay();
 
-        return $this->syncAttendanceRecordsForWindow(
-            $yesterday->copy()->startOfDay(),
-            $yesterday->copy()->endOfDay(),
-        );
+        return $this->syncAttendanceForDay($yesterday);
     }
 
     public function fetchCertificateRecords(

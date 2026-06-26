@@ -50,10 +50,11 @@ final class JobRunRecorder
 
         $finishedAt = now();
         $durationMs = $this->durationMs($run->started_at, $finishedAt);
+        $run->refresh();
 
         $run->update([
             'status' => JobRun::STATUS_COMPLETED,
-            'message' => 'Completed successfully.',
+            'message' => filled($run->message) ? $run->message : 'Completed successfully.',
             'finished_at' => $finishedAt,
             'duration_ms' => $durationMs,
         ]);

@@ -22,7 +22,7 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
     public function __construct(public ?string $date = null)
     {
         if (! filled($this->date)) {
-            $this->timeout = 300;
+            $this->timeout = 180;
         }
     }
 
@@ -47,10 +47,12 @@ class FetchHikvisionAccessEventsJob implements ShouldQueue
             $fetchFailed = true;
             $settings->markEventsFetchFailed($exception->getMessage());
         } finally {
-            if (filled($this->date) && $date instanceof Carbon) {
-                SyncHikvisionAttendanceJob::dispatch($date->toDateString());
-            } elseif (! filled($this->date)) {
-                SyncHikvisionAttendanceJob::dispatch();
+            if (! $fetchFailed) {
+                if (filled($this->date) && $date instanceof Carbon) {
+                    SyncHikvisionAttendanceJob::dispatch($date->toDateString());
+                } elseif (! filled($this->date)) {
+                    SyncHikvisionAttendanceJob::dispatch();
+                }
             }
         }
 

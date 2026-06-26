@@ -55,6 +55,19 @@ test('scheduled fetch command can be forced when schedule is disabled', function
     Queue::assertPushed(FetchHikvisionAccessEventsJob::class);
 });
 
+test('scheduled fetch job does not dispatch sync when fetch fails', function () {
+    $hikvision = Mockery::mock(HikvisionService::class);
+    $hikvision->shouldReceive('fetchScheduledAccessEvents')
+        ->once()
+        ->andThrow(new RuntimeException('No access controller devices found.'));
+
+    Queue::fake();
+
+    (new FetchHikvisionAccessEventsJob)->handle($hikvision);
+
+    Queue::assertNotPushed(SyncHikvisionAttendanceJob::class);
+});
+
 test('scheduled fetch job dispatches attendance sync as a separate job', function () {
     $hikvision = Mockery::mock(HikvisionService::class);
     $hikvision->shouldReceive('fetchScheduledAccessEvents')

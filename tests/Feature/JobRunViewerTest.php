@@ -76,6 +76,36 @@ test('queue job processing creates and completes a job run record', function () 
     expect(DB::table('job_runs')->where('correlation_id', $uuid)->value('status'))->toBe('completed');
 });
 
+test('queue job processing preserves a custom completion message set during handle', function () {
+    $uuid = (string) Str::uuid();
+
+    $payload = json_encode([
+        'uuid' => $uuid,
+        'displayName' => TestQueueJobForJobRuns::class,
+        'job' => 'Illuminate\\Queue\\CallQueuedHandler@call',
+        'data' => [
+            'commandName' => TestQueueJobForJobRuns::class,
+            'command' => serialize(new TestQueueJobForJobRuns),
+        ],
+    ]);
+
+    $queueJob = Mockery::mock(Job::class);
+    $queueJob->shouldReceive('payload')->andReturn(json_decode($payload, true));
+    $queueJob->shouldReceive('getQueue')->andReturn('default');
+    $queueJob->shouldReceive('getRawBody')->andReturn($payload);
+
+    Event::dispatch(new JobProcessing('database', $queueJob));
+
+    DB::table('job_runs')->where('correlation_id', $uuid)->update([
+        'message' => 'Fetched 12 access record(s) for today.',
+    ]);
+
+    Event::dispatch(new JobProcessed('database', $queueJob));
+
+    expect(DB::table('job_runs')->where('correlation_id', $uuid)->value('message'))
+        ->toBe('Fetched 12 access record(s) for today.');
+});
+
 test('queue job failure creates failed job run record', function () {
     $uuid = (string) Str::uuid();
 
