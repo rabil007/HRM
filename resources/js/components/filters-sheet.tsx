@@ -23,27 +23,27 @@ export function FiltersSheet({
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent
                 side="right"
-                className="flex w-full flex-col rounded-none border-border/60 p-0 glass-card sm:max-w-md"
+                className="flex w-full flex-col gap-0 rounded-none border-border/60 p-0 glass-card sm:max-w-md"
             >
-                <SheetHeader className="border-b border-border/60 p-8 pb-6">
+                <SheetHeader className="border-b border-border/60 p-8 pb-6 flex-shrink-0">
                     <SheetTitle className="text-xl font-bold tracking-tight">{title}</SheetTitle>
                 </SheetHeader>
 
-                <div className="p-8 space-y-6">
+                <div className="flex-1 overflow-y-auto p-8 space-y-6">
                     {children}
+                </div>
 
-                    <div className="flex gap-3 pt-2">
-                        <Button
-                            variant="ghost"
-                            className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
-                            onClick={onReset}
-                        >
-                            {resetText}
-                        </Button>
-                        <Button className="rounded-xl h-11 px-6 flex-1 font-semibold" onClick={() => onOpenChange(false)}>
-                            {applyText}
-                        </Button>
-                    </div>
+                <div className="border-t border-border/60 p-8 pt-6 flex gap-3 flex-shrink-0">
+                    <Button
+                        variant="ghost"
+                        className="rounded-xl h-11 px-6 text-muted-foreground flex-1"
+                        onClick={onReset}
+                    >
+                        {resetText}
+                    </Button>
+                    <Button className="rounded-xl h-11 px-6 flex-1 font-semibold" onClick={() => onOpenChange(false)}>
+                        {applyText}
+                    </Button>
                 </div>
             </SheetContent>
         </Sheet>

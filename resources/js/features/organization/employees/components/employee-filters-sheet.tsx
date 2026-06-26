@@ -113,7 +113,12 @@ export function EmployeeFiltersSheet({
 
     return (
         <FiltersSheet open={open} onOpenChange={onOpenChange} onReset={onReset}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                {/* Employment Group */}
+                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-2 first:pt-0">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Employment</span>
+                </div>
+
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Branch
@@ -173,6 +178,25 @@ export function EmployeeFiltersSheet({
 
                 <div className="space-y-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Rank
+                    </Label>
+                    <AppSelect
+                        value={value.rank_id}
+                        onValueChange={(v) => onChange({ ...value, rank_id: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        {ranks.map((r) => (
+                            <AppSelectItem key={r.id} value={String(r.id)}>
+                                {r.name}
+                            </AppSelectItem>
+                        ))}
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Manager
                     </Label>
                     <AppSelect
@@ -190,23 +214,9 @@ export function EmployeeFiltersSheet({
                     </AppSelect>
                 </div>
 
-                <div className="space-y-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Rank
-                    </Label>
-                    <AppSelect
-                        value={value.rank_id}
-                        onValueChange={(v) => onChange({ ...value, rank_id: v })}
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        {ranks.map((r) => (
-                            <AppSelectItem key={r.id} value={String(r.id)}>
-                                {r.name}
-                            </AppSelectItem>
-                        ))}
-                    </AppSelect>
+                {/* Identity & Visa Group */}
+                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Identity & Visa</span>
                 </div>
 
                 <div className="space-y-2">
@@ -285,7 +295,57 @@ export function EmployeeFiltersSheet({
                     </AppSelect>
                 </div>
 
+                {/* Status Group */}
+                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Status</span>
+                </div>
+
                 <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        HR status
+                    </Label>
+                    <AppSelect
+                        value={value.status}
+                        onValueChange={(v) => onChange({ ...value, status: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="active">Active</AppSelectItem>
+                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
+                        <AppSelectItem value="on_leave">On leave</AppSelectItem>
+                        <AppSelectItem value="terminated">Terminated</AppSelectItem>
+                    </AppSelect>
+                </div>
+
+                <div className="space-y-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                        Crew status
+                    </Label>
+                    <AppSelect
+                        value={value.crew_status}
+                        onValueChange={(v) => onChange({ ...value, crew_status: v })}
+                        variant="dark"
+                        placeholder="All"
+                    >
+                        <AppSelectItem value="">All</AppSelectItem>
+                        <AppSelectItem value="available">Available</AppSelectItem>
+                        <AppSelectItem value="on_vessel">On vessel</AppSelectItem>
+                        <AppSelectItem value="join_standby">Join standby</AppSelectItem>
+                        <AppSelectItem value="leave_standby">Leave standby</AppSelectItem>
+                        <AppSelectItem value="arrived">Arrived</AppSelectItem>
+                        <AppSelectItem value="travel">Travelled</AppSelectItem>
+                        <AppSelectItem value="disembarked">Disembarked</AppSelectItem>
+                        <AppSelectItem value="in_home">In home</AppSelectItem>
+                    </AppSelect>
+                </div>
+
+                {/* Deployment & Association Group */}
+                <div className="sm:col-span-2 border-b border-border/40 pb-2 pt-4">
+                    <span className="text-[11px] font-bold uppercase tracking-wider text-primary">Deployment & Association</span>
+                </div>
+
+                <div className="space-y-2 sm:col-span-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         Approval location
                     </Label>
@@ -330,7 +390,7 @@ export function EmployeeFiltersSheet({
                     </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                     <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
                         SSSA
                     </Label>
@@ -373,46 +433,6 @@ export function EmployeeFiltersSheet({
                             );
                         })}
                     </div>
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        HR status
-                    </Label>
-                    <AppSelect
-                        value={value.status}
-                        onValueChange={(v) => onChange({ ...value, status: v })}
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="active">Active</AppSelectItem>
-                        <AppSelectItem value="inactive">Inactive</AppSelectItem>
-                        <AppSelectItem value="on_leave">On leave</AppSelectItem>
-                        <AppSelectItem value="terminated">Terminated</AppSelectItem>
-                    </AppSelect>
-                </div>
-
-                <div className="space-y-2 sm:col-span-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                        Crew status
-                    </Label>
-                    <AppSelect
-                        value={value.crew_status}
-                        onValueChange={(v) => onChange({ ...value, crew_status: v })}
-                        variant="dark"
-                        placeholder="All"
-                    >
-                        <AppSelectItem value="">All</AppSelectItem>
-                        <AppSelectItem value="available">Available</AppSelectItem>
-                        <AppSelectItem value="on_vessel">On vessel</AppSelectItem>
-                        <AppSelectItem value="join_standby">Join standby</AppSelectItem>
-                        <AppSelectItem value="leave_standby">Leave standby</AppSelectItem>
-                        <AppSelectItem value="arrived">Arrived</AppSelectItem>
-                        <AppSelectItem value="travel">Travelled</AppSelectItem>
-                        <AppSelectItem value="disembarked">Disembarked</AppSelectItem>
-                        <AppSelectItem value="in_home">In home</AppSelectItem>
-                    </AppSelect>
                 </div>
             </div>
         </FiltersSheet>
