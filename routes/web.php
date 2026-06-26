@@ -90,6 +90,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::delete('log', [ApplicationLogController::class, 'destroy'])->name('log.clear');
 
     Route::get('jobs', [JobRunController::class, 'index'])->name('jobs.index');
+    Route::post('jobs/failed/retry-all', [JobRunController::class, 'retryAllFailed'])->name('jobs.failed.retry-all');
+    Route::delete('jobs/failed/clear-all', [JobRunController::class, 'destroyAllFailed'])->name('jobs.failed.destroy-all');
     Route::post('jobs/failed/{uuid}/retry', [JobRunController::class, 'retryFailed'])->name('jobs.failed.retry');
     Route::delete('jobs/failed/{uuid}', [JobRunController::class, 'destroyFailed'])->name('jobs.failed.destroy');
 

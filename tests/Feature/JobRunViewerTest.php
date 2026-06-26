@@ -28,7 +28,13 @@ test('authenticated users can view job runs history tab', function () {
             ->component('jobs')
             ->where('tab', 'history')
             ->has('history_runs')
-            ->has('pagination'));
+            ->has('pagination')
+            ->has('stats')
+            ->where('stats.history_count', 0)
+            ->where('stats.completed_count', 0)
+            ->where('stats.failed_count', 0)
+            ->where('stats.pending_count', 0)
+            ->where('stats.avg_duration_ms', 0));
 });
 
 test('authenticated users can view failed and pending tabs', function () {
@@ -118,6 +124,37 @@ test('authenticated users can retry a failed queue job', function () {
         ->assertSessionHas('success');
 });
 
+test('authenticated users can retry all failed queue jobs', function () {
+    $user = User::factory()->create();
+    $uuid1 = (string) Str::uuid();
+    $uuid2 = (string) Str::uuid();
+
+    DB::table('failed_jobs')->insert([
+        [
+            'uuid' => $uuid1,
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'exception' => 'RuntimeException: failed 1',
+            'failed_at' => now(),
+        ],
+        [
+            'uuid' => $uuid2,
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'exception' => 'RuntimeException: failed 2',
+            'failed_at' => now(),
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'failed']))
+        ->post(route('jobs.failed.retry-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+});
+
 test('authenticated users can delete a failed queue job', function () {
     $user = User::factory()->create();
     $uuid = (string) Str::uuid();
@@ -138,6 +175,39 @@ test('authenticated users can delete a failed queue job', function () {
         ->assertSessionHas('success');
 
     expect(DB::table('failed_jobs')->where('uuid', $uuid)->exists())->toBeFalse();
+});
+
+test('authenticated users can delete all failed queue jobs', function () {
+    $user = User::factory()->create();
+    $uuid1 = (string) Str::uuid();
+    $uuid2 = (string) Str::uuid();
+
+    DB::table('failed_jobs')->insert([
+        [
+            'uuid' => $uuid1,
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'exception' => 'RuntimeException: failed 1',
+            'failed_at' => now(),
+        ],
+        [
+            'uuid' => $uuid2,
+            'connection' => 'database',
+            'queue' => 'default',
+            'payload' => json_encode(['displayName' => TestQueueJobForJobRuns::class]),
+            'exception' => 'RuntimeException: failed 2',
+            'failed_at' => now(),
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->from(route('jobs.index', ['tab' => 'failed']))
+        ->delete(route('jobs.failed.destroy-all'))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(DB::table('failed_jobs')->count())->toBe(0);
 });
 
 class TestQueueJobForJobRuns implements ShouldQueue

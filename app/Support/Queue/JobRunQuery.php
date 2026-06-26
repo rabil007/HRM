@@ -52,7 +52,8 @@ final class JobRunQuery
             $query->where(function ($inner) use ($needle): void {
                 $inner->where('name', 'like', $needle)
                     ->orWhere('message', 'like', $needle)
-                    ->orWhere('exception', 'like', $needle);
+                    ->orWhere('exception', 'like', $needle)
+                    ->orWhere('correlation_id', 'like', $needle);
             });
         }
 

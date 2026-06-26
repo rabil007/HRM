@@ -1,9 +1,25 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { Clock3, Database, RotateCcw, Search, Terminal, Trash2, Workflow } from 'lucide-react';
+import {
+    AlertTriangle,
+    Check,
+    CheckCircle2,
+    Clock3,
+    Copy,
+    Database,
+    Hourglass,
+    RotateCcw,
+    Search,
+    Terminal,
+    Timer,
+    Trash2,
+    Workflow,
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import {
+    destroyAllFailed as destroyAllFailedJobs,
     destroyFailed as destroyFailedJob,
     index as jobsIndex,
+    retryAllFailed as retryAllFailedJobs,
     retryFailed as retryFailedJob,
 } from '@/actions/App/Http/Controllers/JobRunController';
 import { AppSelect, AppSelectItem } from '@/components/app-select';
@@ -62,6 +78,14 @@ type PendingJob = {
     payload: Record<string, unknown> | null;
 };
 
+type Stats = {
+    history_count: number;
+    completed_count: number;
+    failed_count: number;
+    pending_count: number;
+    avg_duration_ms: number;
+};
+
 type Props = {
     tab: Tab;
     history_runs: HistoryRun[];
@@ -70,6 +94,7 @@ type Props = {
     pagination: PaginationMeta;
     names: string[];
     statuses: string[];
+    stats: Stats;
     filters: {
         status: string;
         name: string;
@@ -82,13 +107,13 @@ type Props = {
 function statusStyle(status: string): string {
     switch (status) {
         case 'failed':
-            return 'bg-red-500/10 text-red-500 border-red-500/20';
+            return 'bg-rose-500/10 text-rose-500 border-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400 dark:border-rose-500/30';
         case 'running':
-            return 'bg-amber-500/10 text-amber-500 border-amber-500/20';
+            return 'bg-amber-500/10 text-amber-500 border-amber-500/20 dark:bg-amber-500/20 dark:text-amber-400 dark:border-amber-500/30';
         case 'completed':
-            return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
+            return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20 dark:bg-emerald-500/20 dark:text-emerald-400 dark:border-emerald-500/30';
         default:
-            return 'bg-zinc-500/10 text-muted-foreground border-border/60';
+            return 'bg-zinc-500/10 text-muted-foreground border-border/60 dark:bg-zinc-500/20 dark:text-zinc-400';
     }
 }
 
@@ -106,10 +131,34 @@ function formatDuration(durationMs: number | null): string {
 
 function tabButtonClass(active: boolean): string {
     return cn(
-        'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+        'rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200',
         active
-            ? 'bg-primary text-primary-foreground'
+            ? 'bg-primary text-primary-foreground shadow-sm'
             : 'text-muted-foreground hover:bg-muted/40 hover:text-foreground',
+    );
+}
+
+function CopyButton({ text }: { text: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        navigator.clipboard.writeText(text);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 rounded-md hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-200"
+            onClick={handleCopy}
+            title="Copy to clipboard"
+        >
+            {copied ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+        </Button>
     );
 }
 
@@ -121,11 +170,14 @@ export default function JobRunsViewer({
     pagination,
     names,
     statuses,
+    stats,
     filters,
 }: Props) {
     const [openId, setOpenId] = useState<string | null>(null);
     const [deleteUuid, setDeleteUuid] = useState<string | null>(null);
     const [isRetrying, setIsRetrying] = useState(false);
+    const [isRetryingAll, setIsRetryingAll] = useState(false);
+    const [showDeleteAllConfirm, setShowDeleteAllConfirm] = useState(false);
 
     const list = useServerPaginationFilters({
         url: jobsIndex.url(),
@@ -190,6 +242,19 @@ export default function JobRunsViewer({
         );
     };
 
+    const retryAllFailed = () => {
+        setIsRetryingAll(true);
+
+        router.post(
+            retryAllFailedJobs.url(),
+            {},
+            {
+                preserveScroll: true,
+                onFinish: () => setIsRetryingAll(false),
+            },
+        );
+    };
+
     const deleteFailed = () => {
         if (!deleteUuid) {
             return;
@@ -198,6 +263,13 @@ export default function JobRunsViewer({
         router.delete(destroyFailedJob.url(deleteUuid), {
             preserveScroll: true,
             onFinish: () => setDeleteUuid(null),
+        });
+    };
+
+    const deleteAllFailed = () => {
+        router.delete(destroyAllFailedJobs.url(), {
+            preserveScroll: true,
+            onFinish: () => setShowDeleteAllConfirm(false),
         });
     };
 
@@ -228,13 +300,25 @@ export default function JobRunsViewer({
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                        <Button asChild type="button" size="sm" variant="outline" className="h-9">
+                        <Button
+                            asChild
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-9 transition-colors duration-200"
+                        >
                             <Link href="/log">
                                 <Terminal className="size-3.5" />
                                 Application logs
                             </Link>
                         </Button>
-                        <Button asChild type="button" size="sm" variant="outline" className="h-9">
+                        <Button
+                            asChild
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-9 transition-colors duration-200"
+                        >
                             <Link href="/mysql">
                                 <Database className="size-3.5" />
                                 MySQL viewer
@@ -243,19 +327,115 @@ export default function JobRunsViewer({
                     </div>
                 </div>
 
+                {/* Statistics Row */}
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-8">
+                    {/* Completed Runs */}
+                    <Card className="relative overflow-hidden border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-emerald-500/25 hover:shadow-md hover:shadow-emerald-500/[0.02] group">
+                        <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-emerald-500/5 blur-2xl transition-all duration-500 group-hover:scale-125" />
+                        <CardContent className="p-5 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <span className="text-[10px] font-bold tracking-wider text-emerald-500/70 dark:text-emerald-400/80 uppercase">
+                                    Completed Runs
+                                </span>
+                                <div className="flex items-baseline gap-2">
+                                    <span className="text-3xl font-extrabold text-foreground tracking-tight">
+                                        {stats.completed_count}
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">/ {stats.history_count} total</span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-emerald-500/10 text-emerald-500 rounded-xl border border-emerald-500/20 group-hover:bg-emerald-500/20 transition-all duration-300">
+                                <CheckCircle2 className="size-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Avg Duration */}
+                    <Card className="relative overflow-hidden border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-blue-500/25 hover:shadow-md hover:shadow-blue-500/[0.02] group">
+                        <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-blue-500/5 blur-2xl transition-all duration-500 group-hover:scale-125" />
+                        <CardContent className="p-5 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <span className="text-[10px] font-bold tracking-wider text-blue-500/70 dark:text-blue-400/80 uppercase">
+                                    Avg Duration
+                                </span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-extrabold text-foreground tracking-tight">
+                                        {formatDuration(stats.avg_duration_ms)}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl border border-blue-500/20 group-hover:bg-blue-500/20 transition-all duration-300">
+                                <Timer className="size-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Pending Jobs */}
+                    <Card className="relative overflow-hidden border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-amber-500/25 hover:shadow-md hover:shadow-amber-500/[0.02] group">
+                        <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-amber-500/5 blur-2xl transition-all duration-500 group-hover:scale-125" />
+                        <CardContent className="p-5 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <span className="text-[10px] font-bold tracking-wider text-amber-500/70 dark:text-amber-400/80 uppercase">
+                                    Pending Jobs
+                                </span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-extrabold text-foreground tracking-tight">
+                                        {stats.pending_count}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-amber-500/10 text-amber-500 rounded-xl border border-amber-500/20 group-hover:bg-amber-500/20 transition-all duration-300">
+                                <Hourglass className="size-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Failed Jobs */}
+                    <Card className="relative overflow-hidden border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-rose-500/25 hover:shadow-md hover:shadow-rose-500/[0.02] group">
+                        <div className="absolute -top-12 -right-12 h-24 w-24 rounded-full bg-rose-500/5 blur-2xl transition-all duration-500 group-hover:scale-125" />
+                        <CardContent className="p-5 flex items-center justify-between">
+                            <div className="space-y-1">
+                                <span className="text-[10px] font-bold tracking-wider text-rose-500/70 dark:text-rose-400/80 uppercase">
+                                    Failed Jobs
+                                </span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-3xl font-extrabold text-foreground tracking-tight">
+                                        {stats.failed_count}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-rose-500/10 text-rose-500 rounded-xl border border-rose-500/20 group-hover:bg-rose-500/20 transition-all duration-300">
+                                <AlertTriangle className="size-5" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
                 <div className="mb-6 flex flex-wrap gap-2">
-                    <button type="button" className={tabButtonClass(tab === 'history')} onClick={() => switchTab('history')}>
+                    <button
+                        type="button"
+                        className={tabButtonClass(tab === 'history')}
+                        onClick={() => switchTab('history')}
+                    >
                         History
                     </button>
-                    <button type="button" className={tabButtonClass(tab === 'failed')} onClick={() => switchTab('failed')}>
+                    <button
+                        type="button"
+                        className={tabButtonClass(tab === 'failed')}
+                        onClick={() => switchTab('failed')}
+                    >
                         Failed
                     </button>
-                    <button type="button" className={tabButtonClass(tab === 'pending')} onClick={() => switchTab('pending')}>
+                    <button
+                        type="button"
+                        className={tabButtonClass(tab === 'pending')}
+                        onClick={() => switchTab('pending')}
+                    >
                         Pending
                     </button>
                 </div>
 
-                <Card className="mb-6 border-border/60 bg-card/50">
+                <Card className="mb-6 border-border/40 bg-card/45 backdrop-blur-md">
                     <CardContent className="grid gap-4 p-4 md:grid-cols-4">
                         <div className="space-y-1.5 md:col-span-2">
                             <label className="text-xs font-medium text-muted-foreground">Search</label>
@@ -266,10 +446,10 @@ export default function JobRunsViewer({
                                     onChange={(event) => list.onSearchChange(event.target.value)}
                                     placeholder={
                                         tab === 'history'
-                                            ? 'Search name, message, or exception...'
+                                            ? 'Search name, message, exception, or correlation ID...'
                                             : 'Search queue, payload, or exception...'
                                     }
-                                    className="h-10 rounded-xl border-border/60 bg-background/50 pl-9"
+                                    className="h-10 rounded-xl border-border/40 bg-background/45 pl-9 transition-all duration-200 focus:border-primary/50"
                                 />
                             </div>
                         </div>
@@ -318,7 +498,7 @@ export default function JobRunsViewer({
                                         type="date"
                                         value={filters.date_from}
                                         onChange={(event) => submitFilters({ date_from: event.target.value })}
-                                        className="h-10 rounded-xl border-border/60 bg-background/50"
+                                        className="h-10 rounded-xl border-border/40 bg-background/45 transition-all duration-200"
                                     />
                                 </div>
 
@@ -328,7 +508,7 @@ export default function JobRunsViewer({
                                         type="date"
                                         value={filters.date_to}
                                         onChange={(event) => submitFilters({ date_to: event.target.value })}
-                                        className="h-10 rounded-xl border-border/60 bg-background/50"
+                                        className="h-10 rounded-xl border-border/40 bg-background/45 transition-all duration-200"
                                     />
                                 </div>
                             </>
@@ -336,17 +516,43 @@ export default function JobRunsViewer({
                     </CardContent>
                 </Card>
 
-                <div className="mb-4 flex items-center justify-between text-sm text-muted-foreground">
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
                     <span>
                         {pagination.total} total · showing {rowsCount} on this page
                         {activeFilterCount > 0 ? ` · ${activeFilterCount} filter(s) active` : ''}
                     </span>
+
+                    {tab === 'failed' && failed_jobs.length > 0 && (
+                        <div className="flex gap-2">
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-8 border-amber-500/20 text-amber-500 hover:bg-amber-500/10 transition-colors"
+                                disabled={isRetryingAll}
+                                onClick={retryAllFailed}
+                            >
+                                <RotateCcw className="size-3.5 mr-1" />
+                                Retry all failed
+                            </Button>
+                            <Button
+                                type="button"
+                                size="sm"
+                                variant="destructive"
+                                className="h-8 shadow-sm transition-colors"
+                                onClick={() => setShowDeleteAllConfirm(true)}
+                            >
+                                <Trash2 className="size-3.5 mr-1" />
+                                Delete all failed
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {tab === 'history' ? (
                     <div className="space-y-3">
                         {history_runs.length === 0 ? (
-                            <Card className="border-border/60 bg-card/50">
+                            <Card className="border-border/40 bg-card/45 backdrop-blur-md">
                                 <CardContent className="p-8 text-center text-sm text-muted-foreground">
                                     No job runs recorded yet.
                                 </CardContent>
@@ -357,46 +563,109 @@ export default function JobRunsViewer({
                                 const isOpen = openId === rowId;
 
                                 return (
-                                    <Collapsible key={run.id} open={isOpen} onOpenChange={(open) => setOpenId(open ? rowId : null)}>
-                                        <Card className="border-border/60 bg-card/50">
+                                    <Collapsible
+                                        key={run.id}
+                                        open={isOpen}
+                                        onOpenChange={(open) => setOpenId(open ? rowId : null)}
+                                    >
+                                        <Card className="border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-primary/20 hover:shadow-md hover:shadow-primary/[0.01]">
                                             <CollapsibleTrigger className="w-full text-left">
                                                 <CardContent className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
                                                     <div className="space-y-2">
                                                         <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="font-semibold text-foreground">{run.name}</span>
-                                                            <Badge variant="outline" className={statusStyle(run.status)}>
+                                                            <span className="font-semibold text-foreground">
+                                                                {run.name}
+                                                            </span>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(statusStyle(run.status), 'gap-1 px-2.5 py-0.5')}
+                                                            >
+                                                                {run.status === 'running' && (
+                                                                    <span className="relative flex h-1.5 w-1.5">
+                                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                                                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500"></span>
+                                                                    </span>
+                                                                )}
                                                                 {run.status}
                                                             </Badge>
-                                                            <Badge variant="outline">{run.type}</Badge>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="px-2 py-0.5 text-muted-foreground/80 border-border/60"
+                                                            >
+                                                                {run.type}
+                                                            </Badge>
                                                             {run.trigger ? (
-                                                                <Badge variant="outline">{run.trigger}</Badge>
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="px-2 py-0.5 text-muted-foreground/80 border-border/60"
+                                                                >
+                                                                    {run.trigger}
+                                                                </Badge>
                                                             ) : null}
+
+                                                            {run.correlation_id && (
+                                                                <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 bg-muted/40 px-2 py-0.5 rounded border border-border/40 font-mono">
+                                                                    <span>id:</span>
+                                                                    <span className="max-w-[120px] truncate">
+                                                                        {run.correlation_id}
+                                                                    </span>
+                                                                    <CopyButton text={run.correlation_id} />
+                                                                </div>
+                                                            )}
                                                         </div>
-                                                        <div className="text-xs text-muted-foreground">
-                                                            Started {run.started_at ? formatDisplayDateTime(run.started_at) : '—'}
-                                                            {run.finished_at
-                                                                ? ` · Finished ${formatDisplayDateTime(run.finished_at)}`
-                                                                : ''}
-                                                            {run.duration_ms !== null ? ` · ${formatDuration(run.duration_ms)}` : ''}
+                                                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                                            <span>
+                                                                Started{' '}
+                                                                {run.started_at
+                                                                    ? formatDisplayDateTime(run.started_at)
+                                                                    : '—'}
+                                                            </span>
+                                                            {run.finished_at && (
+                                                                <span>
+                                                                    · Finished {formatDisplayDateTime(run.finished_at)}
+                                                                </span>
+                                                            )}
+                                                            {run.duration_ms !== null && (
+                                                                <span className="inline-flex items-center gap-1 text-muted-foreground/90 font-medium">
+                                                                    <Timer className="size-3.5 text-primary/70" />
+                                                                    {formatDuration(run.duration_ms)}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         {run.message ? (
-                                                            <p className="text-sm text-muted-foreground">{run.message}</p>
+                                                            <p className="text-sm text-muted-foreground bg-muted/20 px-3 py-1.5 rounded-lg border border-border/20">
+                                                                {run.message}
+                                                            </p>
                                                         ) : null}
                                                     </div>
-                                                    <Clock3 className="size-4 shrink-0 text-muted-foreground/50" />
+                                                    <Clock3 className="size-4 shrink-0 text-muted-foreground/40 transition-transform duration-200" />
                                                 </CardContent>
                                             </CollapsibleTrigger>
                                             <CollapsibleContent>
-                                                <CardContent className="space-y-3 border-t border-border/60 p-4 text-xs">
+                                                <CardContent className="space-y-4 border-t border-border/40 p-4 text-xs">
                                                     {run.context ? (
-                                                        <pre className="overflow-x-auto rounded-lg bg-muted/30 p-3 text-[11px]">
-                                                            {JSON.stringify(run.context, null, 2)}
-                                                        </pre>
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                                                <span>Context Payload</span>
+                                                                <CopyButton
+                                                                    text={JSON.stringify(run.context, null, 2)}
+                                                                />
+                                                            </div>
+                                                            <pre className="overflow-x-auto rounded-lg bg-muted/30 p-3 text-[11px] font-mono leading-relaxed border border-border/30">
+                                                                {JSON.stringify(run.context, null, 2)}
+                                                            </pre>
+                                                        </div>
                                                     ) : null}
                                                     {run.exception ? (
-                                                        <pre className="overflow-x-auto rounded-lg bg-red-500/5 p-3 text-[11px] text-red-500">
-                                                            {run.exception}
-                                                        </pre>
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between text-xs font-semibold text-rose-500/80">
+                                                                <span>Exception Details</span>
+                                                                <CopyButton text={run.exception} />
+                                                            </div>
+                                                            <pre className="overflow-x-auto rounded-lg bg-rose-500/5 p-3 text-[11px] text-rose-500 font-mono leading-relaxed border border-rose-500/10">
+                                                                {run.exception}
+                                                            </pre>
+                                                        </div>
                                                     ) : null}
                                                 </CardContent>
                                             </CollapsibleContent>
@@ -411,7 +680,7 @@ export default function JobRunsViewer({
                 {tab === 'failed' ? (
                     <div className="space-y-3">
                         {failed_jobs.length === 0 ? (
-                            <Card className="border-border/60 bg-card/50">
+                            <Card className="border-border/40 bg-card/45 backdrop-blur-md">
                                 <CardContent className="p-8 text-center text-sm text-muted-foreground">
                                     No failed queue jobs.
                                 </CardContent>
@@ -422,54 +691,111 @@ export default function JobRunsViewer({
                                 const isOpen = openId === rowId;
 
                                 return (
-                                    <Collapsible key={job.uuid} open={isOpen} onOpenChange={(open) => setOpenId(open ? rowId : null)}>
-                                        <Card className="border-border/60 bg-card/50">
+                                    <Collapsible
+                                        key={job.uuid}
+                                        open={isOpen}
+                                        onOpenChange={(open) => setOpenId(open ? rowId : null)}
+                                    >
+                                        <Card className="border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-rose-500/20 hover:shadow-md hover:shadow-rose-500/[0.01]">
                                             <CardContent className="space-y-4 p-4">
                                                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                                     <div className="space-y-2">
                                                         <div className="flex flex-wrap items-center gap-2">
-                                                            <span className="font-semibold text-foreground">{job.name}</span>
-                                                            <Badge variant="outline" className={statusStyle('failed')}>
+                                                            <span className="font-semibold text-foreground">
+                                                                {job.name}
+                                                            </span>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(statusStyle('failed'), 'px-2.5 py-0.5')}
+                                                            >
                                                                 failed
                                                             </Badge>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="px-2 py-0.5 text-muted-foreground/80 border-border/60 font-mono"
+                                                            >
+                                                                queue: {job.queue}
+                                                            </Badge>
+                                                            {job.connection && (
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className="px-2 py-0.5 text-muted-foreground/80 border-border/60"
+                                                                >
+                                                                    connection: {job.connection}
+                                                                </Badge>
+                                                            )}
+                                                            <div className="flex items-center gap-1 text-[10px] text-muted-foreground/80 bg-muted/40 px-2 py-0.5 rounded border border-border/40 font-mono">
+                                                                <span>uuid:</span>
+                                                                <span className="max-w-[120px] truncate">
+                                                                    {job.uuid}
+                                                                </span>
+                                                                <CopyButton text={job.uuid} />
+                                                            </div>
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">
-                                                            {formatDisplayDateTime(job.failed_at)} · queue {job.queue}
+                                                            Failed {formatDisplayDateTime(job.failed_at)}
                                                         </div>
-                                                        <p className="text-sm text-muted-foreground">{job.exception_summary}</p>
+                                                        <p className="text-sm text-rose-500/90 font-medium bg-rose-500/5 px-3 py-1.5 rounded-lg border border-rose-500/10">
+                                                            {job.exception_summary}
+                                                        </p>
                                                     </div>
                                                     <div className="flex gap-2">
                                                         <Button
                                                             type="button"
                                                             size="sm"
                                                             variant="outline"
-                                                            className="h-8"
+                                                            className="h-8 transition-colors"
                                                             disabled={isRetrying}
                                                             onClick={() => retryFailed(job.uuid)}
                                                         >
-                                                            <RotateCcw className="size-3.5" />
+                                                            <RotateCcw className="size-3.5 mr-1" />
                                                             Retry
                                                         </Button>
                                                         <Button
                                                             type="button"
                                                             size="sm"
                                                             variant="outline"
-                                                            className="h-8 border-red-500/30 text-red-500 hover:bg-red-500/10"
+                                                            className="h-8 border-red-500/30 text-red-500 hover:bg-red-500/10 transition-colors"
                                                             onClick={() => setDeleteUuid(job.uuid)}
                                                         >
-                                                            <Trash2 className="size-3.5" />
+                                                            <Trash2 className="size-3.5 mr-1" />
                                                             Delete
                                                         </Button>
                                                     </div>
                                                 </div>
-                                                <Collapsible open={isOpen} onOpenChange={(open) => setOpenId(open ? rowId : null)}>
-                                                    <CollapsibleTrigger className="text-xs font-medium text-primary">
-                                                        {isOpen ? 'Hide details' : 'Show details'}
-                                                    </CollapsibleTrigger>
-                                                    <CollapsibleContent>
-                                                        <pre className="mt-3 overflow-x-auto rounded-lg bg-red-500/5 p-3 text-[11px] text-red-500">
-                                                            {job.exception}
-                                                        </pre>
+                                                <Collapsible
+                                                    open={isOpen}
+                                                    onOpenChange={(open) => setOpenId(open ? rowId : null)}
+                                                >
+                                                    <div className="flex items-center gap-2">
+                                                        <CollapsibleTrigger className="text-xs font-medium text-primary hover:underline">
+                                                            {isOpen ? 'Hide details' : 'Show details'}
+                                                        </CollapsibleTrigger>
+                                                    </div>
+                                                    <CollapsibleContent className="space-y-4 pt-3">
+                                                        {job.payload ? (
+                                                            <div className="space-y-1.5">
+                                                                <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                                                    <span>Job Payload</span>
+                                                                    <CopyButton
+                                                                        text={JSON.stringify(job.payload, null, 2)}
+                                                                    />
+                                                                </div>
+                                                                <pre className="overflow-x-auto rounded-lg bg-muted/30 p-3 text-[11px] font-mono leading-relaxed border border-border/30">
+                                                                    {JSON.stringify(job.payload, null, 2)}
+                                                                </pre>
+                                                            </div>
+                                                        ) : null}
+
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between text-xs font-semibold text-rose-500/80">
+                                                                <span>Exception Stack Trace</span>
+                                                                <CopyButton text={job.exception} />
+                                                            </div>
+                                                            <pre className="overflow-x-auto rounded-lg bg-rose-500/5 p-3 text-[11px] text-rose-500 font-mono leading-relaxed border border-rose-500/10">
+                                                                {job.exception}
+                                                            </pre>
+                                                        </div>
                                                     </CollapsibleContent>
                                                 </Collapsible>
                                             </CardContent>
@@ -484,28 +810,90 @@ export default function JobRunsViewer({
                 {tab === 'pending' ? (
                     <div className="space-y-3">
                         {pending_jobs.length === 0 ? (
-                            <Card className="border-border/60 bg-card/50">
+                            <Card className="border-border/40 bg-card/45 backdrop-blur-md">
                                 <CardContent className="p-8 text-center text-sm text-muted-foreground">
                                     No pending queue jobs.
                                 </CardContent>
                             </Card>
                         ) : (
-                            pending_jobs.map((job) => (
-                                <Card key={job.id} className="border-border/60 bg-card/50">
-                                    <CardContent className="space-y-2 p-4">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="font-semibold text-foreground">{job.name}</span>
-                                            <Badge variant="outline" className={statusStyle(job.reserved_at ? 'running' : 'completed')}>
-                                                {job.reserved_at ? 'reserved' : 'waiting'}
-                                            </Badge>
-                                        </div>
-                                        <div className="text-xs text-muted-foreground">
-                                            Queue {job.queue} · attempts {job.attempts} · created{' '}
-                                            {formatDisplayDateTime(job.created_at)}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
+                            pending_jobs.map((job) => {
+                                const rowId = `pending-${job.id}`;
+                                const isOpen = openId === rowId;
+
+                                return (
+                                    <Collapsible
+                                        key={job.id}
+                                        open={isOpen}
+                                        onOpenChange={(open) => setOpenId(open ? rowId : null)}
+                                    >
+                                        <Card className="border-border/40 bg-card/45 backdrop-blur-md transition-all duration-300 hover:border-primary/20 hover:shadow-md hover:shadow-primary/[0.01]">
+                                            <CardContent className="space-y-3 p-4">
+                                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                                    <div className="space-y-1.5">
+                                                        <div className="flex flex-wrap items-center gap-2">
+                                                            <span className="font-semibold text-foreground">
+                                                                {job.name}
+                                                            </span>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className={cn(
+                                                                    statusStyle(job.reserved_at ? 'running' : 'completed'),
+                                                                    'px-2.5 py-0.5',
+                                                                )}
+                                                            >
+                                                                {job.reserved_at ? 'reserved' : 'waiting'}
+                                                            </Badge>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="px-2 py-0.5 text-muted-foreground/80 border-border/60 font-mono"
+                                                            >
+                                                                queue: {job.queue}
+                                                            </Badge>
+                                                            <Badge
+                                                                variant="outline"
+                                                                className="px-2 py-0.5 text-muted-foreground/80 border-border/60"
+                                                            >
+                                                                attempts: {job.attempts}
+                                                            </Badge>
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1">
+                                                            <span>Created {formatDisplayDateTime(job.created_at)}</span>
+                                                            <span>
+                                                                · Available {formatDisplayDateTime(job.available_at)}
+                                                            </span>
+                                                            {job.reserved_at && (
+                                                                <span className="text-amber-500">
+                                                                    · Reserved {formatDisplayDateTime(job.reserved_at)}
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {job.payload && (
+                                                        <CollapsibleTrigger className="text-xs font-medium text-primary hover:underline self-start sm:self-center">
+                                                            {isOpen ? 'Hide payload' : 'Show payload'}
+                                                        </CollapsibleTrigger>
+                                                    )}
+                                                </div>
+                                                {job.payload && (
+                                                    <CollapsibleContent className="pt-2">
+                                                        <div className="space-y-1.5">
+                                                            <div className="flex items-center justify-between text-xs font-semibold text-muted-foreground">
+                                                                <span>Job Payload</span>
+                                                                <CopyButton
+                                                                    text={JSON.stringify(job.payload, null, 2)}
+                                                                />
+                                                            </div>
+                                                            <pre className="overflow-x-auto rounded-lg bg-muted/30 p-3 text-[11px] font-mono leading-relaxed border border-border/30">
+                                                                {JSON.stringify(job.payload, null, 2)}
+                                                            </pre>
+                                                        </div>
+                                                    </CollapsibleContent>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    </Collapsible>
+                                );
+                            })
                         )}
                     </div>
                 ) : null}
@@ -525,6 +913,14 @@ export default function JobRunsViewer({
                 title="Delete failed job?"
                 description="This removes the failed job record from the queue. It will not run again unless re-dispatched."
                 onConfirm={deleteFailed}
+            />
+
+            <ConfirmDeleteDialog
+                open={showDeleteAllConfirm}
+                onOpenChange={setShowDeleteAllConfirm}
+                title="Delete all failed jobs?"
+                description="This removes all failed job records from the queue. They will not run again unless re-dispatched."
+                onConfirm={deleteAllFailed}
             />
         </>
     );

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\JobRun;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Queue\JobRunQuery;
 use Illuminate\Http\RedirectResponse;
@@ -72,6 +73,13 @@ class JobRunController extends Controller
             'pagination' => $pagination,
             'names' => $query->distinctHistoryNames(),
             'statuses' => JobRunQuery::HISTORY_STATUSES,
+            'stats' => [
+                'history_count' => JobRun::query()->count(),
+                'completed_count' => JobRun::query()->where('status', JobRun::STATUS_COMPLETED)->count(),
+                'failed_count' => DB::table('failed_jobs')->count(),
+                'pending_count' => DB::table('jobs')->count(),
+                'avg_duration_ms' => (int) JobRun::query()->where('status', JobRun::STATUS_COMPLETED)->whereNotNull('duration_ms')->avg('duration_ms'),
+            ],
             'filters' => [
                 'status' => $validated['status'] ?? '',
                 'name' => $validated['name'] ?? '',
@@ -95,6 +103,19 @@ class JobRunController extends Controller
         return back()->with('success', 'Failed job queued for retry.');
     }
 
+    public function retryAllFailed(): RedirectResponse
+    {
+        $count = DB::table('failed_jobs')->count();
+
+        if ($count === 0) {
+            return back()->with('error', 'No failed jobs to retry.');
+        }
+
+        Artisan::call('queue:retry', ['id' => ['all']]);
+
+        return back()->with('success', "All {$count} failed jobs queued for retry.");
+    }
+
     public function destroyFailed(string $uuid): RedirectResponse
     {
         $deleted = DB::table('failed_jobs')->where('uuid', $uuid)->delete();
@@ -104,5 +125,16 @@ class JobRunController extends Controller
         }
 
         return back()->with('success', 'Failed job removed.');
+    }
+
+    public function destroyAllFailed(): RedirectResponse
+    {
+        $deleted = DB::table('failed_jobs')->delete();
+
+        if ($deleted === 0) {
+            return back()->with('error', 'No failed jobs to remove.');
+        }
+
+        return back()->with('success', "All {$deleted} failed jobs removed.");
     }
 }
