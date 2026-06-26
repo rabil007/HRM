@@ -636,7 +636,7 @@ export function PayrollShowContent({
                     total={pagination.total}
                     from={pagination.from}
                     to={pagination.to}
-                    onPageChange={list.onPageChange}
+                    onPageChange={list.goToPage}
                 />
             </>
         );
@@ -797,7 +797,7 @@ export function PayrollShowContent({
                     total={pagination.total}
                     from={pagination.from}
                     to={pagination.to}
-                    onPageChange={list.onPageChange}
+                    onPageChange={list.goToPage}
                 />
             </>
         );

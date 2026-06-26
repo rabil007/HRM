@@ -1135,7 +1135,7 @@ export default function JobRunsViewer({
                 {/* Pagination */}
                 {tab !== 'registry' && (
                     <div className="mt-8">
-                        <Pagination pagination={pagination} onPageChange={list.onPageChange} />
+                        <Pagination {...list.paginationProps} label="jobs" />
                     </div>
                 )}
             </Main>

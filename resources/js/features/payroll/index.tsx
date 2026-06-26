@@ -203,7 +203,7 @@ export function PayrollIndexContent({
                         total={pagination.total}
                         from={pagination.from}
                         to={pagination.to}
-                        onPageChange={list.onPageChange}
+                        onPageChange={list.goToPage}
                     />
                 </>
             ) : (
@@ -301,7 +301,7 @@ export function PayrollIndexContent({
                         total={pagination.total}
                         from={pagination.from}
                         to={pagination.to}
-                        onPageChange={list.onPageChange}
+                        onPageChange={list.goToPage}
                     />
                 </>
             )}
