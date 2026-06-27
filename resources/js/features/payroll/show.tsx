@@ -49,6 +49,7 @@ import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
+import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
 import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
@@ -178,6 +179,7 @@ export function PayrollShowContent({
     pagination,
     payroll_records,
     payroll_records_pagination,
+    payroll_records_summary,
     salary_inputs_by_employee,
     salary_input_type_options,
     tab,
@@ -399,6 +401,10 @@ export function PayrollShowContent({
             permissions.salary_inputs_update ||
             permissions.salary_inputs_delete);
 
+    const canShowPayslipActions =
+        permissions.payslips_view &&
+        (period.status === 'approved' || period.status === 'paid');
+
     const hasHeaderActions =
         canGenerate ||
         canRevertToDraft ||
@@ -556,6 +562,9 @@ export function PayrollShowContent({
                         wps_preview={wps_preview}
                         permissions={permissions}
                     />
+                    {payroll_records_summary ? (
+                        <PayrollRecordsSummaryCards summary={payroll_records_summary} />
+                    ) : null}
                     {renderPayrollTab()}
                 </section>
             )}
@@ -796,13 +805,16 @@ export function PayrollShowContent({
                     <PayrollRecordsTable
                         records={crewRecords}
                         canViewPayslips={permissions.payslips_view}
+                        canShowPayslipActions={canShowPayslipActions}
                         canRemove={canGenerate}
                         onRemove={setRemoveRecord}
                     />
                 ) : (
                     <OfficePayrollRecordsTable
                         records={officeRecords}
+                        salaryInputsByEmployee={salary_inputs_by_employee}
                         canViewPayslips={permissions.payslips_view}
+                        canShowPayslipActions={canShowPayslipActions}
                         canManageSalaryInputs={canManageSalaryInputs}
                         canRemove={canGenerate}
                         onManageSalaryInputs={setSalaryInputsRecord}

@@ -33,6 +33,7 @@ use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollHubSummary;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
 use App\Support\Payroll\PayrollPeriodListResource;
+use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
@@ -251,6 +252,9 @@ class PayrollController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
+            'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
+                ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod)
+                : null,
             'salary_inputs_by_employee' => $salaryInputsByEmployee,
             'salary_input_type_options' => $payrollPeriod->isOffice()
                 ? SalaryInputType::query()

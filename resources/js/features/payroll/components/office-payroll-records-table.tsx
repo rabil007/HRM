@@ -12,30 +12,39 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { OfficePayrollRecordListItem } from '../types';
+import type { OfficePayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
 import {
     PayrollRecordPayslipActionButtons,
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
+import { PayrollRecordSalaryInputsCell } from './payroll-record-salary-inputs-cell';
 
 export function OfficePayrollRecordsTable({
     records,
+    salaryInputsByEmployee,
     canViewPayslips,
+    canShowPayslipActions,
     canManageSalaryInputs,
     canRemove,
     onManageSalaryInputs,
     onRemove,
 }: {
     records: OfficePayrollRecordListItem[];
+    salaryInputsByEmployee: Record<string, SalaryInput[]>;
     canViewPayslips: boolean;
+    canShowPayslipActions: boolean;
     canManageSalaryInputs: boolean;
     canRemove: boolean;
     onManageSalaryInputs: (record: OfficePayrollRecordListItem) => void;
     onRemove: (record: OfficePayrollRecordListItem) => void;
 }) {
+    const showSalaryInputsColumn = Object.values(salaryInputsByEmployee).some(
+        (inputs) => inputs.length > 0,
+    );
+
     return (
-        <OrganizationDataTable minWidth="min-w-[1320px]">
+        <OrganizationDataTable minWidth={showSalaryInputsColumn ? 'min-w-[1480px]' : 'min-w-[1320px]'}>
             <TableHeader>
                 <DataTableHeaderRow>
                     <DataTableHead className="pl-5">Employee</DataTableHead>
@@ -44,6 +53,7 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>Basic</DataTableHead>
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
+                    {showSalaryInputsColumn ? <DataTableHead>Salary inputs</DataTableHead> : null}
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
                     <DataTableHead>Payslip</DataTableHead>
@@ -74,6 +84,11 @@ export function OfficePayrollRecordsTable({
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.transport_allowance)}
                         </TableCell>
+                        {showSalaryInputsColumn ? (
+                            <PayrollRecordSalaryInputsCell
+                                inputs={salaryInputsByEmployee[String(record.employee.id)] ?? []}
+                            />
+                        ) : null}
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.gross_salary)}
                         </TableCell>
@@ -111,7 +126,11 @@ export function OfficePayrollRecordsTable({
                                     </Tooltip>
                                 ) : null}
                                 {canViewPayslips ? (
-                                    <PayrollRecordPayslipActionButtons recordId={record.id} />
+                                    <PayrollRecordPayslipActionButtons
+                                        recordId={record.id}
+                                        canView={canShowPayslipActions}
+                                        canDownload={canShowPayslipActions}
+                                    />
                                 ) : null}
                                 {canRemove ? (
                                     <Tooltip>

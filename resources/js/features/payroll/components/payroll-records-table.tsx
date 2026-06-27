@@ -21,11 +21,13 @@ import {
 export function PayrollRecordsTable({
     records,
     canViewPayslips,
+    canShowPayslipActions,
     canRemove,
     onRemove,
 }: {
     records: CrewPayrollRecordListItem[];
     canViewPayslips: boolean;
+    canShowPayslipActions: boolean;
     canRemove: boolean;
     onRemove: (record: CrewPayrollRecordListItem) => void;
 }) {
@@ -82,7 +84,11 @@ export function PayrollRecordsTable({
                         <TableCell className={dataTableActionsCellClass()}>
                             <div className="flex items-center justify-end gap-2">
                                 {canViewPayslips ? (
-                                    <PayrollRecordPayslipActionButtons recordId={record.id} />
+                                    <PayrollRecordPayslipActionButtons
+                                        recordId={record.id}
+                                        canView={canShowPayslipActions}
+                                        canDownload={canShowPayslipActions}
+                                    />
                                 ) : null}
                                 {canRemove ? (
                                     <Tooltip>

@@ -300,6 +300,13 @@ export type EmployeeStats = {
     missing_bank_account: number;
 };
 
+export type PayrollRecordsSummary = {
+    employee_count: number;
+    total_gross: string;
+    total_net: string;
+    total_deductions: string;
+};
+
 export type PayrollShowProps = {
     period: PayrollPeriod;
     leave_types: LeaveTypeColumn[];
@@ -307,6 +314,7 @@ export type PayrollShowProps = {
     pagination: PaginationMeta;
     payroll_records: PayrollRecordListItem[];
     payroll_records_pagination: PaginationMeta | null;
+    payroll_records_summary: PayrollRecordsSummary | null;
     salary_inputs_by_employee: Record<string, SalaryInput[]>;
     salary_input_type_options: SalaryInputTypeOption[];
     tab: 'timesheets' | 'employees' | 'payroll';

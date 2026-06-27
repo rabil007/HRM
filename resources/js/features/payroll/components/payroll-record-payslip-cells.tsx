@@ -8,6 +8,7 @@ import { dataTableActionsCellClass, dataTableCellClass } from '@/components/data
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { PayrollRecordDeliveryFields } from '../types';
 
 type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
@@ -37,21 +38,43 @@ export function PayrollRecordPayslipStatusCell({
 
 export function PayrollRecordPayslipActionButtons({
     recordId,
+    canView = true,
+    canDownload = true,
 }: {
     recordId: number;
+    canView?: boolean;
+    canDownload?: boolean;
 }) {
+    if (!canView && !canDownload) {
+        return null;
+    }
+
     return (
         <>
-            <Button asChild variant="ghost" size="icon">
-                <Link href={showPayslip.url(recordId)} target="_blank">
-                    <FileText className="h-4 w-4" />
-                </Link>
-            </Button>
-            <Button asChild variant="ghost" size="icon">
-                <a href={downloadPayslip.url(recordId)}>
-                    <Download className="h-4 w-4" />
-                </a>
-            </Button>
+            {canView ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
+                            <Link href={showPayslip.url(recordId)} target="_blank" aria-label="View payslip">
+                                <FileText className="h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>View payslip</TooltipContent>
+                </Tooltip>
+            ) : null}
+            {canDownload ? (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
+                            <a href={downloadPayslip.url(recordId)} aria-label="Download payslip">
+                                <Download className="h-4 w-4" />
+                            </a>
+                        </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Download payslip</TooltipContent>
+                </Tooltip>
+            ) : null}
         </>
     );
 }
@@ -59,7 +82,10 @@ export function PayrollRecordPayslipActionButtons({
 export function PayrollRecordPayslipActionsCell({
     recordId,
     canViewPayslips,
-}: Pick<PayrollRecordPayslipCellsProps, 'recordId' | 'canViewPayslips'>) {
+    canShowPayslipActions = false,
+}: Pick<PayrollRecordPayslipCellsProps, 'recordId' | 'canViewPayslips'> & {
+    canShowPayslipActions?: boolean;
+}) {
     if (!canViewPayslips) {
         return <TableCell className={dataTableActionsCellClass()} />;
     }
@@ -67,7 +93,11 @@ export function PayrollRecordPayslipActionsCell({
     return (
         <TableCell className={dataTableActionsCellClass()}>
             <div className="flex items-center justify-end gap-2">
-                <PayrollRecordPayslipActionButtons recordId={recordId} />
+                <PayrollRecordPayslipActionButtons
+                    recordId={recordId}
+                    canView={canShowPayslipActions}
+                    canDownload={canShowPayslipActions}
+                />
             </div>
         </TableCell>
     );
