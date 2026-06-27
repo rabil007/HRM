@@ -10,7 +10,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
-use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Models\SalaryInput;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('office payroll generation creates records for all office employees with full monthly salary', function () {
@@ -122,17 +122,31 @@ test('office payroll generation upserts existing payroll records on re-generate'
         'end_date' => '2026-06-05',
     ]);
 
-    createOfficeEmployeeWithContract($company, 'OFF-300', 8000, 0, 0, 0);
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-300', 8000, 0, 0, 0);
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
         ->assertRedirect();
 
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 500,
+    ]);
+
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
         ->assertRedirect();
 
-    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
+    expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1)
+        ->and(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(1);
+
+    $record = PayrollRecord::query()->where('period_id', $period->id)->first();
+
+    expect($record?->bonus)->toBe('500.00')
+        ->and($record?->gross_salary)->toBe('8500.00')
+        ->and($record?->net_salary)->toBe('8500.00');
 });
 
 test('office payroll generation is blocked on approved periods', function () {
@@ -151,6 +165,53 @@ test('office payroll generation is blocked on approved periods', function () {
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.generate', $period))
         ->assertSessionHasErrors('period_id');
+});
+
+test('office payroll generation reports detailed errors for employees missing contract salary', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+    ]);
+
+    createOfficeEmployeeWithContract($company, 'OFF-OK', 10000, 0, 0, 0);
+
+    $missingBasicEmployee = Employee::factory()->forCompany($company)->create([
+        'name' => 'Abdellah Bellymani',
+        'employee_no' => 'DEMO-OFFSHORE-CV',
+        'status' => 'active',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $missingBasicEmployee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+        'basic_salary' => 0,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect()
+        ->assertSessionHas('payroll_generation');
+
+    $summary = session('payroll_generation');
+
+    expect($summary['generated_count'])->toBe(1)
+        ->and($summary['errors'])->toHaveCount(1)
+        ->and($summary['errors'][0]['employee_id'])->toBe($missingBasicEmployee->id)
+        ->and($summary['errors'][0]['employee_name'])->toBe('Abdellah Bellymani')
+        ->and($summary['errors'][0]['employee_no'])->toBe('DEMO-OFFSHORE-CV')
+        ->and($summary['errors'][0]['field'])->toBe('basic_salary')
+        ->and($summary['errors'][0]['field_label'])->toBe('Basic monthly salary')
+        ->and($summary['errors'][0]['message'])->toBe('Active basic monthly salary is required on the office contract.')
+        ->and($summary['errors'][0]['employee_url'])->toBe(
+            route('organization.employees.show', $missingBasicEmployee),
+        );
 });
 
 test('payroll show includes office payroll records and leave usage on employees tab', function () {
@@ -237,32 +298,3 @@ test('payroll show includes office payroll records and leave usage on employees 
             ->where('rows.0.primary_account.bank_name', 'Payroll Bank')
             ->where('rows.0.primary_account.iban', 'AE070331234567890123456'));
 });
-
-function createOfficeEmployeeWithContract(
-    $company,
-    string $employeeNo,
-    float $basic,
-    float $housing,
-    float $transport,
-    float $other,
-): Employee {
-    $employee = Employee::factory()->forCompany($company)->create([
-        'employee_no' => $employeeNo,
-        'status' => 'active',
-    ]);
-
-    $contract = EmployeeContract::factory()->create([
-        'employee_id' => $employee->id,
-        'company_id' => $company->id,
-        'payroll_category' => PayrollCategory::Office,
-        'status' => 'active',
-        'basic_salary' => $basic,
-        'housing_allowance' => $housing,
-        'transport_allowance' => $transport,
-        'other_allowances' => $other,
-    ]);
-
-    (new SyncContractSalaryComponentsFromContract)->handle($contract);
-
-    return $employee;
-}

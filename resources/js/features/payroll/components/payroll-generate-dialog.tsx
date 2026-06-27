@@ -16,27 +16,35 @@ export function PayrollGenerateDialog({
     onConfirm,
     processing,
     payrollCategory,
+    hasExistingRecords = false,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onConfirm: () => void;
     processing: boolean;
     payrollCategory: PayrollCategory;
+    hasExistingRecords?: boolean;
 }) {
     const isCrew = payrollCategory === 'crew';
+
+    const officeDescription = hasExistingRecords
+        ? 'Base salary will be refreshed from contracts and all salary input lines will be re-applied to gross and net pay.'
+        : 'Payroll will use full monthly salary for all office employees on this run. Any salary input lines will be applied to gross and net pay.';
 
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        Generate {isCrew ? 'crew' : 'office'} payroll?
+                        {hasExistingRecords && !isCrew
+                            ? 'Update office payroll?'
+                            : `Generate ${isCrew ? 'crew' : 'office'} payroll?`}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
                         {isCrew
                             ? 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.'
-                            : 'Payroll will use full monthly salary for all office employees on this run. Leave usage is shown for review; deductions are not applied yet.'}{' '}
-                        You can re-generate while the period is in draft or processing.
+                            : officeDescription}{' '}
+                        You can run this again while the period is in draft or processing.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
@@ -49,7 +57,13 @@ export function PayrollGenerateDialog({
                             onConfirm();
                         }}
                     >
-                        {processing ? 'Generating…' : 'Generate payroll'}
+                        {processing
+                            ? hasExistingRecords && !isCrew
+                                ? 'Updating…'
+                                : 'Generating…'
+                            : hasExistingRecords && !isCrew
+                              ? 'Update payroll'
+                              : 'Generate payroll'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

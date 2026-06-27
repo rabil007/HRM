@@ -17,6 +17,8 @@ use App\Models\Company;
 use App\Models\LeaveType;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
+use App\Models\SalaryInputType;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\ApprovePayrollPeriod;
 use App\Support\Payroll\Actions\CancelPayrollPeriod;
@@ -29,11 +31,11 @@ use App\Support\Payroll\CrewPayrollPagePermissions;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollHubSummary;
 use App\Support\Payroll\PayrollPeriodBoardQuery;
-use App\Support\Payroll\PayrollPeriodBoardSummary;
 use App\Support\Payroll\PayrollPeriodListResource;
 use App\Support\Payroll\PayrollPeriodResource;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
+use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Http\RedirectResponse;
@@ -169,8 +171,31 @@ class PayrollController extends Controller
             ->paginate($perPage, ['*'], 'records_page')
             ->withQueryString();
 
+        $salaryInputCountsByEmployee = $payrollPeriod->isOffice()
+            ? SalaryInput::query()
+                ->where('company_id', $companyId)
+                ->where('period_id', $payrollPeriod->id)
+                ->selectRaw('employee_id, COUNT(*) as aggregate_count')
+                ->groupBy('employee_id')
+                ->pluck('aggregate_count', 'employee_id')
+            : collect();
+
+        $salaryInputsByEmployee = $payrollPeriod->isOffice()
+            ? SalaryInputResource::groupByEmployee(
+                SalaryInput::query()
+                    ->where('company_id', $companyId)
+                    ->where('period_id', $payrollPeriod->id)
+                    ->with('salaryInputType')
+                    ->orderBy('id')
+                    ->get(),
+            )
+            : [];
+
         $payrollRecords = collect($recordsPaginator->items())
-            ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray($record))
+            ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(
+                $record,
+                (int) ($salaryInputCountsByEmployee[$record->employee_id] ?? 0),
+            ))
             ->values()
             ->all();
         $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
@@ -209,9 +234,25 @@ class PayrollController extends Controller
             'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
-            'board_summary' => PayrollPeriodBoardSummary::forPeriod($payrollPeriod, (int) $paginator->total()),
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
+            'salary_inputs_by_employee' => $salaryInputsByEmployee,
+            'salary_input_type_options' => $payrollPeriod->isOffice()
+                ? SalaryInputType::query()
+                    ->where('company_id', $companyId)
+                    ->where('status', 'active')
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get(['id', 'name', 'code', 'is_addition'])
+                    ->map(fn (SalaryInputType $type) => [
+                        'value' => $type->id,
+                        'label' => $type->name,
+                        'code' => $type->code,
+                        'is_addition' => $type->is_addition,
+                    ])
+                    ->values()
+                    ->all()
+                : [],
             'tab' => in_array($tab, $allowedTabs, true) ? $tab : $defaultTab,
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),
@@ -219,6 +260,14 @@ class PayrollController extends Controller
             'permissions' => array_merge(CrewPayrollPagePermissions::for($request->user()), [
                 'import_timesheets' => ($request->user()?->can('payroll.crew_timesheets.import') ?? false)
                     || ($request->user()?->can('payroll.crew_timesheets.create') ?? false),
+                'salary_inputs_create' => ($request->user()?->can('payroll.salary_inputs.create') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false),
+                'salary_inputs_update' => ($request->user()?->can('payroll.salary_inputs.update') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false),
+                'salary_inputs_delete' => ($request->user()?->can('payroll.salary_inputs.delete') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false),
+                'recalculate_payroll' => ($request->user()?->can('payroll.periods.recalculate') ?? false)
+                    || ($request->user()?->can('payroll.periods.update') ?? false),
                 'payslips_view' => $request->user()?->can('payroll.payslips.view') ?? false,
                 'payslips_generate' => $request->user()?->can('payroll.payslips.generate') ?? false,
                 'payslips_email' => $request->user()?->can('payroll.payslips.email') ?? false,

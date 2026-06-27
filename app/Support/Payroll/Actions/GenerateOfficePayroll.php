@@ -13,6 +13,7 @@ use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
+use App\Support\Payroll\PayrollGenerationError;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,6 +23,7 @@ final class GenerateOfficePayroll
         private readonly OfficePayrollCalculator $calculator,
         private readonly CountWorkingDaysInRange $countWorkingDays,
         private readonly OfficeLeavePeriodSummary $leavePeriodSummary,
+        private readonly RecalculateOfficePayroll $recalculateOfficePayroll,
     ) {}
 
     public function handle(PayrollPeriod $period): GeneratePayrollResult
@@ -70,10 +72,11 @@ final class GenerateOfficePayroll
                 $contract = $employee->currentContract;
 
                 if ($contract === null) {
-                    $errors[] = [
-                        'employee_id' => $employee->id,
-                        'message' => 'No active office contract found.',
-                    ];
+                    $errors[] = PayrollGenerationError::forEmployee(
+                        $employee,
+                        'No active office contract found.',
+                        'contract',
+                    );
 
                     continue;
                 }
@@ -91,10 +94,7 @@ final class GenerateOfficePayroll
                         $leaveSummary->toLeaveUsageArray(),
                     );
                 } catch (ValidationException $exception) {
-                    $errors[] = [
-                        'employee_id' => $employee->id,
-                        'message' => collect($exception->errors())->flatten()->first() ?? 'Calculation failed.',
-                    ];
+                    $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
                     continue;
                 }
@@ -137,6 +137,10 @@ final class GenerateOfficePayroll
                 $period->update([
                     'status' => PayrollPeriodStatus::Processing,
                 ]);
+            }
+
+            if ($generatedCount > 0) {
+                $this->recalculateOfficePayroll->handle($period->fresh());
             }
         });
 

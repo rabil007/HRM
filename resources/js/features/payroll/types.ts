@@ -80,12 +80,6 @@ export type PayrollHubSummary = {
     incomplete_crew_runs: number;
 };
 
-export type PayrollBoardSummary = {
-    employee_count: number;
-    filled_count: number;
-    progress_percent: number;
-};
-
 export type CrewTimesheet = {
     id: number;
     period_id: number;
@@ -163,6 +157,10 @@ export type CrewPayrollPermissions = {
     approve: boolean;
     mark_paid: boolean;
     cancel: boolean;
+    salary_inputs_create: boolean;
+    salary_inputs_update: boolean;
+    salary_inputs_delete: boolean;
+    recalculate_payroll: boolean;
     payslips_view: boolean;
     payslips_generate: boolean;
     payslips_email: boolean;
@@ -236,10 +234,36 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     primary_account: OfficePrimaryAccount | null;
     overtime_pay: string;
     additional_amount: string;
-    deduction_amount: string;
     gross_salary: string;
     net_salary: string;
+    salary_inputs_count: number;
     status: string;
+};
+
+export type SalaryInputTypeOption = {
+    value: number;
+    label: string;
+    code: string;
+    is_addition: boolean;
+};
+
+export type SalaryInput = {
+    id: number;
+    employee_id: number;
+    period_id: number;
+    salary_input_type_id: number;
+    type: string | null;
+    type_label: string | null;
+    is_addition: boolean;
+    amount: string;
+    notes: string | null;
+};
+
+export type SalaryInputFormData = {
+    employee_id: number;
+    salary_input_type_id: number;
+    amount: string;
+    notes: string;
 };
 
 export type PayrollRecordListItem = CrewPayrollRecordListItem | OfficePayrollRecordListItem;
@@ -254,7 +278,12 @@ export type PayrollGenerationSummary = {
     }>;
     errors: Array<{
         employee_id: number;
+        employee_name: string;
+        employee_no: string | null;
         message: string;
+        field: string | null;
+        field_label: string | null;
+        employee_url: string;
     }>;
 };
 
@@ -263,9 +292,10 @@ export type PayrollShowProps = {
     leave_types: LeaveTypeColumn[];
     rows: CrewPayrollRow[];
     pagination: PaginationMeta;
-    board_summary: PayrollBoardSummary;
     payroll_records: PayrollRecordListItem[];
     payroll_records_pagination: PaginationMeta | null;
+    salary_inputs_by_employee: Record<string, SalaryInput[]>;
+    salary_input_type_options: SalaryInputTypeOption[];
     tab: 'timesheets' | 'employees' | 'payroll';
     generation_summary: PayrollGenerationSummary | null;
     search: string;

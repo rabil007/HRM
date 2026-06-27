@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -7,21 +8,27 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import type { OfficePayrollRecordListItem } from '../types';
 import { formatTimesheetAmount } from '../types';
 import {
-    PayrollRecordPayslipActionsCell,
+    PayrollRecordPayslipActionButtons,
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
 
 export function OfficePayrollRecordsTable({
     records,
     canViewPayslips,
+    canManageSalaryInputs,
+    onManageSalaryInputs,
 }: {
     records: OfficePayrollRecordListItem[];
     canViewPayslips: boolean;
+    canManageSalaryInputs: boolean;
+    onManageSalaryInputs: (record: OfficePayrollRecordListItem) => void;
 }) {
     return (
         <OrganizationDataTable minWidth="min-w-[1320px]">
@@ -34,7 +41,6 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
-                    <DataTableHead>Deductions</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
                     <DataTableHead>Payslip</DataTableHead>
                     <DataTableHead className={dataTableActionsCellClass()}>Actions</DataTableHead>
@@ -68,9 +74,6 @@ export function OfficePayrollRecordsTable({
                             {formatTimesheetAmount(record.gross_salary)}
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
-                            {formatTimesheetAmount(record.deduction_amount)}
-                        </TableCell>
-                        <TableCell className={dataTableCellClass()}>
                             <span className="font-semibold">
                                 {formatTimesheetAmount(record.net_salary)}
                             </span>
@@ -79,10 +82,35 @@ export function OfficePayrollRecordsTable({
                             has_payslip={record.has_payslip}
                             wps_status_label={record.wps_status_label}
                         />
-                        <PayrollRecordPayslipActionsCell
-                            recordId={record.id}
-                            canViewPayslips={canViewPayslips}
-                        />
+                        <TableCell className={dataTableActionsCellClass()}>
+                            <div className="flex items-center justify-end gap-2">
+                                {canManageSalaryInputs ? (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="relative size-8 rounded-lg"
+                                                aria-label="Salary inputs"
+                                                onClick={() => onManageSalaryInputs(record)}
+                                            >
+                                                <Plus className="h-4 w-4" />
+                                                {record.salary_inputs_count > 0 ? (
+                                                    <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                                                        {record.salary_inputs_count}
+                                                    </span>
+                                                ) : null}
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Salary inputs</TooltipContent>
+                                    </Tooltip>
+                                ) : null}
+                                {canViewPayslips ? (
+                                    <PayrollRecordPayslipActionButtons recordId={record.id} />
+                                ) : null}
+                            </div>
+                        </TableCell>
                     </TableRow>
                 ))}
             </TableBody>

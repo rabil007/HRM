@@ -11,7 +11,7 @@ final class PayrollRecordResource
     /**
      * @return array<string, mixed>
      */
-    public static function toArray(PayrollRecord $record): array
+    public static function toArray(PayrollRecord $record, int $salaryInputsCount = 0): array
     {
         $record->loadMissing('employee.primaryBankAccount.bank');
 
@@ -32,7 +32,6 @@ final class PayrollRecordResource
             ],
             'overtime_pay' => self::formatAmount($record->overtime_pay),
             'additional_amount' => self::formatAmount($record->bonus),
-            'deduction_amount' => self::formatAmount($record->total_deductions),
             'gross_salary' => self::formatAmount($record->gross_salary),
             'net_salary' => self::formatAmount($record->net_salary),
             'status' => $record->status,
@@ -43,6 +42,7 @@ final class PayrollRecordResource
 
         if ($category === PayrollCategory::Crew) {
             return array_merge($base, [
+                'deduction_amount' => self::formatAmount($record->total_deductions),
                 'standby_days' => $breakdown['standby_days'] ?? null,
                 'onsite_days' => $breakdown['onsite_days'] ?? null,
                 'standby_pay' => self::formatAmount($lines['standby_pay'] ?? null),
@@ -58,6 +58,7 @@ final class PayrollRecordResource
             'transport_allowance' => self::formatAmount($record->transport_allowance),
             'other_allowances' => self::formatAmount($record->other_allowances),
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
+            'salary_inputs_count' => $salaryInputsCount,
         ]);
     }
 

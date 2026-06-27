@@ -1,9 +1,15 @@
 <?php
 
+use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\Employee;
+use App\Models\EmployeeContract;
+use App\Models\SalaryInputType;
 use App\Models\User;
+use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -43,5 +49,44 @@ function makePayrollFixtures(): array
         'updated_at' => now(),
     ]);
 
+    app(ProvisionDefaultSalaryInputTypes::class)->handle($company->id);
+
     return ['user' => $user, 'company' => $company];
+}
+
+function createOfficeEmployeeWithContract(
+    Company $company,
+    string $employeeNo,
+    float $basic,
+    float $housing,
+    float $transport,
+    float $other,
+): Employee {
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => $employeeNo,
+        'status' => 'active',
+    ]);
+
+    $contract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+        'basic_salary' => $basic,
+        'housing_allowance' => $housing,
+        'transport_allowance' => $transport,
+        'other_allowances' => $other,
+    ]);
+
+    (new SyncContractSalaryComponentsFromContract)->handle($contract);
+
+    return $employee;
+}
+
+function salaryInputTypeId(Company $company, string $code): int
+{
+    return (int) SalaryInputType::query()
+        ->where('company_id', $company->id)
+        ->where('code', $code)
+        ->value('id');
 }

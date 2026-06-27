@@ -35,6 +35,27 @@ export function PayrollRecordPayslipStatusCell({
     );
 }
 
+export function PayrollRecordPayslipActionButtons({
+    recordId,
+}: {
+    recordId: number;
+}) {
+    return (
+        <>
+            <Button asChild variant="ghost" size="icon">
+                <Link href={showPayslip.url(recordId)} target="_blank">
+                    <FileText className="h-4 w-4" />
+                </Link>
+            </Button>
+            <Button asChild variant="ghost" size="icon">
+                <a href={downloadPayslip.url(recordId)}>
+                    <Download className="h-4 w-4" />
+                </a>
+            </Button>
+        </>
+    );
+}
+
 export function PayrollRecordPayslipActionsCell({
     recordId,
     canViewPayslips,
@@ -46,16 +67,7 @@ export function PayrollRecordPayslipActionsCell({
     return (
         <TableCell className={dataTableActionsCellClass()}>
             <div className="flex items-center justify-end gap-2">
-                <Button asChild variant="ghost" size="icon">
-                    <Link href={showPayslip.url(recordId)} target="_blank">
-                        <FileText className="h-4 w-4" />
-                    </Link>
-                </Button>
-                <Button asChild variant="ghost" size="icon">
-                    <a href={downloadPayslip.url(recordId)}>
-                        <Download className="h-4 w-4" />
-                    </a>
-                </Button>
+                <PayrollRecordPayslipActionButtons recordId={recordId} />
             </div>
         </TableCell>
     );

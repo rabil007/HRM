@@ -58,8 +58,6 @@ test('crew payroll board lists only employees with active crew contracts', funct
         ->assertInertia(fn (Assert $page) => $page
             ->component('payroll/show')
             ->has('rows', 1)
-            ->has('board_summary')
-            ->where('board_summary.employee_count', 1)
             ->where('rows.0.employee.id', $crewEmployee->id)
             ->where('rows.0.is_filled', false)
             ->where('period.id', $period->id));

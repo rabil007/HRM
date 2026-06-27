@@ -10,6 +10,7 @@ use App\Models\PayrollRecord;
 use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
+use App\Support\Payroll\PayrollGenerationError;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -59,10 +60,11 @@ final class GenerateCrewPayroll
                 $contract = $employee->currentContract;
 
                 if ($contract === null) {
-                    $errors[] = [
-                        'employee_id' => $employee->id,
-                        'message' => 'No active crew contract found.',
-                    ];
+                    $errors[] = PayrollGenerationError::forEmployee(
+                        $employee,
+                        'No active crew contract found.',
+                        'contract',
+                    );
 
                     continue;
                 }
@@ -73,10 +75,7 @@ final class GenerateCrewPayroll
                         $contract->salaryComponents,
                     );
                 } catch (ValidationException $exception) {
-                    $errors[] = [
-                        'employee_id' => $employee->id,
-                        'message' => collect($exception->errors())->flatten()->first() ?? 'Calculation failed.',
-                    ];
+                    $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);
 
                     continue;
                 }

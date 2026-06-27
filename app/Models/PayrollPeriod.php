@@ -44,6 +44,11 @@ class PayrollPeriod extends Model
         return $this->hasMany(PayrollRecord::class, 'period_id');
     }
 
+    public function salaryInputs(): HasMany
+    {
+        return $this->hasMany(SalaryInput::class, 'period_id');
+    }
+
     public function approvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'approved_by');

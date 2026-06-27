@@ -48,7 +48,7 @@ final class OfficePayrollCalculator
 
         if ($monthlyBasic === null) {
             throw ValidationException::withMessages([
-                'employee_id' => 'Active basic monthly salary is required on the office contract.',
+                'basic_salary' => 'Active basic monthly salary is required on the office contract.',
             ]);
         }
 
@@ -98,6 +98,15 @@ final class OfficePayrollCalculator
             'leave_days' => $absentDays,
             'overtime_hours' => 0.0,
             'calculation_breakdown' => [
+                'base' => [
+                    'basic' => $earnedBasic,
+                    'housing' => $earnedHousing,
+                    'transport' => $earnedTransport,
+                    'other' => $earnedOther,
+                    'gross' => $grossSalary,
+                    'net' => $netSalary,
+                    'bonus' => $bonus,
+                ],
                 'working_days' => $workingDays,
                 'present_days' => $presentDays,
                 'absent_days' => $absentDays,

@@ -5,7 +5,9 @@ namespace App\Support\Payroll;
 use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
 use Carbon\CarbonImmutable;
+use Illuminate\Support\Facades\Storage;
 
 final class PayslipData
 {
@@ -33,7 +35,7 @@ final class PayslipData
 
         $base = [
             'company_name' => (string) ($company?->name ?? ''),
-            'company_logo' => $company?->logo ? \Illuminate\Support\Facades\Storage::disk('public')->url($company->logo) : null,
+            'company_logo' => $company?->logo ? Storage::disk('public')->url($company->logo) : null,
             'employee_name' => (string) ($employee?->name ?? ''),
             'employee_no' => (string) ($employee?->employee_no ?? ''),
             'designation' => (string) ($employee?->position?->title ?? ''),
@@ -71,22 +73,118 @@ final class PayslipData
             ]);
         }
 
+        $salaryInputLines = self::resolveOfficeSalaryInputLines($record, $breakdown);
+
         return array_merge($base, [
-            'earnings' => [
-                ['label' => 'Basic salary', 'amount' => self::formatAmount($record->basic_salary)],
-                ['label' => 'Housing allowance', 'amount' => self::formatAmount($record->housing_allowance)],
-                ['label' => 'Transport allowance', 'amount' => self::formatAmount($record->transport_allowance)],
-                ['label' => 'Other allowances', 'amount' => self::formatAmount($record->other_allowances)],
-                ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
-                ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)],
-            ],
-            'deductions' => [],
+            'earnings' => self::officeEarnings($record, $salaryInputLines),
+            'deductions' => self::officeDeductions($record, $salaryInputLines),
             'working_days' => $record->working_days,
             'present_days' => $record->present_days,
             'absent_days' => $record->absent_days,
             'leave_days' => self::formatAmount($record->leave_days),
             'overtime_hours' => self::formatAmount($record->overtime_hours),
         ]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $breakdown
+     * @return list<array<string, mixed>>
+     */
+    private static function resolveOfficeSalaryInputLines(PayrollRecord $record, array $breakdown): array
+    {
+        $stored = is_array($breakdown['salary_inputs'] ?? null) ? $breakdown['salary_inputs'] : [];
+
+        if ($stored !== []) {
+            return $stored;
+        }
+
+        return SalaryInput::query()
+            ->where('company_id', $record->company_id)
+            ->where('period_id', $record->period_id)
+            ->where('employee_id', $record->employee_id)
+            ->with('salaryInputType')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (SalaryInput $input) => SalaryInputResource::toArray($input))
+            ->values()
+            ->all();
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $salaryInputLines
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function officeEarnings(PayrollRecord $record, array $salaryInputLines): array
+    {
+        $rows = [
+            ['label' => 'Basic salary', 'amount' => self::formatAmount($record->basic_salary)],
+            ['label' => 'Housing allowance', 'amount' => self::formatAmount($record->housing_allowance)],
+            ['label' => 'Transport allowance', 'amount' => self::formatAmount($record->transport_allowance)],
+            ['label' => 'Other allowances', 'amount' => self::formatAmount($record->other_allowances)],
+            ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
+        ];
+
+        foreach ($salaryInputLines as $input) {
+            if (! ($input['is_addition'] ?? false)) {
+                continue;
+            }
+
+            $rows[] = [
+                'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Addition'),
+                'amount' => self::formatAmount($input['amount'] ?? 0),
+            ];
+        }
+
+        if ($salaryInputLines === [] && (float) $record->bonus > 0) {
+            $rows[] = ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)];
+        }
+
+        return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $salaryInputLines
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function officeDeductions(PayrollRecord $record, array $salaryInputLines): array
+    {
+        if ($salaryInputLines !== []) {
+            $rows = [];
+
+            foreach ($salaryInputLines as $input) {
+                if ($input['is_addition'] ?? false) {
+                    continue;
+                }
+
+                $rows[] = [
+                    'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Deduction'),
+                    'amount' => self::formatAmount($input['amount'] ?? 0),
+                ];
+            }
+
+            return self::filterPositiveLines($rows);
+        }
+
+        $rows = [
+            ['label' => 'Unpaid leave', 'amount' => self::formatAmount($record->unpaid_leave_deduction)],
+            ['label' => 'Late', 'amount' => self::formatAmount($record->late_deduction)],
+            ['label' => 'Loan', 'amount' => self::formatAmount($record->loan_deduction)],
+            ['label' => 'Other', 'amount' => self::formatAmount($record->other_deductions)],
+        ];
+
+        return self::filterPositiveLines($rows);
+    }
+
+    /**
+     * @param  list<array{label: string, amount: string}>  $rows
+     * @return list<array{label: string, amount: string}>
+     */
+    private static function filterPositiveLines(array $rows): array
+    {
+        return array_values(array_filter(
+            $rows,
+            fn (array $row): bool => (float) $row['amount'] > 0,
+        ));
     }
 
     private static function formatAmount(mixed $value): string

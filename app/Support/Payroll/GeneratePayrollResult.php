@@ -6,7 +6,15 @@ final class GeneratePayrollResult
 {
     /**
      * @param  list<array{id: int, name: string, employee_no: string|null}>  $skippedEmployees
-     * @param  list<array{employee_id: int, message: string}>  $errors
+     * @param  list<array{
+     *     employee_id: int,
+     *     employee_name: string,
+     *     employee_no: string|null,
+     *     message: string,
+     *     field: string|null,
+     *     field_label: string|null,
+     *     employee_url: string
+     * }>  $errors
      */
     public function __construct(
         public readonly int $generatedCount,

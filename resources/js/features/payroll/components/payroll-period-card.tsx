@@ -95,11 +95,7 @@ export function PayrollPeriodCard({
                         </div>
                         <PayrollPeriodProgress value={progress} />
                     </div>
-                ) : (
-                    <div className="rounded-xl border border-dashed border-border/60 px-3 py-2 text-xs font-medium text-muted-foreground dark:border-white/10">
-                        Leave-based payroll — approved leave usage per type
-                    </div>
-                )}
+                ) : null}
 
                 {canOpen ? (
                     <Button

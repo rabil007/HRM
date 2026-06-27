@@ -37,8 +37,8 @@ import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
+import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
-import { PayrollBoardSummaryBar } from './components/payroll-board-summary-bar';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
 import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
@@ -56,6 +56,7 @@ import type {
     LeaveTypeColumn,
     OfficePayrollRecordListItem,
     PayrollShowProps,
+    SalaryInput,
 } from './types';
 import { formatTimesheetAmount, formatTimesheetDays } from './types';
 
@@ -168,9 +169,10 @@ export function PayrollShowContent({
     leave_types,
     rows,
     pagination,
-    board_summary,
     payroll_records,
     payroll_records_pagination,
+    salary_inputs_by_employee,
+    salary_input_type_options,
     tab,
     generation_summary,
     search: initialSearch,
@@ -191,6 +193,9 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+    const [salaryInputsRecord, setSalaryInputsRecord] = useState<OfficePayrollRecordListItem | null>(
+        null,
+    );
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -337,6 +342,11 @@ export function PayrollShowContent({
         );
     };
 
+    const activeSalaryInputs: SalaryInput[] =
+        salaryInputsRecord !== null
+            ? salary_inputs_by_employee[String(salaryInputsRecord.employee.id)] ?? []
+            : [];
+
     const canGenerate = period.can_generate_payroll && permissions.generate_payroll;
 
     const canRevertToDraft = period.can_revert_to_draft && permissions.revert_to_draft;
@@ -344,8 +354,19 @@ export function PayrollShowContent({
     const canMarkPaid = period.can_mark_paid && permissions.mark_paid;
     const canCancelPeriod = period.can_cancel && permissions.cancel;
 
+    const canManageSalaryInputs =
+        !period.supports_timesheets &&
+        period.can_generate_payroll &&
+        (permissions.salary_inputs_create ||
+            permissions.salary_inputs_update ||
+            permissions.salary_inputs_delete);
+
     const hasHeaderActions =
-        canGenerate || canRevertToDraft || canApprove || canMarkPaid || canCancelPeriod;
+        canGenerate ||
+        canRevertToDraft ||
+        canApprove ||
+        canMarkPaid ||
+        canCancelPeriod;
 
     const recordsPagination = payroll_records_pagination;
 
@@ -412,15 +433,15 @@ export function PayrollShowContent({
                                     onClick={() => setIsGenerateDialogOpen(true)}
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
-                                    Generate payroll
+                                    {!period.supports_timesheets && payroll_records.length > 0
+                                        ? 'Update payroll'
+                                        : 'Generate payroll'}
                                 </Button>
                             ) : null}
                         </div>
                     ) : null
                 }
             />
-
-            <PayrollBoardSummaryBar period={period} summary={board_summary} />
 
             {period.supports_timesheets ? (
                 <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
@@ -516,12 +537,31 @@ export function PayrollShowContent({
                 />
             ) : null}
 
+            {!period.supports_timesheets ? (
+                <OfficeSalaryInputsSheet
+                    open={salaryInputsRecord !== null}
+                    onOpenChange={(open) => {
+                        if (!open) {
+                            setSalaryInputsRecord(null);
+                        }
+                    }}
+                    periodId={period.id}
+                    record={salaryInputsRecord}
+                    inputs={activeSalaryInputs}
+                    typeOptions={salary_input_type_options}
+                    canCreate={permissions.salary_inputs_create}
+                    canUpdate={permissions.salary_inputs_update}
+                    canDelete={permissions.salary_inputs_delete}
+                />
+            ) : null}
+
             <PayrollGenerateDialog
                 open={isGenerateDialogOpen}
                 onOpenChange={setIsGenerateDialogOpen}
                 onConfirm={handleGeneratePayroll}
                 processing={isGenerating}
                 payrollCategory={period.payroll_category}
+                hasExistingRecords={payroll_records.length > 0}
             />
 
             <PayrollRevertToDraftDialog
@@ -710,6 +750,8 @@ export function PayrollShowContent({
                     <OfficePayrollRecordsTable
                         records={officeRecords}
                         canViewPayslips={permissions.payslips_view}
+                        canManageSalaryInputs={canManageSalaryInputs}
+                        onManageSalaryInputs={setSalaryInputsRecord}
                     />
                 )}
                 {recordsPagination ? (

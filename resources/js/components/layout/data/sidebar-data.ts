@@ -19,6 +19,7 @@ import {
     CalendarCheck2,
     CalendarDays,
     PiggyBank,
+    Coins,
     FileDown,
     Receipt,
     Radio,
@@ -123,6 +124,7 @@ const baseSidebarData: SidebarData = {
                 { title: 'Overview', url: '/payroll/overview', icon: LayoutDashboard },
                 { title: 'Payroll', url: '/payroll', icon: Wallet },
                 { title: 'Payroll records', url: '/payroll/records', icon: PiggyBank },
+                { title: 'Salary inputs', url: '/payroll/salary-inputs', icon: Coins },
                 { title: 'Payslips', url: '/payroll/payslips', icon: Receipt },
                 { title: 'WPS export', url: '/payroll/wps', icon: FileDown },
             ],
@@ -241,6 +243,12 @@ export function getSidebarData(permissions: string[]): SidebarData {
                                 : null;
                         case '/payroll/records':
                             return has(permissions, 'payroll.records.view') ? item : null;
+                        case '/payroll/salary-inputs':
+                            return has(permissions, 'payroll.salary_inputs.view')
+                                || has(permissions, 'payroll.periods.update')
+                                || has(permissions, 'payroll.salary_inputs.create')
+                                ? item
+                                : null;
                         case '/payroll/payslips':
                             return has(permissions, 'payroll.payslips.view') ? item : null;
                         case '/payroll/wps':
