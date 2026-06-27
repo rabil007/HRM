@@ -1,6 +1,7 @@
-import { router, useForm, usePage } from '@inertiajs/react';
-import { Calculator, Pencil, RotateCcw, Upload, XCircle } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Link, router, useForm, usePage } from '@inertiajs/react';
+import { AlertCircle, Ban, Building2, Calculator, CheckCircle2, CheckSquare, CreditCard, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import type { PaginationMeta } from '@/types/pagination';
 import {
     approve,
     cancel,
@@ -11,6 +12,7 @@ import {
     show,
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
+import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -27,8 +29,9 @@ import { Pagination } from '@/components/pagination';
 import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
@@ -53,6 +56,7 @@ import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
     CrewTimesheetFormData,
+    EmployeeStats,
     LeaveTypeColumn,
     OfficePayrollRecordListItem,
     PayrollShowProps,
@@ -180,6 +184,7 @@ export function PayrollShowContent({
     payslip_summary,
     wps_preview,
     timesheet_draft,
+    employee_stats,
 }: PayrollShowProps) {
     const page = usePage<{ errors: Record<string, string> }>();
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
@@ -196,11 +201,12 @@ export function PayrollShowContent({
     const [salaryInputsRecord, setSalaryInputsRecord] = useState<OfficePayrollRecordListItem | null>(
         null,
     );
+    const [excludedIds, setExcludedIds] = useState<Set<number>>(new Set());
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
         search: initialSearch,
-        filters: { tab },
+        filters: {},
         pagination,
     });
 
@@ -259,19 +265,15 @@ export function PayrollShowContent({
         });
     };
 
-    const handleTabChange = (value: string) => {
-        router.get(
-            show.url(period.id),
-            { tab: value, search: initialSearch || undefined },
-            { preserveState: true, preserveScroll: true, replace: true },
-        );
-    };
+
 
     const handleGeneratePayroll = () => {
         setIsGenerating(true);
         router.post(
             generatePayroll.url(period.id),
-            {},
+            {
+                excluded_employee_ids: Array.from(excludedIds),
+            },
             {
                 preserveScroll: true,
                 onFinish: () => {
@@ -443,18 +445,21 @@ export function PayrollShowContent({
                 }
             />
 
-            {period.supports_timesheets ? (
-                <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
-                    <TabsList className="mb-4 h-12 rounded-xl bg-muted/40 p-1 backdrop-blur-lg">
-                        <TabsTrigger value="timesheets" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
-                            Timesheets
-                        </TabsTrigger>
-                        <TabsTrigger value="payroll" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
-                            Payroll
-                        </TabsTrigger>
-                    </TabsList>
+            {/* ── Status Timeline ─────────────────────────── */}
+            <PayrollStatusTimeline status={period.status} approver={period.approver} approvedAt={period.approved_at} />
 
-                    <TabsContent value="timesheets">
+            {/* ── Section 1: Employees / Timesheets ──────── */}
+            {period.status === 'draft' && (
+                <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-border/60" />
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                            {period.supports_timesheets ? 'Timesheets' : 'Employees'}
+                        </span>
+                        <div className="h-px flex-1 bg-border/60" />
+                    </div>
+
+                    {period.supports_timesheets ? (
                         <div className="mb-4 flex flex-wrap items-center gap-3">
                             <div className="min-w-0 flex-1">
                                 <SearchBar
@@ -474,29 +479,7 @@ export function PayrollShowContent({
                                 </Button>
                             ) : null}
                         </div>
-                        {renderTimesheetsTab()}
-                    </TabsContent>
-
-                    <TabsContent value="payroll">
-                        <PayrollSkippedBanner
-                            summary={generation_summary}
-                            payrollCategory={period.payroll_category}
-                        />
-                        {renderPayrollTab()}
-                    </TabsContent>
-                </Tabs>
-            ) : (
-                <Tabs value={tab} onValueChange={handleTabChange} className="mb-4">
-                    <TabsList className="mb-4 h-12 rounded-xl bg-muted/40 p-1 backdrop-blur-lg">
-                        <TabsTrigger value="employees" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
-                            Employees
-                        </TabsTrigger>
-                        <TabsTrigger value="payroll" className="h-full rounded-lg px-6 data-[state=active]:bg-background data-[state=active]:shadow-sm data-[state=active]:text-foreground transition-all duration-300">
-                            Payroll
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <TabsContent value="employees">
+                    ) : (
                         <div className="mb-4">
                             <SearchBar
                                 value={list.searchInput}
@@ -504,17 +487,35 @@ export function PayrollShowContent({
                                 placeholder={`Search ${period.payroll_category_label.toLowerCase()} employees...`}
                             />
                         </div>
-                        {renderOfficeEmployeesTab()}
-                    </TabsContent>
+                    )}
 
-                    <TabsContent value="payroll">
-                        <PayrollSkippedBanner
-                            summary={generation_summary}
-                            payrollCategory={period.payroll_category}
+                    {period.supports_timesheets ? renderTimesheetsTab() : renderOfficeEmployeesTab()}
+                </section>
+            )}
+
+            {/* ── Section 2: Payroll Records ──────────────── */}
+            {period.status !== 'draft' && (
+                <section className="space-y-4">
+                    <div className="flex items-center gap-3">
+                        <div className="h-px flex-1 bg-border/60" />
+                        <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground/50">
+                            Payroll Records
+                        </span>
+                        <div className="h-px flex-1 bg-border/60" />
+                    </div>
+                    <div className="mb-4">
+                        <SearchBar
+                            value={list.searchInput}
+                            onChange={list.onSearchChange}
+                            placeholder="Search payroll records..."
                         />
-                        {renderPayrollTab()}
-                    </TabsContent>
-                </Tabs>
+                    </div>
+                    <PayrollSkippedBanner
+                        summary={generation_summary}
+                        payrollCategory={period.payroll_category}
+                    />
+                    {renderPayrollTab()}
+                </section>
             )}
 
             {period.supports_timesheets ? (
@@ -562,6 +563,7 @@ export function PayrollShowContent({
                 processing={isGenerating}
                 payrollCategory={period.payroll_category}
                 hasExistingRecords={payroll_records.length > 0}
+                excludedCount={excludedIds.size}
             />
 
             <PayrollRevertToDraftDialog
@@ -786,40 +788,453 @@ export function PayrollShowContent({
         }
 
         return (
-            <>
-                <OrganizationDataTable>
-                    <TableHeader>
-                        <DataTableHeaderRow>
-                            <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Code</DataTableHead>
-                            <DataTableHead>Bank</DataTableHead>
-                            <DataTableHead>IBAN</DataTableHead>
-                            {leave_types.map((leaveType: LeaveTypeColumn) => (
-                                <DataTableHead key={leaveType.id}>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <span className="inline-flex items-center gap-1.5">
-                                                {leaveType.color ? (
-                                                    <span
-                                                        className="h-2 w-2 shrink-0 rounded-full"
-                                                        style={{ backgroundColor: leaveType.color }}
-                                                    />
-                                                ) : null}
-                                                {leaveType.code}
-                                            </span>
-                                        </TooltipTrigger>
-                                        <TooltipContent>{leaveType.name}</TooltipContent>
-                                    </Tooltip>
-                                </DataTableHead>
-                            ))}
-                        </DataTableHeaderRow>
-                    </TableHeader>
-                    <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
+            <OfficeEmployeesTabContent
+                rows={rows}
+                leave_types={leave_types}
+                pagination={pagination}
+                employee_stats={employee_stats}
+                onPageChange={list.goToPage}
+                excludedIds={excludedIds}
+                setExcludedIds={setExcludedIds}
+            />
+        );
+    }
+}
+
+// ─── Payroll Status Timeline ───────────────────────────────────────────────────
+
+const PAYROLL_FLOW = [
+    {
+        status: 'draft',
+        label: 'Draft',
+        description: 'Pay run created',
+    },
+    {
+        status: 'processing',
+        label: 'Processing',
+        description: 'Payroll generated',
+    },
+    {
+        status: 'approved',
+        label: 'Approved',
+        description: 'Pay run approved',
+    },
+    {
+        status: 'paid',
+        label: 'Paid',
+        description: 'Salaries disbursed',
+    },
+] as const;
+
+
+
+function PayrollStatusTimeline({
+    status,
+    approver,
+    approvedAt,
+}: {
+    status: string;
+    approver: { id: number; name: string } | null;
+    approvedAt: string | null;
+}) {
+    const isCancelled = status === 'cancelled';
+    const currentIndex = PAYROLL_FLOW.findIndex((s) => s.status === status);
+
+    if (isCancelled) {
+        return (
+            <div className="relative mb-6 overflow-hidden rounded-2xl border border-destructive/20 bg-gradient-to-r from-destructive/5 via-destructive/3 to-background p-4">
+                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_left,_var(--tw-gradient-stops))] from-destructive/10 via-transparent to-transparent" />
+                <div className="relative flex items-center gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-destructive/30 bg-destructive/10 text-destructive shadow-inner">
+                        <Ban className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-sm font-bold text-destructive">Pay Run Cancelled</p>
+                        <p className="text-xs text-muted-foreground/70">This payroll period has been cancelled and cannot be processed.</p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    return (
+        <div className="relative mb-6 overflow-hidden rounded-2xl border border-border/40 bg-gradient-to-r from-muted/20 via-background to-background p-5 shadow-sm">
+            {/* subtle background shimmer */}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent" />
+
+            <div className="relative">
+                <div className="flex items-start justify-between gap-2">
+                    {PAYROLL_FLOW.map((step, index) => {
+                        const isCompleted = index < currentIndex;
+                        const isActive = index === currentIndex;
+                        const isFuture = index > currentIndex;
+                        const isLast = index === PAYROLL_FLOW.length - 1;
+
+                        return (
+                            <React.Fragment key={step.status}>
+                                {/* Step node */}
+                                <div className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                                    {/* Circle */}
+                                    <div
+                                        className={cn(
+                                            'relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-500',
+                                            isCompleted && 'border-emerald-500 bg-emerald-500 text-white shadow-lg shadow-emerald-500/30',
+                                            isActive && 'border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/40 scale-110',
+                                            isFuture && 'border-border/40 bg-muted/30 text-muted-foreground/40',
+                                        )}
+                                    >
+                                        {isCompleted ? (
+                                            <CheckCircle2 className="h-5 w-5" />
+                                        ) : isActive ? (
+                                            <>
+                                                {/* Pulse ring for active */}
+                                                <span className="absolute inset-0 animate-ping rounded-full bg-primary/30 duration-1000" />
+                                                <span className="relative h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+                                            </>
+                                        ) : (
+                                            <span className="h-2 w-2 rounded-full bg-current" />
+                                        )}
+                                    </div>
+
+                                    {/* Labels */}
+                                    <div className="text-center">
+                                        <p
+                                            className={cn(
+                                                'text-xs font-bold transition-colors duration-300',
+                                                isCompleted && 'text-emerald-600 dark:text-emerald-400',
+                                                isActive && 'text-primary',
+                                                isFuture && 'text-muted-foreground/40',
+                                            )}
+                                        >
+                                            {step.label}
+                                        </p>
+                                        <p
+                                            className={cn(
+                                                'mt-0.5 text-[10px] transition-colors duration-300',
+                                                isActive ? 'text-muted-foreground' : 'text-muted-foreground/40',
+                                            )}
+                                        >
+                                            {step.description}
+                                        </p>
+                                        {/* Approver badge */}
+                                        {step.status === 'approved' && isCompleted && approver ? (
+                                            <p className="mt-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400">
+                                                by {approver.name}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                </div>
+
+                                {/* Connector line */}
+                                {!isLast && (
+                                    <div className="relative mt-5 h-0.5 flex-1 overflow-hidden rounded-full bg-border/30">
+                                        <div
+                                            className={cn(
+                                                'h-full rounded-full transition-all duration-700',
+                                                isCompleted ? 'bg-emerald-500 w-full' : 'w-0',
+                                            )}
+                                        />
+                                    </div>
+                                )}
+                            </React.Fragment>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Analytics Card ────────────────────────────────────────────────────────────
+
+function EmployeeAnalyticsCard({
+    title,
+    value,
+    subtitle,
+    icon: Icon,
+    variant,
+}: {
+    title: string;
+    value: number;
+    subtitle: string;
+    icon: React.ElementType;
+    variant: 'total' | 'success' | 'warning';
+}) {
+    const styles = {
+        total: {
+            card: 'border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background hover:border-primary/40 hover:shadow-primary/10',
+            icon: 'bg-primary/10 border-primary/20 text-primary',
+            value: 'text-primary',
+            dot: 'bg-primary',
+        },
+        success: {
+            card: 'border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 via-background to-background hover:border-emerald-500/40 hover:shadow-emerald-500/10',
+            icon: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400',
+            value: 'text-emerald-600 dark:text-emerald-400',
+            dot: 'bg-emerald-500',
+        },
+        warning: {
+            card: 'border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-background to-background hover:border-amber-500/40 hover:shadow-amber-500/10',
+            icon: 'bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400',
+            value: 'text-amber-600 dark:text-amber-400',
+            dot: 'bg-amber-500',
+        },
+    }[variant];
+
+    return (
+        <div
+            className={cn(
+                'group relative overflow-hidden rounded-2xl border p-5 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl',
+                styles.card,
+            )}
+        >
+            {/* Subtle background glow */}
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-white/10 via-transparent to-transparent opacity-40 dark:from-white/5" />
+
+            <div className="relative z-10 flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground/60">
+                        {title}
+                    </p>
+                    <p className={cn('mt-2 text-3xl font-extrabold tabular-nums tracking-tight', styles.value)}>
+                        {value.toLocaleString()}
+                    </p>
+                    <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted-foreground/70">
+                        <span className={cn('inline-block h-1.5 w-1.5 rounded-full', styles.dot)} />
+                        {subtitle}
+                    </p>
+                </div>
+                <div
+                    className={cn(
+                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border shadow-inner transition-transform duration-300 group-hover:scale-110',
+                        styles.icon,
+                    )}
+                >
+                    <Icon className="h-5 w-5" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── Office Employees Tab Content ─────────────────────────────────────────────
+
+function SalaryCell({ value }: { value: string | null | undefined }) {
+    if (!value || Number(value) === 0) {
+        return <span className="text-muted-foreground/40 text-xs">—</span>;
+    }
+    return (
+        <span className="tabular-nums font-medium">
+            {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        </span>
+    );
+}
+
+function OfficeEmployeesTabContent({
+    rows,
+    leave_types,
+    pagination,
+    employee_stats,
+    onPageChange,
+    excludedIds,
+    setExcludedIds,
+}: {
+    rows: CrewPayrollRow[];
+    leave_types: LeaveTypeColumn[];
+    pagination: PaginationMeta;
+    employee_stats: EmployeeStats | null;
+    onPageChange: (page: number) => void;
+    excludedIds: Set<number>;
+    setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
+}) {
+
+    const allIds = rows.map((r) => r.employee.id);
+    const allSelected = excludedIds.size === 0;
+    const noneSelected = excludedIds.size === rows.length && rows.length > 0;
+
+    const handleSelectAll = (checked: boolean | 'indeterminate') => {
+        if (checked === true) {
+            setExcludedIds(new Set());
+        } else {
+            setExcludedIds(new Set(allIds));
+        }
+    };
+
+    const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
+        setExcludedIds((prev) => {
+            const next = new Set(prev);
+            if (checked === true) {
+                next.delete(employeeId);
+            } else {
+                next.add(employeeId);
+            }
+            return next;
+        });
+    };
+
+    const includedCount = rows.length - excludedIds.size;
+
+    return (
+        <div className="space-y-6">
+            {/* Analytics Cards */}
+            {employee_stats !== null && (
+                <div className="grid gap-4 sm:grid-cols-3">
+                    <EmployeeAnalyticsCard
+                        title="Total Employees"
+                        value={employee_stats.total}
+                        subtitle="Active on this pay run"
+                        icon={Users}
+                        variant="total"
+                    />
+                    <EmployeeAnalyticsCard
+                        title="Bank Account Set"
+                        value={employee_stats.with_bank_account}
+                        subtitle="Ready for salary transfer"
+                        icon={CreditCard}
+                        variant="success"
+                    />
+                    <EmployeeAnalyticsCard
+                        title="Missing Bank Account"
+                        value={employee_stats.missing_bank_account}
+                        subtitle={
+                            employee_stats.missing_bank_account > 0
+                                ? 'Action required before WPS'
+                                : 'All accounts configured'
+                        }
+                        icon={employee_stats.missing_bank_account > 0 ? AlertCircle : Building2}
+                        variant={employee_stats.missing_bank_account > 0 ? 'warning' : 'success'}
+                    />
+                </div>
+            )}
+
+            {/* Selection info bar */}
+            <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
+                    <span>
+                        <span className="font-semibold text-foreground">{includedCount}</span> of{' '}
+                        <span className="font-semibold text-foreground">{rows.length}</span> employees included
+                    </span>
+                    {excludedIds.size > 0 && (
+                        <Badge
+                            variant="outline"
+                            className="ml-1 border-amber-500/30 bg-amber-500/10 text-amber-700 text-[10px] font-semibold dark:text-amber-300"
+                        >
+                            {excludedIds.size} excluded
+                        </Badge>
+                    )}
+                </div>
+                {excludedIds.size > 0 && (
+                    <button
+                        type="button"
+                        onClick={() => setExcludedIds(new Set())}
+                        className="text-xs font-medium text-primary underline-offset-2 hover:underline transition-colors"
+                    >
+                        Select all
+                    </button>
+                )}
+            </div>
+
+            {/* Table */}
+            <OrganizationDataTable>
+                <TableHeader>
+                    <DataTableHeaderRow>
+                        {/* Select-all checkbox */}
+                        <DataTableHead className="w-10">
+                            <Checkbox
+                                id="select-all-employees"
+                                checked={allSelected ? true : noneSelected ? false : 'indeterminate'}
+                                onCheckedChange={handleSelectAll}
+                                aria-label="Select all employees"
+                                className="rounded"
+                            />
+                        </DataTableHead>
+                        <DataTableHead>Employee</DataTableHead>
+                        <DataTableHead>Code</DataTableHead>
+                        {/* Salary columns */}
+                        <DataTableHead>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center gap-1.5 cursor-default">
+                                        <Calculator className="h-3 w-3 text-primary/60" />
+                                        Basic Salary
+                                    </span>
+                                </TooltipTrigger>
+                                <TooltipContent>From current contract</TooltipContent>
+                            </Tooltip>
+                        </DataTableHead>
+                        <DataTableHead>Housing Allow.</DataTableHead>
+                        <DataTableHead>Transport Allow.</DataTableHead>
+                        <DataTableHead>Other Allow.</DataTableHead>
+                        {/* Bank / IBAN */}
+                        <DataTableHead>Bank</DataTableHead>
+                        <DataTableHead>IBAN</DataTableHead>
+                        {/* Leave type columns */}
+                        {leave_types.map((leaveType: LeaveTypeColumn) => (
+                            <DataTableHead key={leaveType.id}>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <span className="inline-flex items-center gap-1.5">
+                                            {leaveType.color ? (
+                                                <span
+                                                    className="h-2 w-2 shrink-0 rounded-full"
+                                                    style={{ backgroundColor: leaveType.color }}
+                                                />
+                                            ) : null}
+                                            {leaveType.code}
+                                        </span>
+                                    </TooltipTrigger>
+                                    <TooltipContent>{leaveType.name}</TooltipContent>
+                                </Tooltip>
+                            </DataTableHead>
+                        ))}
+                    </DataTableHeaderRow>
+                </TableHeader>
+                <TableBody>
+                    {rows.map((row) => {
+                        const isExcluded = excludedIds.has(row.employee.id);
+                        const hasBankAccount = row.primary_account !== null && row.primary_account !== undefined;
+                        const hasIban = !!row.primary_account?.iban;
+                        const contract = row.contract ?? null;
+
+                        return (
+                            <TableRow
+                                key={row.employee.id}
+                                className={cn(
+                                    dataTableBodyRowClass(),
+                                    'group transition-all duration-200',
+                                    isExcluded
+                                        ? 'opacity-40 bg-muted/20 dark:bg-muted/10'
+                                        : 'hover:bg-muted/40',
+                                )}
+                            >
+                                {/* Checkbox */}
+                                <TableCell className={dataTableCellClass()}>
+                                    <Checkbox
+                                        id={`employee-${row.employee.id}`}
+                                        checked={!isExcluded}
+                                        onCheckedChange={(checked) =>
+                                            handleRowToggle(row.employee.id, checked)
+                                        }
+                                        aria-label={`Include ${row.employee.name}`}
+                                        className="rounded"
+                                    />
+                                </TableCell>
+
+                                {/* Employee name + avatar — clickable link */}
                                 <TableCell className={dataTableCellPrimaryClass()}>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                                    <Link
+                                        href={showEmployee.url(row.employee.id)}
+                                        className="flex items-center gap-3 group/link"
+                                    >
+                                        <div
+                                            className={cn(
+                                                'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-bold shadow-inner overflow-hidden transition-all duration-200',
+                                                isExcluded
+                                                    ? 'border-border/40 bg-muted/50 text-muted-foreground'
+                                                    : 'border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-primary dark:border-white/10 group-hover/link:scale-105',
+                                            )}
+                                        >
                                             {row.employee.image ? (
                                                 <img
                                                     src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
@@ -835,18 +1250,77 @@ export function PayrollShowContent({
                                                     .join('') || '—'
                                             )}
                                         </div>
-                                        <span className="font-semibold">{row.employee.name}</span>
-                                    </div>
+                                        <div className="min-w-0">
+                                            <span
+                                                className={cn(
+                                                    'block font-semibold leading-tight transition-colors group-hover/link:text-primary',
+                                                    isExcluded && 'line-through',
+                                                )}
+                                            >
+                                                {row.employee.name}
+                                            </span>
+                                            <span className="text-[11px] text-muted-foreground/60">
+                                                View profile →
+                                            </span>
+                                        </div>
+                                    </Link>
                                 </TableCell>
+
+                                {/* Employee code */}
                                 <TableCell className={dataTableCellClass()}>
-                                    {row.employee.employee_no ?? '—'}
+                                    <span className="font-mono text-xs">
+                                        {row.employee.employee_no ?? '—'}
+                                    </span>
                                 </TableCell>
+
+                                {/* Basic salary */}
+                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                    <SalaryCell value={contract?.basic_salary} />
+                                </TableCell>
+
+                                {/* Housing allowance */}
+                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                    <SalaryCell value={contract?.housing_allowance} />
+                                </TableCell>
+
+                                {/* Transport allowance */}
+                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                    <SalaryCell value={contract?.transport_allowance} />
+                                </TableCell>
+
+                                {/* Other allowances */}
+                                <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                    <SalaryCell value={contract?.other_allowances} />
+                                </TableCell>
+
+                                {/* Bank name */}
                                 <TableCell className={dataTableCellClass()}>
-                                    {row.primary_account?.bank_name ?? '—'}
+                                    {hasBankAccount ? (
+                                        <span className="inline-flex items-center gap-1.5 text-sm">
+                                            <CreditCard className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
+                                            {row.primary_account!.bank_name ?? '—'}
+                                        </span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                                            Not set
+                                        </span>
+                                    )}
                                 </TableCell>
-                                <TableCell className={cn(dataTableCellClass(), 'font-mono text-xs')}>
-                                    {row.primary_account?.iban ?? '—'}
+
+                                {/* IBAN */}
+                                <TableCell className={dataTableCellClass()}>
+                                    {hasIban ? (
+                                        <span className="font-mono text-xs">{row.primary_account!.iban}</span>
+                                    ) : (
+                                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+                                            Not set
+                                        </span>
+                                    )}
                                 </TableCell>
+
+                                {/* Leave type columns */}
                                 {leave_types.map((leaveType: LeaveTypeColumn) => (
                                     <TableCell key={leaveType.id} className={dataTableCellClass()}>
                                         {formatTimesheetDays(
@@ -855,20 +1329,20 @@ export function PayrollShowContent({
                                     </TableCell>
                                 ))}
                             </TableRow>
-                        ))}
-                    </TableBody>
-                </OrganizationDataTable>
+                        );
+                    })}
+                </TableBody>
+            </OrganizationDataTable>
 
-                <Pagination
-                    currentPage={pagination.current_page}
-                    lastPage={pagination.last_page}
-                    perPage={pagination.per_page}
-                    total={pagination.total}
-                    from={pagination.from}
-                    to={pagination.to}
-                    onPageChange={list.goToPage}
-                />
-            </>
-        );
-    }
+            <Pagination
+                currentPage={pagination.current_page}
+                lastPage={pagination.last_page}
+                perPage={pagination.per_page}
+                total={pagination.total}
+                from={pagination.from}
+                to={pagination.to}
+                onPageChange={onPageChange}
+            />
+        </div>
+    );
 }

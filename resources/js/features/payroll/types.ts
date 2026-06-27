@@ -130,6 +130,12 @@ export type CrewPayrollRow = {
     leave_usage?: OfficeLeaveUsage[];
     total_leave_days?: number;
     primary_account?: OfficePrimaryAccount | null;
+    contract?: {
+        basic_salary: string | null;
+        housing_allowance: string | null;
+        transport_allowance: string | null;
+        other_allowances: string | null;
+    } | null;
 };
 
 export type CrewTimesheetFormData = {
@@ -287,6 +293,12 @@ export type PayrollGenerationSummary = {
     }>;
 };
 
+export type EmployeeStats = {
+    total: number;
+    with_bank_account: number;
+    missing_bank_account: number;
+};
+
 export type PayrollShowProps = {
     period: PayrollPeriod;
     leave_types: LeaveTypeColumn[];
@@ -303,6 +315,7 @@ export type PayrollShowProps = {
     payslip_summary: PayslipSummary;
     wps_preview: WpsPreview | null;
     timesheet_draft: CrewTimesheetFormData | null;
+    employee_stats: EmployeeStats | null;
 };
 
 function formatAmount(value: string | null | undefined): string {

@@ -11,6 +11,8 @@ final class OfficePayrollBoardRow
      */
     public static function toArray(Employee $employee, int $periodId, EmployeeLeavePeriodSummary $summary): array
     {
+        $contract = $employee->currentContract;
+
         return [
             'employee' => [
                 'id' => $employee->id,
@@ -24,6 +26,12 @@ final class OfficePayrollBoardRow
             'leave_usage' => $summary->toLeaveUsageArray(),
             'total_leave_days' => $summary->totalLeaveDays,
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
+            'contract' => $contract !== null ? [
+                'basic_salary' => $contract->basic_salary,
+                'housing_allowance' => $contract->housing_allowance,
+                'transport_allowance' => $contract->transport_allowance,
+                'other_allowances' => $contract->other_allowances,
+            ] : null,
         ];
     }
 }

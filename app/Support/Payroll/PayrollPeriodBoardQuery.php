@@ -38,6 +38,14 @@ final class PayrollPeriodBoardQuery
         if ($payrollCategory === PayrollCategory::Office) {
             $query->with([
                 'primaryBankAccount.bank:id,name',
+                'currentContract' => fn ($q) => $q->select([
+                    'employee_contracts.id',
+                    'employee_contracts.employee_id',
+                    'employee_contracts.basic_salary',
+                    'employee_contracts.housing_allowance',
+                    'employee_contracts.transport_allowance',
+                    'employee_contracts.other_allowances',
+                ]),
             ]);
         }
 

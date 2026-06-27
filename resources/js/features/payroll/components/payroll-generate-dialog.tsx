@@ -17,6 +17,7 @@ export function PayrollGenerateDialog({
     processing,
     payrollCategory,
     hasExistingRecords = false,
+    excludedCount = 0,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -24,6 +25,7 @@ export function PayrollGenerateDialog({
     processing: boolean;
     payrollCategory: PayrollCategory;
     hasExistingRecords?: boolean;
+    excludedCount?: number;
 }) {
     const isCrew = payrollCategory === 'crew';
 
@@ -45,6 +47,12 @@ export function PayrollGenerateDialog({
                             ? 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.'
                             : officeDescription}{' '}
                         You can run this again while the period is in draft or processing.
+                        
+                        {excludedCount > 0 && !isCrew && (
+                            <span className="mt-3 block rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300">
+                                <strong>Note:</strong> {excludedCount} employee{excludedCount === 1 ? ' is' : 's are'} unchecked and will be <strong>excluded</strong> from this pay run. Any existing payroll records for them will be deleted.
+                            </span>
+                        )}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>

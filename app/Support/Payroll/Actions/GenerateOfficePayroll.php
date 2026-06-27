@@ -26,7 +26,7 @@ final class GenerateOfficePayroll
         private readonly RecalculateOfficePayroll $recalculateOfficePayroll,
     ) {}
 
-    public function handle(PayrollPeriod $period): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
     {
         abort_unless($period->isOffice(), 404);
 
@@ -43,8 +43,13 @@ final class GenerateOfficePayroll
             $companyWorkingDays,
         );
 
-        $employees = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Office)
-            ->with(['currentContract.salaryComponents'])
+        $employeesQuery = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Office);
+
+        if (! empty($excludedEmployeeIds)) {
+            $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
+        }
+
+        $employees = $employeesQuery->with(['currentContract.salaryComponents'])
             ->orderBy('employees.name')
             ->get();
 
@@ -64,9 +69,16 @@ final class GenerateOfficePayroll
             $employees,
             $leaveByEmployee,
             $workingDaysInPeriod,
+            $excludedEmployeeIds,
             &$generatedCount,
             &$errors,
         ): void {
+            if (! empty($excludedEmployeeIds)) {
+                PayrollRecord::query()
+                    ->where('period_id', $period->id)
+                    ->whereIn('employee_id', $excludedEmployeeIds)
+                    ->delete();
+            }
             foreach ($employees as $employee) {
                 /** @var Employee $employee */
                 $contract = $employee->currentContract;

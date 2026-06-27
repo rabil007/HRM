@@ -229,6 +229,20 @@ class PayrollController extends Controller
                 ->all()
             : [];
 
+        $employeeStats = null;
+        if ($payrollPeriod->isOffice()) {
+            $allOfficeEmployees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office)
+                ->with('primaryBankAccount')
+                ->get(['id']);
+            $totalCount = $allOfficeEmployees->count();
+            $withBankCount = $allOfficeEmployees->filter(fn ($emp) => $emp->primaryBankAccount !== null)->count();
+            $employeeStats = [
+                'total' => $totalCount,
+                'with_bank_account' => $withBankCount,
+                'missing_bank_account' => $totalCount - $withBankCount,
+            ];
+        }
+
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
             'leave_types' => $leaveTypes,
@@ -279,6 +293,7 @@ class PayrollController extends Controller
             'timesheet_draft' => $payrollPeriod->isCrew()
                 ? $this->timesheetDraftFromOldInput($request)
                 : null,
+            'employee_stats' => $employeeStats,
         ]);
     }
 
@@ -422,7 +437,7 @@ class PayrollController extends Controller
 
         $result = $payrollPeriod->isCrew()
             ? $generateCrewPayroll->handle($payrollPeriod)
-            : $generateOfficePayroll->handle($payrollPeriod);
+            : $generateOfficePayroll->handle($payrollPeriod, $request->input('excluded_employee_ids', []));
 
         $message = $result->generatedCount > 0
             ? "Generated payroll for {$result->generatedCount} employee(s)."
