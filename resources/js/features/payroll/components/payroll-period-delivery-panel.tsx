@@ -25,10 +25,25 @@ import { cn } from '@/lib/utils';
 import type {
     CrewPayrollPermissions,
     PayrollPeriod,
+    PayrollPeriodStatus,
     PayslipSummary,
     WpsPreview,
 } from '../types';
 import { WpsExportButton } from '../wps/wps-export-button';
+
+const PAYSLIP_DELIVERY_STATUSES: PayrollPeriodStatus[] = ['approved', 'paid'];
+
+export function canShowPayslipDeliveryPanel(
+    period: PayrollPeriod,
+    payslipSummary: PayslipSummary,
+    canViewPayslips: boolean,
+): boolean {
+    return (
+        canViewPayslips
+        && PAYSLIP_DELIVERY_STATUSES.includes(period.status as PayrollPeriodStatus)
+        && payslipSummary.total > 0
+    );
+}
 
 export function PayrollPeriodDeliveryPanel({
     period,
@@ -44,8 +59,11 @@ export function PayrollPeriodDeliveryPanel({
     const [processing, setProcessing] = useState<'generate' | 'email' | null>(null);
     const [skippedOpen, setSkippedOpen] = useState(false);
 
-    const showPayslipsCard =
-        payslip_summary.total > 0 && permissions.payslips_view;
+    const showPayslipsCard = canShowPayslipDeliveryPanel(
+        period,
+        payslip_summary,
+        permissions.payslips_view,
+    );
     const showWpsCard =
         wps_preview !== null && permissions.wps_view;
 
@@ -89,7 +107,7 @@ export function PayrollPeriodDeliveryPanel({
                                     variant="outline"
                                     size="sm"
                                     className="rounded-xl"
-                                    disabled={processing !== null}
+                                    disabled={processing !== null || payslip_summary.total === 0}
                                     onClick={() => handlePayslipAction('generate')}
                                 >
                                     <Sparkles className="mr-2 h-4 w-4" />
@@ -100,7 +118,7 @@ export function PayrollPeriodDeliveryPanel({
                                 <Button
                                     size="sm"
                                     className="rounded-xl"
-                                    disabled={processing !== null}
+                                    disabled={processing !== null || payslip_summary.total === 0}
                                     onClick={() => handlePayslipAction('email')}
                                 >
                                     <Mail className="mr-2 h-4 w-4" />

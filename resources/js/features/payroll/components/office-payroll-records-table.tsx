@@ -1,4 +1,4 @@
-import { Plus } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -23,12 +23,16 @@ export function OfficePayrollRecordsTable({
     records,
     canViewPayslips,
     canManageSalaryInputs,
+    canRemove,
     onManageSalaryInputs,
+    onRemove,
 }: {
     records: OfficePayrollRecordListItem[];
     canViewPayslips: boolean;
     canManageSalaryInputs: boolean;
+    canRemove: boolean;
     onManageSalaryInputs: (record: OfficePayrollRecordListItem) => void;
+    onRemove: (record: OfficePayrollRecordListItem) => void;
 }) {
     return (
         <OrganizationDataTable minWidth="min-w-[1320px]">
@@ -108,6 +112,23 @@ export function OfficePayrollRecordsTable({
                                 ) : null}
                                 {canViewPayslips ? (
                                     <PayrollRecordPayslipActionButtons recordId={record.id} />
+                                ) : null}
+                                {canRemove ? (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 rounded-lg text-destructive hover:text-destructive"
+                                                aria-label="Remove from pay run"
+                                                onClick={() => onRemove(record)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Remove from pay run</TooltipContent>
+                                    </Tooltip>
                                 ) : null}
                             </div>
                         </TableCell>

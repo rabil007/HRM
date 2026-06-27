@@ -9,41 +9,41 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-export function PayrollRevertToDraftDialog({
+export function PayrollRecordRemoveDialog({
     open,
     onOpenChange,
+    employeeName,
     onConfirm,
     processing,
-    supportsTimesheets,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    employeeName: string | null;
     onConfirm: () => void;
     processing: boolean;
-    supportsTimesheets: boolean;
 }) {
-    const description = supportsTimesheets
-        ? 'This unlocks timesheet editing and removes generated payroll records for this period. Excluded employees are reset, so everyone will be included the next time you generate payroll unless you exclude them again. You will need to generate payroll again after making changes.'
-        : 'This removes generated payroll records for this period and resets employee selection. All employees will be included the next time you generate payroll unless you exclude them again on the Employees tab.';
-
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Revert pay period to draft?</AlertDialogTitle>
-                    <AlertDialogDescription>{description}</AlertDialogDescription>
+                    <AlertDialogTitle>Remove employee from pay run?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        {employeeName
+                            ? `${employeeName} will be removed from this pay run. Any salary inputs for this period will be deleted. Updating payroll will not add them back unless you include them again from the employees tab.`
+                            : 'This employee will be removed from this pay run.'}
+                    </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
                     <AlertDialogAction
-                        className="rounded-xl"
+                        className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
                         disabled={processing}
                         onClick={(event) => {
                             event.preventDefault();
                             onConfirm();
                         }}
                     >
-                        {processing ? 'Reverting…' : 'Revert to draft'}
+                        {processing ? 'Removing…' : 'Remove'}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

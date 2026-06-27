@@ -24,6 +24,10 @@ final class PayrollPeriodResource
             'status' => $period->status?->value,
             'status_label' => $period->status?->label(),
             'notes' => $period->notes,
+            'excluded_employee_ids' => array_values(array_map(
+                intval(...),
+                $period->excluded_employee_ids ?? [],
+            )),
             'is_editable' => $period->isEditable(),
             'can_generate_crew_payroll' => $period->canGenerateCrewPayroll(),
             'can_generate_payroll' => $period->canGeneratePayroll(),

@@ -38,12 +38,27 @@ final class GenerateCrewPayroll
             ->orderBy('employees.name')
             ->get();
 
+        $excludedEmployeeIds = array_values(array_unique(array_map(
+            intval(...),
+            $period->excluded_employee_ids ?? [],
+        )));
+
         $generatedCount = 0;
         $skippedEmployees = [];
         $errors = [];
 
-        DB::transaction(function () use ($period, $employees, &$generatedCount, &$skippedEmployees, &$errors): void {
+        DB::transaction(function () use ($period, $employees, $excludedEmployeeIds, &$generatedCount, &$skippedEmployees, &$errors): void {
+            if ($excludedEmployeeIds !== []) {
+                PayrollRecord::query()
+                    ->where('period_id', $period->id)
+                    ->whereIn('employee_id', $excludedEmployeeIds)
+                    ->delete();
+            }
+
             foreach ($employees as $employee) {
+                if (in_array((int) $employee->id, $excludedEmployeeIds, true)) {
+                    continue;
+                }
                 /** @var Employee $employee */
                 $timesheet = $employee->crewTimesheets->first();
 

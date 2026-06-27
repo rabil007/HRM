@@ -109,3 +109,84 @@ test('paid pay periods cannot be reverted to draft', function () {
         ->post(route('payroll.revert-to-draft', $period))
         ->assertSessionHasErrors('period_id');
 });
+
+test('revert to draft clears excluded employee ids', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_draft']);
+
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-100', 10000, 0, 0, 0);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+        'excluded_employee_ids' => [$employee->id],
+    ]);
+
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($employee)->create([
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-draft', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Draft)
+        ->and($period->excluded_employee_ids)->toBeNull();
+});
+
+test('removed office employee can be regenerated after revert to draft', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.revert_to_draft',
+        'payroll.periods.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $removedEmployee = createOfficeEmployeeWithContract($company, 'OFF-100', 10000, 0, 0, 0);
+    $remainingEmployee = createOfficeEmployeeWithContract($company, 'OFF-200', 8000, 0, 0, 0);
+
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($removedEmployee)->create([
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($remainingEmployee)->create([
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->delete(route('payroll.records.destroy', [
+            'payrollPeriod' => $period,
+            'payrollRecord' => PayrollRecord::query()
+                ->where('period_id', $period->id)
+                ->where('employee_id', $removedEmployee->id)
+                ->firstOrFail(),
+        ]))
+        ->assertRedirect();
+
+    $period->refresh();
+    expect($period->excluded_employee_ids)->toBe([$removedEmployee->id]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-draft', $period))
+        ->assertRedirect();
+
+    $period->refresh();
+    expect($period->excluded_employee_ids)->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    expect(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $removedEmployee->id)->exists())->toBeTrue()
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $remainingEmployee->id)->exists())->toBeTrue()
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(2);
+});

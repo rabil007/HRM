@@ -39,6 +39,7 @@ export type PayrollPeriod = {
     can_mark_paid: boolean;
     can_cancel: boolean;
     payroll_records_count: number;
+    excluded_employee_ids: number[];
     approved_at: string | null;
     approver: { id: number; name: string } | null;
     created_at: string | null;

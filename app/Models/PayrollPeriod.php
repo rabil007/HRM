@@ -26,6 +26,7 @@ class PayrollPeriod extends Model
             'payroll_category' => PayrollCategory::class,
             'status' => PayrollPeriodStatus::class,
             'approved_at' => 'datetime',
+            'excluded_employee_ids' => 'array',
         ];
     }
 

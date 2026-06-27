@@ -192,6 +192,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('payroll/{payrollPeriod}/timesheets/import/preview', [PayrollController::class, 'importPreview'])->name('payroll.timesheets.import.preview');
     Route::post('payroll/{payrollPeriod}/timesheets/import', [PayrollController::class, 'importTimesheets'])->name('payroll.timesheets.import');
     Route::post('payroll/{payrollPeriod}/generate', [PayrollController::class, 'generatePayroll'])->middleware('can:payroll.periods.update')->name('payroll.generate');
+    Route::delete('payroll/{payrollPeriod}/records/{payrollRecord}', [PayrollController::class, 'destroyPayrollRecord'])->middleware('can:payroll.periods.update')->name('payroll.records.destroy');
     Route::post('payroll/{payrollPeriod}/salary-inputs', [SalaryInputController::class, 'store'])->name('payroll.salary-inputs.store');
     Route::put('payroll/{payrollPeriod}/salary-inputs/{salaryInput}', [SalaryInputController::class, 'update'])->name('payroll.salary-inputs.update');
     Route::delete('payroll/{payrollPeriod}/salary-inputs/{salaryInput}', [SalaryInputController::class, 'destroy'])->name('payroll.salary-inputs.destroy');

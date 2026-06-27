@@ -1,3 +1,4 @@
+import { Trash2 } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -7,20 +8,26 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CrewPayrollRecordListItem } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 import {
-    PayrollRecordPayslipActionsCell,
+    PayrollRecordPayslipActionButtons,
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
 
 export function PayrollRecordsTable({
     records,
     canViewPayslips,
+    canRemove,
+    onRemove,
 }: {
     records: CrewPayrollRecordListItem[];
     canViewPayslips: boolean;
+    canRemove: boolean;
+    onRemove: (record: CrewPayrollRecordListItem) => void;
 }) {
     return (
         <OrganizationDataTable minWidth="min-w-[1220px]">
@@ -72,10 +79,30 @@ export function PayrollRecordsTable({
                             has_payslip={record.has_payslip}
                             wps_status_label={record.wps_status_label}
                         />
-                        <PayrollRecordPayslipActionsCell
-                            recordId={record.id}
-                            canViewPayslips={canViewPayslips}
-                        />
+                        <TableCell className={dataTableActionsCellClass()}>
+                            <div className="flex items-center justify-end gap-2">
+                                {canViewPayslips ? (
+                                    <PayrollRecordPayslipActionButtons recordId={record.id} />
+                                ) : null}
+                                {canRemove ? (
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 rounded-lg text-destructive hover:text-destructive"
+                                                aria-label="Remove from pay run"
+                                                onClick={() => onRemove(record)}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Remove from pay run</TooltipContent>
+                                    </Tooltip>
+                                ) : null}
+                            </div>
+                        </TableCell>
                     </TableRow>
                 ))}
             </TableBody>

@@ -22,6 +22,7 @@ use App\Models\SalaryInputType;
 use App\Support\Pagination\ResolvesPerPage;
 use App\Support\Payroll\Actions\ApprovePayrollPeriod;
 use App\Support\Payroll\Actions\CancelPayrollPeriod;
+use App\Support\Payroll\Actions\DeletePayrollRecord;
 use App\Support\Payroll\Actions\GenerateCrewPayroll;
 use App\Support\Payroll\Actions\GenerateOfficePayroll;
 use App\Support\Payroll\Actions\MarkPayrollPeriodPaid;
@@ -455,6 +456,25 @@ class PayrollController extends Controller
             ])
             ->with('success', $message)
             ->with('payroll_generation', $result->toSessionArray());
+    }
+
+    public function destroyPayrollRecord(
+        Request $request,
+        PayrollPeriod $payrollPeriod,
+        PayrollRecord $payrollRecord,
+        DeletePayrollRecord $deletePayrollRecord,
+    ): RedirectResponse {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+
+        $deletePayrollRecord->handle($payrollPeriod, $payrollRecord);
+
+        return redirect()
+            ->route('payroll.show', [
+                'payrollPeriod' => $payrollPeriod,
+                'tab' => 'payroll',
+            ])
+            ->with('success', 'Employee removed from this pay run.');
     }
 
     public function revertToDraft(

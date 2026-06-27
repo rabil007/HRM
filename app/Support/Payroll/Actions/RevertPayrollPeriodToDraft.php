@@ -24,6 +24,7 @@ final class RevertPayrollPeriodToDraft
                 'status' => PayrollPeriodStatus::Draft,
                 'approved_by' => null,
                 'approved_at' => null,
+                'excluded_employee_ids' => null,
             ]);
 
             return $period->refresh();

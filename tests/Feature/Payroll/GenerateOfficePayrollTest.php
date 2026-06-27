@@ -214,6 +214,70 @@ test('office payroll generation reports detailed errors for employees missing co
         );
 });
 
+test('processing pay period show does not expose payslip delivery until approved', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.payslips.view',
+        'payroll.payslips.generate',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-PS-PROC', 10000, 0, 0, 0);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('period.status', 'processing')
+            ->where('payslip_summary.total', 1)
+            ->where('permissions.payslips_view', true));
+});
+
+test('approved pay period show includes payslip delivery summary', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.payslips.view',
+        'payroll.payslips.generate',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->approved()->create();
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-PS-APP', 10000, 0, 0, 0);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('period.status', 'approved')
+            ->where('payslip_summary.total', 1)
+            ->where('payslip_summary.generated', 0)
+            ->where('payslip_summary.pending', 1)
+            ->where('permissions.payslips_view', true)
+            ->where('permissions.payslips_generate', true));
+});
+
 test('payroll show includes office payroll records and leave usage on employees tab', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

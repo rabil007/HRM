@@ -36,6 +36,11 @@ final class GenerateOfficePayroll
             ]);
         }
 
+        $excludedEmployeeIds = array_values(array_unique(array_map(
+            intval(...),
+            array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
+        )));
+
         $companyWorkingDays = $this->resolveCompanyWorkingDays($period->company_id);
         $workingDaysInPeriod = $this->countWorkingDays->count(
             $period->start_date,
@@ -145,11 +150,15 @@ final class GenerateOfficePayroll
                 $generatedCount++;
             }
 
+            $periodUpdates = [
+                'excluded_employee_ids' => $excludedEmployeeIds,
+            ];
+
             if ($generatedCount > 0 && $period->status === PayrollPeriodStatus::Draft) {
-                $period->update([
-                    'status' => PayrollPeriodStatus::Processing,
-                ]);
+                $periodUpdates['status'] = PayrollPeriodStatus::Processing;
             }
+
+            $period->update($periodUpdates);
 
             if ($generatedCount > 0) {
                 $this->recalculateOfficePayroll->handle($period->fresh());

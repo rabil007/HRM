@@ -5,6 +5,7 @@ import type { PaginationMeta } from '@/types/pagination';
 import {
     approve,
     cancel,
+    destroyPayrollRecord,
     generatePayroll,
     index as payrollIndex,
     markPaid,
@@ -49,6 +50,7 @@ import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import { PayrollRecordsTable } from './components/payroll-records-table';
+import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
@@ -59,6 +61,7 @@ import type {
     EmployeeStats,
     LeaveTypeColumn,
     OfficePayrollRecordListItem,
+    PayrollRecordListItem,
     PayrollShowProps,
     SalaryInput,
 } from './types';
@@ -201,7 +204,11 @@ export function PayrollShowContent({
     const [salaryInputsRecord, setSalaryInputsRecord] = useState<OfficePayrollRecordListItem | null>(
         null,
     );
-    const [excludedIds, setExcludedIds] = useState<Set<number>>(new Set());
+    const [excludedIds, setExcludedIds] = useState<Set<number>>(
+        () => new Set(period.excluded_employee_ids ?? []),
+    );
+    const [removeRecord, setRemoveRecord] = useState<PayrollRecordListItem | null>(null);
+    const [isRemovingRecord, setIsRemovingRecord] = useState(false);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -339,6 +346,35 @@ export function PayrollShowContent({
                 onFinish: () => {
                     setIsCancelling(false);
                     setIsCancelDialogOpen(false);
+                },
+            },
+        );
+    };
+
+    const handleRemoveRecord = () => {
+        if (removeRecord === null) {
+            return;
+        }
+
+        setIsRemovingRecord(true);
+        router.delete(
+            destroyPayrollRecord.url({
+                payrollPeriod: period.id,
+                payrollRecord: removeRecord.id,
+            }),
+            {
+                preserveScroll: true,
+                onSuccess: () => {
+                    setExcludedIds((current) => {
+                        const next = new Set(current);
+                        next.add(removeRecord.employee.id);
+
+                        return next;
+                    });
+                },
+                onFinish: () => {
+                    setIsRemovingRecord(false);
+                    setRemoveRecord(null);
                 },
             },
         );
@@ -514,6 +550,12 @@ export function PayrollShowContent({
                         summary={generation_summary}
                         payrollCategory={period.payroll_category}
                     />
+                    <PayrollPeriodDeliveryPanel
+                        period={period}
+                        payslip_summary={payslip_summary}
+                        wps_preview={wps_preview}
+                        permissions={permissions}
+                    />
                     {renderPayrollTab()}
                 </section>
             )}
@@ -571,6 +613,7 @@ export function PayrollShowContent({
                 onOpenChange={setIsRevertDialogOpen}
                 onConfirm={handleRevertToDraft}
                 processing={isReverting}
+                supportsTimesheets={period.supports_timesheets}
             />
 
             <PayrollApproveDialog
@@ -592,6 +635,18 @@ export function PayrollShowContent({
                 onOpenChange={setIsCancelDialogOpen}
                 onConfirm={handleCancel}
                 processing={isCancelling}
+            />
+
+            <PayrollRecordRemoveDialog
+                open={removeRecord !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setRemoveRecord(null);
+                    }
+                }}
+                employeeName={removeRecord?.employee.name ?? null}
+                onConfirm={handleRemoveRecord}
+                processing={isRemovingRecord}
             />
         </Main>
     );
@@ -737,23 +792,21 @@ export function PayrollShowContent({
 
         return (
             <>
-                <PayrollPeriodDeliveryPanel
-                    period={period}
-                    payslip_summary={payslip_summary}
-                    wps_preview={wps_preview}
-                    permissions={permissions}
-                />
                 {period.supports_timesheets ? (
                     <PayrollRecordsTable
                         records={crewRecords}
                         canViewPayslips={permissions.payslips_view}
+                        canRemove={canGenerate}
+                        onRemove={setRemoveRecord}
                     />
                 ) : (
                     <OfficePayrollRecordsTable
                         records={officeRecords}
                         canViewPayslips={permissions.payslips_view}
                         canManageSalaryInputs={canManageSalaryInputs}
+                        canRemove={canGenerate}
                         onManageSalaryInputs={setSalaryInputsRecord}
+                        onRemove={setRemoveRecord}
                     />
                 )}
                 {recordsPagination ? (
