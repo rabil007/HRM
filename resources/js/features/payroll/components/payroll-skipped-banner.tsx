@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link } from '@inertiajs/react';
-import { AlertTriangle, ArrowUpRight } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronUp, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PayrollCategory, PayrollGenerationSummary } from '../types';
 
@@ -10,7 +11,14 @@ export function PayrollSkippedBanner({
     summary: PayrollGenerationSummary | null;
     payrollCategory: PayrollCategory;
 }) {
+    const [isDismissed, setIsDismissed] = useState(false);
+    const [errorsExpanded, setErrorsExpanded] = useState(true);
+
     if (!summary || (summary.skipped_count === 0 && summary.errors.length === 0)) {
+        return null;
+    }
+
+    if (isDismissed) {
         return null;
     }
 
@@ -18,7 +26,17 @@ export function PayrollSkippedBanner({
         payrollCategory === 'crew' ? 'skipped (no timesheet)' : 'skipped';
 
     return (
-        <div className="mb-4 space-y-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3.5">
+        <div className="relative mb-4 space-y-3 rounded-2xl border border-amber-500/25 bg-amber-500/5 px-4 py-3.5 pr-10">
+            {/* Close button */}
+            <button
+                type="button"
+                onClick={() => setIsDismissed(true)}
+                className="absolute right-3 top-3 rounded-lg p-1 text-muted-foreground/60 hover:bg-amber-500/10 hover:text-foreground transition-colors"
+                aria-label="Dismiss banner"
+            >
+                <X className="h-4 w-4" />
+            </button>
+
             <div className="flex items-start gap-3">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                 <div className="min-w-0 flex-1 space-y-3 text-sm">
@@ -46,43 +64,67 @@ export function PayrollSkippedBanner({
                     ) : null}
                     {summary.errors.length > 0 ? (
                         <div className="space-y-2">
-                            <p className="font-medium text-destructive">Calculation errors</p>
-                            <div className="space-y-2">
-                                {summary.errors.map((error) => (
-                                    <div
-                                        key={`${error.employee_id}-${error.field ?? 'general'}`}
-                                        className="flex flex-col gap-3 rounded-xl border border-destructive/15 bg-background/60 p-3 sm:flex-row sm:items-center sm:justify-between"
-                                    >
-                                        <div className="min-w-0 space-y-1">
-                                            <p className="font-semibold text-foreground">
-                                                {error.employee_name}
-                                                {error.employee_no ? (
-                                                    <span className="ml-2 font-normal text-muted-foreground">
-                                                        {error.employee_no}
-                                                    </span>
-                                                ) : null}
-                                            </p>
-                                            {error.field_label ? (
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-destructive/80">
-                                                    Missing: {error.field_label}
-                                                </p>
-                                            ) : null}
-                                            <p className="text-muted-foreground">{error.message}</p>
-                                        </div>
-                                        <Button
-                                            asChild
-                                            variant="outline"
-                                            size="sm"
-                                            className="shrink-0 rounded-lg"
-                                        >
-                                            <Link href={error.employee_url}>
-                                                View employee
-                                                <ArrowUpRight className="ml-2 h-4 w-4" />
-                                            </Link>
-                                        </Button>
-                                    </div>
-                                ))}
+                            <div className="flex items-center justify-between border-b border-destructive/10 pb-1.5">
+                                <p className="font-medium text-destructive flex items-center gap-1.5">
+                                    Calculation errors
+                                    <span className="rounded-full bg-destructive/10 px-1.5 py-0.5 text-xs font-semibold text-destructive">
+                                        {summary.errors.length}
+                                    </span>
+                                </p>
+                                <button
+                                    type="button"
+                                    onClick={() => setErrorsExpanded(!errorsExpanded)}
+                                    className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                                >
+                                    {errorsExpanded ? (
+                                        <>
+                                            Hide <ChevronUp className="h-3.5 w-3.5" />
+                                        </>
+                                    ) : (
+                                        <>
+                                            Show <ChevronDown className="h-3.5 w-3.5" />
+                                        </>
+                                    )}
+                                </button>
                             </div>
+                            {errorsExpanded && (
+                                <div className="space-y-2 transition-all duration-300">
+                                    {summary.errors.map((error) => (
+                                        <div
+                                            key={`${error.employee_id}-${error.field ?? 'general'}`}
+                                            className="flex flex-col gap-3 rounded-xl border border-destructive/15 bg-background/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                            <div className="min-w-0 space-y-1">
+                                                <p className="font-semibold text-foreground">
+                                                    {error.employee_name}
+                                                    {error.employee_no ? (
+                                                        <span className="ml-2 font-normal text-muted-foreground">
+                                                            {error.employee_no}
+                                                        </span>
+                                                    ) : null}
+                                                </p>
+                                                {error.field_label ? (
+                                                    <p className="text-xs font-semibold uppercase tracking-wide text-destructive/80">
+                                                        Missing: {error.field_label}
+                                                    </p>
+                                                ) : null}
+                                                <p className="text-muted-foreground">{error.message}</p>
+                                            </div>
+                                            <Button
+                                                asChild
+                                                variant="outline"
+                                                size="sm"
+                                                className="shrink-0 rounded-lg"
+                                            >
+                                                <Link href={error.employee_url}>
+                                                    View employee
+                                                    <ArrowUpRight className="ml-2 h-4 w-4" />
+                                                </Link>
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     ) : null}
                 </div>
