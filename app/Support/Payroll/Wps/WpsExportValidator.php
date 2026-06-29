@@ -47,6 +47,19 @@ final class WpsExportValidator
             ];
         }
 
+        if (! filled($company->wps_employer_iban)) {
+            return [
+                'eligible' => collect(),
+                'skipped' => [[
+                    'record_id' => 0,
+                    'employee_id' => null,
+                    'employee_name' => '—',
+                    'employee_no' => null,
+                    'reason' => 'Company WPS employer IBAN is missing.',
+                ]],
+            ];
+        }
+
         foreach ($records as $record) {
             $record->loadMissing([
                 'employee.currentContract',

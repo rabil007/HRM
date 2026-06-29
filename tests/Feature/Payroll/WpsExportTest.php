@@ -11,6 +11,7 @@ use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\Payroll\Wps\WpsSifExporter;
+use Carbon\Carbon;
 use Inertia\Testing\AssertableInertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 
@@ -51,6 +52,7 @@ test('wps preview skipped rows include employee id for employee page links', fun
     $company->forceFill([
         'wps_mol_uid' => 'MOL-12345',
         'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => 'AE070331234567890123456',
     ])->save();
 
     $period = PayrollPeriod::factory()->for($company)->create();
@@ -80,6 +82,25 @@ test('wps preview skipped rows include employee id for employee page links', fun
         ->and($preview['skipped'][0]['employee_name'])->toBe($employee->name);
 });
 
+test('wps preview surfaces skip reason when employer iban is missing', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $company->forceFill([
+        'wps_mol_uid' => 'MOL-12345',
+        'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => null,
+    ])->save();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+
+    $preview = app(WpsExportPreview::class)->forPeriod($company, $period);
+
+    expect($preview['skipped'])->toHaveCount(1)
+        ->and($preview['skipped'][0]['record_id'])->toBe(0)
+        ->and($preview['skipped'][0]['reason'])->toBe('Company WPS employer IBAN is missing.')
+        ->and($preview['company']['wps_employer_iban'])->toBeNull();
+});
+
 test('wps export downloads sif file and marks records submitted', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
@@ -87,6 +108,7 @@ test('wps export downloads sif file and marks records submitted', function () {
     $company->forceFill([
         'wps_mol_uid' => 'MOL-12345',
         'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => 'AE070331234567890123456',
     ])->save();
 
     grantCompanyPermissions($user, $company, ['payroll.wps.export']);
@@ -158,6 +180,7 @@ test('wps export can be limited to selected payroll record ids', function () {
     $company->forceFill([
         'wps_mol_uid' => 'MOL-12345',
         'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => 'AE070331234567890123456',
     ])->save();
 
     grantCompanyPermissions($user, $company, ['payroll.wps.export']);
@@ -253,13 +276,17 @@ test('wps export can be limited to selected payroll record ids', function () {
         ->and($secondRecord->wps_status)->toBeNull();
 });
 
-test('wps export downloads excel file in odoo-style layout', function () {
+test('wps export downloads excel file in company format layout', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
+
+    Carbon::setTestNow(Carbon::parse('2026-06-26 10:00:00', 'Asia/Dubai'));
 
     $company->forceFill([
         'wps_mol_uid' => '0000001194930',
         'wps_agent_code' => '600310101',
+        'wps_employer_iban' => 'AE140260001015853434101',
+        'timezone' => 'Asia/Dubai',
     ])->save();
 
     grantCompanyPermissions($user, $company, ['payroll.wps.export']);
@@ -314,7 +341,7 @@ test('wps export downloads excel file in odoo-style layout', function () {
 
     $response
         ->assertOk()
-        ->assertHeader('content-disposition');
+        ->assertHeader('content-disposition', 'attachment; filename=0000001194930260626100000.xlsx');
 
     expect($response->headers->get('content-type'))
         ->toContain('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -326,13 +353,22 @@ test('wps export downloads excel file in odoo-style layout', function () {
 
     expect($sheet->getCell('A1')->getValue())->toBe('EDR')
         ->and((string) $sheet->getCell('B1')->getValue())->toBe('784198015428794')
+        ->and($sheet->getCell('D1')->getValue())->toBe('AE140260001015853434101')
         ->and($sheet->getCell('E1')->getValue())->toBe('2026-02-01')
-        ->and((float) $sheet->getCell('H1')->getValue())->toBe(87426.0)
+        ->and($sheet->getCell('F1')->getValue())->toBe('2026-05-31')
+        ->and((int) $sheet->getCell('G1')->getValue())->toBe(120)
+        ->and((int) $sheet->getCell('H1')->getValue())->toBe(87426)
+        ->and((int) $sheet->getCell('I1')->getValue())->toBe(0)
+        ->and((int) $sheet->getCell('J1')->getValue())->toBe(0)
+        ->and($sheet->getCell('K1')->getValue())->toBe($employee->name)
         ->and($sheet->getCell('A2')->getValue())->toBe('SCR')
         ->and((string) $sheet->getCell('B2')->getValue())->toBe('0000001194930')
-        ->and($sheet->getCell('J2')->getValue())->toBe('/');
+        ->and((int) $sheet->getCell('H2')->getValue())->toBe(87426)
+        ->and($sheet->getCell('J2')->getValue())->toBe('AE140260001015853434101');
 
     @unlink($tempPath);
+
+    Carbon::setTestNow();
 });
 
 test('wps sif exporter builds scr and edr lines', function () {

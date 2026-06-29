@@ -17,7 +17,7 @@ final class WpsExportPreview
      *     period: array{id: int, name: string},
      *     eligible_count: int,
      *     skipped: list<array{record_id: int, employee_id: int|null, employee_name: string, employee_no: string|null, reason: string}>,
-     *     company: array{wps_mol_uid: string|null, wps_agent_code: string|null}
+     *     company: array{wps_mol_uid: string|null, wps_agent_code: string|null, wps_employer_iban: string|null}
      * }
      */
     public function forPeriod(Company $company, PayrollPeriod $period): array
@@ -41,6 +41,7 @@ final class WpsExportPreview
             'company' => [
                 'wps_mol_uid' => $company->wps_mol_uid,
                 'wps_agent_code' => $company->wps_agent_code,
+                'wps_employer_iban' => $company->wps_employer_iban,
             ],
         ];
     }

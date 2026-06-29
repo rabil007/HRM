@@ -419,6 +419,22 @@ export function CompanyFormSheet({
                                 />
                             </div>
                         </div>
+
+                        <div className="space-y-2">
+                            <Label
+                                htmlFor="wps_employer_iban"
+                                className="text-xs font-semibold uppercase tracking-wider text-muted-foreground/70"
+                            >
+                                WPS employer IBAN
+                            </Label>
+                            <Input
+                                id="wps_employer_iban"
+                                placeholder="AE..."
+                                className="rounded-xl border-border bg-card focus-visible:ring-primary/40 h-11 transition-all font-mono"
+                                value={form.data.wps_employer_iban}
+                                onChange={(e) => form.setData('wps_employer_iban', e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
 

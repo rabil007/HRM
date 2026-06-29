@@ -265,6 +265,18 @@ export function WpsDeliveryCard({
                                 {preview.company.wps_agent_code ?? 'Not configured'}
                             </dd>
                         </div>
+                        <div className="flex items-center justify-between gap-3 sm:flex-col sm:items-start sm:col-span-2">
+                            <dt className="text-muted-foreground">Employer IBAN</dt>
+                            <dd
+                                className={cn(
+                                    'font-medium font-mono text-xs break-all',
+                                    !preview.company.wps_employer_iban &&
+                                        'text-rose-600 dark:text-rose-300',
+                                )}
+                            >
+                                {preview.company.wps_employer_iban ?? 'Not configured'}
+                            </dd>
+                        </div>
                     </dl>
                 </div>
 

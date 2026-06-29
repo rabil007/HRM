@@ -45,6 +45,7 @@ class Company extends Model
                 'working_days',
                 'wps_agent_code',
                 'wps_mol_uid',
+                'wps_employer_iban',
                 'status',
                 'deleted_at',
             ])

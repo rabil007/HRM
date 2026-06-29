@@ -19,6 +19,7 @@ export type Company = {
     working_days: number[] | null;
     wps_agent_code: string | null;
     wps_mol_uid: string | null;
+    wps_employer_iban: string | null;
     status: 'active' | 'suspended' | 'inactive' | null;
 };
 
@@ -45,6 +46,7 @@ export type CompanyFormData = {
     working_days: number[];
     wps_agent_code: string;
     wps_mol_uid: string;
+    wps_employer_iban: string;
     status: 'active' | 'suspended' | 'inactive';
 };
 

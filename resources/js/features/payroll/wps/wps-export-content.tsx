@@ -78,7 +78,9 @@ export function WpsExportContent({
 
     const companyConfigMissing =
         preview !== null &&
-        (!preview.company.wps_mol_uid || !preview.company.wps_agent_code);
+        (!preview.company.wps_mol_uid ||
+            !preview.company.wps_agent_code ||
+            !preview.company.wps_employer_iban);
 
     const allEligible =
         preview !== null &&
@@ -291,6 +293,21 @@ export function WpsExportContent({
                                         className="font-mono"
                                     >
                                         {preview.company.wps_agent_code ?? 'Not configured'}
+                                    </Badge>
+                                </div>
+                                <div>
+                                    <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/70">
+                                        Employer IBAN
+                                    </p>
+                                    <Badge
+                                        variant={
+                                            preview.company.wps_employer_iban
+                                                ? 'outline'
+                                                : 'destructive'
+                                        }
+                                        className="max-w-full font-mono text-xs break-all"
+                                    >
+                                        {preview.company.wps_employer_iban ?? 'Not configured'}
                                     </Badge>
                                 </div>
                             </CardContent>

@@ -99,7 +99,13 @@ class WpsExportController extends Controller
 
         if ($format === 'xlsx') {
             $content = $excelExporter->export($company, $period, $partition['eligible'], $reference);
-            $filename = $slug.'.xlsx';
+            $now = now($company->timezone ?? config('app.timezone'));
+            $filename = sprintf(
+                '%s%s%s.xlsx',
+                $company->wps_mol_uid,
+                $now->format('dmy'),
+                $now->format('His'),
+            );
             $contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
         } else {
             $content = $sifExporter->export($company, $period, $partition['eligible'], $reference);

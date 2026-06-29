@@ -140,6 +140,7 @@ test('authenticated users can update a company with all fields', function () {
         'working_days' => [1, 2, 3, 4],
         'wps_agent_code' => 'AGENT-1',
         'wps_mol_uid' => 'MOL-1',
+        'wps_employer_iban' => 'AE070331234567890123456',
         'status' => 'suspended',
     ])->assertRedirect('/organization/companies');
 
@@ -159,6 +160,7 @@ test('authenticated users can update a company with all fields', function () {
         'payroll_cycle' => 'weekly',
         'wps_agent_code' => 'AGENT-1',
         'wps_mol_uid' => 'MOL-1',
+        'wps_employer_iban' => 'AE070331234567890123456',
         'status' => 'suspended',
     ]);
 

@@ -38,6 +38,7 @@ class StoreCompanyRequest extends FormRequest
             'working_days.*' => ['integer'],
             'wps_agent_code' => ['nullable', 'string', 'max:100'],
             'wps_mol_uid' => ['nullable', 'string', 'max:100'],
+            'wps_employer_iban' => ['nullable', 'string', 'max:34'],
             'status' => ['nullable', 'in:active,suspended,inactive'],
         ];
     }

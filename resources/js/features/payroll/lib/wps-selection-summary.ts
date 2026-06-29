@@ -16,7 +16,9 @@ export function summarizeWpsSelection(
     selectedRecordIds: number[],
 ): WpsSelectionSummary {
     const companyConfigMissing =
-        !preview.company.wps_mol_uid || !preview.company.wps_agent_code;
+        !preview.company.wps_mol_uid ||
+        !preview.company.wps_agent_code ||
+        !preview.company.wps_employer_iban;
 
     const companyIssues = preview.skipped.filter((row) => row.record_id === 0);
     const skippedByRecordId = new Map(
@@ -60,7 +62,9 @@ export function summarizeWpsPeriod(preview: WpsPreview): WpsSelectionSummary {
         eligibleCount: preview.eligible_count,
         skippedInSelection: skippedRecords.length,
         companyConfigMissing:
-            !preview.company.wps_mol_uid || !preview.company.wps_agent_code,
+            !preview.company.wps_mol_uid ||
+            !preview.company.wps_agent_code ||
+            !preview.company.wps_employer_iban,
         skippedRecords,
         companyIssues: preview.skipped.filter((row) => row.record_id === 0),
     };

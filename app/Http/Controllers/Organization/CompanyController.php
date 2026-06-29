@@ -101,6 +101,7 @@ class CompanyController extends Controller
                 'working_days' => $company->working_days,
                 'wps_agent_code' => $company->wps_agent_code,
                 'wps_mol_uid' => $company->wps_mol_uid,
+                'wps_employer_iban' => $company->wps_employer_iban,
                 'status' => $company->status,
                 'created_at' => $company->created_at,
             ];
@@ -177,6 +178,7 @@ class CompanyController extends Controller
                 'working_days' => $company->working_days,
                 'wps_agent_code' => $company->wps_agent_code,
                 'wps_mol_uid' => $company->wps_mol_uid,
+                'wps_employer_iban' => $company->wps_employer_iban,
                 'status' => $company->status,
                 'created_at' => $company->created_at,
                 'updated_at' => $company->updated_at,
@@ -227,6 +229,7 @@ class CompanyController extends Controller
             'payroll_cycle',
             'wps_agent_code',
             'wps_mol_uid',
+            'wps_employer_iban',
         ] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;
@@ -300,6 +303,7 @@ class CompanyController extends Controller
             'payroll_cycle',
             'wps_agent_code',
             'wps_mol_uid',
+            'wps_employer_iban',
         ] as $key) {
             if (($data[$key] ?? null) === '') {
                 $data[$key] = null;

@@ -194,6 +194,7 @@ export type WpsPreview = {
     company: {
         wps_mol_uid: string | null;
         wps_agent_code: string | null;
+        wps_employer_iban: string | null;
     };
 };
 

@@ -93,6 +93,7 @@ export function CompaniesContent({
         working_days: [1, 2, 3, 4, 5],
         wps_agent_code: '',
         wps_mol_uid: '',
+        wps_employer_iban: '',
         status: 'active',
     });
 
@@ -119,6 +120,7 @@ export function CompaniesContent({
             working_days: [1, 2, 3, 4, 5],
             wps_agent_code: '',
             wps_mol_uid: '',
+            wps_employer_iban: '',
             status: 'active',
         });
         setIsSheetOpen(true);
@@ -153,6 +155,7 @@ export function CompaniesContent({
             working_days: company.working_days ?? [1, 2, 3, 4, 5],
             wps_agent_code: company.wps_agent_code ?? '',
             wps_mol_uid: company.wps_mol_uid ?? '',
+            wps_employer_iban: company.wps_employer_iban ?? '',
             status: company.status ?? 'active',
         });
         setIsSheetOpen(true);

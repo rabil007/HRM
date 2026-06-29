@@ -51,6 +51,7 @@ type Company = {
     working_days: number[] | null;
     wps_agent_code: string | null;
     wps_mol_uid: string | null;
+    wps_employer_iban: string | null;
     status: string | null;
     created_at: string;
     updated_at: string;
@@ -165,6 +166,7 @@ export default function CompanyDetails({
         working_days: company.working_days ?? [1, 2, 3, 4, 5],
         wps_agent_code: company.wps_agent_code ?? '',
         wps_mol_uid: company.wps_mol_uid ?? '',
+        wps_employer_iban: company.wps_employer_iban ?? '',
         status: (company.status as 'active' | 'suspended' | 'inactive') ?? 'active',
     });
 
@@ -196,6 +198,7 @@ export default function CompanyDetails({
         working_days: company.working_days,
         wps_agent_code: company.wps_agent_code,
         wps_mol_uid: company.wps_mol_uid,
+        wps_employer_iban: company.wps_employer_iban,
         status: company.status as 'active' | 'suspended' | 'inactive' | null,
     };
 
@@ -336,6 +339,7 @@ export default function CompanyDetails({
                             />
                             <InfoRow icon={BadgeCheck} label="WPS agent code" value={company.wps_agent_code ?? '—'} />
                             <InfoRow icon={Fingerprint} label="WPS MOL UID" value={company.wps_mol_uid ?? '—'} />
+                            <InfoRow icon={Fingerprint} label="WPS employer IBAN" value={company.wps_employer_iban ?? '—'} />
                         </CardContent>
                     </Card>
                 </div>

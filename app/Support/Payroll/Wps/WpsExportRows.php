@@ -39,11 +39,8 @@ final class WpsExportRows
     {
         $now = CarbonImmutable::now($this->company->timezone ?? config('app.timezone'));
         $salaryMonth = $this->period->end_date?->format('mY') ?? $now->format('mY');
-        $totalSalary = number_format(
+        $totalSalary = self::integerAmount(
             $this->records->sum(fn (PayrollRecord $record) => (float) $record->net_salary),
-            2,
-            '.',
-            '',
         );
 
         return [
@@ -56,7 +53,7 @@ final class WpsExportRows
             $this->records->count(),
             $totalSalary,
             'AED',
-            '/',
+            self::compactIban($this->company->wps_employer_iban),
         ];
     }
 
@@ -72,32 +69,53 @@ final class WpsExportRows
         ]);
 
         $bankAccount = $record->employee?->primaryBankAccount;
-        $netSalary = number_format((float) $record->net_salary, 2, '.', '');
-        $days = max((int) ($record->present_days ?: $record->working_days), 0);
 
         return [
             'EDR',
             (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
             (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
-            self::formatIbanForDisplay($bankAccount?->iban),
+            self::compactIban($bankAccount?->iban),
             $this->period->start_date?->format('Y-m-d') ?? '',
             $this->period->end_date?->format('Y-m-d') ?? '',
-            $days,
-            $netSalary,
-            '0.00',
-            number_format((float) $record->leave_days, 0, '.', ''),
+            $this->periodInclusiveDays(),
+            self::integerAmount((float) $record->net_salary),
+            0,
+            0,
+            (string) ($record->employee?->name ?? ''),
         ];
     }
 
     public static function formatIbanForDisplay(?string $iban): string
     {
-        $clean = strtoupper(preg_replace('/\s+/', '', (string) $iban) ?? '');
+        $clean = self::compactIban($iban);
 
         if ($clean === '') {
             return '';
         }
 
         return trim(chunk_split($clean, 4, ' '));
+    }
+
+    private static function compactIban(?string $iban): string
+    {
+        return strtoupper(preg_replace('/\s+/', '', (string) $iban) ?? '');
+    }
+
+    private function periodInclusiveDays(): int
+    {
+        $start = $this->period->start_date;
+        $end = $this->period->end_date;
+
+        if ($start === null || $end === null) {
+            return 0;
+        }
+
+        return $start->diffInDays($end) + 1;
+    }
+
+    private static function integerAmount(float|int|string $amount): int
+    {
+        return (int) round((float) $amount);
     }
 
     public function fixedIncome(PayrollRecord $record): float
