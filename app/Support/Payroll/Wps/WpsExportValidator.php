@@ -13,7 +13,7 @@ final class WpsExportValidator
      * @param  Collection<int, PayrollRecord>  $records
      * @return array{
      *     eligible: Collection<int, PayrollRecord>,
-     *     skipped: list<array{record_id: int, employee_name: string, employee_no: string|null, reason: string}>
+     *     skipped: list<array{record_id: int, employee_id: int|null, employee_name: string, employee_no: string|null, reason: string}>
      * }
      */
     public function partition(Company $company, PayrollPeriod $period, Collection $records): array
@@ -26,6 +26,7 @@ final class WpsExportValidator
                 'eligible' => collect(),
                 'skipped' => [[
                     'record_id' => 0,
+                    'employee_id' => null,
                     'employee_name' => '—',
                     'employee_no' => null,
                     'reason' => 'Company WPS MOL UID is missing.',
@@ -38,6 +39,7 @@ final class WpsExportValidator
                 'eligible' => collect(),
                 'skipped' => [[
                     'record_id' => 0,
+                    'employee_id' => null,
                     'employee_name' => '—',
                     'employee_no' => null,
                     'reason' => 'Company WPS agent code is missing.',
@@ -57,6 +59,7 @@ final class WpsExportValidator
             if ($reason !== null) {
                 $skipped[] = [
                     'record_id' => $record->id,
+                    'employee_id' => $employee?->id,
                     'employee_name' => (string) ($employee?->name ?? '—'),
                     'employee_no' => $employee?->employee_no,
                     'reason' => $reason,

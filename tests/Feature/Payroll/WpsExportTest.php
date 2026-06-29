@@ -9,6 +9,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Support\Payroll\Wps\WpsExportPreview;
 use App\Support\Payroll\Wps\WpsSifExporter;
 use Inertia\Testing\AssertableInertia;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -42,6 +43,41 @@ test('wps index includes enriched period options for the export UI', function ()
             ->where('periods.0.status_label', 'Approved')
             ->where('periods.0.payroll_category_label', 'Crew')
             ->where('periods.1.id', $draft->id));
+});
+
+test('wps preview skipped rows include employee id for employee page links', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $company->forceFill([
+        'wps_mol_uid' => 'MOL-12345',
+        'wps_agent_code' => 'AGENT-001',
+    ])->save();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'WPS-SKIP',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office,
+        'labor_contract_id' => null,
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    $preview = app(WpsExportPreview::class)->forPeriod($company, $period);
+
+    expect($preview['skipped'])->toHaveCount(1)
+        ->and($preview['skipped'][0]['employee_id'])->toBe($employee->id)
+        ->and($preview['skipped'][0]['employee_name'])->toBe($employee->name);
 });
 
 test('wps export downloads sif file and marks records submitted', function () {

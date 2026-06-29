@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, ChevronDown, FileDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
+import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -211,10 +212,21 @@ export function WpsDeliveryCard({
                                             key={row.record_id}
                                             className="rounded-lg border border-amber-500/15 bg-background/60 px-3 py-2 text-sm dark:bg-background/20"
                                         >
-                                            <p className="font-medium">
-                                                {row.employee_name}
-                                                {row.employee_no ? ` (${row.employee_no})` : ''}
-                                            </p>
+                                            {row.employee_id ? (
+                                                <Link
+                                                    href={showEmployee.url(row.employee_id)}
+                                                    className="inline-flex items-center gap-1 font-medium hover:underline"
+                                                >
+                                                    {row.employee_name}
+                                                    {row.employee_no ? ` (${row.employee_no})` : ''}
+                                                    <ArrowUpRight className="h-3.5 w-3.5 shrink-0 opacity-70" />
+                                                </Link>
+                                            ) : (
+                                                <p className="font-medium">
+                                                    {row.employee_name}
+                                                    {row.employee_no ? ` (${row.employee_no})` : ''}
+                                                </p>
+                                            )}
                                             <p className="mt-0.5 text-muted-foreground">{row.reason}</p>
                                         </li>
                                     ))}

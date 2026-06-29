@@ -16,7 +16,7 @@ final class WpsExportPreview
      * @return array{
      *     period: array{id: int, name: string},
      *     eligible_count: int,
-     *     skipped: list<array{record_id: int, employee_name: string, employee_no: string|null, reason: string}>,
+     *     skipped: list<array{record_id: int, employee_id: int|null, employee_name: string, employee_no: string|null, reason: string}>,
      *     company: array{wps_mol_uid: string|null, wps_agent_code: string|null}
      * }
      */

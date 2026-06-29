@@ -186,6 +186,7 @@ export type WpsPreview = {
     eligible_count: number;
     skipped: Array<{
         record_id: number;
+        employee_id: number | null;
         employee_name: string;
         employee_no: string | null;
         reason: string;
