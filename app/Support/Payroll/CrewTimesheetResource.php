@@ -40,6 +40,7 @@ final class CrewTimesheetResource
     public static function toBoardRow(Employee $employee, ?CrewTimesheet $timesheet, int $periodId): array
     {
         $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+        $contract = $employee->currentContract;
 
         return [
             'employee' => [
@@ -54,6 +55,11 @@ final class CrewTimesheetResource
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
             'salary_payment_method' => $paymentMethod->value,
             'salary_payment_method_label' => $paymentMethod->label(),
+            'contract' => $contract !== null ? [
+                'basic_salary' => $contract->basic_salary,
+                'supplementary_allowance' => $contract->supplementary_allowance,
+                'site_allowance' => $contract->site_allowance,
+            ] : null,
         ];
     }
 

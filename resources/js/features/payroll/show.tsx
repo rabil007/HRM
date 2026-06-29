@@ -771,8 +771,10 @@ export function PayrollShowContent({
                     <TableHeader>
                         <DataTableHeaderRow>
                             <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Code</DataTableHead>
                             <DataTableHead>Bank account</DataTableHead>
+                            <DataTableHead>Basic salary</DataTableHead>
+                            <DataTableHead>Supplementary</DataTableHead>
+                            <DataTableHead>Site allowance</DataTableHead>
                             <DataTableHead>Standby days</DataTableHead>
                             <DataTableHead>Onsite days</DataTableHead>
                             <DataTableHead>Payment</DataTableHead>
@@ -784,12 +786,16 @@ export function PayrollShowContent({
                         {rows.map((row) => {
                             const paymentMethod =
                                 (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
+                            const contract = row.contract ?? null;
 
                             return (
                                 <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
                                     <TableCell className={dataTableCellPrimaryClass()}>
-                                        <div className="flex items-center gap-3">
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                                        <Link
+                                            href={showEmployee.url(row.employee.id)}
+                                            className="flex items-center gap-3 group/link"
+                                        >
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden transition-all duration-200 group-hover/link:scale-105">
                                                 {row.employee.image ? (
                                                     <img
                                                         src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
@@ -805,16 +811,32 @@ export function PayrollShowContent({
                                                         .join('') || '—'
                                                 )}
                                             </div>
-                                            <span className="font-semibold">{row.employee.name}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        {row.employee.employee_no ?? '—'}
+                                            <div className="min-w-0">
+                                                <span className="block font-semibold leading-tight transition-colors group-hover/link:text-primary">
+                                                    {row.employee.name}
+                                                </span>
+                                                <span className="block font-mono text-xs text-muted-foreground">
+                                                    {row.employee.employee_no ?? '—'}
+                                                </span>
+                                                <span className="text-[11px] text-muted-foreground/60">
+                                                    View profile →
+                                                </span>
+                                            </div>
+                                        </Link>
                                     </TableCell>
                                     <PayrollRecordBankAccountCell
                                         primary_account={row.primary_account ?? null}
                                         salary_payment_method={paymentMethod}
                                     />
+                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                        <SalaryCell value={contract?.basic_salary} />
+                                    </TableCell>
+                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                        <SalaryCell value={contract?.supplementary_allowance} />
+                                    </TableCell>
+                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+                                        <SalaryCell value={contract?.site_allowance} />
+                                    </TableCell>
                                     <TableCell className={dataTableCellClass()}>
                                         {formatTimesheetDays(row.timesheet?.standby_days)}
                                     </TableCell>

@@ -138,9 +138,11 @@ export type CrewPayrollRow = {
     salary_payment_method_label?: string;
     contract?: {
         basic_salary: string | null;
-        housing_allowance: string | null;
-        transport_allowance: string | null;
-        other_allowances: string | null;
+        housing_allowance?: string | null;
+        transport_allowance?: string | null;
+        other_allowances?: string | null;
+        supplementary_allowance?: string | null;
+        site_allowance?: string | null;
     } | null;
 };
 

@@ -32,6 +32,13 @@ final class PayrollPeriodBoardQuery
         if ($payrollCategory === PayrollCategory::Crew) {
             $query->with([
                 'primaryBankAccount.bank:id,name',
+                'currentContract' => fn ($q) => $q->select([
+                    'employee_contracts.id',
+                    'employee_contracts.employee_id',
+                    'employee_contracts.basic_salary',
+                    'employee_contracts.supplementary_allowance',
+                    'employee_contracts.site_allowance',
+                ]),
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
             ]);
         }
