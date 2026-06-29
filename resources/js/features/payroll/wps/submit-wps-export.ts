@@ -2,7 +2,11 @@ import { exportMethod as exportWps } from '@/actions/App/Http/Controllers/Payrol
 
 export type WpsExportFormat = 'sif' | 'xlsx';
 
-export function submitWpsExport(periodId: number, format: WpsExportFormat = 'sif'): void {
+export function submitWpsExport(
+    periodId: number,
+    format: WpsExportFormat = 'sif',
+    recordIds?: number[],
+): void {
     const form = document.createElement('form');
     form.method = 'POST';
     form.action = exportWps.url();
@@ -28,6 +32,16 @@ export function submitWpsExport(periodId: number, format: WpsExportFormat = 'sif
     formatInput.name = 'format';
     formatInput.value = format;
     form.appendChild(formatInput);
+
+    if (recordIds !== undefined) {
+        for (const recordId of recordIds) {
+            const recordInput = document.createElement('input');
+            recordInput.type = 'hidden';
+            recordInput.name = 'record_ids[]';
+            recordInput.value = String(recordId);
+            form.appendChild(recordInput);
+        }
+    }
 
     document.body.appendChild(form);
     form.submit();

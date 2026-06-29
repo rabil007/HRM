@@ -11,17 +11,19 @@ import type {WpsExportFormat} from './submit-wps-export';
 
 export function WpsExportButton({
     periodId,
+    recordIds,
     disabled = false,
     className,
     size = 'default',
 }: {
     periodId: number;
+    recordIds?: number[];
     disabled?: boolean;
     className?: string;
     size?: 'default' | 'sm' | 'lg';
 }) {
     const handleExport = (format: WpsExportFormat) => {
-        submitWpsExport(periodId, format);
+        submitWpsExport(periodId, format, recordIds);
     };
 
     return (

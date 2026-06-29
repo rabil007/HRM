@@ -1,6 +1,6 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
 import { AlertCircle, Ban, Building2, Calculator, CheckCircle2, CheckSquare, CreditCard, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import type { PaginationMeta } from '@/types/pagination';
 import {
     approve,
@@ -210,6 +210,18 @@ export function PayrollShowContent({
     );
     const [removeRecord, setRemoveRecord] = useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
+    const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(() =>
+        payroll_records.map((record) => record.id),
+    );
+
+    const payrollRecordIdsKey = useMemo(
+        () => payroll_records.map((record) => record.id).join(','),
+        [payroll_records],
+    );
+
+    useEffect(() => {
+        setSelectedWpsRecordIds(payroll_records.map((record) => record.id));
+    }, [payrollRecordIdsKey, payroll_records]);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -404,6 +416,37 @@ export function PayrollShowContent({
         permissions.payslips_view &&
         (period.status === 'approved' || period.status === 'paid');
 
+    const canSelectForWpsExport =
+        permissions.wps_export &&
+        (period.status === 'approved' || period.status === 'paid');
+
+    const wpsSelection = useMemo(() => {
+        if (!canSelectForWpsExport) {
+            return undefined;
+        }
+
+        const recordIds = payroll_records.map((record) => record.id);
+        const allSelected =
+            recordIds.length > 0 && recordIds.every((id) => selectedWpsRecordIds.includes(id));
+        const someSelected = selectedWpsRecordIds.length > 0 && !allSelected;
+
+        return {
+            selectedRecordIds: selectedWpsRecordIds,
+            allSelected,
+            someSelected,
+            onToggleRecord: (recordId: number) => {
+                setSelectedWpsRecordIds((current) =>
+                    current.includes(recordId)
+                        ? current.filter((id) => id !== recordId)
+                        : [...current, recordId],
+                );
+            },
+            onToggleAll: () => {
+                setSelectedWpsRecordIds(allSelected ? [] : recordIds);
+            },
+        };
+    }, [canSelectForWpsExport, payroll_records, selectedWpsRecordIds]);
+
     const isProcessingPayRun = period.status === 'processing';
     const headerPrimaryActionClass =
         'h-12 rounded-xl border-0 px-6 bg-gradient-to-r from-blue-600 to-indigo-500 text-white hover:from-blue-700 hover:to-indigo-600 hover:text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 active:scale-95';
@@ -576,6 +619,7 @@ export function PayrollShowContent({
                         payslip_summary={payslip_summary}
                         wps_preview={wps_preview}
                         permissions={permissions}
+                        selectedWpsRecordIds={canSelectForWpsExport ? selectedWpsRecordIds : null}
                     />
                     {payroll_records_summary ? (
                         <PayrollRecordsSummaryCards summary={payroll_records_summary} />
@@ -822,6 +866,7 @@ export function PayrollShowContent({
                         canViewPayslips={permissions.payslips_view}
                         canShowPayslipActions={canShowPayslipActions}
                         canRemove={canGenerate}
+                        wpsSelection={wpsSelection}
                         onRemove={setRemoveRecord}
                     />
                 ) : (
@@ -832,6 +877,7 @@ export function PayrollShowContent({
                         canShowPayslipActions={canShowPayslipActions}
                         canManageSalaryInputs={canManageSalaryInputs}
                         canRemove={canGenerate}
+                        wpsSelection={wpsSelection}
                         onManageSalaryInputs={setSalaryInputsRecord}
                         onRemove={setRemoveRecord}
                     />

@@ -115,6 +115,108 @@ test('wps export downloads sif file and marks records submitted', function () {
         ->and($record->wps_submitted_at)->not->toBeNull();
 });
 
+test('wps export can be limited to selected payroll record ids', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    $company->forceFill([
+        'wps_mol_uid' => 'MOL-12345',
+        'wps_agent_code' => 'AGENT-001',
+    ])->save();
+
+    grantCompanyPermissions($user, $company, ['payroll.wps.export']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
+    ]);
+
+    $bank = Bank::query()->create([
+        'name' => 'WPS Bank',
+        'uae_routing_code_agent_id' => '987654',
+        'is_active' => true,
+    ]);
+
+    $firstEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'WPS-010',
+        'labor_card_number' => null,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $firstEmployee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office,
+        'labor_contract_id' => '12345678901234',
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $firstEmployee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE070331234567890123456',
+        'account_name' => $firstEmployee->name,
+        'is_primary' => true,
+    ]);
+
+    $secondEmployee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'WPS-011',
+        'labor_card_number' => null,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $secondEmployee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office,
+        'labor_contract_id' => '98765432109876',
+    ]);
+
+    EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $secondEmployee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE070331234567890123457',
+        'account_name' => $secondEmployee->name,
+        'is_primary' => true,
+    ]);
+
+    $firstRecord = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'net_salary' => 5000,
+        'status' => 'approved',
+        'working_days' => 30,
+        'present_days' => 30,
+    ]);
+
+    $secondRecord = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $secondEmployee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'net_salary' => 6000,
+        'status' => 'approved',
+        'working_days' => 30,
+        'present_days' => 30,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.wps.export'), [
+            'period_id' => $period->id,
+            'format' => 'sif',
+            'record_ids' => [$firstRecord->id],
+        ])
+        ->assertOk()
+        ->assertHeader('content-disposition');
+
+    $firstRecord->refresh();
+    $secondRecord->refresh();
+
+    expect($firstRecord->wps_status)->toBe(WpsStatus::Submitted)
+        ->and($secondRecord->wps_status)->toBeNull();
+});
+
 test('wps export downloads excel file in odoo-style layout', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

@@ -27,11 +27,13 @@ export function PayrollPeriodDeliveryPanel({
     payslip_summary,
     wps_preview,
     permissions,
+    selectedWpsRecordIds = null,
 }: {
     period: PayrollPeriod;
     payslip_summary: PayslipSummary;
     wps_preview: WpsPreview | null;
     permissions: CrewPayrollPermissions;
+    selectedWpsRecordIds?: number[] | null;
 }) {
     const showPayslipsCard = canShowPayslipDeliveryPanel(
         period,
@@ -59,6 +61,7 @@ export function PayrollPeriodDeliveryPanel({
                     periodId={period.id}
                     preview={wps_preview}
                     canExport={permissions.wps_export}
+                    selectedRecordIds={selectedWpsRecordIds}
                 />
             ) : null}
         </div>

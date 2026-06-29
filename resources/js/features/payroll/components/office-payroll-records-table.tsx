@@ -20,6 +20,11 @@ import {
 } from './payroll-record-payslip-cells';
 import { PayrollRecordSalaryInputsCell } from './payroll-record-salary-inputs-cell';
 
+import {
+    PayrollRecordWpsSelectionCell,
+    PayrollRecordWpsSelectionHead,
+} from './payroll-record-wps-selection';
+
 export function OfficePayrollRecordsTable({
     records,
     salaryInputsByEmployee,
@@ -27,6 +32,7 @@ export function OfficePayrollRecordsTable({
     canShowPayslipActions,
     canManageSalaryInputs,
     canRemove,
+    wpsSelection,
     onManageSalaryInputs,
     onRemove,
 }: {
@@ -36,6 +42,13 @@ export function OfficePayrollRecordsTable({
     canShowPayslipActions: boolean;
     canManageSalaryInputs: boolean;
     canRemove: boolean;
+    wpsSelection?: {
+        selectedRecordIds: number[];
+        allSelected: boolean;
+        someSelected: boolean;
+        onToggleRecord: (recordId: number) => void;
+        onToggleAll: () => void;
+    };
     onManageSalaryInputs: (record: OfficePayrollRecordListItem) => void;
     onRemove: (record: OfficePayrollRecordListItem) => void;
 }) {
@@ -44,15 +57,33 @@ export function OfficePayrollRecordsTable({
     );
 
     return (
-        <OrganizationDataTable minWidth={showSalaryInputsColumn ? 'min-w-[1480px]' : 'min-w-[1320px]'}>
+        <OrganizationDataTable
+            minWidth={
+                showSalaryInputsColumn
+                    ? wpsSelection
+                        ? 'min-w-[1640px]'
+                        : 'min-w-[1600px]'
+                    : wpsSelection
+                      ? 'min-w-[1480px]'
+                      : 'min-w-[1440px]'
+            }
+        >
             <TableHeader>
                 <DataTableHeaderRow>
-                    <DataTableHead className="pl-5">Employee</DataTableHead>
+                    {wpsSelection ? (
+                        <PayrollRecordWpsSelectionHead
+                            allSelected={wpsSelection.allSelected}
+                            someSelected={wpsSelection.someSelected}
+                            onToggleAll={wpsSelection.onToggleAll}
+                        />
+                    ) : null}
+                    <DataTableHead className={wpsSelection ? undefined : 'pl-5'}>Employee</DataTableHead>
                     <DataTableHead>Bank</DataTableHead>
                     <DataTableHead>IBAN</DataTableHead>
                     <DataTableHead>Basic</DataTableHead>
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
+                    <DataTableHead>Other</DataTableHead>
                     {showSalaryInputsColumn ? <DataTableHead>Salary inputs</DataTableHead> : null}
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
@@ -61,9 +92,22 @@ export function OfficePayrollRecordsTable({
                 </DataTableHeaderRow>
             </TableHeader>
             <TableBody>
-                {records.map((record) => (
-                    <TableRow key={record.id} className={dataTableBodyRowClass(false)}>
-                        <TableCell className={dataTableCellPrimaryClass()}>
+                {records.map((record) => {
+                    const isSelected = wpsSelection?.selectedRecordIds.includes(record.id) ?? false;
+
+                    return (
+                    <TableRow
+                        key={record.id}
+                        className={cn(dataTableBodyRowClass(false), isSelected && 'bg-primary/5')}
+                    >
+                        {wpsSelection ? (
+                            <PayrollRecordWpsSelectionCell
+                                checked={isSelected}
+                                employeeName={record.employee.name}
+                                onToggle={() => wpsSelection.onToggleRecord(record.id)}
+                            />
+                        ) : null}
+                        <TableCell className={cn(dataTableCellPrimaryClass(), !wpsSelection && 'pl-5')}>
                             <div className="font-semibold">{record.employee.name}</div>
                             <div className="text-xs text-muted-foreground">
                                 {record.employee.employee_no ?? '—'}
@@ -83,6 +127,9 @@ export function OfficePayrollRecordsTable({
                         </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.transport_allowance)}
+                        </TableCell>
+                        <TableCell className={dataTableCellClass()}>
+                            {formatTimesheetAmount(record.other_allowances)}
                         </TableCell>
                         {showSalaryInputsColumn ? (
                             <PayrollRecordSalaryInputsCell
@@ -152,7 +199,8 @@ export function OfficePayrollRecordsTable({
                             </div>
                         </TableCell>
                     </TableRow>
-                ))}
+                    );
+                })}
             </TableBody>
         </OrganizationDataTable>
     );

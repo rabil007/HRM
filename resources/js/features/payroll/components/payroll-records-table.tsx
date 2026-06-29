@@ -11,6 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 import {
@@ -18,24 +19,44 @@ import {
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
 
+import {
+    PayrollRecordWpsSelectionCell,
+    PayrollRecordWpsSelectionHead,
+} from './payroll-record-wps-selection';
+
 export function PayrollRecordsTable({
     records,
     canViewPayslips,
     canShowPayslipActions,
     canRemove,
+    wpsSelection,
     onRemove,
 }: {
     records: CrewPayrollRecordListItem[];
     canViewPayslips: boolean;
     canShowPayslipActions: boolean;
     canRemove: boolean;
+    wpsSelection?: {
+        selectedRecordIds: number[];
+        allSelected: boolean;
+        someSelected: boolean;
+        onToggleRecord: (recordId: number) => void;
+        onToggleAll: () => void;
+    };
     onRemove: (record: CrewPayrollRecordListItem) => void;
 }) {
     return (
-        <OrganizationDataTable minWidth="min-w-[1220px]">
+        <OrganizationDataTable minWidth={wpsSelection ? 'min-w-[1260px]' : 'min-w-[1220px]'}>
             <TableHeader>
                 <DataTableHeaderRow>
-                    <DataTableHead className="pl-5">Employee</DataTableHead>
+                    {wpsSelection ? (
+                        <PayrollRecordWpsSelectionHead
+                            allSelected={wpsSelection.allSelected}
+                            someSelected={wpsSelection.someSelected}
+                            onToggleAll={wpsSelection.onToggleAll}
+                        />
+                    ) : null}
+                    <DataTableHead className={wpsSelection ? undefined : 'pl-5'}>Employee</DataTableHead>
                     <DataTableHead>Standby</DataTableHead>
                     <DataTableHead>Onsite</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
@@ -46,9 +67,22 @@ export function PayrollRecordsTable({
                 </DataTableHeaderRow>
             </TableHeader>
             <TableBody>
-                {records.map((record) => (
-                    <TableRow key={record.id} className={dataTableBodyRowClass(false)}>
-                        <TableCell className={dataTableCellPrimaryClass()}>
+                {records.map((record) => {
+                    const isSelected = wpsSelection?.selectedRecordIds.includes(record.id) ?? false;
+
+                    return (
+                    <TableRow
+                        key={record.id}
+                        className={cn(dataTableBodyRowClass(false), isSelected && 'bg-primary/5')}
+                    >
+                        {wpsSelection ? (
+                            <PayrollRecordWpsSelectionCell
+                                checked={isSelected}
+                                employeeName={record.employee.name}
+                                onToggle={() => wpsSelection.onToggleRecord(record.id)}
+                            />
+                        ) : null}
+                        <TableCell className={cn(dataTableCellPrimaryClass(), !wpsSelection && 'pl-5')}>
                             <div className="font-semibold">{record.employee.name}</div>
                             <div className="text-xs text-muted-foreground">
                                 {record.employee.employee_no ?? '—'}
@@ -110,7 +144,8 @@ export function PayrollRecordsTable({
                             </div>
                         </TableCell>
                     </TableRow>
-                ))}
+                    );
+                })}
             </TableBody>
         </OrganizationDataTable>
     );

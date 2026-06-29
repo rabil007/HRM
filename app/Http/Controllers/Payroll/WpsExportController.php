@@ -77,12 +77,17 @@ class WpsExportController extends Controller
             ->findOrFail((int) $request->validated('period_id'));
 
         $company = Company::query()->findOrFail($companyId);
-        $records = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $companyId)
             ->where('period_id', $period->id)
             ->with(['employee.currentContract', 'employee.contracts', 'employee.primaryBankAccount.bank'])
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        if ($request->filled('record_ids')) {
+            $recordsQuery->whereIn('id', $request->validated('record_ids'));
+        }
+
+        $records = $recordsQuery->get();
 
         $partition = $validator->partition($company, $period, $records);
 

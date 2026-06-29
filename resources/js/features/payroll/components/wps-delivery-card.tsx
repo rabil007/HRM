@@ -1,10 +1,12 @@
 import { Link } from '@inertiajs/react';
 import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, FileDown } from 'lucide-react';
+import { useMemo } from 'react';
 import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { summarizeWpsSelection } from '../lib/wps-selection-summary';
 import type { WpsPreview } from '../types';
 import { PayrollPeriodProgress } from './payroll-period-progress';
 import { WpsExportButton } from '../wps/wps-export-button';
@@ -36,48 +38,71 @@ export function WpsDeliveryCard({
     periodId,
     preview,
     canExport,
+    selectedRecordIds = null,
 }: {
     periodId: number;
     preview: WpsPreview;
     canExport: boolean;
+    selectedRecordIds?: number[] | null;
 }) {
-    const skippedCount = preview.skipped.length;
-    const totalRecords = preview.eligible_count + skippedCount;
+    const selection = useMemo(() => {
+        if (selectedRecordIds === null) {
+            const skippedCount = preview.skipped.filter((row) => row.record_id > 0).length;
+
+            return {
+                selectedCount: preview.eligible_count + skippedCount,
+                eligibleCount: preview.eligible_count,
+                skippedInSelection: skippedCount,
+                companyConfigMissing:
+                    !preview.company.wps_mol_uid || !preview.company.wps_agent_code,
+            };
+        }
+
+        return summarizeWpsSelection(preview, selectedRecordIds);
+    }, [preview, selectedRecordIds]);
+
+    const { selectedCount, eligibleCount, skippedInSelection, companyConfigMissing } = selection;
+    const usesSelection = selectedRecordIds !== null;
+    const totalRecords = selectedCount;
     const progressPercent =
-        totalRecords === 0 ? 0 : Math.round((preview.eligible_count / totalRecords) * 100);
+        totalRecords === 0 ? 0 : Math.round((eligibleCount / totalRecords) * 100);
 
-    const companyConfigMissing =
-        !preview.company.wps_mol_uid || !preview.company.wps_agent_code;
-
-    const isReady =
-        preview.eligible_count > 0 && skippedCount === 0 && !companyConfigMissing;
-    const hasPartial = preview.eligible_count > 0 && skippedCount > 0;
-    const isBlocked = preview.eligible_count === 0;
+    const isReady = eligibleCount > 0 && skippedInSelection === 0 && !companyConfigMissing;
+    const hasPartial = eligibleCount > 0 && skippedInSelection > 0;
+    const isBlocked = eligibleCount === 0;
 
     const statusLabel = companyConfigMissing
         ? 'Setup required'
-        : isReady
-          ? 'Ready'
-          : hasPartial
-            ? 'Review needed'
-            : 'No records';
+        : selectedCount === 0
+          ? 'None selected'
+          : isReady
+            ? 'Ready'
+            : hasPartial
+              ? 'Review needed'
+              : 'No records';
     const statusClassName = companyConfigMissing
         ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200'
-        : isReady
-          ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
-          : hasPartial
-            ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200'
-            : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200';
+        : selectedCount === 0
+          ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200'
+          : isReady
+            ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
+            : hasPartial
+              ? 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-200'
+              : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200';
 
     const helperText = companyConfigMissing
         ? 'Configure MOL UID and agent code in company settings before exporting.'
-        : isReady
-          ? `All ${preview.eligible_count} record${preview.eligible_count === 1 ? '' : 's'} ready for WPS export.`
-          : isBlocked
-            ? skippedCount > 0
-                ? 'No eligible records — open View all to see skipped employees.'
-                : 'No payroll records are eligible for WPS export in this period.'
-            : `${preview.eligible_count} eligible · ${skippedCount} skipped for ${preview.period.name}.`;
+        : selectedCount === 0
+          ? 'Select employees in the payroll records table to include them in WPS export.'
+          : usesSelection
+            ? `${selectedCount} selected in the table · ${eligibleCount} eligible for export.`
+            : isReady
+              ? `All ${eligibleCount} record${eligibleCount === 1 ? '' : 's'} ready for WPS export.`
+              : isBlocked
+                ? skippedInSelection > 0
+                    ? 'No eligible records in selection — open View all for details.'
+                    : 'No payroll records are eligible for WPS export in this period.'
+                : `${eligibleCount} eligible · ${skippedInSelection} skipped in selection.`;
 
     return (
         <Card className="glass-card border-border/60 relative overflow-hidden dark:border-white/10">
@@ -91,12 +116,10 @@ export function WpsDeliveryCard({
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-base font-semibold tracking-tight">WPS export</h3>
                             <Badge variant="outline" className={cn('rounded-lg', statusClassName)}>
-                                {companyConfigMissing ? (
+                                {companyConfigMissing || selectedCount === 0 || !isReady ? (
                                     <AlertCircle className="mr-1 h-3 w-3" />
-                                ) : isReady ? (
-                                    <CheckCircle2 className="mr-1 h-3 w-3" />
                                 ) : (
-                                    <AlertCircle className="mr-1 h-3 w-3" />
+                                    <CheckCircle2 className="mr-1 h-3 w-3" />
                                 )}
                                 {statusLabel}
                             </Badge>
@@ -109,10 +132,10 @@ export function WpsDeliveryCard({
                     <div className="space-y-2">
                         <div className="flex items-end justify-between gap-3 text-sm">
                             <span className="font-medium text-muted-foreground">
-                                <span className="text-foreground">{preview.eligible_count}</span>
+                                <span className="text-foreground">{eligibleCount}</span>
                                 {' of '}
                                 <span className="text-foreground">{totalRecords}</span>
-                                {' eligible'}
+                                {usesSelection ? ' selected eligible' : ' eligible'}
                             </span>
                             <span className="font-semibold tabular-nums text-foreground">
                                 {progressPercent}%
@@ -132,8 +155,12 @@ export function WpsDeliveryCard({
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-3">
-                    <WpsStat label="Eligible" value={preview.eligible_count} tone="emerald" />
-                    <WpsStat label="Skipped" value={skippedCount} tone="amber" />
+                    <WpsStat label="Eligible" value={eligibleCount} tone="emerald" />
+                    <WpsStat
+                        label={usesSelection ? 'Skipped' : 'Skipped'}
+                        value={skippedInSelection}
+                        tone="amber"
+                    />
                 </div>
 
                 <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
@@ -181,9 +208,12 @@ export function WpsDeliveryCard({
                     {canExport ? (
                         <WpsExportButton
                             periodId={periodId}
+                            recordIds={usesSelection ? selectedRecordIds ?? [] : undefined}
                             size="sm"
                             className="rounded-xl"
-                            disabled={preview.eligible_count === 0 || companyConfigMissing}
+                            disabled={
+                                selectedCount === 0 || eligibleCount === 0 || companyConfigMissing
+                            }
                         />
                     ) : null}
                 </div>
