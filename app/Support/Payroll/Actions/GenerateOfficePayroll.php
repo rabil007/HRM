@@ -102,6 +102,7 @@ final class GenerateOfficePayroll
                 );
 
                 $employeeLeaveDays = (float) $leaveSummary->totalLeaveDays;
+                $unworkedDays = 0.0;
 
                 if (isset($employeeDates[$employee->id]) || isset($employeeDates[(string) $employee->id])) {
                     /** @var array{start_date?: string, end_date?: string} $dates */
@@ -109,7 +110,7 @@ final class GenerateOfficePayroll
                     $startDate = ! empty($dates['start_date']) ? Carbon::parse($dates['start_date']) : $period->start_date;
                     $endDate = ! empty($dates['end_date']) ? Carbon::parse($dates['end_date']) : $period->end_date;
                     $activeDays = (int) $startDate->diffInDays($endDate) + 1;
-                    $unworkedDays = max(0, $workingDaysInPeriod - $activeDays);
+                    $unworkedDays = (float) max(0, $workingDaysInPeriod - $activeDays);
                     $employeeLeaveDays += $unworkedDays;
                 }
 
@@ -119,6 +120,7 @@ final class GenerateOfficePayroll
                         $workingDaysInPeriod,
                         $employeeLeaveDays,
                         $leaveSummary->toLeaveUsageArray(),
+                        $unworkedDays,
                     );
                 } catch (ValidationException $exception) {
                     $errors[] = PayrollGenerationError::fromValidationException($employee, $exception);

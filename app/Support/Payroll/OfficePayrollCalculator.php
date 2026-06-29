@@ -40,6 +40,7 @@ final class OfficePayrollCalculator
         int $workingDays,
         float $totalLeaveDays = 0.0,
         array $leaveUsage = [],
+        float $unpaidLeaveDays = 0.0,
     ): array {
         $monthlyBasic = $this->activeAmount($components, SalaryComponentCode::Basic);
         $monthlyHousing = $this->activeAmount($components, SalaryComponentCode::Housing) ?? 0.0;
@@ -61,7 +62,16 @@ final class OfficePayrollCalculator
         $bonus = 0.0;
         $monthlyBase = $earnedBasic + $earnedHousing + $earnedTransport + $earnedOther;
         $dailyRate = $workingDays > 0 ? ($monthlyBase / $workingDays) : 0.0;
-        $unpaidLeaveDeduction = round($dailyRate * $totalLeaveDays, 2);
+
+        $unpaidDaysFromUsage = 0.0;
+        foreach ($leaveUsage as $usage) {
+            $code = strtoupper((string) ($usage['code'] ?? ''));
+            if (in_array($code, ['UL', 'UNPAID', 'LOP'], true)) {
+                $unpaidDaysFromUsage += (float) ($usage['days'] ?? 0.0);
+            }
+        }
+        $totalUnpaidDays = $unpaidDaysFromUsage + $unpaidLeaveDays;
+        $unpaidLeaveDeduction = round($dailyRate * $totalUnpaidDays, 2);
         $lateDeduction = 0.0;
         $loanDeduction = 0.0;
         $otherDeductions = 0.0;
