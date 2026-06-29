@@ -10,6 +10,10 @@ use Illuminate\Validation\ValidationException;
 
 final class ApprovePayrollPeriod
 {
+    public function __construct(
+        private readonly GeneratePayslip $generatePayslip,
+    ) {}
+
     public function handle(PayrollPeriod $period, User $approver): PayrollPeriod
     {
         if (! $period->canApprove()) {
@@ -26,6 +30,12 @@ final class ApprovePayrollPeriod
                 'approved_by' => $approver->id,
                 'approved_at' => now(),
             ]);
+
+            $period->refresh()->load('payrollRecords.employee');
+
+            foreach ($period->payrollRecords as $record) {
+                $this->generatePayslip->handle($record);
+            }
 
             return $period->refresh();
         });

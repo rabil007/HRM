@@ -9,6 +9,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('users without permission cannot approve pay period', function () {
@@ -58,6 +59,8 @@ test('authorized users can approve processing pay period with payroll records', 
 
     grantCompanyPermissions($user, $company, ['payroll.periods.approve']);
 
+    Storage::fake('local');
+
     [$period, $employee] = createProcessingPayrollPeriodWithRecord($company);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -70,11 +73,15 @@ test('authorized users can approve processing pay period with payroll records', 
         ->and($period->approved_by)->toBe($user->id)
         ->and($period->approved_at)->not->toBeNull();
 
-    $this->assertDatabaseHas('payroll_records', [
-        'period_id' => $period->id,
-        'employee_id' => $employee->id,
-        'status' => 'approved',
-    ]);
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->status)->toBe('approved')
+        ->and($record->payslip_path)->not->toBeNull()
+        ->and(Storage::disk('local')->exists((string) $record->payslip_path))->toBeTrue();
 });
 
 test('approve fails for draft pay period', function () {
@@ -325,6 +332,8 @@ test('authorized users can approve office pay period after payroll generation', 
         'payroll.periods.approve',
     ]);
 
+    Storage::fake('local');
+
     $period = PayrollPeriod::factory()->for($company)->office()->create([
         'start_date' => '2026-06-01',
         'end_date' => '2026-06-05',
@@ -359,12 +368,16 @@ test('authorized users can approve office pay period after payroll generation', 
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::Approved);
 
-    $this->assertDatabaseHas('payroll_records', [
-        'period_id' => $period->id,
-        'employee_id' => $employee->id,
-        'status' => 'approved',
-        'payroll_category' => PayrollCategory::Office->value,
-    ]);
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->status)->toBe('approved')
+        ->and($record->payroll_category)->toBe(PayrollCategory::Office)
+        ->and($record->payslip_path)->not->toBeNull()
+        ->and(Storage::disk('local')->exists((string) $record->payslip_path))->toBeTrue();
 });
 
 /**
