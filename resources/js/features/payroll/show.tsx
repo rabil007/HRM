@@ -182,7 +182,6 @@ export function PayrollShowContent({
     payroll_records_summary,
     salary_inputs_by_employee,
     salary_input_type_options,
-    tab,
     generation_summary,
     search: initialSearch,
     permissions,
@@ -504,7 +503,7 @@ export function PayrollShowContent({
             />
 
             {/* ── Status Timeline ─────────────────────────── */}
-            <PayrollStatusTimeline status={period.status} approver={period.approver} approvedAt={period.approved_at} />
+            <PayrollStatusTimeline status={period.status} approver={period.approver} />
 
             {/* ── Section 1: Employees / Timesheets ──────── */}
             {period.status === 'draft' && (
@@ -912,11 +911,9 @@ const PAYROLL_FLOW = [
 function PayrollStatusTimeline({
     status,
     approver,
-    approvedAt,
 }: {
     status: string;
     approver: { id: number; name: string } | null;
-    approvedAt: string | null;
 }) {
     const isCancelled = status === 'cancelled';
     const currentIndex = PAYROLL_FLOW.findIndex((s) => s.status === status);

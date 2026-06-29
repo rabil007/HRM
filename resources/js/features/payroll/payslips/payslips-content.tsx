@@ -1,4 +1,4 @@
-import { Link, router } from '@inertiajs/react';
+import { router } from '@inertiajs/react';
 import { Download, FileText, Mail, Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import {
