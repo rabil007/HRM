@@ -1,10 +1,14 @@
 import type { WpsPreview } from '../types';
 
+export type WpsSkippedRecord = WpsPreview['skipped'][number];
+
 export type WpsSelectionSummary = {
     selectedCount: number;
     eligibleCount: number;
     skippedInSelection: number;
     companyConfigMissing: boolean;
+    skippedRecords: WpsSkippedRecord[];
+    companyIssues: WpsSkippedRecord[];
 };
 
 export function summarizeWpsSelection(
@@ -14,17 +18,24 @@ export function summarizeWpsSelection(
     const companyConfigMissing =
         !preview.company.wps_mol_uid || !preview.company.wps_agent_code;
 
-    const skippedRecordIds = new Set(
-        preview.skipped.filter((row) => row.record_id > 0).map((row) => row.record_id),
+    const companyIssues = preview.skipped.filter((row) => row.record_id === 0);
+    const skippedByRecordId = new Map(
+        preview.skipped
+            .filter((row) => row.record_id > 0)
+            .map((row) => [row.record_id, row]),
     );
 
     let eligibleCount = 0;
     let skippedInSelection = 0;
+    const skippedRecords: WpsSkippedRecord[] = [];
 
     if (!companyConfigMissing) {
         for (const id of selectedRecordIds) {
-            if (skippedRecordIds.has(id)) {
+            const skipped = skippedByRecordId.get(id);
+
+            if (skipped !== undefined) {
                 skippedInSelection++;
+                skippedRecords.push(skipped);
             } else {
                 eligibleCount++;
             }
@@ -36,5 +47,21 @@ export function summarizeWpsSelection(
         eligibleCount,
         skippedInSelection,
         companyConfigMissing,
+        skippedRecords,
+        companyIssues,
+    };
+}
+
+export function summarizeWpsPeriod(preview: WpsPreview): WpsSelectionSummary {
+    const skippedRecords = preview.skipped.filter((row) => row.record_id > 0);
+
+    return {
+        selectedCount: preview.eligible_count + skippedRecords.length,
+        eligibleCount: preview.eligible_count,
+        skippedInSelection: skippedRecords.length,
+        companyConfigMissing:
+            !preview.company.wps_mol_uid || !preview.company.wps_agent_code,
+        skippedRecords,
+        companyIssues: preview.skipped.filter((row) => row.record_id === 0),
     };
 }

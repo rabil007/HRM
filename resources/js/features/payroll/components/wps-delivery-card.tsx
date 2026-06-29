@@ -1,12 +1,17 @@
 import { Link } from '@inertiajs/react';
-import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, FileDown } from 'lucide-react';
-import { useMemo } from 'react';
+import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, ChevronDown, FileDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import {
+    Collapsible,
+    CollapsibleContent,
+    CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
-import { summarizeWpsSelection } from '../lib/wps-selection-summary';
+import { summarizeWpsPeriod, summarizeWpsSelection } from '../lib/wps-selection-summary';
 import type { WpsPreview } from '../types';
 import { PayrollPeriodProgress } from './payroll-period-progress';
 import { WpsExportButton } from '../wps/wps-export-button';
@@ -45,23 +50,24 @@ export function WpsDeliveryCard({
     canExport: boolean;
     selectedRecordIds?: number[] | null;
 }) {
+    const [skippedDetailsOpen, setSkippedDetailsOpen] = useState(false);
+
     const selection = useMemo(() => {
         if (selectedRecordIds === null) {
-            const skippedCount = preview.skipped.filter((row) => row.record_id > 0).length;
-
-            return {
-                selectedCount: preview.eligible_count + skippedCount,
-                eligibleCount: preview.eligible_count,
-                skippedInSelection: skippedCount,
-                companyConfigMissing:
-                    !preview.company.wps_mol_uid || !preview.company.wps_agent_code,
-            };
+            return summarizeWpsPeriod(preview);
         }
 
         return summarizeWpsSelection(preview, selectedRecordIds);
     }, [preview, selectedRecordIds]);
 
-    const { selectedCount, eligibleCount, skippedInSelection, companyConfigMissing } = selection;
+    const {
+        selectedCount,
+        eligibleCount,
+        skippedInSelection,
+        companyConfigMissing,
+        skippedRecords,
+        companyIssues,
+    } = selection;
     const usesSelection = selectedRecordIds !== null;
     const totalRecords = selectedCount;
     const progressPercent =
@@ -100,7 +106,7 @@ export function WpsDeliveryCard({
               ? `All ${eligibleCount} record${eligibleCount === 1 ? '' : 's'} ready for WPS export.`
               : isBlocked
                 ? skippedInSelection > 0
-                    ? 'No eligible records in selection — open View all for details.'
+                    ? 'Fix the issues below to include selected employees in WPS export.'
                     : 'No payroll records are eligible for WPS export in this period.'
                 : `${eligibleCount} eligible · ${skippedInSelection} skipped in selection.`;
 
@@ -162,6 +168,61 @@ export function WpsDeliveryCard({
                         tone="amber"
                     />
                 </div>
+
+                {companyConfigMissing && companyIssues.length > 0 ? (
+                    <div className="space-y-2 rounded-xl border border-rose-500/25 bg-rose-500/5 px-4 py-3">
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-rose-700 dark:text-rose-200">
+                            Company setup required
+                        </p>
+                        <ul className="space-y-1 text-sm text-rose-700/90 dark:text-rose-100/90">
+                            {companyIssues.map((issue) => (
+                                <li key={issue.reason}>{issue.reason}</li>
+                            ))}
+                        </ul>
+                    </div>
+                ) : null}
+
+                {skippedRecords.length > 0 ? (
+                    <Collapsible open={skippedDetailsOpen} onOpenChange={setSkippedDetailsOpen}>
+                        <div className="rounded-xl border border-amber-500/25 bg-amber-500/5">
+                            <CollapsibleTrigger asChild>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-auto w-full justify-between rounded-xl px-4 py-3 text-left hover:bg-amber-500/10"
+                                >
+                                    <span className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800 dark:text-amber-200">
+                                        {usesSelection
+                                            ? `Why ${skippedRecords.length} selected record${skippedRecords.length === 1 ? '' : 's'} were skipped`
+                                            : `${skippedRecords.length} skipped record${skippedRecords.length === 1 ? '' : 's'}`}
+                                    </span>
+                                    <ChevronDown
+                                        className={cn(
+                                            'h-4 w-4 shrink-0 text-amber-800 dark:text-amber-200',
+                                            skippedDetailsOpen && 'rotate-180',
+                                        )}
+                                    />
+                                </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent className="px-4 pb-3">
+                                <ul className="space-y-2">
+                                    {skippedRecords.map((row) => (
+                                        <li
+                                            key={row.record_id}
+                                            className="rounded-lg border border-amber-500/15 bg-background/60 px-3 py-2 text-sm dark:bg-background/20"
+                                        >
+                                            <p className="font-medium">
+                                                {row.employee_name}
+                                                {row.employee_no ? ` (${row.employee_no})` : ''}
+                                            </p>
+                                            <p className="mt-0.5 text-muted-foreground">{row.reason}</p>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </CollapsibleContent>
+                        </div>
+                    </Collapsible>
+                ) : null}
 
                 <div className="rounded-xl border border-border/60 bg-muted/20 px-4 py-3 dark:border-white/10 dark:bg-white/5">
                     <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-muted-foreground/70">
