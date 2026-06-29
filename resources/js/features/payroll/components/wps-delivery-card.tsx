@@ -53,34 +53,44 @@ export function WpsDeliveryCard({
 }) {
     const [skippedDetailsOpen, setSkippedDetailsOpen] = useState(false);
 
-    const selection = useMemo(() => {
+    const periodSummary = useMemo(() => summarizeWpsPeriod(preview), [preview]);
+    const exportSummary = useMemo(() => {
         if (selectedRecordIds === null) {
-            return summarizeWpsPeriod(preview);
+            return periodSummary;
         }
 
         return summarizeWpsSelection(preview, selectedRecordIds);
-    }, [preview, selectedRecordIds]);
+    }, [preview, selectedRecordIds, periodSummary]);
 
     const {
-        selectedCount,
-        eligibleCount,
-        skippedInSelection,
+        selectedCount: periodTotal,
+        eligibleCount: periodEligible,
+        skippedInSelection: periodSkipped,
         companyConfigMissing,
-        skippedRecords,
+        skippedRecords: periodSkippedRecords,
         companyIssues,
-    } = selection;
-    const usesSelection = selectedRecordIds !== null;
-    const totalRecords = selectedCount;
-    const progressPercent =
-        totalRecords === 0 ? 0 : Math.round((eligibleCount / totalRecords) * 100);
+    } = periodSummary;
 
-    const isReady = eligibleCount > 0 && skippedInSelection === 0 && !companyConfigMissing;
-    const hasPartial = eligibleCount > 0 && skippedInSelection > 0;
-    const isBlocked = eligibleCount === 0;
+    const {
+        selectedCount: exportSelected,
+        eligibleCount: exportEligible,
+        skippedInSelection: exportSkipped,
+        skippedRecords: exportSkippedRecords,
+    } = exportSummary;
+
+    const usesSelection = selectedRecordIds !== null;
+    const usesPartialSelection = usesSelection && exportSelected < periodTotal;
+    const progressPercent =
+        periodTotal === 0 ? 0 : Math.round((periodEligible / periodTotal) * 100);
+
+    const isReady =
+        periodEligible > 0 && periodSkipped === 0 && !companyConfigMissing;
+    const hasPartial = periodEligible > 0 && periodSkipped > 0;
+    const isBlocked = periodEligible === 0;
 
     const statusLabel = companyConfigMissing
         ? 'Setup required'
-        : selectedCount === 0
+        : exportSelected === 0
           ? 'None selected'
           : isReady
             ? 'Ready'
@@ -89,7 +99,7 @@ export function WpsDeliveryCard({
               : 'No records';
     const statusClassName = companyConfigMissing
         ? 'border-rose-500/30 bg-rose-500/10 text-rose-700 dark:text-rose-200'
-        : selectedCount === 0
+        : exportSelected === 0
           ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200'
           : isReady
             ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200'
@@ -99,17 +109,19 @@ export function WpsDeliveryCard({
 
     const helperText = companyConfigMissing
         ? 'Configure MOL UID and agent code in company settings before exporting.'
-        : selectedCount === 0
+        : exportSelected === 0
           ? 'Select employees in the payroll records table to include them in WPS export.'
-          : usesSelection
-            ? `${selectedCount} selected in the table · ${eligibleCount} eligible for export.`
+          : usesPartialSelection
+            ? `${exportSelected} of ${periodTotal} selected for export (${exportEligible} eligible). ${periodEligible} eligible in this pay period.`
             : isReady
-              ? `All ${eligibleCount} record${eligibleCount === 1 ? '' : 's'} ready for WPS export.`
+              ? `All ${periodEligible} payroll record${periodEligible === 1 ? '' : 's'} in this period are eligible for WPS export.`
               : isBlocked
-                ? skippedInSelection > 0
-                    ? 'Fix the issues below to include selected employees in WPS export.'
+                ? periodSkipped > 0
+                    ? 'Fix the issues below before exporting WPS files for this period.'
                     : 'No payroll records are eligible for WPS export in this period.'
-                : `${eligibleCount} eligible · ${skippedInSelection} skipped in selection.`;
+                : `${periodEligible} eligible and ${periodSkipped} skipped in this pay period.`;
+
+    const skippedRecords = usesSelection ? exportSkippedRecords : periodSkippedRecords;
 
     return (
         <Card className="glass-card border-border/60 relative overflow-hidden dark:border-white/10">
@@ -123,7 +135,7 @@ export function WpsDeliveryCard({
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-base font-semibold tracking-tight">WPS export</h3>
                             <Badge variant="outline" className={cn('rounded-lg', statusClassName)}>
-                                {companyConfigMissing || selectedCount === 0 || !isReady ? (
+                                {companyConfigMissing || exportSelected === 0 || !isReady ? (
                                     <AlertCircle className="mr-1 h-3 w-3" />
                                 ) : (
                                     <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -135,14 +147,14 @@ export function WpsDeliveryCard({
                     </div>
                 </div>
 
-                {totalRecords > 0 ? (
+                {periodTotal > 0 ? (
                     <div className="space-y-2">
                         <div className="flex items-end justify-between gap-3 text-sm">
                             <span className="font-medium text-muted-foreground">
-                                <span className="text-foreground">{eligibleCount}</span>
+                                <span className="text-foreground">{periodEligible}</span>
                                 {' of '}
-                                <span className="text-foreground">{totalRecords}</span>
-                                {usesSelection ? ' selected eligible' : ' eligible'}
+                                <span className="text-foreground">{periodTotal}</span>
+                                {' eligible in period'}
                             </span>
                             <span className="font-semibold tabular-nums text-foreground">
                                 {progressPercent}%
@@ -162,13 +174,24 @@ export function WpsDeliveryCard({
                 ) : null}
 
                 <div className="grid grid-cols-2 gap-3">
-                    <WpsStat label="Eligible" value={eligibleCount} tone="emerald" />
-                    <WpsStat
-                        label={usesSelection ? 'Skipped' : 'Skipped'}
-                        value={skippedInSelection}
-                        tone="amber"
-                    />
+                    <WpsStat label="Eligible" value={periodEligible} tone="emerald" />
+                    <WpsStat label="Skipped" value={periodSkipped} tone="amber" />
                 </div>
+
+                {usesSelection && exportSelected > 0 && exportSelected !== periodTotal ? (
+                    <div className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-4 py-3 text-sm text-sky-900 dark:text-sky-100">
+                        <span className="font-semibold">{exportEligible}</span> of{' '}
+                        <span className="font-semibold">{exportSelected}</span> selected records are
+                        eligible for export.
+                        {exportSkipped > 0 ? (
+                            <>
+                                {' '}
+                                <span className="font-semibold">{exportSkipped}</span> selected record
+                                {exportSkipped === 1 ? '' : 's'} will be skipped.
+                            </>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 {companyConfigMissing && companyIssues.length > 0 ? (
                     <div className="space-y-2 rounded-xl border border-rose-500/25 bg-rose-500/5 px-4 py-3">
@@ -193,9 +216,9 @@ export function WpsDeliveryCard({
                                     className="h-auto w-full justify-between rounded-xl px-4 py-3 text-left hover:bg-amber-500/10"
                                 >
                                     <span className="text-xs font-bold uppercase tracking-[0.14em] text-amber-800 dark:text-amber-200">
-                                        {usesSelection
-                                            ? `Why ${skippedRecords.length} selected record${skippedRecords.length === 1 ? '' : 's'} were skipped`
-                                            : `${skippedRecords.length} skipped record${skippedRecords.length === 1 ? '' : 's'}`}
+                                        {usesSelection && exportSkipped > 0
+                                            ? `Why ${exportSkipped} selected record${exportSkipped === 1 ? '' : 's'} were skipped`
+                                            : `${periodSkipped} skipped record${periodSkipped === 1 ? '' : 's'} in period`}
                                     </span>
                                     <ChevronDown
                                         className={cn(
@@ -231,6 +254,11 @@ export function WpsDeliveryCard({
                                         </li>
                                     ))}
                                 </ul>
+                                {usesSelection && periodSkipped > skippedRecords.length ? (
+                                    <p className="mt-3 text-xs text-muted-foreground">
+                                        View all skipped employees on the WPS export page.
+                                    </p>
+                                ) : null}
                             </CollapsibleContent>
                         </div>
                     </Collapsible>
@@ -297,7 +325,7 @@ export function WpsDeliveryCard({
                             size="sm"
                             className="rounded-xl"
                             disabled={
-                                selectedCount === 0 || eligibleCount === 0 || companyConfigMissing
+                                exportSelected === 0 || exportEligible === 0 || companyConfigMissing
                             }
                         />
                     ) : null}

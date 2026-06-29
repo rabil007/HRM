@@ -322,6 +322,7 @@ export type PayrollShowProps = {
     pagination: PaginationMeta;
     payroll_records: PayrollRecordListItem[];
     payroll_records_pagination: PaginationMeta | null;
+    all_payroll_record_ids: number[];
     payroll_records_summary: PayrollRecordsSummary | null;
     salary_inputs_by_employee: Record<string, SalaryInput[]>;
     salary_input_type_options: SalaryInputTypeOption[];

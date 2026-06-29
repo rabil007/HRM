@@ -186,6 +186,7 @@ export function PayrollShowContent({
     pagination,
     payroll_records,
     payroll_records_pagination,
+    all_payroll_record_ids,
     payroll_records_summary,
     salary_inputs_by_employee,
     salary_input_type_options,
@@ -217,18 +218,13 @@ export function PayrollShowContent({
     );
     const [removeRecord, setRemoveRecord] = useState<PayrollRecordListItem | null>(null);
     const [isRemovingRecord, setIsRemovingRecord] = useState(false);
-    const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(() =>
-        payroll_records.map((record) => record.id),
-    );
-
-    const payrollRecordIdsKey = useMemo(
-        () => payroll_records.map((record) => record.id).join(','),
-        [payroll_records],
+    const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
+        () => all_payroll_record_ids,
     );
 
     useEffect(() => {
-        setSelectedWpsRecordIds(payroll_records.map((record) => record.id));
-    }, [payrollRecordIdsKey, payroll_records]);
+        setSelectedWpsRecordIds(all_payroll_record_ids);
+    }, [period.id, all_payroll_record_ids]);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),

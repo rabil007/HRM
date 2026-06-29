@@ -203,6 +203,15 @@ class PayrollController extends Controller
             ->all();
         $payrollRecordsPagination = $this->paginationMeta($recordsPaginator);
 
+        $allPayrollRecordIds = PayrollRecord::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->orderBy('id')
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+
         $defaultTab = $isFinalizedPeriod
             ? 'payroll'
             : ($payrollPeriod->isCrew() ? 'timesheets' : 'employees');
@@ -264,6 +273,7 @@ class PayrollController extends Controller
             'pagination' => $this->paginationMeta($paginator),
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
+            'all_payroll_record_ids' => $allPayrollRecordIds,
             'payroll_records_summary' => $payrollPeriod->payroll_records_count > 0
                 ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod)
                 : null,

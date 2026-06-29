@@ -289,6 +289,7 @@ test('approved pay period show includes payslip and wps delivery props', functio
             ->where('permissions.wps_export', true)
             ->has('wps_preview')
             ->where('wps_preview.period.id', $approvedPeriod->id)
+            ->has('all_payroll_record_ids', 1)
             ->where('payroll_records.0.has_payslip', false));
 });
 
