@@ -772,83 +772,86 @@ export function PayrollShowContent({
                         <DataTableHeaderRow>
                             <DataTableHead>Employee</DataTableHead>
                             <DataTableHead>Code</DataTableHead>
+                            <DataTableHead>Bank account</DataTableHead>
                             <DataTableHead>Standby days</DataTableHead>
                             <DataTableHead>Onsite days</DataTableHead>
-                            <DataTableHead>OT</DataTableHead>
-                            <DataTableHead>Additions</DataTableHead>
-                            <DataTableHead>Deductions</DataTableHead>
+                            <DataTableHead>Payment</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                             <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
-                        {rows.map((row) => (
-                            <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
-                                <TableCell className={dataTableCellPrimaryClass()}>
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
-                                            {row.employee.image ? (
-                                                <img
-                                                    src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
-                                                    alt=""
-                                                    className="h-full w-full object-cover"
-                                                />
-                                            ) : (
-                                                row.employee.name
-                                                    .split(' ')
-                                                    .filter(Boolean)
-                                                    .slice(0, 2)
-                                                    .map((part) => part[0]?.toUpperCase())
-                                                    .join('') || '—'
-                                            )}
+                        {rows.map((row) => {
+                            const paymentMethod =
+                                (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
+
+                            return (
+                                <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
+                                    <TableCell className={dataTableCellPrimaryClass()}>
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden group-hover:scale-105 transition-transform">
+                                                {row.employee.image ? (
+                                                    <img
+                                                        src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
+                                                        alt=""
+                                                        className="h-full w-full object-cover"
+                                                    />
+                                                ) : (
+                                                    row.employee.name
+                                                        .split(' ')
+                                                        .filter(Boolean)
+                                                        .slice(0, 2)
+                                                        .map((part) => part[0]?.toUpperCase())
+                                                        .join('') || '—'
+                                                )}
+                                            </div>
+                                            <span className="font-semibold">{row.employee.name}</span>
                                         </div>
-                                        <span className="font-semibold">{row.employee.name}</span>
-                                    </div>
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {row.employee.employee_no ?? '—'}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetDays(row.timesheet?.standby_days)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetDays(row.timesheet?.onsite_days)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetAmount(row.timesheet?.overtime_amount)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetAmount(row.timesheet?.additional_amount)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    {formatTimesheetAmount(row.timesheet?.deduction_amount)}
-                                </TableCell>
-                                <TableCell className={dataTableCellClass()}>
-                                    <Badge
-                                        variant={row.is_filled ? 'default' : 'outline'}
-                                        className={cn(
-                                            !row.is_filled &&
-                                                'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
-                                        )}
-                                    >
-                                        {row.is_filled ? 'Filled' : 'Pending'}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className={dataTableActionsCellClass()}>
-                                    {canSave ? (
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="rounded-lg"
-                                            onClick={() => handleEdit(row)}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {row.employee.employee_no ?? '—'}
+                                    </TableCell>
+                                    <PayrollRecordBankAccountCell
+                                        primary_account={row.primary_account ?? null}
+                                        salary_payment_method={paymentMethod}
+                                    />
+                                    <TableCell className={dataTableCellClass()}>
+                                        {formatTimesheetDays(row.timesheet?.standby_days)}
+                                    </TableCell>
+                                    <TableCell className={dataTableCellClass()}>
+                                        {formatTimesheetDays(row.timesheet?.onsite_days)}
+                                    </TableCell>
+                                    <PayrollRecordPaymentMethodCell
+                                        method={paymentMethod}
+                                        label={row.salary_payment_method_label ?? 'Bank transfer'}
+                                    />
+                                    <TableCell className={dataTableCellClass()}>
+                                        <Badge
+                                            variant={row.is_filled ? 'default' : 'outline'}
+                                            className={cn(
+                                                !row.is_filled &&
+                                                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                            )}
                                         >
-                                            <Pencil className="mr-2 h-4 w-4" />
-                                            {row.is_filled ? 'Edit' : 'Enter'}
-                                        </Button>
-                                    ) : null}
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                                            {row.is_filled ? 'Filled' : 'Pending'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className={dataTableActionsCellClass()}>
+                                        {canSave ? (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className="rounded-lg"
+                                                onClick={() => handleEdit(row)}
+                                            >
+                                                <Pencil className="mr-2 h-4 w-4" />
+                                                {row.is_filled ? 'Edit' : 'Enter'}
+                                            </Button>
+                                        ) : null}
+                                    </TableCell>
+                                </TableRow>
+                            );
+                        })}
                     </TableBody>
                 </OrganizationDataTable>
 

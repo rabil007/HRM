@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
 
@@ -38,6 +39,8 @@ final class CrewTimesheetResource
      */
     public static function toBoardRow(Employee $employee, ?CrewTimesheet $timesheet, int $periodId): array
     {
+        $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+
         return [
             'employee' => [
                 'id' => $employee->id,
@@ -48,6 +51,9 @@ final class CrewTimesheetResource
             'period_id' => $periodId,
             'timesheet' => self::toArray($timesheet),
             'is_filled' => $timesheet !== null,
+            'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
+            'salary_payment_method' => $paymentMethod->value,
+            'salary_payment_method_label' => $paymentMethod->label(),
         ];
     }
 

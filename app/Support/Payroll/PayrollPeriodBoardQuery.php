@@ -31,6 +31,7 @@ final class PayrollPeriodBoardQuery
 
         if ($payrollCategory === PayrollCategory::Crew) {
             $query->with([
+                'primaryBankAccount.bank:id,name',
                 'crewTimesheets' => fn ($timesheetQuery) => $timesheetQuery->where('period_id', $period->id),
             ]);
         }
