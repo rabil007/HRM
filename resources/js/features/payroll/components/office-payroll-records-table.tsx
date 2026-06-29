@@ -145,7 +145,7 @@ export function OfficePayrollRecordsTable({
                                 >
                                     {record.present_days ?? record.working_days ?? '—'} / {record.working_days ?? '—'} days
                                 </Badge>
-                                {record.absent_days && record.absent_days > 0 ? (
+                                {record.absent_days && record.absent_days > 0 && Number(record.unpaid_leave_deduction) > 0 ? (
                                     <span className="text-[11px] font-medium text-destructive">
                                         {record.absent_days} day{record.absent_days > 1 ? 's' : ''} deducted ({formatTimesheetAmount(record.unpaid_leave_deduction)})
                                     </span>

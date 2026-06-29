@@ -166,10 +166,19 @@ class PayrollController extends Controller
         $payrollRecords = [];
         $payrollRecordsPagination = null;
 
-        $recordsPaginator = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $companyId)
             ->where('period_id', $payrollPeriod->id)
-            ->with(['employee.primaryBankAccount.bank:id,name'])
+            ->with(['employee.primaryBankAccount.bank:id,name']);
+
+        if ($search !== '') {
+            $recordsQuery->whereHas('employee', function ($query) use ($search) {
+                $query->where('name', 'like', "%{$search}%")
+                    ->orWhere('employee_no', 'like', "%{$search}%");
+            });
+        }
+
+        $recordsPaginator = $recordsQuery
             ->orderBy('id')
             ->paginate($perPage, ['*'], 'records_page')
             ->withQueryString();

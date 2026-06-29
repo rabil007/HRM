@@ -53,14 +53,17 @@ final class OfficePayrollCalculator
             ]);
         }
 
-        $earnedBasic = round($monthlyBasic, 2);
-        $earnedHousing = round($monthlyHousing, 2);
-        $earnedTransport = round($monthlyTransport, 2);
-        $earnedOther = round($monthlyOther, 2);
+        $activePeriodDays = max(0, $workingDays - $unpaidLeaveDays);
+        $prorateRatio = $workingDays > 0 ? ($activePeriodDays / $workingDays) : 1.0;
+
+        $earnedBasic = round($monthlyBasic * $prorateRatio, 2);
+        $earnedHousing = round($monthlyHousing * $prorateRatio, 2);
+        $earnedTransport = round($monthlyTransport * $prorateRatio, 2);
+        $earnedOther = round($monthlyOther * $prorateRatio, 2);
 
         $overtimePay = 0.0;
         $bonus = 0.0;
-        $monthlyBase = $earnedBasic + $earnedHousing + $earnedTransport + $earnedOther;
+        $monthlyBase = $monthlyBasic + $monthlyHousing + $monthlyTransport + $monthlyOther;
         $dailyRate = $workingDays > 0 ? ($monthlyBase / $workingDays) : 0.0;
 
         $unpaidDaysFromUsage = 0.0;
@@ -70,8 +73,7 @@ final class OfficePayrollCalculator
                 $unpaidDaysFromUsage += (float) ($usage['days'] ?? 0.0);
             }
         }
-        $totalUnpaidDays = $unpaidDaysFromUsage + $unpaidLeaveDays;
-        $unpaidLeaveDeduction = round($dailyRate * $totalUnpaidDays, 2);
+        $unpaidLeaveDeduction = round($dailyRate * $unpaidDaysFromUsage, 2);
         $lateDeduction = 0.0;
         $loanDeduction = 0.0;
         $otherDeductions = 0.0;
