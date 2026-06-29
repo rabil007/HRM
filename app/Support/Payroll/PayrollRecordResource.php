@@ -3,7 +3,6 @@
 namespace App\Support\Payroll;
 
 use App\Enums\PayrollCategory;
-use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
 use App\Models\PayrollRecord;
 
@@ -21,8 +20,7 @@ final class PayrollRecordResource
         $category = $record->payroll_category ?? PayrollCategory::Office;
         /** @var WpsStatus|null $wpsStatus */
         $wpsStatus = $record->wps_status;
-        /** @var SalaryPaymentMethod|null $paymentMethod */
-        $paymentMethod = $record->employee?->salary_payment_method;
+        $paymentMethod = $record->resolvedSalaryPaymentMethod();
 
         $base = [
             'id' => $record->id,
@@ -41,8 +39,8 @@ final class PayrollRecordResource
             'has_payslip' => filled($record->payslip_path),
             'wps_status' => $wpsStatus?->value,
             'wps_status_label' => $wpsStatus?->label(),
-            'salary_payment_method' => $paymentMethod?->value ?? SalaryPaymentMethod::BankTransfer->value,
-            'salary_payment_method_label' => $paymentMethod?->label() ?? SalaryPaymentMethod::BankTransfer->label(),
+            'salary_payment_method' => $paymentMethod->value,
+            'salary_payment_method_label' => $paymentMethod->label(),
         ];
 
         if ($category === PayrollCategory::Crew) {

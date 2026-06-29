@@ -4,6 +4,7 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
@@ -124,6 +125,7 @@ final class GenerateOfficePayroll
                     ],
                     [
                         'payroll_category' => PayrollCategory::Office,
+                        'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
                         'basic_salary' => $calculated['basic_salary'],
                         'housing_allowance' => $calculated['housing_allowance'],
                         'transport_allowance' => $calculated['transport_allowance'],

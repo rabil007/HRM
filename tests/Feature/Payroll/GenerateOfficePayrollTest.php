@@ -390,3 +390,37 @@ test('office payroll employees tab exposes salary payment method for cash employ
             ->where('rows.0.salary_payment_method', SalaryPaymentMethod::CashC3->value)
             ->where('rows.0.salary_payment_method_label', 'C3'));
 });
+
+test('office payroll generation snapshots employee salary payment method on payroll record', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.periods.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    $cashEmployee = createOfficeEmployeeWithContract($company, 'CASH-SNAPSHOT', 5000, 0, 0, 0);
+    $cashEmployee->update(['salary_payment_method' => SalaryPaymentMethod::CashC3]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $cashEmployee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->salary_payment_method)->toBe(SalaryPaymentMethod::CashC3);
+
+    $cashEmployee->update(['salary_payment_method' => SalaryPaymentMethod::BankTransfer]);
+
+    expect($record->fresh()->salary_payment_method)->toBe(SalaryPaymentMethod::CashC3);
+});

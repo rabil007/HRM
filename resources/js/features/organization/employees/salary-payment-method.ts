@@ -2,7 +2,7 @@ export const SALARY_PAYMENT_METHOD_OPTIONS = [
     { value: 'bank_transfer', label: 'Bank transfer' },
     { value: 'cash_c3', label: 'C3' },
     { value: 'cash_ansari', label: 'Ansari' },
-    { value: 'cash_other', label: 'Other' },
+    { value: 'cash_other', label: 'Cash' },
 ] as const;
 
 export type SalaryPaymentMethodValue =
@@ -15,7 +15,7 @@ export function cashPaymentBadgeLabel(method: SalaryPaymentMethodValue): string 
         case 'cash_ansari':
             return 'Ansari';
         case 'cash_other':
-            return 'Other';
+            return 'Cash';
         default:
             return null;
     }

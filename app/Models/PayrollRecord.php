@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PayrollCategory;
+use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
 use Database\Factories\PayrollRecordFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -20,6 +21,7 @@ class PayrollRecord extends Model
     {
         return [
             'payroll_category' => PayrollCategory::class,
+            'salary_payment_method' => SalaryPaymentMethod::class,
             'basic_salary' => 'decimal:2',
             'housing_allowance' => 'decimal:2',
             'transport_allowance' => 'decimal:2',
@@ -57,5 +59,16 @@ class PayrollRecord extends Model
     public function period(): BelongsTo
     {
         return $this->belongsTo(PayrollPeriod::class, 'period_id');
+    }
+
+    public function resolvedSalaryPaymentMethod(): SalaryPaymentMethod
+    {
+        if ($this->salary_payment_method !== null) {
+            return $this->salary_payment_method;
+        }
+
+        $this->loadMissing('employee');
+
+        return $this->employee?->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
     }
 }

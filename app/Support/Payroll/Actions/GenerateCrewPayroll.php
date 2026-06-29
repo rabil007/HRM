@@ -4,6 +4,7 @@ namespace App\Support\Payroll\Actions;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -103,6 +104,7 @@ final class GenerateCrewPayroll
                     ],
                     [
                         'payroll_category' => PayrollCategory::Crew,
+                        'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
                         'basic_salary' => $calculated['basic_salary'],
                         'other_allowances' => $calculated['other_allowances'],
                         'overtime_pay' => $calculated['overtime_pay'],

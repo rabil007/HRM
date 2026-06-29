@@ -15,7 +15,7 @@ enum SalaryPaymentMethod: string
             self::BankTransfer => 'Bank transfer',
             self::CashC3 => 'C3',
             self::CashAnsari => 'Ansari',
-            self::CashOther => 'Other',
+            self::CashOther => 'Cash',
         };
     }
 
@@ -37,7 +37,7 @@ enum SalaryPaymentMethod: string
         return match ($this) {
             self::CashC3 => 'Salary paid via C3 — excluded from WPS.',
             self::CashAnsari => 'Salary paid via Ansari — excluded from WPS.',
-            self::CashOther => 'Salary paid via other method — excluded from WPS.',
+            self::CashOther => 'Salary paid via cash — excluded from WPS.',
             self::BankTransfer => '',
         };
     }

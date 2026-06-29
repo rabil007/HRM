@@ -1227,7 +1227,7 @@ function OfficeEmployeesTabContent({
                     <EmployeeAnalyticsCard
                         title="Cash Payment"
                         value={employee_stats.cash_payment_count}
-                        subtitle="Paid by C3, Ansari, or other cash"
+                        subtitle="Paid by C3, Ansari, or cash"
                         icon={Building2}
                         variant={employee_stats.cash_payment_count > 0 ? 'warning' : 'success'}
                     />
@@ -1288,6 +1288,7 @@ function OfficeEmployeesTabContent({
                             />
                         </DataTableHead>
                         <DataTableHead>Employee</DataTableHead>
+                        <DataTableHead>Bank account</DataTableHead>
                         {/* Salary columns */}
                         <DataTableHead>
                             <Tooltip>
@@ -1304,7 +1305,6 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>Transport Allow.</DataTableHead>
                         <DataTableHead>Other Allow.</DataTableHead>
                         <DataTableHead>Payment</DataTableHead>
-                        <DataTableHead>Bank account</DataTableHead>
                         {/* Leave type columns */}
                         {leave_types.map((leaveType: LeaveTypeColumn) => (
                             <DataTableHead key={leaveType.id}>
@@ -1405,6 +1405,11 @@ function OfficeEmployeesTabContent({
                                     </Link>
                                 </TableCell>
 
+                                <PayrollRecordBankAccountCell
+                                    primary_account={row.primary_account ?? null}
+                                    salary_payment_method={paymentMethod}
+                                />
+
                                 {/* Basic salary */}
                                 <TableCell className={cn(dataTableCellClass(), 'text-right')}>
                                     <SalaryCell value={contract?.basic_salary} />
@@ -1428,10 +1433,6 @@ function OfficeEmployeesTabContent({
                                 <PayrollRecordPaymentMethodCell
                                     method={paymentMethod}
                                     label={row.salary_payment_method_label ?? 'Bank transfer'}
-                                />
-                                <PayrollRecordBankAccountCell
-                                    primary_account={row.primary_account ?? null}
-                                    salary_payment_method={paymentMethod}
                                 />
 
                                 {/* Leave type columns */}
