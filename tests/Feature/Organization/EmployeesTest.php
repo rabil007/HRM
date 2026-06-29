@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\SalaryPaymentMethod;
 use App\Models\ApprovalLocation;
 use App\Models\Branch;
 use App\Models\Company;
@@ -653,6 +654,54 @@ test('employee can update company_visa_type_id when visa_type_id is hidden in te
     ])->assertRedirect(route('organization.employees.show', $employee));
 
     expect($employee->fresh()->company_visa_type_id)->toBe($group->id);
+});
+
+test('employee salary payment method can be updated', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'PAY',
+        'name' => 'Paymentland',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PAY',
+        'name' => 'Payment Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Payment Co',
+        'slug' => 'payment-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $employee = Employee::factory()
+        ->forCompany($company)
+        ->create([
+            'employee_no' => 'PAY-001',
+            'name' => 'Cash Employee',
+            'salary_payment_method' => SalaryPaymentMethod::BankTransfer,
+        ]);
+
+    grantCompanyPermissions($user, $company, ['employees.update', 'employees.view']);
+
+    $this->put("/organization/employees/{$employee->id}", [
+        'employee_no' => $employee->employee_no,
+        'name' => $employee->name,
+        'salary_payment_method' => SalaryPaymentMethod::CashAnsari->value,
+    ])->assertRedirect(route('organization.employees.show', $employee));
+
+    expect($employee->fresh()->salary_payment_method)->toBe(SalaryPaymentMethod::CashAnsari);
 });
 
 test('employee update rejects visa_type_id when hidden in profile template', function () {

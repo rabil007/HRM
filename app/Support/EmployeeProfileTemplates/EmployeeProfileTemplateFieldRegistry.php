@@ -102,6 +102,7 @@ final class EmployeeProfileTemplateFieldRegistry
                 'emirates_id' => 'Emirates ID',
                 'passport_number' => 'Passport number',
                 'labor_card_number' => 'Labor card number',
+                'salary_payment_method' => 'Salary payment method',
                 'status' => 'Status',
                 'crew_status' => 'Crew status',
             ],

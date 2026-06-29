@@ -35,6 +35,7 @@ export const EMPLOYEE_PROFILE_FORM_KEYS = [
     'passport_number',
     'emirates_id',
     'labor_card_number',
+    'salary_payment_method',
 ] as const;
 
 export type EmployeeProfileFormKey = (typeof EMPLOYEE_PROFILE_FORM_KEYS)[number];
@@ -96,6 +97,7 @@ export function buildEmployeeProfileFormInitial(
         passport_number: employee.passport_number ?? '',
         emirates_id: employee.emirates_id ?? '',
         labor_card_number: employee.labor_card_number ?? '',
+        salary_payment_method: employee.salary_payment_method ?? 'bank_transfer',
         approval_location_ids: employee.approval_location_ids ?? [],
         sssa_option_ids: employee.sssa_option_ids ?? [],
         image: null,
@@ -169,6 +171,7 @@ export function transformEmployeeProfileFormData(
         passport_number: String(data.passport_number ?? '').trim() || null,
         emirates_id: String(data.emirates_id ?? '').trim() || null,
         labor_card_number: String(data.labor_card_number ?? '').trim() || null,
+        salary_payment_method: String(data.salary_payment_method ?? '').trim() || 'bank_transfer',
         approval_location_ids: approvalLocationIds,
         sssa_option_ids: sssaOptionIds,
         },

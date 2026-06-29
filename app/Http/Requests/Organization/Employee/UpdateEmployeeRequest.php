@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use App\Models\Employee;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
@@ -68,6 +69,7 @@ class UpdateEmployeeRequest extends FormRequest
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
             'labor_card_number' => ['nullable', 'string', 'max:100'],
+            'salary_payment_method' => ['nullable', Rule::enum(SalaryPaymentMethod::class)],
             'status' => ['nullable', 'in:active,inactive,on_leave,terminated'],
             'termination_date' => ['nullable', 'date'],
             'termination_reason' => ['nullable', 'string'],

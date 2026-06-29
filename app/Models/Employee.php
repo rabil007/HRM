@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Concerns\LogsActivityWithCompany;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -33,6 +34,7 @@ class Employee extends Model
             'date_of_birth' => 'date',
             'hire_date' => 'date',
             'termination_date' => 'date',
+            'salary_payment_method' => SalaryPaymentMethod::class,
         ];
     }
 
@@ -66,6 +68,7 @@ class Employee extends Model
                 'emirates_id',
                 'passport_number',
                 'labor_card_number',
+                'salary_payment_method',
                 'status',
                 'termination_date',
                 'termination_reason',

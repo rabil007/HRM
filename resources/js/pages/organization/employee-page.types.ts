@@ -1,3 +1,4 @@
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
 import type {
     ApprovalLocationOption,
@@ -107,6 +108,8 @@ export type EmployeeDetails = {
     contract_type: 'limited' | 'unlimited' | 'part_time' | 'contract';
     status: 'active' | 'inactive' | 'on_leave' | 'terminated';
     crew_status?: EmployeeCrewStatus | null;
+    salary_payment_method?: SalaryPaymentMethodValue;
+    salary_payment_method_label?: string;
     employee_profile_template?: { id: number; name: string | null } | null;
     employee_profile_template_id?: number | null;
     address?: string | null;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Organization\Employee;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Http\Requests\Organization\Employee\Concerns\ValidatesEmployeeNumber;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -83,6 +84,7 @@ class StoreEmployeeRequest extends FormRequest
             'emirates_id' => ['nullable', 'string', 'max:30'],
             'passport_number' => ['nullable', 'string', 'max:50'],
             'labor_card_number' => ['nullable', 'string', 'max:100'],
+            'salary_payment_method' => ['nullable', Rule::enum(SalaryPaymentMethod::class)],
             'employee_profile_template_id' => [
                 'nullable',
                 'integer',

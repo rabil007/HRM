@@ -129,6 +129,7 @@ final class CreateEmployee
         }
 
         $data['status'] = $data['status'] ?? 'active';
+        $data['salary_payment_method'] = $data['salary_payment_method'] ?? 'bank_transfer';
 
         $employee = Employee::create($data);
 

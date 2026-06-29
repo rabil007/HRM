@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Payroll;
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\SalaryPaymentMethod;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Organization\Payroll\ApprovePayrollPeriodRequest;
 use App\Http\Requests\Organization\Payroll\CancelPayrollPeriodRequest;
@@ -235,13 +236,24 @@ class PayrollController extends Controller
         if ($payrollPeriod->isOffice()) {
             $allOfficeEmployees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office)
                 ->with('primaryBankAccount')
-                ->get(['id']);
+                ->get(['id', 'salary_payment_method']);
             $totalCount = $allOfficeEmployees->count();
-            $withBankCount = $allOfficeEmployees->filter(fn ($emp) => $emp->primaryBankAccount !== null)->count();
+            $cashPaymentCount = $allOfficeEmployees->filter(
+                fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->isCash(),
+            )->count();
+            $withBankCount = $allOfficeEmployees->filter(
+                fn ($employee) => $employee->primaryBankAccount !== null,
+            )->count();
+            $missingBankCount = $allOfficeEmployees->filter(function ($employee) {
+                $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+
+                return ! $paymentMethod->isCash() && $employee->primaryBankAccount === null;
+            })->count();
             $employeeStats = [
                 'total' => $totalCount,
                 'with_bank_account' => $withBankCount,
-                'missing_bank_account' => $totalCount - $withBankCount,
+                'missing_bank_account' => $missingBankCount,
+                'cash_payment_count' => $cashPaymentCount,
             ];
         }
 

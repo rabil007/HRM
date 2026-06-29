@@ -66,6 +66,7 @@ class EmployeeFactory extends Factory
             'position_id' => null,
             'employee_no' => (string) $this->faker->unique()->numerify('EMP####'),
             'name' => $this->faker->name(),
+            'salary_payment_method' => 'bank_transfer',
             'date_of_birth' => $this->faker->optional()->date(),
             'hire_date' => $this->faker->optional()->dateTimeBetween('-5 years', 'now')?->format('Y-m-d'),
             'place_of_birth' => $this->faker->optional()->city(),

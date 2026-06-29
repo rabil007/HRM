@@ -2,6 +2,7 @@
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\SalaryPaymentMethod;
 use App\Enums\WpsStatus;
 use App\Models\Bank;
 use App\Models\Employee;
@@ -99,6 +100,44 @@ test('wps preview surfaces skip reason when employer iban is missing', function 
         ->and($preview['skipped'][0]['record_id'])->toBe(0)
         ->and($preview['skipped'][0]['reason'])->toBe('Company WPS employer IBAN is missing.')
         ->and($preview['company']['wps_employer_iban'])->toBeNull();
+});
+
+test('wps preview excludes cash c3 employees with explicit skip reason', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $company->forceFill([
+        'wps_mol_uid' => 'MOL-12345',
+        'wps_agent_code' => 'AGENT-001',
+        'wps_employer_iban' => 'AE070331234567890123456',
+    ])->save();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'WPS-CASH',
+        'salary_payment_method' => SalaryPaymentMethod::CashC3,
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'status' => 'active',
+        'payroll_category' => PayrollCategory::Office,
+        'labor_contract_id' => '12345678901234',
+    ]);
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    $preview = app(WpsExportPreview::class)->forPeriod($company, $period);
+
+    expect($preview['eligible_count'])->toBe(0)
+        ->and($preview['skipped'])->toHaveCount(1)
+        ->and($preview['skipped'][0]['employee_id'])->toBe($employee->id)
+        ->and($preview['skipped'][0]['reason'])->toBe('Salary paid via C3 — excluded from WPS.');
 });
 
 test('wps export downloads sif file and marks records submitted', function () {

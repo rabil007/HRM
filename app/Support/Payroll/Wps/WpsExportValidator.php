@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll\Wps;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -94,6 +95,12 @@ final class WpsExportValidator
         }
 
         $employee = $record->employee;
+
+        $paymentMethod = $employee?->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+
+        if ($paymentMethod->excludesFromWps()) {
+            return $paymentMethod->wpsSkipReason();
+        }
 
         if (! filled(WpsLaborIdentifier::forPayrollRecord($record))) {
             return 'Labor contract ID is missing.';

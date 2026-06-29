@@ -22,6 +22,10 @@ import {
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
 import type { CountryOption } from '@/features/organization/employees/types';
+import {
+    SALARY_PAYMENT_METHOD_OPTIONS,
+    type SalaryPaymentMethodValue,
+} from '@/features/organization/employees/salary-payment-method';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
@@ -289,6 +293,21 @@ export function EmployeeHeaderCard({
     const { selectOptions: religionOptions } = useMutableSelectOptions(religions);
     const { selectOptions: visaTypeOptions } = useMutableSelectOptions(visa_types);
     const { selectOptions: companyVisaTypeOptions } = useMutableSelectOptions(company_visa_types);
+
+    const salaryPaymentMethodOptions = useMemo(
+        () =>
+            SALARY_PAYMENT_METHOD_OPTIONS.map((option, index) => ({
+                id: index + 1,
+                label: option.label,
+                value: option.value,
+            })),
+        [],
+    );
+
+    const salaryPaymentMethodLabel = (value: string): string =>
+        SALARY_PAYMENT_METHOD_OPTIONS.find((option) => option.value === value)?.label
+        ?? employee.salary_payment_method_label
+        ?? 'Bank transfer';
 
     const positionCreatableContext = useMemo(
         () => ({
@@ -740,6 +759,31 @@ export function EmployeeHeaderCard({
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('company_visa_type_id', value)}
                             highlightMissing={isMissingRequired('company_visa_type_id')}
+                        />
+                    )}
+
+                    {showField('salary_payment_method') && (
+                        <EditableDetailSelectField
+                            label="Salary payment"
+                            field="salary_payment_method"
+                            value={form.data.salary_payment_method}
+                            displayValue={salaryPaymentMethodLabel(
+                                form.data.salary_payment_method
+                                    || employee.salary_payment_method
+                                    || 'bank_transfer',
+                            )}
+                            options={salaryPaymentMethodOptions}
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) =>
+                                form.setData(
+                                    'salary_payment_method',
+                                    value as SalaryPaymentMethodValue,
+                                )
+                            }
+                            highlightMissing={isMissingRequired('salary_payment_method')}
                         />
                     )}
                 </div>

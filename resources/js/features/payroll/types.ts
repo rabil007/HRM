@@ -202,6 +202,8 @@ export type PayrollRecordDeliveryFields = {
     has_payslip: boolean;
     wps_status: string | null;
     wps_status_label: string | null;
+    salary_payment_method: string;
+    salary_payment_method_label: string;
 };
 
 export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
@@ -300,6 +302,7 @@ export type EmployeeStats = {
     total: number;
     with_bank_account: number;
     missing_bank_account: number;
+    cash_payment_count: number;
 };
 
 export type PayrollRecordsSummary = {

@@ -1202,7 +1202,7 @@ function OfficeEmployeesTabContent({
         <div className="space-y-6">
             {/* Analytics Cards */}
             {employee_stats !== null && (
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                     <EmployeeAnalyticsCard
                         title="Total Employees"
                         value={employee_stats.total}
@@ -1218,12 +1218,19 @@ function OfficeEmployeesTabContent({
                         variant="success"
                     />
                     <EmployeeAnalyticsCard
+                        title="Cash Payment"
+                        value={employee_stats.cash_payment_count}
+                        subtitle="Paid by C3, Ansari, or other cash"
+                        icon={Building2}
+                        variant={employee_stats.cash_payment_count > 0 ? 'warning' : 'success'}
+                    />
+                    <EmployeeAnalyticsCard
                         title="Missing Bank Account"
                         value={employee_stats.missing_bank_account}
                         subtitle={
                             employee_stats.missing_bank_account > 0
-                                ? 'Action required before WPS'
-                                : 'All accounts configured'
+                                ? 'Bank-transfer employees only — action required before WPS'
+                                : 'All bank-transfer employees configured'
                         }
                         icon={employee_stats.missing_bank_account > 0 ? AlertCircle : Building2}
                         variant={employee_stats.missing_bank_account > 0 ? 'warning' : 'success'}

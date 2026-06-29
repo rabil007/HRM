@@ -118,6 +118,8 @@ final class EmployeeDetailResource
             ] : null,
             'iban' => $employee->primaryBankAccount?->iban,
             'account_name' => $employee->primaryBankAccount?->account_name,
+            'salary_payment_method' => $employee->salary_payment_method?->value ?? 'bank_transfer',
+            'salary_payment_method_label' => $employee->salary_payment_method?->label() ?? 'Bank transfer',
             'emirates_id' => $employee->emirates_id,
             'passport_number' => $employee->passport_number,
             'labor_card_number' => $employee->labor_card_number,
