@@ -226,9 +226,15 @@ export function PayslipsContent({
                                                         size="icon"
                                                         className="h-8 w-8 rounded-lg"
                                                     >
-                                                        <Link href={showPayslip.url(record.id)} target="_blank">
+                                                        <a
+                                                            href={showPayslip.url(record.id)}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            aria-label="View payslip"
+                                                            className="inline-flex size-8 items-center justify-center rounded-lg hover:bg-accent"
+                                                        >
                                                             <FileText className="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground" />
-                                                        </Link>
+                                                        </a>
                                                     </Button>
                                                 </TooltipTrigger>
                                                 <TooltipContent>View payslip</TooltipContent>

@@ -12,14 +12,13 @@
             color: #000;
             margin: 0;
             line-height: 1.4;
-            background: #f8fafc;
+            background: #fff;
         }
         .payslip-container {
             max-width: 210mm;
-            margin: 20px auto;
+            margin: 0 auto;
             background: #fff;
             padding: 40px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .pdf-output {
             background: #fff;
@@ -138,7 +137,11 @@
 <body @class(['pdf-output' => !empty($is_pdf)])>
     @if (!empty($printable))
         <div class="toolbar" style="max-width: 210mm; margin: 20px auto 0;">
-            <a href="?format=pdf&inline=1" class="btn">Download PDF</a>
+            @if (!empty($download_url))
+                <a href="{{ $download_url }}" class="btn">Download PDF</a>
+            @else
+                <a href="?format=pdf" class="btn">Download PDF</a>
+            @endif
         </div>
     @endif
 

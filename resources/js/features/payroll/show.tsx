@@ -405,6 +405,12 @@ export function PayrollShowContent({
         permissions.payslips_view &&
         (period.status === 'approved' || period.status === 'paid');
 
+    const isProcessingPayRun = period.status === 'processing';
+    const headerPrimaryActionClass =
+        'h-12 rounded-xl border-0 px-6 bg-gradient-to-r from-blue-600 to-indigo-500 text-white hover:from-blue-700 hover:to-indigo-600 hover:text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 active:scale-95';
+    const headerSecondaryActionClass =
+        'h-12 rounded-xl px-6 border border-border/50 bg-secondary/50 text-foreground backdrop-blur-md hover:bg-secondary/80 hover:text-foreground transition-all duration-300';
+
     const hasHeaderActions =
         canGenerate ||
         canRevertToDraft ||
@@ -447,20 +453,11 @@ export function PayrollShowContent({
                             {canRevertToDraft ? (
                                 <Button
                                     variant="outline"
-                                    className="h-12 rounded-xl px-6 bg-secondary/50 backdrop-blur-md border border-border/50 hover:bg-secondary/80 transition-all duration-300"
+                                    className={headerSecondaryActionClass}
                                     onClick={() => setIsRevertDialogOpen(true)}
                                 >
                                     <RotateCcw className="mr-2 h-4 w-4" />
                                     Revert to draft
-                                </Button>
-                            ) : null}
-                            {canApprove ? (
-                                <Button
-                                    variant="outline"
-                                    className="h-12 rounded-xl px-6 bg-secondary/50 backdrop-blur-md border border-border/50 hover:bg-secondary/80 transition-all duration-300"
-                                    onClick={() => setIsApproveDialogOpen(true)}
-                                >
-                                    Approve pay run
                                 </Button>
                             ) : null}
                             {canMarkPaid ? (
@@ -473,13 +470,32 @@ export function PayrollShowContent({
                             ) : null}
                             {canGenerate ? (
                                 <Button
-                                    className="h-12 rounded-xl px-6 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary text-primary-foreground shadow-lg shadow-primary/25 transition-all duration-300 hover:scale-105 active:scale-95"
+                                    variant={isProcessingPayRun ? 'outline' : undefined}
+                                    className={
+                                        isProcessingPayRun
+                                            ? headerSecondaryActionClass
+                                            : headerPrimaryActionClass
+                                    }
                                     onClick={() => setIsGenerateDialogOpen(true)}
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
                                     {!period.supports_timesheets && payroll_records.length > 0
                                         ? 'Update payroll'
                                         : 'Generate payroll'}
+                                </Button>
+                            ) : null}
+                            {canApprove ? (
+                                <Button
+                                    variant={isProcessingPayRun ? undefined : 'outline'}
+                                    className={
+                                        isProcessingPayRun
+                                            ? headerPrimaryActionClass
+                                            : headerSecondaryActionClass
+                                    }
+                                    onClick={() => setIsApproveDialogOpen(true)}
+                                >
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                    Approve pay run
                                 </Button>
                             ) : null}
                         </div>

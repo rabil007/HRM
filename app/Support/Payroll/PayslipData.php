@@ -6,8 +6,8 @@ use App\Enums\PayrollCategory;
 use App\Models\Company;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Support\Media\CompanyLogoDataUri;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\Storage;
 
 final class PayslipData
 {
@@ -35,7 +35,7 @@ final class PayslipData
 
         $base = [
             'company_name' => (string) ($company?->name ?? ''),
-            'company_logo' => $company?->logo ? Storage::disk('public')->url($company->logo) : null,
+            'company_logo' => CompanyLogoDataUri::resolve($company),
             'employee_name' => (string) ($employee?->name ?? ''),
             'employee_no' => (string) ($employee?->employee_no ?? ''),
             'designation' => (string) ($employee?->position?->title ?? ''),

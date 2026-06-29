@@ -304,6 +304,7 @@ export type PayrollRecordsSummary = {
     employee_count: number;
     total_gross: string;
     total_net: string;
+    total_additions: string;
     total_deductions: string;
 };
 

@@ -1,4 +1,3 @@
-import { Link } from '@inertiajs/react';
 import { Download, FileText } from 'lucide-react';
 import {
     download as downloadPayslip,
@@ -55,9 +54,14 @@ export function PayrollRecordPayslipActionButtons({
                 <Tooltip>
                     <TooltipTrigger asChild>
                         <Button asChild variant="ghost" size="icon" className="size-8 rounded-lg">
-                            <Link href={showPayslip.url(recordId)} target="_blank" aria-label="View payslip">
+                            <a
+                                href={showPayslip.url(recordId)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="View payslip"
+                            >
                                 <FileText className="h-4 w-4" />
-                            </Link>
+                            </a>
                         </Button>
                     </TooltipTrigger>
                     <TooltipContent>View payslip</TooltipContent>

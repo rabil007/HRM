@@ -1,6 +1,6 @@
 import { router, useForm } from '@inertiajs/react';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
     destroy as destroySalaryInput,
     store as storeSalaryInput,
@@ -79,19 +79,22 @@ export function OfficeSalaryInputsSheet({
     const defaultTypeId = typeOptions[0]?.value ?? 0;
     const [editingInput, setEditingInput] = useState<SalaryInput | null>(null);
     const [isFormVisible, setIsFormVisible] = useState(false);
+    const [prevRecordId, setPrevRecordId] = useState<number | null>(null);
+    const [prevOpen, setPrevOpen] = useState(false);
 
     const form = useForm<SalaryInputFormData>(emptyForm(record?.employee.id ?? 0, defaultTypeId));
 
-    useEffect(() => {
-        if (!open || !record) {
-            return;
+    const currentRecordId = record?.employee.id ?? null;
+    if (open !== prevOpen || currentRecordId !== prevRecordId) {
+        setPrevOpen(open);
+        setPrevRecordId(currentRecordId);
+        if (open && record) {
+            setEditingInput(null);
+            setIsFormVisible(false);
+            form.clearErrors();
+            form.setData(emptyForm(record.employee.id, defaultTypeId));
         }
-
-        setEditingInput(null);
-        setIsFormVisible(false);
-        form.clearErrors();
-        form.setData(emptyForm(record.employee.id, defaultTypeId));
-    }, [open, record?.employee.id, defaultTypeId]);
+    }
 
     const canSave = editingInput ? canUpdate : canCreate;
     const showForm = isFormVisible || editingInput !== null;

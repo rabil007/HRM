@@ -4,6 +4,7 @@ use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('pay run page includes payroll records summary with aggregated totals', function () {
@@ -32,6 +33,19 @@ test('pay run page includes payroll records summary with aggregated totals', fun
         'total_deductions' => 0.00,
     ]);
 
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 1000.00,
+    ]);
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $secondEmployee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 300.00,
+    ]);
+
     $this->withSession(['current_company_id' => $company->id])
         ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
         ->assertOk()
@@ -40,6 +54,7 @@ test('pay run page includes payroll records summary with aggregated totals', fun
             ->where('payroll_records_summary.employee_count', 2)
             ->where('payroll_records_summary.total_gross', '24800.00')
             ->where('payroll_records_summary.total_net', '24300.00')
+            ->where('payroll_records_summary.total_additions', '1300.00')
             ->where('payroll_records_summary.total_deductions', '500.00'));
 });
 

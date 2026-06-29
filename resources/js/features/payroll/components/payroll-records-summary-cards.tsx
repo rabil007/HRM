@@ -1,4 +1,4 @@
-import { TrendingUp, Users, Wallet } from 'lucide-react';
+import { MinusCircle, PlusCircle, TrendingUp, Users, Wallet } from 'lucide-react';
 import type { ElementType } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
@@ -50,19 +50,30 @@ function SummaryCard({
 }
 
 export function PayrollRecordsSummaryCards({ summary }: { summary: PayrollRecordsSummary }) {
-    const netHint =
-        Number(summary.total_deductions) > 0
-            ? `Payable after ${formatTimesheetAmount(summary.total_deductions)} in deductions`
-            : 'Payable after deductions';
-
     return (
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <SummaryCard
                 title="Total Employees"
                 value={summary.employee_count.toLocaleString()}
                 hint="Included in this pay run"
                 icon={Users}
                 iconClassName="border-primary/20 bg-primary/10 text-primary"
+            />
+            <SummaryCard
+                title="Total Additions"
+                value={formatTimesheetAmount(summary.total_additions)}
+                hint="Bonuses and other salary inputs"
+                icon={PlusCircle}
+                iconClassName="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
+                accentClassName="hover:border-emerald-500/25"
+            />
+            <SummaryCard
+                title="Total Deductions"
+                value={formatTimesheetAmount(summary.total_deductions)}
+                hint="Late, loan, and other deductions"
+                icon={MinusCircle}
+                iconClassName="border-amber-500/20 bg-amber-500/10 text-amber-600 dark:text-amber-300"
+                accentClassName="hover:border-amber-500/25"
             />
             <SummaryCard
                 title="Total Gross"
@@ -75,10 +86,10 @@ export function PayrollRecordsSummaryCards({ summary }: { summary: PayrollRecord
             <SummaryCard
                 title="Total Net"
                 value={formatTimesheetAmount(summary.total_net)}
-                hint={netHint}
+                hint="Combined net payable"
                 icon={Wallet}
-                iconClassName="border-emerald-500/20 bg-emerald-500/10 text-emerald-600 dark:text-emerald-300"
-                accentClassName="hover:border-emerald-500/25"
+                iconClassName="border-violet-500/20 bg-violet-500/10 text-violet-600 dark:text-violet-300"
+                accentClassName="hover:border-violet-500/25"
             />
         </div>
     );
