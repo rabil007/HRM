@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Ban, Building2, Calculator, Calendar, CalendarDays, CheckCircle2, CheckSquare, CreditCard, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
+import { AlertCircle, Ban, Building2, Calculator, Calendar, CalendarDays, CheckCircle2, CheckSquare, CreditCard, Paperclip, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { PaginationMeta } from '@/types/pagination';
 import {
@@ -337,11 +337,15 @@ export function PayrollShowContent({
         );
     };
 
-    const handleMarkPaid = () => {
+    const handleMarkPaid = (file?: File | null) => {
         setIsMarkingPaid(true);
+        const payload: Record<string, any> = {};
+        if (file) {
+            payload.payment_proof = file;
+        }
         router.post(
             markPaid.url(period.id),
-            {},
+            payload,
             {
                 preserveScroll: true,
                 onFinish: () => {
@@ -461,7 +465,8 @@ export function PayrollShowContent({
         canRevertToDraft ||
         canApprove ||
         canMarkPaid ||
-        canCancelPeriod;
+        canCancelPeriod ||
+        Boolean(period.has_payment_proof);
 
     const recordsPagination = payroll_records_pagination;
 
@@ -485,6 +490,17 @@ export function PayrollShowContent({
                 actions={
                     hasHeaderActions ? (
                         <div className="flex flex-wrap items-center gap-2">
+                            {period.has_payment_proof && period.payment_proof_url ? (
+                                <a
+                                    href={period.payment_proof_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                                >
+                                    <Paperclip className="h-4 w-4" />
+                                    Payment Proof
+                                </a>
+                            ) : null}
                             {canCancelPeriod ? (
                                 <Button
                                     variant="outline"

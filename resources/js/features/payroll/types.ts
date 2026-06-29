@@ -42,6 +42,8 @@ export type PayrollPeriod = {
     excluded_employee_ids: number[];
     approved_at: string | null;
     approver: { id: number; name: string } | null;
+    has_payment_proof?: boolean;
+    payment_proof_url?: string | null;
     created_at: string | null;
 };
 

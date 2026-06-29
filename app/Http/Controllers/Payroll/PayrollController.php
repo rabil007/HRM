@@ -44,6 +44,7 @@ use App\Support\Payroll\Wps\WpsExportPreview;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response as InertiaResponse;
@@ -565,7 +566,7 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        $markPayrollPeriodPaid->handle($payrollPeriod);
+        $markPayrollPeriodPaid->handle($payrollPeriod, $request->file('payment_proof'));
 
         return redirect()
             ->route('payroll.show', [
@@ -573,6 +574,16 @@ class PayrollController extends Controller
                 'tab' => 'payroll',
             ])
             ->with('success', 'Pay period marked as paid.');
+    }
+
+    public function downloadPaymentProof(Request $request, PayrollPeriod $payrollPeriod)
+    {
+        $companyId = (int) $request->attributes->get('current_company_id');
+        abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
+        abort_unless(filled($payrollPeriod->payment_proof_path), 404);
+        abort_unless(Storage::exists($payrollPeriod->payment_proof_path), 404);
+
+        return Storage::download($payrollPeriod->payment_proof_path);
     }
 
     public function cancel(

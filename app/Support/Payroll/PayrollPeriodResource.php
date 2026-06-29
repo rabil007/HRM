@@ -43,6 +43,8 @@ final class PayrollPeriodResource
                     'name' => $period->approvedBy->name,
                 ]
                 : null,
+            'has_payment_proof' => filled($period->payment_proof_path),
+            'payment_proof_url' => filled($period->payment_proof_path) ? route('payroll.payment-proof', $period) : null,
             'created_at' => $period->created_at?->toDateTimeString(),
         ];
     }

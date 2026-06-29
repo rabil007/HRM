@@ -9,6 +9,7 @@ use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -138,6 +139,34 @@ test('authorized users can mark approved pay period as paid', function () {
     expect($record)->not->toBeNull()
         ->and($record->status)->toBe('paid')
         ->and($record->paid_at)->not->toBeNull();
+});
+
+test('authorized users can mark approved pay period as paid with payment proof document', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid', 'payroll.periods.view']);
+
+    Storage::fake('local');
+
+    [$period, $employee] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $file = UploadedFile::fake()->create('payment_receipt.pdf', 500, 'application/pdf');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), [
+            'payment_proof' => $file,
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+        ->and($period->payment_proof_path)->not->toBeNull();
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payment-proof', $period))
+        ->assertOk();
 });
 
 test('mark paid fails for processing pay period', function () {

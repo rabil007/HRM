@@ -16,6 +16,8 @@ class MarkPayrollPeriodPaidRequest extends FormRequest
      */
     public function rules(): array
     {
-        return [];
+        return [
+            'payment_proof' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png,webp,doc,docx', 'max:10240'],
+        ];
     }
 }
