@@ -317,7 +317,7 @@ export type PayrollRecordsSummary = {
 
 export type PayrollShowProps = {
     period: PayrollPeriod;
-    leave_types: LeaveTypeColumn[];
+    leave_types?: LeaveTypeColumn[];
     rows: CrewPayrollRow[];
     pagination: PaginationMeta;
     payroll_records: PayrollRecordListItem[];

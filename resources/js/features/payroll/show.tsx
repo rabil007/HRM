@@ -67,23 +67,12 @@ import type {
     CrewPayrollRow,
     CrewTimesheetFormData,
     EmployeeStats,
-    LeaveTypeColumn,
     OfficePayrollRecordListItem,
     PayrollRecordListItem,
     PayrollShowProps,
     SalaryInput,
 } from './types';
 import { formatTimesheetAmount, formatTimesheetDays } from './types';
-
-function leaveDaysForType(row: CrewPayrollRow, leaveTypeId: number): number | null {
-    const usage = row.leave_usage?.find((item) => item.leave_type_id === leaveTypeId);
-
-    if (!usage) {
-        return null;
-    }
-
-    return usage.days;
-}
 
 const TIMESHEET_FIELD_KEYS = [
     'period_id',
@@ -181,7 +170,6 @@ function draftToFormData(draft: CrewTimesheetFormData): CrewTimesheetFormData {
 
 export function PayrollShowContent({
     period,
-    leave_types,
     rows,
     pagination,
     payroll_records,
@@ -919,7 +907,6 @@ export function PayrollShowContent({
         return (
             <OfficeEmployeesTabContent
                 rows={rows}
-                leave_types={leave_types}
                 pagination={pagination}
                 employee_stats={employee_stats}
                 onPageChange={list.goToPage}
@@ -1159,7 +1146,6 @@ function SalaryCell({ value }: { value: string | null | undefined }) {
 
 function OfficeEmployeesTabContent({
     rows,
-    leave_types,
     pagination,
     employee_stats,
     onPageChange,
@@ -1167,7 +1153,6 @@ function OfficeEmployeesTabContent({
     setExcludedIds,
 }: {
     rows: CrewPayrollRow[];
-    leave_types: LeaveTypeColumn[];
     pagination: PaginationMeta;
     employee_stats: EmployeeStats | null;
     onPageChange: (page: number) => void;
@@ -1301,25 +1286,7 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>Transport Allow.</DataTableHead>
                         <DataTableHead>Other Allow.</DataTableHead>
                         <DataTableHead>Payment</DataTableHead>
-                        {/* Leave type columns */}
-                        {leave_types.map((leaveType: LeaveTypeColumn) => (
-                            <DataTableHead key={leaveType.id}>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center gap-1.5">
-                                            {leaveType.color ? (
-                                                <span
-                                                    className="h-2 w-2 shrink-0 rounded-full"
-                                                    style={{ backgroundColor: leaveType.color }}
-                                                />
-                                            ) : null}
-                                            {leaveType.code}
-                                        </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>{leaveType.name}</TooltipContent>
-                                </Tooltip>
-                            </DataTableHead>
-                        ))}
+
                     </DataTableHeaderRow>
                 </TableHeader>
                 <TableBody>
@@ -1431,14 +1398,7 @@ function OfficeEmployeesTabContent({
                                     label={row.salary_payment_method_label ?? 'Bank transfer'}
                                 />
 
-                                {/* Leave type columns */}
-                                {leave_types.map((leaveType: LeaveTypeColumn) => (
-                                    <TableCell key={leaveType.id} className={dataTableCellClass()}>
-                                        {formatTimesheetDays(
-                                            String(leaveDaysForType(row, leaveType.id) ?? 0),
-                                        )}
-                                    </TableCell>
-                                ))}
+
                             </TableRow>
                         );
                     })}
