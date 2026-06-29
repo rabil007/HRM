@@ -337,11 +337,13 @@ export function PayrollShowContent({
         );
     };
 
-    const handleMarkPaid = (file?: File | null) => {
+    const handleMarkPaid = (files?: File[] | File | null) => {
         setIsMarkingPaid(true);
         const payload: Record<string, any> = {};
-        if (file) {
-            payload.payment_proof = file;
+        if (Array.isArray(files) && files.length > 0) {
+            payload.payment_proofs = files;
+        } else if (files instanceof File) {
+            payload.payment_proof = files;
         }
         router.post(
             markPaid.url(period.id),
@@ -490,17 +492,32 @@ export function PayrollShowContent({
                 actions={
                     hasHeaderActions ? (
                         <div className="flex flex-wrap items-center gap-2">
-                            {period.has_payment_proof && period.payment_proof_url ? (
-                                <a
-                                    href={period.payment_proof_url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
-                                >
-                                    <Paperclip className="h-4 w-4" />
-                                    Payment Proof
-                                </a>
-                            ) : null}
+                            {period.has_payment_proof && period.payment_proofs && period.payment_proofs.length > 0
+                                ? period.payment_proofs.map((proof, idx) => (
+                                      <a
+                                          key={proof.id ?? idx}
+                                          href={proof.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                                      >
+                                          <Paperclip className="h-4 w-4" />
+                                          {period.payment_proofs!.length > 1
+                                              ? `Payment Proof #${idx + 1}`
+                                              : 'Payment Proof'}
+                                      </a>
+                                  ))
+                                : period.has_payment_proof && period.payment_proof_url ? (
+                                      <a
+                                          href={period.payment_proof_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-2 h-12 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-5 text-sm font-medium text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                                      >
+                                          <Paperclip className="h-4 w-4" />
+                                          Payment Proof
+                                      </a>
+                                  ) : null}
                             {canCancelPeriod ? (
                                 <Button
                                     variant="outline"

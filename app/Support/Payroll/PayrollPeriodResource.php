@@ -7,11 +7,22 @@ use App\Models\PayrollPeriod;
 
 final class PayrollPeriodResource
 {
-    /**
-     * @return array<string, mixed>
-     */
     public static function toArray(PayrollPeriod $period): array
     {
+        $paths = $period->payment_proof_paths ?? [];
+        if (empty($paths) && filled($period->payment_proof_path)) {
+            $paths = [$period->payment_proof_path];
+        }
+
+        $proofs = [];
+        foreach ($paths as $index => $path) {
+            $proofs[] = [
+                'id' => $index,
+                'name' => basename($path),
+                'url' => route('payroll.payment-proof', ['payrollPeriod' => $period, 'index' => $index]),
+            ];
+        }
+
         return [
             'id' => $period->id,
             'name' => $period->name,
@@ -43,8 +54,9 @@ final class PayrollPeriodResource
                     'name' => $period->approvedBy->name,
                 ]
                 : null,
-            'has_payment_proof' => filled($period->payment_proof_path),
-            'payment_proof_url' => filled($period->payment_proof_path) ? route('payroll.payment-proof', $period) : null,
+            'has_payment_proof' => ! empty($proofs),
+            'payment_proof_url' => $proofs[0]['url'] ?? null,
+            'payment_proofs' => $proofs,
             'created_at' => $period->created_at?->toDateTimeString(),
         ];
     }

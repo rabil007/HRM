@@ -11,7 +11,10 @@ use Illuminate\Validation\ValidationException;
 
 final class MarkPayrollPeriodPaid
 {
-    public function handle(PayrollPeriod $period, ?UploadedFile $proofFile = null): PayrollPeriod
+    /**
+     * @param  array<int, UploadedFile>|UploadedFile|null  $proofFiles
+     */
+    public function handle(PayrollPeriod $period, array|UploadedFile|null $proofFiles = null): PayrollPeriod
     {
         if (! $period->canMarkPaid()) {
             throw ValidationException::withMessages([
@@ -19,11 +22,25 @@ final class MarkPayrollPeriodPaid
             ]);
         }
 
-        return DB::transaction(function () use ($period, $proofFile): PayrollPeriod {
+        return DB::transaction(function () use ($period, $proofFiles): PayrollPeriod {
             $paidAt = now();
-            $proofPath = $proofFile !== null
-                ? UploadedFileStorage::store($proofFile, 'payroll-periods/payment-proofs')
-                : $period->payment_proof_path;
+            $files = is_array($proofFiles)
+                ? $proofFiles
+                : ($proofFiles instanceof UploadedFile ? [$proofFiles] : []);
+
+            $paths = $period->payment_proof_paths ?? [];
+            if ($period->payment_proof_path !== null && ! in_array($period->payment_proof_path, $paths, true)) {
+                array_unshift($paths, $period->payment_proof_path);
+            }
+
+            foreach ($files as $file) {
+                if ($file instanceof UploadedFile) {
+                    $paths[] = UploadedFileStorage::store($file, 'payroll-periods/payment-proofs');
+                }
+            }
+
+            $paths = array_values(array_unique($paths));
+            $primaryPath = $paths[0] ?? null;
 
             $period->payrollRecords()->update([
                 'status' => 'paid',
@@ -32,7 +49,8 @@ final class MarkPayrollPeriodPaid
 
             $period->update([
                 'status' => PayrollPeriodStatus::Paid,
-                'payment_proof_path' => $proofPath,
+                'payment_proof_path' => $primaryPath,
+                'payment_proof_paths' => $paths,
             ]);
 
             return $period->refresh();

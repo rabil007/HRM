@@ -44,6 +44,7 @@ export type PayrollPeriod = {
     approver: { id: number; name: string } | null;
     has_payment_proof?: boolean;
     payment_proof_url?: string | null;
+    payment_proofs?: Array<{ id: number; name: string; url: string }>;
     created_at: string | null;
 };
 

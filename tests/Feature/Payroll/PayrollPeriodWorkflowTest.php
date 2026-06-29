@@ -169,6 +169,35 @@ test('authorized users can mark approved pay period as paid with payment proof d
         ->assertOk();
 });
 
+test('authorized users can mark approved pay period as paid with multiple payment proof documents', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.mark_paid', 'payroll.periods.view']);
+
+    Storage::fake('local');
+
+    [$period, $employee] = createApprovedPayrollPeriodWithRecord($company, $user);
+
+    $file1 = UploadedFile::fake()->create('receipt1.pdf', 500, 'application/pdf');
+    $file2 = UploadedFile::fake()->create('receipt2.png', 500, 'image/png');
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.mark-paid', $period), [
+            'payment_proofs' => [$file1, $file2],
+        ])
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+    expect($period->status)->toBe(PayrollPeriodStatus::Paid)
+        ->and($period->payment_proof_paths)->toHaveCount(2);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.payment-proof', ['payrollPeriod' => $period, 'index' => 1]))
+        ->assertOk();
+});
+
 test('mark paid fails for processing pay period', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

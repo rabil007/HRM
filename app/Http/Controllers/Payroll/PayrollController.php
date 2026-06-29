@@ -566,7 +566,12 @@ class PayrollController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        $markPayrollPeriodPaid->handle($payrollPeriod, $request->file('payment_proof'));
+        $proofFiles = $request->file('payment_proofs');
+        if (! is_array($proofFiles) && $request->hasFile('payment_proof')) {
+            $proofFiles = [$request->file('payment_proof')];
+        }
+
+        $markPayrollPeriodPaid->handle($payrollPeriod, $proofFiles);
 
         return redirect()
             ->route('payroll.show', [
@@ -580,10 +585,19 @@ class PayrollController extends Controller
     {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
-        abort_unless(filled($payrollPeriod->payment_proof_path), 404);
-        abort_unless(Storage::exists($payrollPeriod->payment_proof_path), 404);
 
-        return Storage::download($payrollPeriod->payment_proof_path);
+        $paths = $payrollPeriod->payment_proof_paths ?? [];
+        if (empty($paths) && filled($payrollPeriod->payment_proof_path)) {
+            $paths = [$payrollPeriod->payment_proof_path];
+        }
+
+        $index = (int) $request->query('index', 0);
+        $targetPath = $paths[$index] ?? ($paths[0] ?? null);
+
+        abort_unless($targetPath !== null, 404);
+        abort_unless(Storage::exists($targetPath), 404);
+
+        return Storage::download($targetPath);
     }
 
     public function cancel(

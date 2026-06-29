@@ -1,4 +1,4 @@
-import { FileCheck, Upload, X } from 'lucide-react';
+import { FileCheck, Plus, Upload, X } from 'lucide-react';
 import { useRef, useState } from 'react';
 import {
     AlertDialog,
@@ -21,27 +21,32 @@ export function PayrollMarkPaidDialog({
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    onConfirm: (file: File | null) => void;
+    onConfirm: (files: File[]) => void;
     processing: boolean;
 }) {
-    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0] ?? null;
-        setSelectedFile(file);
-    };
-
-    const handleRemoveFile = () => {
-        setSelectedFile(null);
+        if (!e.target.files || e.target.files.length === 0) return;
+        const newFiles = Array.from(e.target.files);
+        setSelectedFiles((prev) => {
+            const existingKeys = new Set(prev.map((f) => `${f.name}-${f.size}`));
+            const filtered = newFiles.filter((f) => !existingKeys.has(`${f.name}-${f.size}`));
+            return [...prev, ...filtered];
+        });
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     };
 
+    const handleRemoveFile = (index: number) => {
+        setSelectedFiles((prev) => prev.filter((_, i) => i !== index));
+    };
+
     const handleClose = (newOpen: boolean) => {
         if (!newOpen) {
-            setSelectedFile(null);
+            setSelectedFiles([]);
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
@@ -59,20 +64,35 @@ export function PayrollMarkPaidDialog({
                     </AlertDialogDescription>
                 </AlertDialogHeader>
 
-                <div className="space-y-2 py-2">
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                        Payment Proof / Evidence (Optional)
-                    </Label>
+                <div className="space-y-3 py-2">
+                    <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                            Payment Proof Documents ({selectedFiles.length})
+                        </Label>
+                        {selectedFiles.length > 0 ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs text-primary hover:text-primary"
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <Plus className="mr-1 h-3.5 w-3.5" />
+                                Add more
+                            </Button>
+                        ) : null}
+                    </div>
 
                     <input
                         ref={fileInputRef}
                         type="file"
+                        multiple
                         accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx"
                         className="hidden"
                         onChange={handleFileChange}
                     />
 
-                    {!selectedFile ? (
+                    {selectedFiles.length === 0 ? (
                         <div
                             onClick={() => fileInputRef.current?.click()}
                             className="flex flex-col items-center justify-center cursor-pointer rounded-xl border border-dashed border-muted-foreground/30 bg-muted/20 p-4 transition-colors hover:border-primary/50 hover:bg-accent/30 text-center gap-2"
@@ -81,32 +101,39 @@ export function PayrollMarkPaidDialog({
                                 <Upload className="h-4 w-4" />
                             </div>
                             <div>
-                                <p className="text-xs font-medium">Click to upload payment proof document</p>
-                                <p className="text-[11px] text-muted-foreground">PDF, JPG, PNG or DOC (Max 10MB)</p>
+                                <p className="text-xs font-medium">Click to upload payment proof files</p>
+                                <p className="text-[11px] text-muted-foreground">PDF, JPG, PNG or DOC (Upload multiple files)</p>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-                                    <FileCheck className="h-4 w-4" />
+                        <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            {selectedFiles.map((file, idx) => (
+                                <div
+                                    key={`${file.name}-${idx}`}
+                                    className="flex items-center justify-between gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5"
+                                >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">
+                                            <FileCheck className="h-3.5 w-3.5" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-semibold truncate">{file.name}</p>
+                                            <p className="text-[10px] text-muted-foreground">
+                                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-6 w-6 shrink-0 rounded-lg text-muted-foreground hover:text-destructive"
+                                        onClick={() => handleRemoveFile(idx)}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </Button>
                                 </div>
-                                <div className="min-w-0">
-                                    <p className="text-xs font-semibold truncate">{selectedFile.name}</p>
-                                    <p className="text-[10px] text-muted-foreground">
-                                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                    </p>
-                                </div>
-                            </div>
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 rounded-lg text-muted-foreground hover:text-destructive"
-                                onClick={handleRemoveFile}
-                            >
-                                <X className="h-4 w-4" />
-                            </Button>
+                            ))}
                         </div>
                     )}
                 </div>
@@ -118,7 +145,7 @@ export function PayrollMarkPaidDialog({
                         disabled={processing}
                         onClick={(event) => {
                             event.preventDefault();
-                            onConfirm(selectedFile);
+                            onConfirm(selectedFiles);
                         }}
                     >
                         {processing ? 'Saving…' : 'Mark as paid'}
