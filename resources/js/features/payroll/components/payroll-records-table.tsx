@@ -114,7 +114,6 @@ export function PayrollRecordsTable({
                         <PayrollRecordPayslipStatusCell
                             has_payslip={record.has_payslip}
                             wps_status_label={record.wps_status_label}
-                            salary_payment_method={record.salary_payment_method}
                         />
                         <TableCell className={dataTableActionsCellClass()}>
                             <div className="flex items-center justify-end gap-2">

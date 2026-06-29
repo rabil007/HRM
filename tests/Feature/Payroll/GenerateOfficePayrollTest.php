@@ -2,6 +2,7 @@
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Bank;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
@@ -361,4 +362,31 @@ test('payroll show includes office payroll records and leave usage on employees 
             ->where('rows.0.leave_usage.0.days', 1)
             ->where('rows.0.primary_account.bank_name', 'Payroll Bank')
             ->where('rows.0.primary_account.iban', 'AE070331234567890123456'));
+});
+
+test('office payroll employees tab exposes salary payment method for cash employees', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.periods.update',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-30',
+    ]);
+
+    $cashEmployee = createOfficeEmployeeWithContract($company, 'CASH-001', 5000, 0, 0, 0);
+    $cashEmployee->update(['salary_payment_method' => SalaryPaymentMethod::CashC3]);
+
+    $this->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'employees']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('payroll/show')
+            ->where('tab', 'employees')
+            ->has('rows', 1)
+            ->where('rows.0.salary_payment_method', SalaryPaymentMethod::CashC3->value)
+            ->where('rows.0.salary_payment_method_label', 'C3'));
 });

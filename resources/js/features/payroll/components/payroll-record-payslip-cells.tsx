@@ -8,10 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableCell } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import {
-    cashPaymentBadgeLabel,
-    type SalaryPaymentMethodValue,
-} from '@/features/organization/employees/salary-payment-method';
 import type { PayrollRecordDeliveryFields } from '../types';
 
 type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
@@ -22,27 +18,14 @@ type PayrollRecordPayslipCellsProps = PayrollRecordDeliveryFields & {
 export function PayrollRecordPayslipStatusCell({
     has_payslip,
     wps_status_label,
-    salary_payment_method,
-}: Pick<
-    PayrollRecordPayslipCellsProps,
-    'has_payslip' | 'wps_status_label' | 'salary_payment_method'
->) {
-    const cashBadge = cashPaymentBadgeLabel(salary_payment_method as SalaryPaymentMethodValue);
-
+}: Pick<PayrollRecordPayslipCellsProps, 'has_payslip' | 'wps_status_label'>) {
     return (
         <TableCell className={dataTableCellClass()}>
             <div className="flex flex-col gap-1">
                 <Badge variant={has_payslip ? 'default' : 'outline'}>
                     {has_payslip ? 'Generated' : 'Pending'}
                 </Badge>
-                {cashBadge ? (
-                    <Badge
-                        variant="outline"
-                        className="w-fit border-amber-500/30 bg-amber-500/10 text-xs text-amber-800 dark:text-amber-200"
-                    >
-                        {cashBadge}
-                    </Badge>
-                ) : wps_status_label ? (
+                {wps_status_label ? (
                     <Badge variant="secondary" className="w-fit text-xs">
                         WPS: {wps_status_label}
                     </Badge>

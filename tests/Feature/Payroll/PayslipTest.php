@@ -240,3 +240,40 @@ test('payslip data embeds company logo as data uri for pdf rendering', function 
         ->and(base64_decode(substr((string) $data['company_logo'], strlen('data:image/png;base64,'))))
         ->toBe($png);
 });
+
+test('office payslip earnings always include core salary components even when zero', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+    $employee = Employee::factory()->forCompany($company)->create(['employee_no' => 'PAY-021']);
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'basic_salary' => 4000,
+        'housing_allowance' => 0,
+        'transport_allowance' => 0,
+        'other_allowances' => 0,
+        'overtime_pay' => 0,
+        'bonus' => 0,
+        'gross_salary' => 4000,
+        'net_salary' => 4000,
+        'status' => 'approved',
+    ]);
+
+    $data = PayslipData::for($record, $company->id);
+
+    expect($data['earnings'])->toHaveCount(4)
+        ->and(collect($data['earnings'])->pluck('label')->all())->toBe([
+            'Basic salary',
+            'Housing allowance',
+            'Transport allowance',
+            'Other allowances',
+        ])
+        ->and(collect($data['earnings'])->pluck('amount')->all())->toBe([
+            '4000.00',
+            '0.00',
+            '0.00',
+            '0.00',
+        ]);
+});

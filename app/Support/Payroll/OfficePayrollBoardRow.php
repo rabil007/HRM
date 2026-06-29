@@ -2,6 +2,7 @@
 
 namespace App\Support\Payroll;
 
+use App\Enums\SalaryPaymentMethod;
 use App\Models\Employee;
 
 final class OfficePayrollBoardRow
@@ -12,6 +13,7 @@ final class OfficePayrollBoardRow
     public static function toArray(Employee $employee, int $periodId, EmployeeLeavePeriodSummary $summary): array
     {
         $contract = $employee->currentContract;
+        $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
         return [
             'employee' => [
@@ -26,6 +28,8 @@ final class OfficePayrollBoardRow
             'leave_usage' => $summary->toLeaveUsageArray(),
             'total_leave_days' => $summary->totalLeaveDays,
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($employee),
+            'salary_payment_method' => $paymentMethod->value,
+            'salary_payment_method_label' => $paymentMethod->label(),
             'contract' => $contract !== null ? [
                 'basic_salary' => $contract->basic_salary,
                 'housing_allowance' => $contract->housing_allowance,

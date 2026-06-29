@@ -116,11 +116,14 @@ final class PayslipData
      */
     private static function officeEarnings(PayrollRecord $record, array $salaryInputLines): array
     {
-        $rows = [
+        $coreRows = [
             ['label' => 'Basic salary', 'amount' => self::formatAmount($record->basic_salary)],
             ['label' => 'Housing allowance', 'amount' => self::formatAmount($record->housing_allowance)],
             ['label' => 'Transport allowance', 'amount' => self::formatAmount($record->transport_allowance)],
             ['label' => 'Other allowances', 'amount' => self::formatAmount($record->other_allowances)],
+        ];
+
+        $optionalRows = [
             ['label' => 'Overtime', 'amount' => self::formatAmount($record->overtime_pay)],
         ];
 
@@ -129,17 +132,17 @@ final class PayslipData
                 continue;
             }
 
-            $rows[] = [
+            $optionalRows[] = [
                 'label' => (string) ($input['type_label'] ?? $input['type'] ?? 'Addition'),
                 'amount' => self::formatAmount($input['amount'] ?? 0),
             ];
         }
 
         if ($salaryInputLines === [] && (float) $record->bonus > 0) {
-            $rows[] = ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)];
+            $optionalRows[] = ['label' => 'Bonus', 'amount' => self::formatAmount($record->bonus)];
         }
 
-        return self::filterPositiveLines($rows);
+        return array_merge($coreRows, self::filterPositiveLines($optionalRows));
     }
 
     /**

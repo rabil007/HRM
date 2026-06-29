@@ -131,6 +131,8 @@ export type CrewPayrollRow = {
     leave_usage?: OfficeLeaveUsage[];
     total_leave_days?: number;
     primary_account?: OfficePrimaryAccount | null;
+    salary_payment_method?: string;
+    salary_payment_method_label?: string;
     contract?: {
         basic_salary: string | null;
         housing_allowance: string | null;

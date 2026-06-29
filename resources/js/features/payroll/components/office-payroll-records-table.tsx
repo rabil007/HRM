@@ -12,8 +12,13 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { OfficePayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
+import {
+    PayrollRecordBankAccountCell,
+    PayrollRecordPaymentMethodCell,
+} from './payroll-record-display-cells';
 import {
     PayrollRecordPayslipActionButtons,
     PayrollRecordPayslipStatusCell,
@@ -78,8 +83,8 @@ export function OfficePayrollRecordsTable({
                         />
                     ) : null}
                     <DataTableHead className={wpsSelection ? undefined : 'pl-5'}>Employee</DataTableHead>
-                    <DataTableHead>Bank</DataTableHead>
-                    <DataTableHead>IBAN</DataTableHead>
+                    <DataTableHead>Bank account</DataTableHead>
+                    <DataTableHead>Payment</DataTableHead>
                     <DataTableHead>Basic</DataTableHead>
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
@@ -113,12 +118,18 @@ export function OfficePayrollRecordsTable({
                                 {record.employee.employee_no ?? '—'}
                             </div>
                         </TableCell>
-                        <TableCell className={dataTableCellClass()}>
-                            {record.primary_account?.bank_name ?? '—'}
-                        </TableCell>
-                        <TableCell className={cn(dataTableCellClass(), 'font-mono text-xs')}>
-                            {record.primary_account?.iban ?? '—'}
-                        </TableCell>
+                        <PayrollRecordBankAccountCell
+                            primary_account={record.primary_account}
+                            salary_payment_method={
+                                (record.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue
+                            }
+                        />
+                        <PayrollRecordPaymentMethodCell
+                            method={
+                                (record.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue
+                            }
+                            label={record.salary_payment_method_label ?? 'Bank transfer'}
+                        />
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.basic_salary)}
                         </TableCell>
@@ -147,7 +158,6 @@ export function OfficePayrollRecordsTable({
                         <PayrollRecordPayslipStatusCell
                             has_payslip={record.has_payslip}
                             wps_status_label={record.wps_status_label}
-                            salary_payment_method={record.salary_payment_method}
                         />
                         <TableCell className={dataTableActionsCellClass()}>
                             <div className="flex items-center justify-end gap-2">

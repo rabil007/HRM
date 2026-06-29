@@ -36,11 +36,18 @@ import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/tab
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
+import {
+    type SalaryPaymentMethodValue,
+} from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
+import {
+    PayrollRecordBankAccountCell,
+    PayrollRecordPaymentMethodCell,
+} from './components/payroll-record-display-cells';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
@@ -1281,7 +1288,6 @@ function OfficeEmployeesTabContent({
                             />
                         </DataTableHead>
                         <DataTableHead>Employee</DataTableHead>
-                        <DataTableHead>Code</DataTableHead>
                         {/* Salary columns */}
                         <DataTableHead>
                             <Tooltip>
@@ -1297,9 +1303,8 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>Housing Allow.</DataTableHead>
                         <DataTableHead>Transport Allow.</DataTableHead>
                         <DataTableHead>Other Allow.</DataTableHead>
-                        {/* Bank / IBAN */}
-                        <DataTableHead>Bank</DataTableHead>
-                        <DataTableHead>IBAN</DataTableHead>
+                        <DataTableHead>Payment</DataTableHead>
+                        <DataTableHead>Bank account</DataTableHead>
                         {/* Leave type columns */}
                         {leave_types.map((leaveType: LeaveTypeColumn) => (
                             <DataTableHead key={leaveType.id}>
@@ -1324,8 +1329,8 @@ function OfficeEmployeesTabContent({
                 <TableBody>
                     {rows.map((row) => {
                         const isExcluded = excludedIds.has(row.employee.id);
-                        const hasBankAccount = row.primary_account !== null && row.primary_account !== undefined;
-                        const hasIban = !!row.primary_account?.iban;
+                        const paymentMethod =
+                            (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
                         const contract = row.contract ?? null;
 
                         return (
@@ -1390,18 +1395,14 @@ function OfficeEmployeesTabContent({
                                             >
                                                 {row.employee.name}
                                             </span>
+                                            <span className="block font-mono text-xs text-muted-foreground">
+                                                {row.employee.employee_no ?? '—'}
+                                            </span>
                                             <span className="text-[11px] text-muted-foreground/60">
                                                 View profile →
                                             </span>
                                         </div>
                                     </Link>
-                                </TableCell>
-
-                                {/* Employee code */}
-                                <TableCell className={dataTableCellClass()}>
-                                    <span className="font-mono text-xs">
-                                        {row.employee.employee_no ?? '—'}
-                                    </span>
                                 </TableCell>
 
                                 {/* Basic salary */}
@@ -1424,32 +1425,14 @@ function OfficeEmployeesTabContent({
                                     <SalaryCell value={contract?.other_allowances} />
                                 </TableCell>
 
-                                {/* Bank name */}
-                                <TableCell className={dataTableCellClass()}>
-                                    {hasBankAccount ? (
-                                        <span className="inline-flex items-center gap-1.5 text-sm">
-                                            <CreditCard className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-                                            {row.primary_account!.bank_name ?? '—'}
-                                        </span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                                            Not set
-                                        </span>
-                                    )}
-                                </TableCell>
-
-                                {/* IBAN */}
-                                <TableCell className={dataTableCellClass()}>
-                                    {hasIban ? (
-                                        <span className="font-mono text-xs">{row.primary_account!.iban}</span>
-                                    ) : (
-                                        <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-                                            Not set
-                                        </span>
-                                    )}
-                                </TableCell>
+                                <PayrollRecordPaymentMethodCell
+                                    method={paymentMethod}
+                                    label={row.salary_payment_method_label ?? 'Bank transfer'}
+                                />
+                                <PayrollRecordBankAccountCell
+                                    primary_account={row.primary_account ?? null}
+                                    salary_payment_method={paymentMethod}
+                                />
 
                                 {/* Leave type columns */}
                                 {leave_types.map((leaveType: LeaveTypeColumn) => (
