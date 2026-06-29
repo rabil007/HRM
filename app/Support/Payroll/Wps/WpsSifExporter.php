@@ -50,13 +50,21 @@ final class WpsSifExporter
             $variableIncome = max((float) $record->net_salary - $fixedIncome, 0);
             $iban = strtoupper(preg_replace('/\s+/', '', (string) ($bankAccount?->iban ?? '')) ?? '');
 
+            $breakdown = $record->calculation_breakdown ?? [];
+            $startDate = ! empty($breakdown['period_start_date'])
+                ? CarbonImmutable::parse($breakdown['period_start_date'])
+                : $period->start_date;
+            $endDate = ! empty($breakdown['period_end_date'])
+                ? CarbonImmutable::parse($breakdown['period_end_date'])
+                : $period->end_date;
+
             $lines[] = implode(',', [
                 'EDR',
                 (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
                 (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
                 $iban,
-                $period->start_date?->format('dmY') ?? '',
-                $period->end_date?->format('dmY') ?? '',
+                $startDate?->format('dmY') ?? '',
+                $endDate?->format('dmY') ?? '',
                 (string) max((int) ($record->present_days ?: $record->working_days), 0),
                 number_format($fixedIncome, 2, '.', ''),
                 number_format($variableIncome, 2, '.', ''),

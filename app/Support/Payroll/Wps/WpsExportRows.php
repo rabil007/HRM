@@ -69,15 +69,25 @@ final class WpsExportRows
         ]);
 
         $bankAccount = $record->employee?->primaryBankAccount;
+        $breakdown = $record->calculation_breakdown ?? [];
+        $startDate = ! empty($breakdown['period_start_date'])
+            ? CarbonImmutable::parse($breakdown['period_start_date'])
+            : $this->period->start_date;
+        $endDate = ! empty($breakdown['period_end_date'])
+            ? CarbonImmutable::parse($breakdown['period_end_date'])
+            : $this->period->end_date;
+        $inclusiveDays = ($startDate !== null && $endDate !== null)
+            ? (int) $startDate->diffInDays($endDate) + 1
+            : 0;
 
         return [
             'EDR',
             (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
             (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
             self::compactIban($bankAccount?->iban),
-            $this->period->start_date?->format('Y-m-d') ?? '',
-            $this->period->end_date?->format('Y-m-d') ?? '',
-            $this->periodInclusiveDays(),
+            $startDate?->format('Y-m-d') ?? '',
+            $endDate?->format('Y-m-d') ?? '',
+            $inclusiveDays,
             self::integerAmount((float) $record->net_salary),
             0,
             0,

@@ -6,6 +6,7 @@ use App\Models\Company;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use Illuminate\Support\Collection;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -29,11 +30,29 @@ final class WpsExcelExporter
         $rowIndex = 1;
 
         foreach ($rows->edrRowsForExcel() as $edrRow) {
-            $sheet->fromArray($edrRow, null, 'A'.$rowIndex);
+            $colIndex = 1;
+            foreach ($edrRow as $cellValue) {
+                $sheet->setCellValueExplicitByColumnAndRow(
+                    $colIndex,
+                    $rowIndex,
+                    (string) $cellValue,
+                    DataType::TYPE_STRING,
+                );
+                $colIndex++;
+            }
             $rowIndex++;
         }
 
-        $sheet->fromArray($rows->scrRowForExcel(), null, 'A'.$rowIndex);
+        $colIndex = 1;
+        foreach ($rows->scrRowForExcel() as $cellValue) {
+            $sheet->setCellValueExplicitByColumnAndRow(
+                $colIndex,
+                $rowIndex,
+                (string) $cellValue,
+                DataType::TYPE_STRING,
+            );
+            $colIndex++;
+        }
 
         $tempPath = tempnam(sys_get_temp_dir(), 'wps-export-');
 
