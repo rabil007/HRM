@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { CalendarDays, Plus, Trash2 } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -8,6 +8,7 @@ import {
     dataTableCellClass,
     dataTableCellPrimaryClass,
 } from '@/components/data-table';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -85,6 +86,12 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead className={wpsSelection ? undefined : 'pl-5'}>Employee</DataTableHead>
                     <DataTableHead>Bank account</DataTableHead>
                     <DataTableHead>Payment</DataTableHead>
+                    <DataTableHead>
+                        <span className="inline-flex items-center gap-1.5 cursor-default">
+                            <CalendarDays className="h-3 w-3 text-primary/60" />
+                            Work Days
+                        </span>
+                    </DataTableHead>
                     <DataTableHead>Basic</DataTableHead>
                     <DataTableHead>Housing</DataTableHead>
                     <DataTableHead>Transport</DataTableHead>
@@ -130,6 +137,21 @@ export function OfficePayrollRecordsTable({
                             }
                             label={record.salary_payment_method_label ?? 'Bank transfer'}
                         />
+                        <TableCell className={dataTableCellClass()}>
+                            <div className="flex flex-col gap-0.5">
+                                <Badge
+                                    variant="secondary"
+                                    className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 px-2 py-0.5 text-xs font-semibold tabular-nums w-fit"
+                                >
+                                    {record.present_days ?? record.working_days ?? '—'} / {record.working_days ?? '—'} days
+                                </Badge>
+                                {record.absent_days && record.absent_days > 0 ? (
+                                    <span className="text-[11px] font-medium text-destructive">
+                                        {record.absent_days} day{record.absent_days > 1 ? 's' : ''} deducted ({formatTimesheetAmount(record.unpaid_leave_deduction)})
+                                    </span>
+                                ) : null}
+                            </div>
+                        </TableCell>
                         <TableCell className={dataTableCellClass()}>
                             {formatTimesheetAmount(record.basic_salary)}
                         </TableCell>

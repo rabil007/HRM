@@ -250,6 +250,10 @@ export type OfficePayrollRecordListItem = PayrollRecordDeliveryFields & {
     gross_salary: string;
     net_salary: string;
     salary_inputs_count: number;
+    working_days?: number | null;
+    present_days?: number | null;
+    absent_days?: number | null;
+    unpaid_leave_deduction?: string | null;
     status: string;
 };
 

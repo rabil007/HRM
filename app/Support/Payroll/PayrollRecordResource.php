@@ -62,6 +62,10 @@ final class PayrollRecordResource
             'other_allowances' => self::formatAmount($record->other_allowances),
             'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
             'salary_inputs_count' => $salaryInputsCount,
+            'working_days' => $record->working_days,
+            'present_days' => $record->present_days,
+            'absent_days' => $record->absent_days,
+            'unpaid_leave_deduction' => self::formatAmount($record->unpaid_leave_deduction),
         ]);
     }
 
