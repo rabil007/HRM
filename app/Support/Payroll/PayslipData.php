@@ -33,6 +33,14 @@ final class PayslipData
         $lines = is_array($breakdown['lines'] ?? null) ? $breakdown['lines'] : [];
         $currencyCode = (string) ($company?->currency?->code ?? 'AED');
 
+        $periodStart = ! empty($breakdown['period_start_date'])
+            ? CarbonImmutable::parse($breakdown['period_start_date'])->format('M d, Y')
+            : ($period?->start_date?->format('M d, Y') ?? '');
+
+        $periodEnd = ! empty($breakdown['period_end_date'])
+            ? CarbonImmutable::parse($breakdown['period_end_date'])->format('M d, Y')
+            : ($period?->end_date?->format('M d, Y') ?? '');
+
         $base = [
             'company_name' => (string) ($company?->name ?? ''),
             'company_logo' => CompanyLogoDataUri::resolve($company),
@@ -40,8 +48,8 @@ final class PayslipData
             'employee_no' => (string) ($employee?->employee_no ?? ''),
             'designation' => (string) ($employee?->position?->title ?? ''),
             'period_name' => (string) ($period?->name ?? ''),
-            'period_start' => $period?->start_date?->format('M d, Y') ?? '',
-            'period_end' => $period?->end_date?->format('M d, Y') ?? '',
+            'period_start' => $periodStart,
+            'period_end' => $periodEnd,
             'payment_date' => $period?->payment_date?->format('M d, Y') ?? '',
             'issued_on' => CarbonImmutable::now((string) ($company?->timezone ?? config('app.timezone')))->format('M d, Y'),
             'currency_code' => $currencyCode,

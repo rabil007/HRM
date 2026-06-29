@@ -20,6 +20,10 @@ final class PayslipListResource
         $wpsStatus = $record->wps_status;
         $paymentMethod = $record->resolvedSalaryPaymentMethod();
 
+        $breakdown = $record->calculation_breakdown ?? [];
+        $startDate = $breakdown['period_start_date'] ?? $record->period?->start_date?->toDateString();
+        $endDate = $breakdown['period_end_date'] ?? $record->period?->end_date?->toDateString();
+
         return [
             'id' => $record->id,
             'payroll_category' => $category->value,
@@ -34,8 +38,8 @@ final class PayslipListResource
             'period' => [
                 'id' => $record->period_id,
                 'name' => $record->period?->name ?? '—',
-                'start_date' => $record->period?->start_date?->toDateString(),
-                'end_date' => $record->period?->end_date?->toDateString(),
+                'start_date' => $startDate,
+                'end_date' => $endDate,
             ],
             'gross_salary' => self::formatAmount($record->gross_salary),
             'net_salary' => self::formatAmount($record->net_salary),

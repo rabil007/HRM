@@ -103,6 +103,8 @@ final class GenerateOfficePayroll
 
                 $employeeLeaveDays = (float) $leaveSummary->totalLeaveDays;
                 $unworkedDays = 0.0;
+                $startDate = $period->start_date;
+                $endDate = $period->end_date;
 
                 if (isset($employeeDates[$employee->id]) || isset($employeeDates[(string) $employee->id])) {
                     /** @var array{start_date?: string, end_date?: string} $dates */
@@ -127,6 +129,10 @@ final class GenerateOfficePayroll
 
                     continue;
                 }
+
+                $breakdown = $calculated['calculation_breakdown'];
+                $breakdown['period_start_date'] = $startDate->toDateString();
+                $breakdown['period_end_date'] = $endDate->toDateString();
 
                 PayrollRecord::query()->updateOrCreate(
                     [
@@ -155,7 +161,7 @@ final class GenerateOfficePayroll
                         'absent_days' => (int) round($calculated['absent_days']),
                         'leave_days' => $calculated['leave_days'],
                         'overtime_hours' => $calculated['overtime_hours'],
-                        'calculation_breakdown' => $calculated['calculation_breakdown'],
+                        'calculation_breakdown' => $breakdown,
                         'status' => 'draft',
                     ],
                 );
