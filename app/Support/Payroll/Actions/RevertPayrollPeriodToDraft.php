@@ -19,6 +19,7 @@ final class RevertPayrollPeriodToDraft
 
         return DB::transaction(function () use ($period): PayrollPeriod {
             $period->payrollRecords()->delete();
+            $period->salaryInputs()->delete();
 
             $period->update([
                 'status' => PayrollPeriodStatus::Draft,

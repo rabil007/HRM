@@ -7,6 +7,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
+use App\Models\SalaryInput;
 
 test('users without permission cannot revert pay period to draft', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
@@ -189,4 +190,35 @@ test('removed office employee can be regenerated after revert to draft', functio
     expect(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $removedEmployee->id)->exists())->toBeTrue()
         ->and(PayrollRecord::query()->where('period_id', $period->id)->where('employee_id', $remainingEmployee->id)->exists())->toBeTrue()
         ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(2);
+});
+
+test('revert to draft removes salary inputs for the pay period', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_draft']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-100', 10000, 0, 0, 0);
+
+    PayrollRecord::factory()->for($company)->for($period, 'period')->for($employee)->create([
+        'payroll_category' => PayrollCategory::Office,
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 500,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-draft', $period))
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    expect(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0);
 });

@@ -49,6 +49,7 @@ final class DeletePayrollRecord
 
             if (! $period->payrollRecords()->exists()) {
                 $updates['status'] = PayrollPeriodStatus::Draft;
+                $period->salaryInputs()->delete();
             }
 
             $period->update($updates);

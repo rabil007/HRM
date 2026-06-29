@@ -121,6 +121,13 @@ test('removing the last payroll record reverts pay run to draft', function () {
         'payroll_category' => PayrollCategory::Office,
     ]);
 
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 500,
+    ]);
+
     $this->withSession(['current_company_id' => $company->id])
         ->delete(route('payroll.records.destroy', [
             'payrollPeriod' => $period,
@@ -130,7 +137,8 @@ test('removing the last payroll record reverts pay run to draft', function () {
 
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::Draft)
-        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0)
+        ->and(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0);
 });
 
 test('payroll record cannot be removed from approved pay run', function () {
