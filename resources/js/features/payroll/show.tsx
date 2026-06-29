@@ -211,6 +211,7 @@ export function PayrollShowContent({
     const [selectedWpsRecordIds, setSelectedWpsRecordIds] = useState<number[]>(
         () => all_payroll_record_ids,
     );
+    const [rowDates, setRowDates] = useState<Record<number, { start: string; end: string }>>({});
 
     useEffect(() => {
         setSelectedWpsRecordIds(all_payroll_record_ids);
@@ -282,10 +283,19 @@ export function PayrollShowContent({
 
     const handleGeneratePayroll = () => {
         setIsGenerating(true);
+        const employeeDatesPayload: Record<number, { start_date: string; end_date: string }> = {};
+        Object.entries(rowDates).forEach(([empId, dates]) => {
+            employeeDatesPayload[Number(empId)] = {
+                start_date: dates.start,
+                end_date: dates.end,
+            };
+        });
+
         router.post(
             generatePayroll.url(period.id),
             {
                 excluded_employee_ids: Array.from(excludedIds),
+                employee_dates: employeeDatesPayload,
             },
             {
                 preserveScroll: true,
@@ -915,6 +925,8 @@ export function PayrollShowContent({
                 onPageChange={list.goToPage}
                 excludedIds={excludedIds}
                 setExcludedIds={setExcludedIds}
+                rowDates={rowDates}
+                setRowDates={setRowDates}
             />
         );
     }
@@ -1155,6 +1167,8 @@ function OfficeEmployeesTabContent({
     onPageChange,
     excludedIds,
     setExcludedIds,
+    rowDates,
+    setRowDates,
 }: {
     period: PayrollPeriod;
     rows: CrewPayrollRow[];
@@ -1163,9 +1177,9 @@ function OfficeEmployeesTabContent({
     onPageChange: (page: number) => void;
     excludedIds: Set<number>;
     setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
+    rowDates: Record<number, { start: string; end: string }>;
+    setRowDates: React.Dispatch<React.SetStateAction<Record<number, { start: string; end: string }>>>;
 }) {
-    const [rowDates, setRowDates] = useState<Record<number, { start: string; end: string }>>({});
-
     const handleStartDateChange = (employeeId: number, val: string) => {
         setRowDates((prev) => ({
             ...prev,

@@ -464,7 +464,11 @@ class PayrollController extends Controller
 
         $result = $payrollPeriod->isCrew()
             ? $generateCrewPayroll->handle($payrollPeriod)
-            : $generateOfficePayroll->handle($payrollPeriod, $request->input('excluded_employee_ids', []));
+            : $generateOfficePayroll->handle(
+                $payrollPeriod,
+                $request->input('excluded_employee_ids', []),
+                $request->input('employee_dates', []),
+            );
 
         $message = $result->generatedCount > 0
             ? "Generated payroll for {$result->generatedCount} employee(s)."

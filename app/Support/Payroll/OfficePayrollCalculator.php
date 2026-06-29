@@ -59,7 +59,9 @@ final class OfficePayrollCalculator
 
         $overtimePay = 0.0;
         $bonus = 0.0;
-        $unpaidLeaveDeduction = 0.0;
+        $monthlyBase = $earnedBasic + $earnedHousing + $earnedTransport + $earnedOther;
+        $dailyRate = $workingDays > 0 ? ($monthlyBase / $workingDays) : 0.0;
+        $unpaidLeaveDeduction = round($dailyRate * $totalLeaveDays, 2);
         $lateDeduction = 0.0;
         $loanDeduction = 0.0;
         $otherDeductions = 0.0;
@@ -106,6 +108,7 @@ final class OfficePayrollCalculator
                     'gross' => $grossSalary,
                     'net' => $netSalary,
                     'bonus' => $bonus,
+                    'unpaid_leave_deduction' => $unpaidLeaveDeduction,
                 ],
                 'working_days' => $workingDays,
                 'present_days' => $presentDays,

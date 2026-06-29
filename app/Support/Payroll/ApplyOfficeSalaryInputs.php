@@ -19,7 +19,8 @@ final class ApplyOfficeSalaryInputs
         $totals = $this->sumByType($inputs);
 
         $bonus = round($totals['bonus'] + $totals['commission'], 2);
-        $unpaidLeaveDeduction = round($totals['unpaid_leave'], 2);
+        $baseUnpaidLeave = (float) ($base['unpaid_leave_deduction'] ?? $record->unpaid_leave_deduction ?? 0);
+        $unpaidLeaveDeduction = round($baseUnpaidLeave + $totals['unpaid_leave'], 2);
         $lateDeduction = round($totals['late'], 2);
         $loanDeduction = round($totals['loan'], 2);
         $otherDeductions = round($totals['other'], 2);
@@ -64,7 +65,7 @@ final class ApplyOfficeSalaryInputs
 
     /**
      * @param  array<string, mixed>  $breakdown
-     * @return array{basic: float, housing: float, transport: float, other: float, gross: float, net: float, bonus: float}
+     * @return array{basic: float, housing: float, transport: float, other: float, gross: float, net: float, bonus: float, unpaid_leave_deduction: float}
      */
     private function resolveBase(PayrollRecord $record, array $breakdown): array
     {
@@ -79,6 +80,7 @@ final class ApplyOfficeSalaryInputs
                 'gross' => (float) ($storedBase['gross'] ?? $record->gross_salary),
                 'net' => (float) ($storedBase['net'] ?? $record->net_salary),
                 'bonus' => (float) ($storedBase['bonus'] ?? 0),
+                'unpaid_leave_deduction' => (float) ($storedBase['unpaid_leave_deduction'] ?? $record->unpaid_leave_deduction),
             ];
         }
 
@@ -99,6 +101,7 @@ final class ApplyOfficeSalaryInputs
             'gross' => $gross,
             'net' => $gross,
             'bonus' => 0.0,
+            'unpaid_leave_deduction' => (float) $record->unpaid_leave_deduction,
         ];
     }
 

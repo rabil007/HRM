@@ -89,7 +89,7 @@ export function OfficePayrollRecordsTable({
                     <DataTableHead>
                         <span className="inline-flex items-center gap-1.5 cursor-default">
                             <CalendarDays className="h-3 w-3 text-primary/60" />
-                            Work Days
+                            Total Days
                         </span>
                     </DataTableHead>
                     <DataTableHead>Basic</DataTableHead>

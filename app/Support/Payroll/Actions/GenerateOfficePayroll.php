@@ -15,6 +15,7 @@ use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -27,7 +28,7 @@ final class GenerateOfficePayroll
         private readonly RecalculateOfficePayroll $recalculateOfficePayroll,
     ) {}
 
-    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = []): GeneratePayrollResult
+    public function handle(PayrollPeriod $period, array $excludedEmployeeIds = [], array $employeeDates = []): GeneratePayrollResult
     {
         abort_unless($period->isOffice(), 404);
 
@@ -42,12 +43,7 @@ final class GenerateOfficePayroll
             array_merge($period->excluded_employee_ids ?? [], $excludedEmployeeIds),
         )));
 
-        $companyWorkingDays = $this->resolveCompanyWorkingDays($period->company_id);
-        $workingDaysInPeriod = $this->countWorkingDays->count(
-            $period->start_date,
-            $period->end_date,
-            $companyWorkingDays,
-        );
+        $workingDaysInPeriod = (int) $period->start_date->diffInDays($period->end_date) + 1;
 
         $employeesQuery = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Office);
 
@@ -76,6 +72,7 @@ final class GenerateOfficePayroll
             $leaveByEmployee,
             $workingDaysInPeriod,
             $excludedEmployeeIds,
+            $employeeDates,
             &$generatedCount,
             &$errors,
         ): void {
@@ -104,11 +101,23 @@ final class GenerateOfficePayroll
                     $this->leavePeriodSummary->empty($period->company_id),
                 );
 
+                $employeeLeaveDays = (float) $leaveSummary->totalLeaveDays;
+
+                if (isset($employeeDates[$employee->id]) || isset($employeeDates[(string) $employee->id])) {
+                    /** @var array{start_date?: string, end_date?: string} $dates */
+                    $dates = $employeeDates[$employee->id] ?? $employeeDates[(string) $employee->id];
+                    $startDate = ! empty($dates['start_date']) ? Carbon::parse($dates['start_date']) : $period->start_date;
+                    $endDate = ! empty($dates['end_date']) ? Carbon::parse($dates['end_date']) : $period->end_date;
+                    $activeDays = (int) $startDate->diffInDays($endDate) + 1;
+                    $unworkedDays = max(0, $workingDaysInPeriod - $activeDays);
+                    $employeeLeaveDays += $unworkedDays;
+                }
+
                 try {
                     $calculated = $this->calculator->calculate(
                         $contract->salaryComponents,
                         $workingDaysInPeriod,
-                        $leaveSummary->totalLeaveDays,
+                        $employeeLeaveDays,
                         $leaveSummary->toLeaveUsageArray(),
                     );
                 } catch (ValidationException $exception) {
