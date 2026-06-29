@@ -1,5 +1,5 @@
 import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Ban, Building2, Calculator, CheckCircle2, CheckSquare, CreditCard, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
+import { AlertCircle, Ban, Building2, Calculator, Calendar, CalendarDays, CheckCircle2, CheckSquare, CreditCard, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { PaginationMeta } from '@/types/pagination';
 import {
@@ -31,6 +31,7 @@ import { SearchBar } from '@/components/search-bar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -68,6 +69,7 @@ import type {
     CrewTimesheetFormData,
     EmployeeStats,
     OfficePayrollRecordListItem,
+    PayrollPeriod,
     PayrollRecordListItem,
     PayrollShowProps,
     SalaryInput,
@@ -906,6 +908,7 @@ export function PayrollShowContent({
 
         return (
             <OfficeEmployeesTabContent
+                period={period}
                 rows={rows}
                 pagination={pagination}
                 employee_stats={employee_stats}
@@ -1145,6 +1148,7 @@ function SalaryCell({ value }: { value: string | null | undefined }) {
 }
 
 function OfficeEmployeesTabContent({
+    period,
     rows,
     pagination,
     employee_stats,
@@ -1152,6 +1156,7 @@ function OfficeEmployeesTabContent({
     excludedIds,
     setExcludedIds,
 }: {
+    period: PayrollPeriod;
     rows: CrewPayrollRow[];
     pagination: PaginationMeta;
     employee_stats: EmployeeStats | null;
@@ -1159,6 +1164,27 @@ function OfficeEmployeesTabContent({
     excludedIds: Set<number>;
     setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
 }) {
+    const [rowDates, setRowDates] = useState<Record<number, { start: string; end: string }>>({});
+
+    const handleStartDateChange = (employeeId: number, val: string) => {
+        setRowDates((prev) => ({
+            ...prev,
+            [employeeId]: {
+                start: val,
+                end: prev[employeeId]?.end ?? period.end_date,
+            },
+        }));
+    };
+
+    const handleEndDateChange = (employeeId: number, val: string) => {
+        setRowDates((prev) => ({
+            ...prev,
+            [employeeId]: {
+                start: prev[employeeId]?.start ?? period.start_date,
+                end: val,
+            },
+        }));
+    };
 
     const allIds = rows.map((r) => r.employee.id);
     const allSelected = excludedIds.size === 0;
@@ -1286,6 +1312,18 @@ function OfficeEmployeesTabContent({
                         <DataTableHead>Transport Allow.</DataTableHead>
                         <DataTableHead>Other Allow.</DataTableHead>
                         <DataTableHead>Payment</DataTableHead>
+                        <DataTableHead>
+                            <span className="inline-flex items-center gap-1.5 cursor-default">
+                                <Calendar className="h-3 w-3 text-primary/60" />
+                                Period (Start — End)
+                            </span>
+                        </DataTableHead>
+                        <DataTableHead>
+                            <span className="inline-flex items-center gap-1.5 cursor-default">
+                                <CalendarDays className="h-3 w-3 text-primary/60" />
+                                Total Days
+                            </span>
+                        </DataTableHead>
 
                     </DataTableHeaderRow>
                 </TableHeader>
@@ -1295,6 +1333,9 @@ function OfficeEmployeesTabContent({
                         const paymentMethod =
                             (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
                         const contract = row.contract ?? null;
+                        const startDate = rowDates[row.employee.id]?.start ?? period.start_date;
+                        const endDate = rowDates[row.employee.id]?.end ?? period.end_date;
+                        const totalDays = calculateInclusiveDays(startDate, endDate);
 
                         return (
                             <TableRow
@@ -1398,7 +1439,39 @@ function OfficeEmployeesTabContent({
                                     label={row.salary_payment_method_label ?? 'Bank transfer'}
                                 />
 
+                                {/* Period dates */}
+                                <TableCell className={dataTableCellClass()}>
+                                    <div className="flex items-center gap-2 min-w-[310px]">
+                                        <Input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => handleStartDateChange(row.employee.id, e.target.value)}
+                                            className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                        />
+                                        <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                        <Input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => handleEndDateChange(row.employee.id, e.target.value)}
+                                            className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                        />
+                                    </div>
+                                </TableCell>
 
+                                {/* Total days */}
+                                <TableCell className={dataTableCellClass()}>
+                                    <Badge
+                                        variant="secondary"
+                                        className={cn(
+                                            'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-semibold tabular-nums transition-colors',
+                                            totalDays && Number(totalDays) > 0
+                                                ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                : 'border-amber-500/25 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                                        )}
+                                    >
+                                        {formatTimesheetDays(totalDays)} days
+                                    </Badge>
+                                </TableCell>
                             </TableRow>
                         );
                     })}
