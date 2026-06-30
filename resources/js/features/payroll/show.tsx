@@ -1243,10 +1243,13 @@ export function PayrollShowContent({
                 {period.supports_timesheets ? (
                     <PayrollRecordsTable
                         records={crewRecords}
+                        salaryInputsByEmployee={salary_inputs_by_employee}
                         canViewPayslips={permissions.payslips_view}
                         canShowPayslipActions={canShowPayslipActions}
+                        canManageSalaryInputs={canManageSalaryInputs}
                         canRemove={canGenerate}
                         wpsSelection={wpsSelection}
+                        onManageSalaryInputs={setSalaryInputsRecord}
                         onRemove={setRemoveRecord}
                     />
                 ) : (

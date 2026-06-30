@@ -54,6 +54,7 @@ final class PayrollRecordResource
                 'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
                 'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
                 'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
+                'salary_inputs_count' => $salaryInputsCount,
             ]);
         }
 

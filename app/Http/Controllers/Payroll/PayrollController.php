@@ -184,25 +184,21 @@ class PayrollController extends Controller
             ->paginate($perPage, ['*'], 'records_page')
             ->withQueryString();
 
-        $salaryInputCountsByEmployee = $payrollPeriod->isOffice()
-            ? SalaryInput::query()
+        $salaryInputCountsByEmployee = SalaryInput::query()
+            ->where('company_id', $companyId)
+            ->where('period_id', $payrollPeriod->id)
+            ->selectRaw('employee_id, COUNT(*) as aggregate_count')
+            ->groupBy('employee_id')
+            ->pluck('aggregate_count', 'employee_id');
+
+        $salaryInputsByEmployee = SalaryInputResource::groupByEmployee(
+            SalaryInput::query()
                 ->where('company_id', $companyId)
                 ->where('period_id', $payrollPeriod->id)
-                ->selectRaw('employee_id, COUNT(*) as aggregate_count')
-                ->groupBy('employee_id')
-                ->pluck('aggregate_count', 'employee_id')
-            : collect();
-
-        $salaryInputsByEmployee = $payrollPeriod->isOffice()
-            ? SalaryInputResource::groupByEmployee(
-                SalaryInput::query()
-                    ->where('company_id', $companyId)
-                    ->where('period_id', $payrollPeriod->id)
-                    ->with('salaryInputType')
-                    ->orderBy('id')
-                    ->get(),
-            )
-            : [];
+                ->with('salaryInputType')
+                ->orderBy('id')
+                ->get(),
+        );
 
         $payrollRecords = collect($recordsPaginator->items())
             ->map(fn (PayrollRecord $record) => PayrollRecordResource::toArray(

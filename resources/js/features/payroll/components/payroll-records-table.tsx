@@ -1,5 +1,5 @@
 import { Link } from '@inertiajs/react';
-import { CalendarDays, Trash2 } from 'lucide-react';
+import { CalendarDays, Plus, Trash2 } from 'lucide-react';
 import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     OrganizationDataTable,
@@ -17,7 +17,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
 import { type SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { cn } from '@/lib/utils';
-import type { CrewPayrollRecordListItem } from '../types';
+import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 import {
     PayrollRecordBankAccountCell,
@@ -27,6 +27,7 @@ import {
     PayrollRecordPayslipActionButtons,
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
+import { PayrollRecordSalaryInputsCell } from './payroll-record-salary-inputs-cell';
 
 import {
     PayrollRecordWpsSelectionCell,
@@ -35,15 +36,20 @@ import {
 
 export function PayrollRecordsTable({
     records,
+    salaryInputsByEmployee,
     canViewPayslips,
     canShowPayslipActions,
+    canManageSalaryInputs,
     canRemove,
     wpsSelection,
+    onManageSalaryInputs,
     onRemove,
 }: {
     records: CrewPayrollRecordListItem[];
+    salaryInputsByEmployee: Record<string, SalaryInput[]>;
     canViewPayslips: boolean;
     canShowPayslipActions: boolean;
+    canManageSalaryInputs: boolean;
     canRemove: boolean;
     wpsSelection?: {
         selectedRecordIds: number[];
@@ -52,8 +58,13 @@ export function PayrollRecordsTable({
         onToggleRecord: (recordId: number) => void;
         onToggleAll: () => void;
     };
+    onManageSalaryInputs: (record: CrewPayrollRecordListItem) => void;
     onRemove: (record: CrewPayrollRecordListItem) => void;
 }) {
+    const showSalaryInputsColumn = Object.values(salaryInputsByEmployee).some(
+        (inputs) => inputs.length > 0,
+    );
+
     return (
         <OrganizationDataTable minWidth={wpsSelection ? 'min-w-[1660px]' : 'min-w-[1600px]'}>
             <TableHeader>
@@ -78,6 +89,7 @@ export function PayrollRecordsTable({
                     >
                         Rates & Allowances
                     </th>
+                    {showSalaryInputsColumn ? <th className="h-7 border-b border-border/30" /> : null}
                     <th colSpan={2} className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
                 </tr>
@@ -97,6 +109,7 @@ export function PayrollRecordsTable({
                     <DataTableHead className="border-l border-primary/10 bg-primary/3">Basic</DataTableHead>
                     <DataTableHead className="bg-primary/3">Site</DataTableHead>
                     <DataTableHead className="border-r border-primary/10 bg-primary/3">Suppl.</DataTableHead>
+                    {showSalaryInputsColumn ? <DataTableHead>Salary inputs</DataTableHead> : null}
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
                     <DataTableHead>Payslip</DataTableHead>
@@ -239,6 +252,13 @@ export function PayrollRecordsTable({
                                 <AmountCell value={record.supplementary_allowance} />
                             </TableCell>
 
+                            {/* Salary Inputs */}
+                            {showSalaryInputsColumn ? (
+                                <PayrollRecordSalaryInputsCell
+                                    inputs={salaryInputsByEmployee[String(record.employee.id)] ?? []}
+                                />
+                            ) : null}
+
                             {/* Gross */}
                             <TableCell className={cn(dataTableCellClass(), 'tabular-nums text-sm')}>
                                 {grossAmount > 0 ? (
@@ -269,6 +289,28 @@ export function PayrollRecordsTable({
                             {/* Actions */}
                             <TableCell className={dataTableActionsCellClass()}>
                                 <div className="flex items-center justify-end gap-2">
+                                    {canManageSalaryInputs ? (
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="relative size-8 rounded-lg"
+                                                    aria-label="Salary inputs"
+                                                    onClick={() => onManageSalaryInputs(record)}
+                                                >
+                                                    <Plus className="h-4 w-4" />
+                                                    {record.salary_inputs_count > 0 ? (
+                                                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+                                                            {record.salary_inputs_count}
+                                                        </span>
+                                                    ) : null}
+                                                </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>Salary inputs</TooltipContent>
+                                        </Tooltip>
+                                    ) : null}
                                     {canViewPayslips ? (
                                         <PayrollRecordPayslipActionButtons
                                             recordId={record.id}
