@@ -52,6 +52,7 @@ final class PayrollRecordResource
                 'onsite_pay' => self::formatAmount($lines['onsite_pay'] ?? null),
                 'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
                 'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
+                'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
             ]);
         }
 

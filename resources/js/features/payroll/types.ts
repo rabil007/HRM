@@ -233,6 +233,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     deduction_amount: string;
     gross_salary: string;
     net_salary: string;
+    primary_account: OfficePrimaryAccount | null;
     status: string;
 };
 

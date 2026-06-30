@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
 import {
+    PayrollRecordBankAccountCell,
     PayrollRecordPaymentMethodCell,
 } from './payroll-record-display-cells';
 import {
@@ -54,11 +55,12 @@ export function PayrollRecordsTable({
     onRemove: (record: CrewPayrollRecordListItem) => void;
 }) {
     return (
-        <OrganizationDataTable minWidth={wpsSelection ? 'min-w-[1460px]' : 'min-w-[1400px]'}>
+        <OrganizationDataTable minWidth={wpsSelection ? 'min-w-[1660px]' : 'min-w-[1600px]'}>
             <TableHeader>
                 {/* Group labels */}
                 <tr className="border-b-0">
                     {wpsSelection ? <th className="h-7 border-b border-border/30" /> : null}
+                    <th className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
                     <th
@@ -88,6 +90,7 @@ export function PayrollRecordsTable({
                         />
                     ) : null}
                     <DataTableHead className={wpsSelection ? undefined : 'pl-5'}>Employee</DataTableHead>
+                    <DataTableHead>Bank account</DataTableHead>
                     <DataTableHead>Payment</DataTableHead>
                     <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">Standby</DataTableHead>
                     <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">Onsite</DataTableHead>
@@ -159,6 +162,12 @@ export function PayrollRecordsTable({
                                     </div>
                                 </Link>
                             </TableCell>
+
+                            {/* Bank account */}
+                            <PayrollRecordBankAccountCell
+                                primary_account={record.primary_account}
+                                salary_payment_method={paymentMethod}
+                            />
 
                             {/* Payment method */}
                             <PayrollRecordPaymentMethodCell
