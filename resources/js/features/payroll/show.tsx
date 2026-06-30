@@ -906,6 +906,24 @@ export function PayrollShowContent({
 
                 <OrganizationDataTable>
                     <TableHeader>
+                        {/* Group labels row */}
+                        <tr className="border-b-0">
+                            <th colSpan={2} className="h-7 border-b border-border/30" />
+                            <th colSpan={1} className="h-7 border-b border-border/30" />
+                            <th
+                                colSpan={3}
+                                className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-primary/50"
+                            >
+                                Daily Rates
+                            </th>
+                            <th
+                                colSpan={2}
+                                className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-blue-600/60 dark:text-blue-400/60"
+                            >
+                                Days
+                            </th>
+                            <th colSpan={2} className="h-7 border-b border-border/30" />
+                        </tr>
                         <DataTableHeaderRow>
                             <DataTableHead className="w-10">
                                 <Checkbox
@@ -917,12 +935,12 @@ export function PayrollShowContent({
                                 />
                             </DataTableHead>
                             <DataTableHead>Employee</DataTableHead>
-                            <DataTableHead>Bank account</DataTableHead>
-                            <DataTableHead>Basic salary</DataTableHead>
-                            <DataTableHead>Supplementary</DataTableHead>
-                            <DataTableHead>Site allowance</DataTableHead>
-                            <DataTableHead>Standby</DataTableHead>
-                            <DataTableHead>Onsite</DataTableHead>
+                            <DataTableHead>Bank</DataTableHead>
+                            <DataTableHead className="border-l border-primary/10 bg-primary/3 text-right">Basic</DataTableHead>
+                            <DataTableHead className="bg-primary/3 text-right">Suppl.</DataTableHead>
+                            <DataTableHead className="border-r border-primary/10 bg-primary/3 text-right">Site</DataTableHead>
+                            <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">Standby</DataTableHead>
+                            <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">Onsite</DataTableHead>
                             <DataTableHead>Payment</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
                         </DataTableHeaderRow>
@@ -947,6 +965,8 @@ export function PayrollShowContent({
                                 ? calculateInclusiveDays(onsiteFrom, onsiteTo)
                                 : (row.timesheet?.onsite_days ?? calculateInclusiveDays(onsiteFrom, onsiteTo));
 
+                            const isDirty = !!crewDates[row.employee.id];
+
                             return (
                                 <TableRow
                                     key={row.employee.id}
@@ -954,11 +974,13 @@ export function PayrollShowContent({
                                         dataTableBodyRowClass(),
                                         'group transition-all duration-200',
                                         isExcluded
-                                            ? 'opacity-40 bg-muted/20 dark:bg-muted/10'
-                                            : 'hover:bg-muted/40',
+                                            ? 'opacity-35 bg-muted/10 dark:bg-muted/5'
+                                            : 'hover:bg-muted/30',
+                                        isDirty && !isExcluded && 'ring-1 ring-inset ring-primary/20',
                                     )}
                                 >
-                                    <TableCell className={dataTableCellClass()}>
+                                    {/* Checkbox */}
+                                    <TableCell className={cn(dataTableCellClass(), 'pl-4')}>
                                         <Checkbox
                                             id={`crew-employee-${row.employee.id}`}
                                             checked={!isExcluded}
@@ -969,12 +991,21 @@ export function PayrollShowContent({
                                             className="rounded"
                                         />
                                     </TableCell>
+
+                                    {/* Employee */}
                                     <TableCell className={dataTableCellPrimaryClass()}>
                                         <Link
                                             href={showEmployee.url(row.employee.id)}
                                             className="flex items-center gap-3 group/link"
                                         >
-                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-gradient-to-br from-primary/10 to-primary/30 text-xs font-bold text-primary dark:border-white/10 shadow-inner overflow-hidden transition-all duration-200 group-hover/link:scale-105">
+                                            <div
+                                                className={cn(
+                                                    'relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-bold shadow-sm overflow-hidden transition-all duration-200 group-hover/link:scale-105',
+                                                    isExcluded
+                                                        ? 'border-border/40 bg-muted/50 text-muted-foreground'
+                                                        : 'border-primary/20 bg-gradient-to-br from-primary/10 to-primary/25 text-primary dark:border-primary/15',
+                                                )}
+                                            >
                                                 {row.employee.image ? (
                                                     <img
                                                         src={resolveEmployeeImageUrl(row.employee.image) ?? undefined}
@@ -991,34 +1022,46 @@ export function PayrollShowContent({
                                                 )}
                                             </div>
                                             <div className="min-w-0">
-                                                <span className="block font-semibold leading-tight transition-colors group-hover/link:text-primary">
+                                                <span className="block truncate font-semibold leading-tight transition-colors group-hover/link:text-primary">
                                                     {row.employee.name}
                                                 </span>
-                                                <span className="block font-mono text-xs text-muted-foreground">
+                                                <span className="mt-0.5 block font-mono text-[11px] text-muted-foreground/70">
                                                     {row.employee.employee_no ?? '—'}
-                                                </span>
-                                                <span className="text-[11px] text-muted-foreground/60">
-                                                    View profile →
                                                 </span>
                                             </div>
                                         </Link>
                                     </TableCell>
+
+                                    {/* Bank account */}
                                     <PayrollRecordBankAccountCell
                                         primary_account={row.primary_account ?? null}
                                         salary_payment_method={paymentMethod}
                                     />
-                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
-                                        <SalaryCell value={contract?.basic_salary} />
+
+                                    {/* Basic salary */}
+                                    <TableCell className={cn(dataTableCellClass(), 'border-l border-primary/8 bg-primary/2 text-right')}>
+                                        <div className="flex flex-col items-end gap-0.5">
+                                            <SalaryCell value={contract?.basic_salary} />
+                                            {contract?.basic_salary && Number(contract.basic_salary) > 0 && (
+                                                <span className="text-[10px] text-muted-foreground/50">/ day</span>
+                                            )}
+                                        </div>
                                     </TableCell>
-                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+
+                                    {/* Supplementary */}
+                                    <TableCell className={cn(dataTableCellClass(), 'bg-primary/2 text-right')}>
                                         <SalaryCell value={contract?.supplementary_allowance} />
                                     </TableCell>
-                                    <TableCell className={cn(dataTableCellClass(), 'text-right')}>
+
+                                    {/* Site allowance */}
+                                    <TableCell className={cn(dataTableCellClass(), 'border-r border-primary/8 bg-primary/2 text-right')}>
                                         <SalaryCell value={contract?.site_allowance} />
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="flex flex-col gap-1.5 min-w-[310px]">
-                                            <div className="flex items-center gap-1.5">
+
+                                    {/* Standby dates */}
+                                    <TableCell className={cn(dataTableCellClass(), 'border-l border-blue-500/8 bg-blue-500/2')}>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-1">
                                                 <Input
                                                     type="date"
                                                     value={standbyFrom}
@@ -1031,9 +1074,9 @@ export function PayrollShowContent({
                                                         )
                                                     }
                                                     onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
-                                                <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                                <span className="text-muted-foreground/40 text-[10px] font-bold shrink-0">→</span>
                                                 <Input
                                                     type="date"
                                                     value={standbyTo}
@@ -1046,27 +1089,31 @@ export function PayrollShowContent({
                                                         )
                                                     }
                                                     onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                             </div>
-                                            <div>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={cn(
-                                                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums',
-                                                        standbyDays && Number(standbyDays) > 0
-                                                            ? 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                                                            : 'border-border bg-muted/50 text-muted-foreground',
-                                                    )}
-                                                >
-                                                    {formatTimesheetDays(standbyDays)} days
-                                                </Badge>
-                                            </div>
+                                            <Badge
+                                                variant="secondary"
+                                                className={cn(
+                                                    'w-fit inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                    standbyDays && Number(standbyDays) > 0
+                                                        ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                                                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                )}
+                                            >
+                                                {standbyDays && Number(standbyDays) > 0 ? (
+                                                    <>{formatTimesheetDays(standbyDays)} days</>
+                                                ) : (
+                                                    <>No dates set</>
+                                                )}
+                                            </Badge>
                                         </div>
                                     </TableCell>
-                                    <TableCell className={dataTableCellClass()}>
-                                        <div className="flex flex-col gap-1.5 min-w-[310px]">
-                                            <div className="flex items-center gap-1.5">
+
+                                    {/* Onsite dates */}
+                                    <TableCell className={cn(dataTableCellClass(), 'border-r border-blue-500/8 bg-blue-500/2')}>
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex items-center gap-1">
                                                 <Input
                                                     type="date"
                                                     value={onsiteFrom}
@@ -1079,9 +1126,9 @@ export function PayrollShowContent({
                                                         )
                                                     }
                                                     onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
-                                                <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                                <span className="text-muted-foreground/40 text-[10px] font-bold shrink-0">→</span>
                                                 <Input
                                                     type="date"
                                                     value={onsiteTo}
@@ -1094,38 +1141,54 @@ export function PayrollShowContent({
                                                         )
                                                     }
                                                     onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
-                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                    className="h-7 w-[130px] px-1.5 text-[11px] font-mono rounded-md border-border/50 bg-background/60 focus:bg-background transition-colors shadow-none [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                             </div>
-                                            <div>
-                                                <Badge
-                                                    variant="secondary"
-                                                    className={cn(
-                                                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums',
-                                                        onsiteDays && Number(onsiteDays) > 0
-                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                            : 'border-border bg-muted/50 text-muted-foreground',
-                                                    )}
-                                                >
-                                                    {formatTimesheetDays(onsiteDays)} days
-                                                </Badge>
-                                            </div>
+                                            <Badge
+                                                variant="secondary"
+                                                className={cn(
+                                                    'w-fit inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                                                    onsiteDays && Number(onsiteDays) > 0
+                                                        ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                        : 'border-dashed border-border/60 bg-transparent text-muted-foreground/50',
+                                                )}
+                                            >
+                                                {onsiteDays && Number(onsiteDays) > 0 ? (
+                                                    <>{formatTimesheetDays(onsiteDays)} days</>
+                                                ) : (
+                                                    <>No dates set</>
+                                                )}
+                                            </Badge>
                                         </div>
                                     </TableCell>
+
+                                    {/* Payment method */}
                                     <PayrollRecordPaymentMethodCell
                                         method={paymentMethod}
                                         label={row.salary_payment_method_label ?? 'Bank transfer'}
                                     />
+
+                                    {/* Status */}
                                     <TableCell className={dataTableCellClass()}>
-                                        <Badge
-                                            variant={row.is_filled ? 'default' : 'outline'}
-                                            className={cn(
-                                                !row.is_filled &&
-                                                    'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-200',
+                                        <div className="flex flex-col items-start gap-1.5">
+                                            <Badge
+                                                variant={row.is_filled ? 'default' : 'outline'}
+                                                className={cn(
+                                                    'text-[11px] font-semibold',
+                                                    row.is_filled
+                                                        ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                                        : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                                                )}
+                                            >
+                                                {row.is_filled ? '✓ Filled' : 'Pending'}
+                                            </Badge>
+                                            {isDirty && (
+                                                <span className="inline-flex items-center gap-1 text-[10px] text-primary/70 font-medium">
+                                                    <span className="inline-block h-1.5 w-1.5 rounded-full bg-primary/60 animate-pulse" />
+                                                    Unsaved
+                                                </span>
                                             )}
-                                        >
-                                            {row.is_filled ? 'Filled' : 'Pending'}
-                                        </Badge>
+                                        </div>
                                     </TableCell>
                                 </TableRow>
                             );
