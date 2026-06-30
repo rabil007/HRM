@@ -78,7 +78,7 @@ export function PayrollRecordsTable({
                     >
                         Allowances
                     </th>
-                    <th colSpan={3} className="h-7 border-b border-border/30" />
+                    <th colSpan={2} className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
                 </tr>
                 <DataTableHeaderRow>
@@ -98,7 +98,6 @@ export function PayrollRecordsTable({
                     <DataTableHead className="bg-primary/3">Suppl.</DataTableHead>
                     <DataTableHead className="border-r border-primary/10 bg-primary/3">Overtime</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
-                    <DataTableHead>Deductions</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
                     <DataTableHead>Payslip</DataTableHead>
                     <DataTableHead className={dataTableActionsCellClass()}>Actions</DataTableHead>
@@ -244,17 +243,6 @@ export function PayrollRecordsTable({
                             <TableCell className={cn(dataTableCellClass(), 'tabular-nums text-sm')}>
                                 {grossAmount > 0 ? (
                                     <span className="font-medium">{formatTimesheetAmount(record.gross_salary)}</span>
-                                ) : (
-                                    <span className="text-muted-foreground/40">—</span>
-                                )}
-                            </TableCell>
-
-                            {/* Deductions */}
-                            <TableCell className={cn(dataTableCellClass(), 'tabular-nums text-sm')}>
-                                {deductions > 0 ? (
-                                    <span className="font-medium text-destructive">
-                                        −{formatTimesheetAmount(record.deduction_amount)}
-                                    </span>
                                 ) : (
                                     <span className="text-muted-foreground/40">—</span>
                                 )}
