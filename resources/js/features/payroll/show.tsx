@@ -200,7 +200,7 @@ export function PayrollShowContent({
     const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
     const [isCancelling, setIsCancelling] = useState(false);
     const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
-    const [salaryInputsRecord, setSalaryInputsRecord] = useState<OfficePayrollRecordListItem | null>(
+    const [salaryInputsRecord, setSalaryInputsRecord] = useState<PayrollRecordListItem | null>(
         null,
     );
     const [excludedIds, setExcludedIds] = useState<Set<number>>(
@@ -471,7 +471,6 @@ export function PayrollShowContent({
     const canCancelPeriod = period.can_cancel && permissions.cancel;
 
     const canManageSalaryInputs =
-        !period.supports_timesheets &&
         period.can_generate_payroll &&
         (permissions.salary_inputs_create ||
             permissions.salary_inputs_update ||
@@ -729,23 +728,21 @@ export function PayrollShowContent({
                 />
             ) : null}
 
-            {!period.supports_timesheets ? (
-                <OfficeSalaryInputsSheet
-                    open={salaryInputsRecord !== null}
-                    onOpenChange={(open) => {
-                        if (!open) {
-                            setSalaryInputsRecord(null);
-                        }
-                    }}
-                    periodId={period.id}
-                    record={salaryInputsRecord}
-                    inputs={activeSalaryInputs}
-                    typeOptions={salary_input_type_options}
-                    canCreate={permissions.salary_inputs_create}
-                    canUpdate={permissions.salary_inputs_update}
-                    canDelete={permissions.salary_inputs_delete}
-                />
-            ) : null}
+            <OfficeSalaryInputsSheet
+                open={salaryInputsRecord !== null}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setSalaryInputsRecord(null);
+                    }
+                }}
+                periodId={period.id}
+                record={salaryInputsRecord as any}
+                inputs={activeSalaryInputs}
+                typeOptions={salary_input_type_options}
+                canCreate={permissions.salary_inputs_create}
+                canUpdate={permissions.salary_inputs_update}
+                canDelete={permissions.salary_inputs_delete}
+            />
 
             <PayrollGenerateDialog
                 open={isGenerateDialogOpen}
