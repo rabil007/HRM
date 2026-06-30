@@ -212,6 +212,62 @@ export function PayrollShowContent({
         () => all_payroll_record_ids,
     );
     const [rowDates, setRowDates] = useState<Record<number, { start: string; end: string }>>({});
+    const [crewDates, setCrewDates] = useState<
+        Record<number, { standby_from: string; standby_to: string; onsite_from: string; onsite_to: string }>
+    >({});
+
+    const handleCrewDateChange = (
+        employeeId: number,
+        field: 'standby_from' | 'standby_to' | 'onsite_from' | 'onsite_to',
+        val: string,
+        initialTimesheet: any,
+    ) => {
+        setCrewDates((prev) => {
+            const existing = prev[employeeId] ?? {
+                standby_from: initialTimesheet?.standby_from ?? '',
+                standby_to: initialTimesheet?.standby_to ?? '',
+                onsite_from: initialTimesheet?.onsite_from ?? '',
+                onsite_to: initialTimesheet?.onsite_to ?? '',
+            };
+            return {
+                ...prev,
+                [employeeId]: {
+                    ...existing,
+                    [field]: val,
+                },
+            };
+        });
+    };
+
+    const handleSaveCrewTimesheet = (employeeId: number, initialTimesheet: any) => {
+        const current = crewDates[employeeId];
+        if (!current) return;
+
+        const standby_days = calculateInclusiveDays(current.standby_from, current.standby_to);
+        const onsite_days = calculateInclusiveDays(current.onsite_from, current.onsite_to);
+
+        router.post(
+            storeTimesheet.url(period.id),
+            {
+                period_id: period.id,
+                employee_id: employeeId,
+                standby_from: current.standby_from || null,
+                standby_to: current.standby_to || null,
+                standby_days: standby_days ? Number(standby_days) : null,
+                onsite_from: current.onsite_from || null,
+                onsite_to: current.onsite_to || null,
+                onsite_days: onsite_days ? Number(onsite_days) : null,
+                overtime_amount: initialTimesheet?.overtime_amount ?? 0,
+                additional_amount: initialTimesheet?.additional_amount ?? 0,
+                deduction_amount: initialTimesheet?.deduction_amount ?? 0,
+                remarks: initialTimesheet?.remarks ?? null,
+            },
+            {
+                preserveScroll: true,
+                preserveState: true,
+            },
+        );
+    };
 
     useEffect(() => {
         setSelectedWpsRecordIds(all_payroll_record_ids);
@@ -664,17 +720,6 @@ export function PayrollShowContent({
                 </section>
             )}
 
-            {period.supports_timesheets ? (
-                <CrewTimesheetFormSheet
-                    open={isSheetOpen}
-                    onOpenChange={handleSheetOpenChange}
-                    row={currentRow}
-                    canSave={canSave}
-                    form={form}
-                    errors={mergedErrors}
-                    onSubmit={handleSubmit}
-                />
-            ) : null}
 
             {period.supports_timesheets ? (
                 <CrewTimesheetImportDialog
@@ -765,31 +810,165 @@ export function PayrollShowContent({
             );
         }
 
+        const allIds = rows.map((r) => r.employee.id);
+        const allSelected = excludedIds.size === 0;
+        const noneSelected = excludedIds.size === rows.length && rows.length > 0;
+
+        const handleSelectAll = (checked: boolean | 'indeterminate') => {
+            if (checked === true) {
+                setExcludedIds(new Set());
+            } else {
+                setExcludedIds(new Set(allIds));
+            }
+        };
+
+        const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
+            setExcludedIds((prev) => {
+                const next = new Set(prev);
+                if (checked === true) {
+                    next.delete(employeeId);
+                } else {
+                    next.add(employeeId);
+                }
+                return next;
+            });
+        };
+
+        const includedCount = rows.length - excludedIds.size;
+
         return (
-            <>
+            <div className="space-y-6">
+                {/* Analytics Cards */}
+                {employee_stats !== null && (
+                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <EmployeeAnalyticsCard
+                            title="Total Employees"
+                            value={employee_stats.total}
+                            subtitle="Active on this pay run"
+                            icon={Users}
+                            variant="total"
+                        />
+                        <EmployeeAnalyticsCard
+                            title="Bank Account Set"
+                            value={employee_stats.with_bank_account}
+                            subtitle="Ready for salary transfer"
+                            icon={CreditCard}
+                            variant="success"
+                        />
+                        <EmployeeAnalyticsCard
+                            title="Cash Payment"
+                            value={employee_stats.cash_payment_count}
+                            subtitle="Paid by C3, Ansari, or cash"
+                            icon={Building2}
+                            variant={employee_stats.cash_payment_count > 0 ? 'warning' : 'success'}
+                        />
+                        <EmployeeAnalyticsCard
+                            title="Missing Bank Account"
+                            value={employee_stats.missing_bank_account}
+                            subtitle={
+                                employee_stats.missing_bank_account > 0
+                                    ? 'Bank-transfer employees only — action required before WPS'
+                                    : 'All bank-transfer employees configured'
+                            }
+                            icon={employee_stats.missing_bank_account > 0 ? AlertCircle : Building2}
+                            variant={employee_stats.missing_bank_account > 0 ? 'warning' : 'success'}
+                        />
+                    </div>
+                )}
+
+                {/* Selection info bar */}
+                <div className="flex items-center justify-between rounded-xl border border-border/40 bg-muted/30 px-4 py-2.5 backdrop-blur-sm">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckSquare className="h-4 w-4 shrink-0 text-primary" />
+                        <span>
+                            <span className="font-semibold text-foreground">{includedCount}</span> of{' '}
+                            <span className="font-semibold text-foreground">{rows.length}</span> employees included
+                        </span>
+                        {excludedIds.size > 0 && (
+                            <Badge
+                                variant="outline"
+                                className="ml-1 border-amber-500/30 bg-amber-500/10 text-amber-700 text-[10px] font-semibold dark:text-amber-300"
+                            >
+                                {excludedIds.size} excluded
+                            </Badge>
+                        )}
+                    </div>
+                    {excludedIds.size > 0 && (
+                        <button
+                            type="button"
+                            onClick={() => setExcludedIds(new Set())}
+                            className="text-xs font-medium text-primary underline-offset-2 hover:underline transition-colors"
+                        >
+                            Select all
+                        </button>
+                    )}
+                </div>
+
                 <OrganizationDataTable>
                     <TableHeader>
                         <DataTableHeaderRow>
+                            <DataTableHead className="w-10">
+                                <Checkbox
+                                    id="select-all-crew-employees"
+                                    checked={allSelected ? true : noneSelected ? false : 'indeterminate'}
+                                    onCheckedChange={handleSelectAll}
+                                    aria-label="Select all employees"
+                                    className="rounded"
+                                />
+                            </DataTableHead>
                             <DataTableHead>Employee</DataTableHead>
                             <DataTableHead>Bank account</DataTableHead>
                             <DataTableHead>Basic salary</DataTableHead>
                             <DataTableHead>Supplementary</DataTableHead>
                             <DataTableHead>Site allowance</DataTableHead>
-                            <DataTableHead>Standby days</DataTableHead>
-                            <DataTableHead>Onsite days</DataTableHead>
+                            <DataTableHead>Standby</DataTableHead>
+                            <DataTableHead>Onsite</DataTableHead>
                             <DataTableHead>Payment</DataTableHead>
                             <DataTableHead>Status</DataTableHead>
-                            <DataTableHead className="text-right">Actions</DataTableHead>
                         </DataTableHeaderRow>
                     </TableHeader>
                     <TableBody>
                         {rows.map((row) => {
+                            const isExcluded = excludedIds.has(row.employee.id);
                             const paymentMethod =
                                 (row.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
                             const contract = row.contract ?? null;
 
+                            const currentCrewDates = crewDates[row.employee.id];
+                            const standbyFrom = currentCrewDates?.standby_from ?? row.timesheet?.standby_from ?? '';
+                            const standbyTo = currentCrewDates?.standby_to ?? row.timesheet?.standby_to ?? '';
+                            const onsiteFrom = currentCrewDates?.onsite_from ?? row.timesheet?.onsite_from ?? '';
+                            const onsiteTo = currentCrewDates?.onsite_to ?? row.timesheet?.onsite_to ?? '';
+
+                            const standbyDays = currentCrewDates
+                                ? calculateInclusiveDays(standbyFrom, standbyTo)
+                                : (row.timesheet?.standby_days ?? calculateInclusiveDays(standbyFrom, standbyTo));
+                            const onsiteDays = currentCrewDates
+                                ? calculateInclusiveDays(onsiteFrom, onsiteTo)
+                                : (row.timesheet?.onsite_days ?? calculateInclusiveDays(onsiteFrom, onsiteTo));
+
                             return (
-                                <TableRow key={row.employee.id} className={cn(dataTableBodyRowClass(), "group hover:bg-muted/40 transition-colors duration-200")}>
+                                <TableRow
+                                    key={row.employee.id}
+                                    className={cn(
+                                        dataTableBodyRowClass(),
+                                        'group transition-all duration-200',
+                                        isExcluded
+                                            ? 'opacity-40 bg-muted/20 dark:bg-muted/10'
+                                            : 'hover:bg-muted/40',
+                                    )}
+                                >
+                                    <TableCell className={dataTableCellClass()}>
+                                        <Checkbox
+                                            id={`crew-employee-${row.employee.id}`}
+                                            checked={!isExcluded}
+                                            onCheckedChange={(checked) =>
+                                                handleRowToggle(row.employee.id, checked)
+                                            }
+                                            aria-label={`Include ${row.employee.name}`}
+                                            className="rounded"
+                                        />
+                                    </TableCell>
                                     <TableCell className={dataTableCellPrimaryClass()}>
                                         <Link
                                             href={showEmployee.url(row.employee.id)}
@@ -838,10 +1017,100 @@ export function PayrollShowContent({
                                         <SalaryCell value={contract?.site_allowance} />
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetDays(row.timesheet?.standby_days)}
+                                        <div className="flex flex-col gap-1.5 min-w-[310px]">
+                                            <div className="flex items-center gap-1.5">
+                                                <Input
+                                                    type="date"
+                                                    value={standbyFrom}
+                                                    onChange={(e) =>
+                                                        handleCrewDateChange(
+                                                            row.employee.id,
+                                                            'standby_from',
+                                                            e.target.value,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
+                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                                <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                                <Input
+                                                    type="date"
+                                                    value={standbyTo}
+                                                    onChange={(e) =>
+                                                        handleCrewDateChange(
+                                                            row.employee.id,
+                                                            'standby_to',
+                                                            e.target.value,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
+                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={cn(
+                                                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums',
+                                                        standbyDays && Number(standbyDays) > 0
+                                                            ? 'border-blue-500/25 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                                                            : 'border-border bg-muted/50 text-muted-foreground',
+                                                    )}
+                                                >
+                                                    {formatTimesheetDays(standbyDays)} days
+                                                </Badge>
+                                            </div>
+                                        </div>
                                     </TableCell>
                                     <TableCell className={dataTableCellClass()}>
-                                        {formatTimesheetDays(row.timesheet?.onsite_days)}
+                                        <div className="flex flex-col gap-1.5 min-w-[310px]">
+                                            <div className="flex items-center gap-1.5">
+                                                <Input
+                                                    type="date"
+                                                    value={onsiteFrom}
+                                                    onChange={(e) =>
+                                                        handleCrewDateChange(
+                                                            row.employee.id,
+                                                            'onsite_from',
+                                                            e.target.value,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
+                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                                <span className="text-muted-foreground/50 text-xs font-bold">—</span>
+                                                <Input
+                                                    type="date"
+                                                    value={onsiteTo}
+                                                    onChange={(e) =>
+                                                        handleCrewDateChange(
+                                                            row.employee.id,
+                                                            'onsite_to',
+                                                            e.target.value,
+                                                            row.timesheet,
+                                                        )
+                                                    }
+                                                    onBlur={() => handleSaveCrewTimesheet(row.employee.id, row.timesheet)}
+                                                    className="h-8 w-[142px] px-2 text-xs font-mono rounded-lg border-border/60 bg-background/50 focus:bg-background transition-colors [&::-webkit-calendar-picker-indicator]:opacity-60 hover:[&::-webkit-calendar-picker-indicator]:opacity-100 [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:dark:invert"
+                                                />
+                                            </div>
+                                            <div>
+                                                <Badge
+                                                    variant="secondary"
+                                                    className={cn(
+                                                        'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold tabular-nums',
+                                                        onsiteDays && Number(onsiteDays) > 0
+                                                            ? 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                                                            : 'border-border bg-muted/50 text-muted-foreground',
+                                                    )}
+                                                >
+                                                    {formatTimesheetDays(onsiteDays)} days
+                                                </Badge>
+                                            </div>
+                                        </div>
                                     </TableCell>
                                     <PayrollRecordPaymentMethodCell
                                         method={paymentMethod}
@@ -858,19 +1127,6 @@ export function PayrollShowContent({
                                             {row.is_filled ? 'Filled' : 'Pending'}
                                         </Badge>
                                     </TableCell>
-                                    <TableCell className={dataTableActionsCellClass()}>
-                                        {canSave ? (
-                                            <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className="rounded-lg"
-                                                onClick={() => handleEdit(row)}
-                                            >
-                                                <Pencil className="mr-2 h-4 w-4" />
-                                                {row.is_filled ? 'Edit' : 'Enter'}
-                                            </Button>
-                                        ) : null}
-                                    </TableCell>
                                 </TableRow>
                             );
                         })}
@@ -886,7 +1142,7 @@ export function PayrollShowContent({
                     to={pagination.to}
                     onPageChange={list.goToPage}
                 />
-            </>
+            </div>
         );
     }
 

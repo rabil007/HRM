@@ -89,6 +89,33 @@ test('same start date can be used for crew and office pay periods', function () 
     expect(PayrollPeriod::query()->where('company_id', $company->id)->count())->toBe(2);
 });
 
+test('new pay period can be created with same start date if previous period was cancelled', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.create']);
+
+    PayrollPeriod::factory()->for($company)->create([
+        'name' => 'Cancelled Run',
+        'payroll_category' => 'crew',
+        'start_date' => '2026-01-01',
+        'end_date' => '2026-01-31',
+        'status' => PayrollPeriodStatus::Cancelled,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.periods.store'), [
+            'name' => 'Demo Crew January 2026 New',
+            'payroll_category' => 'crew',
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-31',
+            'payment_date' => '2026-02-05',
+        ])
+        ->assertRedirect();
+
+    expect(PayrollPeriod::query()->where('company_id', $company->id)->where('start_date', '2026-01-01')->count())->toBe(2);
+});
+
 test('payroll hub can filter periods by payroll category', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

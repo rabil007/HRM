@@ -251,30 +251,27 @@ class PayrollController extends Controller
                 ->all()
             : [];
 
-        $employeeStats = null;
-        if ($payrollPeriod->isOffice()) {
-            $allOfficeEmployees = PayrollEmployeeQuery::activeQuery($companyId, PayrollCategory::Office)
-                ->with('primaryBankAccount')
-                ->get(['id', 'salary_payment_method']);
-            $totalCount = $allOfficeEmployees->count();
-            $cashPaymentCount = $allOfficeEmployees->filter(
-                fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->isCash(),
-            )->count();
-            $withBankCount = $allOfficeEmployees->filter(
-                fn ($employee) => $employee->primaryBankAccount !== null,
-            )->count();
-            $missingBankCount = $allOfficeEmployees->filter(function ($employee) {
-                $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
+        $allCategoryEmployees = PayrollEmployeeQuery::activeQuery($companyId, $payrollPeriod->payroll_category)
+            ->with('primaryBankAccount')
+            ->get(['id', 'salary_payment_method']);
+        $totalCount = $allCategoryEmployees->count();
+        $cashPaymentCount = $allCategoryEmployees->filter(
+            fn ($employee) => ($employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer)->isCash(),
+        )->count();
+        $withBankCount = $allCategoryEmployees->filter(
+            fn ($employee) => $employee->primaryBankAccount !== null,
+        )->count();
+        $missingBankCount = $allCategoryEmployees->filter(function ($employee) {
+            $paymentMethod = $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer;
 
-                return ! $paymentMethod->isCash() && $employee->primaryBankAccount === null;
-            })->count();
-            $employeeStats = [
-                'total' => $totalCount,
-                'with_bank_account' => $withBankCount,
-                'missing_bank_account' => $missingBankCount,
-                'cash_payment_count' => $cashPaymentCount,
-            ];
-        }
+            return ! $paymentMethod->isCash() && $employee->primaryBankAccount === null;
+        })->count();
+        $employeeStats = [
+            'total' => $totalCount,
+            'with_bank_account' => $withBankCount,
+            'missing_bank_account' => $missingBankCount,
+            'cash_payment_count' => $cashPaymentCount,
+        ];
 
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),

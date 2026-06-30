@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Organization\Payroll;
 
 use App\Enums\PayrollCategory;
+use App\Enums\PayrollPeriodStatus;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,8 @@ class StorePayrollPeriodRequest extends FormRequest
                 'date',
                 Rule::unique('payroll_periods', 'start_date')
                     ->where('company_id', $companyId)
-                    ->where('payroll_category', $this->input('payroll_category')),
+                    ->where('payroll_category', $this->input('payroll_category'))
+                    ->whereNot('status', PayrollPeriodStatus::Cancelled->value),
             ],
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'payment_date' => ['required', 'date'],
