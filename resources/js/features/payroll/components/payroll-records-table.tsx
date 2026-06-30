@@ -76,7 +76,7 @@ export function PayrollRecordsTable({
                         colSpan={3}
                         className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold uppercase tracking-[0.15em] text-primary/50"
                     >
-                        Allowances
+                        Rates & Allowances
                     </th>
                     <th colSpan={2} className="h-7 border-b border-border/30" />
                     <th className="h-7 border-b border-border/30" />
@@ -94,9 +94,9 @@ export function PayrollRecordsTable({
                     <DataTableHead>Payment</DataTableHead>
                     <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">Standby</DataTableHead>
                     <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">Onsite</DataTableHead>
-                    <DataTableHead className="border-l border-primary/10 bg-primary/3">Site</DataTableHead>
-                    <DataTableHead className="bg-primary/3">Suppl.</DataTableHead>
-                    <DataTableHead className="border-r border-primary/10 bg-primary/3">Overtime</DataTableHead>
+                    <DataTableHead className="border-l border-primary/10 bg-primary/3">Basic</DataTableHead>
+                    <DataTableHead className="bg-primary/3">Site</DataTableHead>
+                    <DataTableHead className="border-r border-primary/10 bg-primary/3">Suppl.</DataTableHead>
                     <DataTableHead>Gross</DataTableHead>
                     <DataTableHead>Net</DataTableHead>
                     <DataTableHead>Payslip</DataTableHead>
@@ -224,19 +224,19 @@ export function PayrollRecordsTable({
                                 </div>
                             </TableCell>
 
-                            {/* Site allowance */}
+                            {/* Basic salary */}
                             <TableCell className={cn(dataTableCellClass(), 'border-l border-primary/8 bg-primary/2 tabular-nums text-sm')}>
+                                <AmountCell value={record.basic_salary} />
+                            </TableCell>
+
+                            {/* Site allowance */}
+                            <TableCell className={cn(dataTableCellClass(), 'bg-primary/2 tabular-nums text-sm')}>
                                 <AmountCell value={record.site_allowance} />
                             </TableCell>
 
                             {/* Supplementary */}
-                            <TableCell className={cn(dataTableCellClass(), 'bg-primary/2 tabular-nums text-sm')}>
-                                <AmountCell value={record.supplementary_allowance} />
-                            </TableCell>
-
-                            {/* Overtime */}
                             <TableCell className={cn(dataTableCellClass(), 'border-r border-primary/8 bg-primary/2 tabular-nums text-sm')}>
-                                <AmountCell value={record.overtime_pay} />
+                                <AmountCell value={record.supplementary_allowance} />
                             </TableCell>
 
                             {/* Gross */}

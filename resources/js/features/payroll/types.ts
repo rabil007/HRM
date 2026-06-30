@@ -222,6 +222,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
         employee_no: string | null;
         image?: string | null;
     };
+    basic_salary: string;
     standby_days: number | null;
     onsite_days: number | null;
     standby_pay: string;

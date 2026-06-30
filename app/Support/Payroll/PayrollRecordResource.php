@@ -45,6 +45,7 @@ final class PayrollRecordResource
 
         if ($category === PayrollCategory::Crew) {
             return array_merge($base, [
+                'basic_salary' => self::formatAmount($record->basic_salary),
                 'deduction_amount' => self::formatAmount($record->total_deductions),
                 'standby_days' => $breakdown['standby_days'] ?? null,
                 'onsite_days' => $breakdown['onsite_days'] ?? null,
