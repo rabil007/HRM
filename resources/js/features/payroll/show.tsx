@@ -1,5 +1,5 @@
-import { Link, router, useForm, usePage } from '@inertiajs/react';
-import { AlertCircle, Ban, Building2, Calculator, Calendar, CalendarDays, CheckCircle2, CheckSquare, CreditCard, Paperclip, Pencil, RotateCcw, Upload, Users, XCircle } from 'lucide-react';
+import { Link, router } from '@inertiajs/react';
+import { Calculator, CalendarDays, CheckCircle2, Paperclip, RotateCcw, Upload, XCircle } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { PaginationMeta } from '@/types/pagination';
 import {
@@ -18,7 +18,6 @@ import {
     OrganizationDataTable,
     DataTableHead,
     DataTableHeaderRow,
-    dataTableActionsCellClass,
     dataTableBodyRowClass,
     dataTableCellClass,
     dataTableCellPrimaryClass,
@@ -42,7 +41,6 @@ import {
 } from '@/features/organization/employees/salary-payment-method';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { CrewTimesheetFormSheet } from './components/crew-timesheet-form-sheet';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import {
@@ -66,7 +64,6 @@ import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
 import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
-    CrewTimesheetFormData,
     EmployeeStats,
     OfficePayrollRecordListItem,
     PayrollPeriod,
@@ -74,101 +71,11 @@ import type {
     PayrollShowProps,
     SalaryInput,
 } from './types';
-import { formatTimesheetAmount, formatTimesheetDays } from './types';
+import { formatTimesheetDays } from './types';
 
-const TIMESHEET_FIELD_KEYS = [
-    'period_id',
-    'employee_id',
-    'standby_from',
-    'standby_to',
-    'standby_days',
-    'onsite_from',
-    'onsite_to',
-    'onsite_days',
-    'overtime_amount',
-    'additional_amount',
-    'deduction_amount',
-    'remarks',
-] as const;
 
-function hasTimesheetErrors(errors: Record<string, string | undefined>): boolean {
-    return TIMESHEET_FIELD_KEYS.some((key) => Boolean(errors[key]));
-}
 
-function resolveTimesheetDays(
-    days: string | null | undefined,
-    from: string | null | undefined,
-    to: string | null | undefined,
-): string {
-    const stored = days ?? '';
 
-    if (stored !== '') {
-        return stored;
-    }
-
-    return calculateInclusiveDays(from ?? '', to ?? '');
-}
-
-function emptyTimesheetForm(periodId: number, employeeId: number): CrewTimesheetFormData {
-    return {
-        period_id: periodId,
-        employee_id: employeeId,
-        standby_from: '',
-        standby_to: '',
-        standby_days: '',
-        onsite_from: '',
-        onsite_to: '',
-        onsite_days: '',
-        overtime_amount: '0',
-        additional_amount: '0',
-        deduction_amount: '0',
-        remarks: '',
-    };
-}
-
-function rowToFormData(row: CrewPayrollRow): CrewTimesheetFormData {
-    const timesheet = row.timesheet;
-
-    return {
-        period_id: row.period_id,
-        employee_id: row.employee.id,
-        standby_from: timesheet?.standby_from ?? '',
-        standby_to: timesheet?.standby_to ?? '',
-        standby_days: resolveTimesheetDays(
-            timesheet?.standby_days,
-            timesheet?.standby_from,
-            timesheet?.standby_to,
-        ),
-        onsite_from: timesheet?.onsite_from ?? '',
-        onsite_to: timesheet?.onsite_to ?? '',
-        onsite_days: resolveTimesheetDays(
-            timesheet?.onsite_days,
-            timesheet?.onsite_from,
-            timesheet?.onsite_to,
-        ),
-        overtime_amount: timesheet?.overtime_amount ?? '0',
-        additional_amount: timesheet?.additional_amount ?? '0',
-        deduction_amount: timesheet?.deduction_amount ?? '0',
-        remarks: timesheet?.remarks ?? '',
-    };
-}
-
-function draftToFormData(draft: CrewTimesheetFormData): CrewTimesheetFormData {
-    return {
-        period_id: draft.period_id,
-        employee_id: draft.employee_id,
-        standby_from: draft.standby_from ?? '',
-        standby_to: draft.standby_to ?? '',
-        standby_days: resolveTimesheetDays(draft.standby_days, draft.standby_from, draft.standby_to),
-        onsite_from: draft.onsite_from ?? '',
-        onsite_to: draft.onsite_to ?? '',
-        onsite_days: resolveTimesheetDays(draft.onsite_days, draft.onsite_from, draft.onsite_to),
-        overtime_amount: draft.overtime_amount ?? '0',
-        additional_amount: draft.additional_amount ?? '0',
-        deduction_amount: draft.deduction_amount ?? '0',
-        remarks: draft.remarks ?? '',
-    };
-}
 
 export function PayrollShowContent({
     period,
@@ -185,10 +92,7 @@ export function PayrollShowContent({
     permissions,
     payslip_summary,
     wps_preview,
-    timesheet_draft,
-    employee_stats,
 }: PayrollShowProps) {
-    const page = usePage<{ errors: Record<string, string> }>();
     const [isGenerateDialogOpen, setIsGenerateDialogOpen] = useState(false);
     const [isGenerating, setIsGenerating] = useState(false);
     const [isRevertDialogOpen, setIsRevertDialogOpen] = useState(false);
@@ -280,60 +184,7 @@ export function PayrollShowContent({
         pagination,
     });
 
-    const [activeEmployeeId, setActiveEmployeeId] = useState<number | null>(
-        () => timesheet_draft?.employee_id ?? null,
-    );
 
-    const form = useForm<CrewTimesheetFormData>(
-        timesheet_draft
-            ? draftToFormData(timesheet_draft)
-            : emptyTimesheetForm(period.id, 0),
-    );
-
-    const mergedErrors = useMemo(
-        () => ({ ...page.props.errors, ...form.errors }),
-        [page.props.errors, form.errors],
-    );
-
-    const canSave =
-        period.supports_timesheets &&
-        Boolean(period.is_editable) &&
-        (permissions.create || permissions.update);
-
-    const validationErrorEmployeeId =
-        hasTimesheetErrors(mergedErrors) && form.data.employee_id > 0 ? form.data.employee_id : null;
-
-    const sheetEmployeeId = activeEmployeeId ?? validationErrorEmployeeId;
-    const isSheetOpen = sheetEmployeeId !== null;
-
-    const currentRow = useMemo(
-        () =>
-            sheetEmployeeId !== null
-                ? rows.find((entry) => entry.employee.id === sheetEmployeeId) ?? null
-                : null,
-        [rows, sheetEmployeeId],
-    );
-
-    const handleSheetOpenChange = (open: boolean) => {
-        if (!open) {
-            setActiveEmployeeId(null);
-        }
-    };
-
-    const handleEdit = (row: CrewPayrollRow) => {
-        setActiveEmployeeId(row.employee.id);
-        form.clearErrors();
-        form.setData(rowToFormData(row));
-    };
-
-    const handleSubmit = () => {
-        form.post(storeTimesheet.url(period.id), {
-            preserveScroll: true,
-            preserveState: true,
-            onSuccess: () => setActiveEmployeeId(null),
-            onError: () => setActiveEmployeeId(form.data.employee_id),
-        });
-    };
 
 
 
