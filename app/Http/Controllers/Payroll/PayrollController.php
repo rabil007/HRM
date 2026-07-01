@@ -38,6 +38,7 @@ use App\Support\Payroll\PayrollPeriodRecordsSummary;
 use App\Support\Payroll\PayrollPeriodResource;
 use App\Support\Payroll\PayrollRecordResource;
 use App\Support\Payroll\PayslipSummary;
+use App\Support\Payroll\ProvisionDefaultSalaryInputTypes;
 use App\Support\Payroll\SalaryInputResource;
 use App\Support\Payroll\Services\CrewTimesheetImportOrchestrator;
 use App\Support\Payroll\Wps\WpsExportPreview;
@@ -122,6 +123,7 @@ class PayrollController extends Controller
         Request $request,
         PayrollPeriod $payrollPeriod,
         PayrollPeriodBoardQuery $boardQuery,
+        ProvisionDefaultSalaryInputTypes $provisionDefaultSalaryInputTypes,
     ): InertiaResponse|RedirectResponse {
         $this->authorizePayrollShow($request);
 
@@ -269,6 +271,8 @@ class PayrollController extends Controller
             'cash_payment_count' => $cashPaymentCount,
         ];
 
+        $provisionDefaultSalaryInputTypes->handle($companyId);
+
         return Inertia::render('payroll/show', [
             'period' => PayrollPeriodResource::toArray($payrollPeriod),
             'leave_types' => $leaveTypes,
@@ -281,22 +285,20 @@ class PayrollController extends Controller
                 ? PayrollPeriodRecordsSummary::forPeriod($payrollPeriod)
                 : null,
             'salary_inputs_by_employee' => $salaryInputsByEmployee,
-            'salary_input_type_options' => $payrollPeriod->isOffice()
-                ? SalaryInputType::query()
-                    ->where('company_id', $companyId)
-                    ->where('status', 'active')
-                    ->orderBy('sort_order')
-                    ->orderBy('name')
-                    ->get(['id', 'name', 'code', 'is_addition'])
-                    ->map(fn (SalaryInputType $type) => [
-                        'value' => $type->id,
-                        'label' => $type->name,
-                        'code' => $type->code,
-                        'is_addition' => $type->is_addition,
-                    ])
-                    ->values()
-                    ->all()
-                : [],
+            'salary_input_type_options' => SalaryInputType::query()
+                ->where('company_id', $companyId)
+                ->where('status', 'active')
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(['id', 'name', 'code', 'is_addition'])
+                ->map(fn (SalaryInputType $type) => [
+                    'value' => $type->id,
+                    'label' => $type->name,
+                    'code' => $type->code,
+                    'is_addition' => $type->is_addition,
+                ])
+                ->values()
+                ->all(),
             'tab' => in_array($tab, $allowedTabs, true) ? $tab : $defaultTab,
             'generation_summary' => $request->session()->get('payroll_generation')
                 ?? $request->session()->get('crew_payroll_generation'),

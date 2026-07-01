@@ -16,11 +16,9 @@ final class DeleteSalaryInput
             404,
         );
 
-        abort_unless($period->isOffice(), 404);
-
-        if (! $period->canGenerateOfficePayroll()) {
+        if (! $period->canGeneratePayroll()) {
             throw ValidationException::withMessages([
-                'period_id' => 'Salary inputs can only be managed for draft or processing office periods.',
+                'period_id' => 'Salary inputs can only be managed for draft or processing periods.',
             ]);
         }
 

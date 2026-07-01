@@ -195,9 +195,9 @@ export function OfficePayrollRecordsTable({
                                                 onClick={() => onManageSalaryInputs(record)}
                                             >
                                                 <Plus className="h-4 w-4" />
-                                                {record.salary_inputs_count > 0 ? (
+                                                {(salaryInputsByEmployee[String(record.employee.id)] ?? []).length > 0 ? (
                                                     <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
-                                                        {record.salary_inputs_count}
+                                                        {(salaryInputsByEmployee[String(record.employee.id)] ?? []).length}
                                                     </span>
                                                 ) : null}
                                             </Button>

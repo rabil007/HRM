@@ -35,7 +35,7 @@ import type {
 } from '../types';
 import { formatTimesheetAmount } from '../types';
 
-const reloadProps = ['payroll_records', 'salary_inputs_by_employee'] as const;
+const reloadProps = ['salary_inputs_by_employee'] as const;
 
 function emptyForm(employeeId: number, defaultTypeId: number): SalaryInputFormData {
     return {
@@ -159,7 +159,7 @@ export function OfficeSalaryInputsSheet({
         setEditingInput(null);
         setIsFormVisible(true);
         form.clearErrors();
-        form.setData(emptyForm(record.employee.id, defaultType));
+        form.setData(emptyForm(record.employee.id, defaultTypeId));
     };
 
     return (

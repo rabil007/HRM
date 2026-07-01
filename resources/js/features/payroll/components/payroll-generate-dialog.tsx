@@ -33,19 +33,23 @@ export function PayrollGenerateDialog({
         ? 'Base salary will be refreshed from contracts and all salary input lines will be re-applied to gross and net pay.'
         : 'Payroll will use full monthly salary for all office employees on this run. Any salary input lines will be applied to gross and net pay.';
 
+    const crewDescription = hasExistingRecords
+        ? 'Timesheet amounts will be refreshed and all salary input lines will be re-applied to gross and net pay.'
+        : 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.';
+
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
             <AlertDialogContent className="glass-card">
                 <AlertDialogHeader>
                     <AlertDialogTitle>
-                        {hasExistingRecords && !isCrew
-                            ? 'Update office payroll?'
+                        {hasExistingRecords
+                            ? isCrew
+                                ? 'Update crew payroll?'
+                                : 'Update office payroll?'
                             : `Generate ${isCrew ? 'crew' : 'office'} payroll?`}
                     </AlertDialogTitle>
                     <AlertDialogDescription>
-                        {isCrew
-                            ? 'Payroll will be calculated for employees with timesheets. Employees without timesheets will be skipped.'
-                            : officeDescription}{' '}
+                        {isCrew ? crewDescription : officeDescription}{' '}
                         You can run this again while the period is in draft or processing.
                         
                         {excludedCount > 0 && !isCrew && (
@@ -66,10 +70,10 @@ export function PayrollGenerateDialog({
                         }}
                     >
                         {processing
-                            ? hasExistingRecords && !isCrew
+                            ? hasExistingRecords
                                 ? 'Updating…'
                                 : 'Generating…'
-                            : hasExistingRecords && !isCrew
+                            : hasExistingRecords
                               ? 'Update payroll'
                               : 'Generate payroll'}
                     </AlertDialogAction>

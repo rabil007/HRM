@@ -463,7 +463,7 @@ export function PayrollShowContent({
                                     onClick={() => setIsGenerateDialogOpen(true)}
                                 >
                                     <Calculator className="mr-2 h-4 w-4" />
-                                    {!period.supports_timesheets && payroll_records.length > 0
+                                    {payroll_records.length > 0
                                         ? 'Update payroll'
                                         : 'Generate payroll'}
                                 </Button>

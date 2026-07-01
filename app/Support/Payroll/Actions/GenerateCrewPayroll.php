@@ -19,6 +19,7 @@ final class GenerateCrewPayroll
 {
     public function __construct(
         private readonly CrewPayrollCalculator $calculator,
+        private readonly RecalculateCrewPayroll $recalculateCrewPayroll,
     ) {}
 
     public function handle(PayrollPeriod $period): GeneratePayrollResult
@@ -96,6 +97,14 @@ final class GenerateCrewPayroll
                     continue;
                 }
 
+                $breakdown = $calculated['calculation_breakdown'];
+                $breakdown['base'] = [
+                    'gross' => (float) $calculated['gross_salary'],
+                    'net' => (float) $calculated['net_salary'],
+                    'bonus' => (float) $calculated['bonus'],
+                    'other_deductions' => (float) $calculated['other_deductions'],
+                ];
+
                 PayrollRecord::query()->updateOrCreate(
                     [
                         'company_id' => $period->company_id,
@@ -113,7 +122,7 @@ final class GenerateCrewPayroll
                         'total_deductions' => $calculated['total_deductions'],
                         'gross_salary' => $calculated['gross_salary'],
                         'net_salary' => $calculated['net_salary'],
-                        'calculation_breakdown' => $calculated['calculation_breakdown'],
+                        'calculation_breakdown' => $breakdown,
                         'status' => 'draft',
                     ],
                 );
@@ -125,6 +134,10 @@ final class GenerateCrewPayroll
                 $period->update([
                     'status' => PayrollPeriodStatus::Processing,
                 ]);
+            }
+
+            if ($generatedCount > 0) {
+                $this->recalculateCrewPayroll->handle($period->fresh());
             }
         });
 

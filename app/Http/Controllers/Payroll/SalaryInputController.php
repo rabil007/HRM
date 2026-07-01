@@ -8,6 +8,7 @@ use App\Http\Requests\Organization\Payroll\UpdateSalaryInputRequest;
 use App\Models\PayrollPeriod;
 use App\Models\SalaryInput;
 use App\Support\Payroll\Actions\DeleteSalaryInput;
+use App\Support\Payroll\Actions\RecalculateCrewPayroll;
 use App\Support\Payroll\Actions\RecalculateOfficePayroll;
 use App\Support\Payroll\Actions\StoreSalaryInput;
 use App\Support\Payroll\Actions\UpdateSalaryInput;
@@ -75,6 +76,7 @@ class SalaryInputController extends Controller
         Request $request,
         PayrollPeriod $payrollPeriod,
         RecalculateOfficePayroll $recalculateOfficePayroll,
+        RecalculateCrewPayroll $recalculateCrewPayroll,
     ): RedirectResponse {
         abort_unless(
             $request->user()?->can('payroll.periods.recalculate')
@@ -85,7 +87,9 @@ class SalaryInputController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
-        $updatedCount = $recalculateOfficePayroll->handle($payrollPeriod);
+        $updatedCount = $payrollPeriod->isOffice()
+            ? $recalculateOfficePayroll->handle($payrollPeriod)
+            : $recalculateCrewPayroll->handle($payrollPeriod);
 
         return redirect()
             ->route('payroll.show', ['payrollPeriod' => $payrollPeriod, 'tab' => 'payroll'])

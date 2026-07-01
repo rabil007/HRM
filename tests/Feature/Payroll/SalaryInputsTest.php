@@ -2,6 +2,7 @@
 
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
+use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
@@ -164,4 +165,100 @@ test('payroll show includes salary inputs grouped by employee for office periods
             ->where("salary_inputs_by_employee.{$employee->id}.0.type", 'commission')
             ->where('payroll_records.0.salary_inputs_count', 1)
             ->has('salary_input_type_options', 6));
+});
+
+test('payroll show includes salary input type options for crew periods', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'payroll']))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('salary_input_type_options', 6)
+            ->where('salary_input_type_options.0.label', 'Bonus'));
+});
+
+test('creating salary inputs does not change payroll record amounts until payroll is regenerated', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.salary_inputs.create']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-SI-05', 10000, 0, 0, 0);
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'gross_salary' => 10000,
+        'net_salary' => 10000,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.salary-inputs.store', $period), [
+            'employee_id' => $employee->id,
+            'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+            'amount' => 500,
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $record->refresh();
+
+    expect($record->gross_salary)->toBe('10000.00')
+        ->and($record->net_salary)->toBe('10000.00');
+});
+
+test('authorized users can create salary inputs for crew payroll periods', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.periods.view',
+        'payroll.salary_inputs.create',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Processing,
+    ]);
+    $employee = Employee::factory()->forCompany($company)->create([
+        'employee_no' => 'CREW-SI-01',
+        'status' => 'active',
+    ]);
+    $bonusTypeId = salaryInputTypeId($company, 'bonus');
+
+    PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.salary-inputs.store', $period), [
+            'employee_id' => $employee->id,
+            'salary_input_type_id' => $bonusTypeId,
+            'amount' => 250,
+            'notes' => 'Crew bonus',
+        ])
+        ->assertRedirect()
+        ->assertSessionHas('success');
+
+    $this->assertDatabaseHas('salary_inputs', [
+        'company_id' => $company->id,
+        'period_id' => $period->id,
+        'employee_id' => $employee->id,
+        'salary_input_type_id' => $bonusTypeId,
+        'amount' => '250.00',
+        'notes' => 'Crew bonus',
+    ]);
 });
