@@ -135,6 +135,11 @@ class PermissionsSeeder extends Seeder
             'settings.master-data.document-types.update',
             'settings.master-data.document-types.delete',
 
+            'settings.master-data.projects.view',
+            'settings.master-data.projects.create',
+            'settings.master-data.projects.update',
+            'settings.master-data.projects.delete',
+
             'companies.view',
             'companies.create',
             'companies.update',

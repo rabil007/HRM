@@ -34,6 +34,7 @@ final class SettingsHubAccess
             'settings.master-data.ranks.view',
             'settings.master-data.clients.view',
             'settings.master-data.document-types.view',
+            'settings.master-data.projects.view',
         ];
     }
 

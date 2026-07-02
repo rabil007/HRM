@@ -13,6 +13,7 @@ use App\Http\Controllers\Settings\MasterData\CourseController;
 use App\Http\Controllers\Settings\MasterData\CurrencyController;
 use App\Http\Controllers\Settings\MasterData\DocumentTypeController;
 use App\Http\Controllers\Settings\MasterData\GenderController;
+use App\Http\Controllers\Settings\MasterData\ProjectController;
 use App\Http\Controllers\Settings\MasterData\RankController;
 use App\Http\Controllers\Settings\MasterData\ReligionController;
 use App\Http\Controllers\Settings\MasterData\SssaOptionController;
@@ -377,5 +378,18 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::delete('document-types/{document_type}', [DocumentTypeController::class, 'destroy'])
             ->middleware('can:settings.master-data.document-types.delete')
             ->name('document-types.destroy');
+
+        Route::get('projects', [ProjectController::class, 'index'])
+            ->middleware('can:settings.master-data.projects.view')
+            ->name('projects.index');
+        Route::post('projects', [ProjectController::class, 'store'])
+            ->middleware('can:settings.master-data.projects.create')
+            ->name('projects.store');
+        Route::put('projects/{project}', [ProjectController::class, 'update'])
+            ->middleware('can:settings.master-data.projects.update')
+            ->name('projects.update');
+        Route::delete('projects/{project}', [ProjectController::class, 'destroy'])
+            ->middleware('can:settings.master-data.projects.delete')
+            ->name('projects.destroy');
     });
 });
