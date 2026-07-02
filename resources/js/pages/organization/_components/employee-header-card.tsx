@@ -232,6 +232,7 @@ export function EmployeeHeaderCard({
     visa_types = [],
     company_visa_types = [],
     ranks,
+    projects = [],
     form,
     activeField,
     setActiveField,
@@ -255,6 +256,7 @@ export function EmployeeHeaderCard({
     visa_types?: Option[];
     company_visa_types?: Option[];
     ranks: Option[];
+    projects?: Array<{ id: number; title: string | null }>;
     form: any;
     activeField: string | null;
     setActiveField: (v: string | null) => void;
@@ -331,6 +333,10 @@ export function EmployeeHeaderCard({
         'title',
     );
     const { selectOptions: rankOptions } = useMutableSelectOptions(ranks);
+    const { selectOptions: projectOptions } = useMutableSelectOptions(
+        projects,
+        'title',
+    );
     const { selectOptions: genderOptions } = useMutableSelectOptions(genders);
     const { selectOptions: religionOptions } =
         useMutableSelectOptions(religions);
@@ -770,6 +776,37 @@ export function EmployeeHeaderCard({
                             canEdit={canUpdate}
                             onChange={(value) => form.setData('rank_id', value)}
                             highlightMissing={isMissingRequired('rank_id')}
+                        />
+                    )}
+
+                    {showField('project_id') && (
+                        <EditableDetailSelectField
+                            label="Project"
+                            field="project_id"
+                            value={form.data.project_id}
+                            displayValue={
+                                projectOptions.find(
+                                    (option) =>
+                                        option.value ===
+                                        String(
+                                            form.data.project_id ||
+                                                employee.project_id ||
+                                                '',
+                                        ),
+                                )?.label ??
+                                employee.project?.title ??
+                                '—'
+                            }
+                            options={projectOptions}
+                            creatableKey="project"
+                            activeField={activeField}
+                            setActiveField={setActiveField}
+                            beginEdit={beginEdit}
+                            canEdit={canUpdate}
+                            onChange={(value) =>
+                                form.setData('project_id', value)
+                            }
+                            highlightMissing={isMissingRequired('project_id')}
                         />
                     )}
 

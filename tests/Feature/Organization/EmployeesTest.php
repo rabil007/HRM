@@ -14,6 +14,7 @@ use App\Models\EmployeeContract;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
+use App\Models\Project;
 use App\Models\Rank;
 use App\Models\SssaOption;
 use App\Models\User;
@@ -121,7 +122,8 @@ test('authenticated users can view an employee details page', function () {
                 ->has('employee_navigation')
                 ->has('employee')
                 ->has('employee_tabs')
-                ->has('ranks'),
+                ->has('ranks')
+                ->has('projects'),
         ));
 });
 
@@ -246,7 +248,7 @@ test('employee profile profile_fields excludes unchecked template fields such as
 
     expect($profileFields)->toBeArray()
         ->and($profileFields)->toContain('work_email', 'religion_id')
-        ->and($profileFields)->not->toContain('rank_id', 'place_of_birth', 'gender_id', 'visa_type_id', 'company_visa_type_id');
+        ->and($profileFields)->not->toContain('rank_id', 'project_id', 'place_of_birth', 'gender_id', 'visa_type_id', 'company_visa_type_id');
 });
 
 test('employee profile profile_fields includes visa_type_id when enabled in template', function () {
@@ -897,6 +899,11 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'is_active' => true,
     ]);
 
+    $project = Project::query()->create([
+        'title' => 'North Field',
+        'is_active' => true,
+    ]);
+
     $template = EmployeeProfileTemplate::query()->create([
         'company_id' => $company->id,
         'name' => 'Standard Onboarding',
@@ -964,6 +971,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'department_id' => $department->id,
         'position_id' => $position->id,
         'rank_id' => $rank->id,
+        'project_id' => $project->id,
         'work_email' => 'janet@example.com',
         'phone' => '+971511111111',
     ])->assertRedirect("/organization/employees/{$employeeId}");
@@ -973,6 +981,7 @@ test('authenticated users can create, update, toggle status, and delete an emplo
         'name' => 'Janet Smith',
         'status' => 'inactive',
         'rank_id' => $rank->id,
+        'project_id' => $project->id,
     ]);
 
     $this->assertDatabaseHas('employee_contracts', [

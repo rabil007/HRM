@@ -38,6 +38,11 @@ final class EmployeeDetailResource
                 'id' => $employee->rank_id,
                 'name' => $employee->rank?->name,
             ] : null,
+            'project_id' => $employee->project_id,
+            'project' => $employee->project_id ? [
+                'id' => $employee->project_id,
+                'title' => $employee->project?->title,
+            ] : null,
             'manager' => ResolveDepartmentEffectiveManager::managerPayloadForEmployee($employee),
             'employee_no' => $employee->employee_no,
             'name' => $employee->name,

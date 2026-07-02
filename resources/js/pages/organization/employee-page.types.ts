@@ -13,6 +13,7 @@ import type {
     GenderOption,
     PositionOption,
     RankOption,
+    ProjectOption,
     ReligionOption,
     SssaOption,
     VisaTypeOption,
@@ -56,6 +57,8 @@ export type EmployeeDetails = {
     position: { id: number; title: string | null } | null;
     rank_id?: number | null;
     rank?: { id: number; name: string | null } | null;
+    project_id?: number | null;
+    project?: { id: number; title: string | null } | null;
     manager: {
         id: number;
         employee_no: string | null;
@@ -353,6 +356,7 @@ export type EmployeePageProps = {
     sssa_options: SssaOption[];
     banks: BankOption[];
     ranks: RankOption[];
+    projects: ProjectOption[];
     vessel_types?: VesselTypeOption[];
     vessels?: VesselOption[];
     clients?: ClientOption[];

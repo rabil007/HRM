@@ -48,6 +48,7 @@ final class EmployeeProfilePageData
             'department:id,name',
             'position:id,title',
             'rank:id,name',
+            'project:id,title',
             'user:id,name,email,avatar',
             'religionRef:id,name',
             'genderRef:id,name',
@@ -128,6 +129,7 @@ final class EmployeeProfilePageData
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
             'ranks' => $profileLookups['ranks'],
+            'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
             'contracts' => Inertia::defer(
                 fn () => self::contracts($companyId, $employee->id),
@@ -207,7 +209,7 @@ final class EmployeeProfilePageData
         $formOptions = EmployeeFormOptions::for($companyId);
         $profileLookups = $employee !== null
             ? EmployeeFormOptions::forProfile($companyId, $employee, [])
-            : ['ranks' => EmployeeFormOptions::forCreate($companyId)['ranks']];
+            : ['ranks' => EmployeeFormOptions::forCreate($companyId)['ranks'], 'projects' => EmployeeFormOptions::forCreate($companyId)['projects']];
 
         $employeeId = $employee?->id;
         $employeePayload = $employee !== null
@@ -242,6 +244,7 @@ final class EmployeeProfilePageData
             'sssa_options' => $formOptions['sssa_options'],
             'banks' => $formOptions['banks'],
             'ranks' => $profileLookups['ranks'],
+            'projects' => $profileLookups['projects'],
             'employee_tabs' => $employeeTabsPayload,
             'contracts' => $employeeId ? self::contracts($companyId, $employeeId) : [],
             'documents' => $employeeId ? self::documents($companyId, $employeeId) : [],

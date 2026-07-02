@@ -75,6 +75,11 @@ export type RankOption = {
     name: string;
 };
 
+export type ProjectOption = {
+    id: number;
+    title: string;
+};
+
 export type BankOption = {
     id: number;
     name: string;

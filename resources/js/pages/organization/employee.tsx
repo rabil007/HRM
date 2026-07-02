@@ -103,6 +103,7 @@ function EmployeeDetailsPage({
     sssa_options,
     banks,
     ranks,
+    projects,
     vessel_types,
     vessels,
     clients,
@@ -618,6 +619,7 @@ function EmployeeDetailsPage({
                             departments={departments}
                             positions={positions}
                             ranks={ranks}
+                            projects={projects}
                             countries={countries}
                             genders={genders}
                             religions={religions}

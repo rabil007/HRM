@@ -12,6 +12,7 @@ use App\Models\DocumentType;
 use App\Models\Employee;
 use App\Models\Gender;
 use App\Models\Position;
+use App\Models\Project;
 use App\Models\Rank;
 use App\Models\Religion;
 use App\Models\SssaOption;
@@ -94,6 +95,7 @@ final class EmployeeFormOptions
             'sssa_options' => self::sssaOptions(),
             'banks' => self::banks(),
             'ranks' => self::activeRanks(),
+            'projects' => self::activeProjects(),
             'document_types' => self::documentTypes(),
         ];
     }
@@ -104,6 +106,7 @@ final class EmployeeFormOptions
      * @param  list<int>  $ensureRankIds
      * @return array{
      *     ranks: Collection,
+     *     projects: Collection,
      *     document_types: Collection
      * }
      */
@@ -111,6 +114,7 @@ final class EmployeeFormOptions
     {
         return [
             'ranks' => self::ranksForProfile($employee, $ensureRankIds),
+            'projects' => self::projectsForProfile($employee),
             'document_types' => self::documentTypes(),
         ];
     }
@@ -283,6 +287,14 @@ final class EmployeeFormOptions
             ->get(['id', 'name']));
     }
 
+    private static function activeProjects()
+    {
+        return once(fn () => Project::query()
+            ->where('is_active', true)
+            ->orderBy('title')
+            ->get(['id', 'title']));
+    }
+
     private static function documentTypes()
     {
         return once(fn () => DocumentType::query()
@@ -320,5 +332,19 @@ final class EmployeeFormOptions
             })
             ->orderBy('name')
             ->get(['id', 'name']);
+    }
+
+    private static function projectsForProfile(Employee $employee)
+    {
+        return Project::query()
+            ->where(function ($query) use ($employee): void {
+                $query->where('is_active', true);
+
+                if ($employee->project_id !== null) {
+                    $query->orWhere('id', $employee->project_id);
+                }
+            })
+            ->orderBy('title')
+            ->get(['id', 'title']);
     }
 }
