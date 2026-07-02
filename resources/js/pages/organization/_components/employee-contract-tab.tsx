@@ -1530,7 +1530,7 @@ export function EmployeeContractTab({
                     }
                 }}
                 title="Remove contract?"
-                description="This contract record will be permanently removed."
+                description="This contract record will be permanently removed. Records linked to pay runs cannot be deleted."
                 destroyUrl={
                     deleteContractId && employeeId
                         ? destroyContract.url({

@@ -11,6 +11,9 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { firstValidationError } from '@/lib/first-validation-error';
+import { toast } from '@/lib/toast';
+
 export type EmployeeRecordDeleteDialogProps = {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -21,6 +24,7 @@ export type EmployeeRecordDeleteDialogProps = {
         preserveScroll: boolean;
         only: string[];
     };
+    onError?: (errors: Record<string, string | string[]>) => void;
 };
 
 export function EmployeeRecordDeleteDialog({
@@ -30,6 +34,7 @@ export function EmployeeRecordDeleteDialog({
     description,
     destroyUrl,
     reloadOptions,
+    onError,
 }: EmployeeRecordDeleteDialogProps): ReactElement {
     return (
         <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -59,6 +64,16 @@ export function EmployeeRecordDeleteDialog({
                             router.delete(destroyUrl, {
                                 ...reloadOptions,
                                 onSuccess: () => onOpenChange(false),
+                                onError: (errors) => {
+                                    onError?.(errors);
+                                    toast.error(
+                                        firstValidationError(
+                                            errors,
+                                            '_',
+                                            'This record could not be removed.',
+                                        ),
+                                    );
+                                },
                             });
                         }}
                     >

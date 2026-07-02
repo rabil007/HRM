@@ -22,6 +22,7 @@ use App\Support\Employees\EmployeeFormOptions;
 use App\Support\Employees\Resources\EmployeeListResource;
 use App\Support\Employees\Services\EmployeeProfilePageData;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Payroll\PayrollRecordLinkage;
 use App\Support\Uploads\UploadedFileStorage;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
@@ -305,6 +306,14 @@ class EmployeeController extends Controller
     {
         $companyId = (int) request()->attributes->get('current_company_id');
         abort_unless((int) $employee->company_id === $companyId, 404);
+
+        if (PayrollRecordLinkage::employeeHasRecords((int) $employee->id)) {
+            return redirect()
+                ->route('organization.employees')
+                ->withErrors([
+                    'employee' => 'This employee cannot be deleted because they are included in pay runs.',
+                ]);
+        }
 
         $employee->delete();
 

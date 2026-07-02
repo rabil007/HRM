@@ -15,20 +15,23 @@ final class WpsLaborIdentifier
     public static function forPayrollRecord(PayrollRecord $record): ?string
     {
         $record->loadMissing([
+            'contract' => fn ($query) => $query->withTrashed(),
             'employee.currentContract',
             'employee.contracts',
         ]);
+
+        $contract = $record->contract ?? ($record->employee !== null
+            ? self::resolveContract($record->employee, $record)
+            : null);
+
+        if (filled($contract?->labor_contract_id)) {
+            return (string) $contract->labor_contract_id;
+        }
 
         $employee = $record->employee;
 
         if ($employee === null) {
             return null;
-        }
-
-        $contract = self::resolveContract($employee, $record);
-
-        if (filled($contract?->labor_contract_id)) {
-            return (string) $contract->labor_contract_id;
         }
 
         return filled($employee->labor_card_number)

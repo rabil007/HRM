@@ -3,8 +3,10 @@
 use App\Enums\PayrollCategory;
 use App\Enums\PayrollPeriodStatus;
 use App\Models\AttendanceRecord;
+use App\Models\Bank;
 use App\Models\CrewTimesheet;
 use App\Models\Employee;
+use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeContract;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
@@ -223,6 +225,58 @@ test('payroll show includes payroll records on payroll tab', function () {
             ->where('payroll_records.0.net_salary', '500.00')
             ->where('payroll_records.0.rates.basic_daily', '100.00')
             ->where('permissions.generate_payroll', false));
+});
+
+test('crew payroll generation snapshots contract and bank account linkage', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Draft,
+    ]);
+
+    $employee = createCrewEmployeeWithContract($company, 'CREW-SNAP', 150, 50, 75);
+    $contract = $employee->fresh()->currentContract;
+    expect($contract)->not->toBeNull();
+
+    $bank = Bank::query()->create([
+        'name' => 'Crew Snapshot Bank',
+        'uae_routing_code_agent_id' => '654321',
+        'is_active' => true,
+    ]);
+
+    $bankAccount = EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE070331234567890123499',
+        'account_name' => 'Crew Primary',
+        'is_primary' => true,
+    ]);
+
+    CrewTimesheet::factory()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'standby_days' => 1,
+        'onsite_days' => 1,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->contract_id)->toBe($contract->id)
+        ->and($record->bank_id)->toBe($bank->id)
+        ->and($record->employee_bank_account_id)->toBe($bankAccount->id);
 });
 
 function createCrewEmployeeWithContract(

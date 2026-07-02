@@ -61,6 +61,52 @@ class PayrollRecord extends Model
         return $this->belongsTo(PayrollPeriod::class, 'period_id');
     }
 
+    public function contract(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeContract::class, 'contract_id');
+    }
+
+    public function bank(): BelongsTo
+    {
+        return $this->belongsTo(Bank::class);
+    }
+
+    public function employeeBankAccount(): BelongsTo
+    {
+        return $this->belongsTo(EmployeeBankAccount::class, 'employee_bank_account_id');
+    }
+
+    public function resolvedEmployeeBankAccount(): ?EmployeeBankAccount
+    {
+        if ($this->employee_bank_account_id !== null) {
+            $this->loadMissing([
+                'employeeBankAccount' => fn ($query) => $query->withTrashed(),
+                'employeeBankAccount.bank',
+            ]);
+
+            if ($this->employeeBankAccount !== null) {
+                return $this->employeeBankAccount;
+            }
+        }
+
+        $this->loadMissing('employee.primaryBankAccount.bank');
+
+        return $this->employee?->primaryBankAccount;
+    }
+
+    public function resolvedBank(): ?Bank
+    {
+        $account = $this->resolvedEmployeeBankAccount();
+
+        if ($account?->bank !== null) {
+            return $account->bank;
+        }
+
+        $this->loadMissing('bank');
+
+        return $this->bank;
+    }
+
     public function resolvedSalaryPaymentMethod(): SalaryPaymentMethod
     {
         if ($this->salary_payment_method !== null) {

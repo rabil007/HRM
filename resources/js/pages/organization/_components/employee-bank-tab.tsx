@@ -621,7 +621,7 @@ export function EmployeeBankTab({
                     }
                 }}
                 title="Remove bank account?"
-                description="This entry will be permanently removed."
+                description="This entry will be permanently removed. Records linked to pay runs cannot be deleted."
                 destroyUrl={
                     deleteId && employeeId
                         ? destroyBankAccount.url({

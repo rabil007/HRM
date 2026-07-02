@@ -14,7 +14,6 @@ final class PayrollRecordResource
     public static function toArray(PayrollRecord $record, int $salaryInputsCount = 0): array
     {
         $record->loadMissing([
-            'employee.primaryBankAccount.bank',
             'employee.department.parent:id,name',
             'employee.position:id,title',
         ]);
@@ -59,7 +58,7 @@ final class PayrollRecordResource
                     'site_allowance_daily' => self::formatAmount($rates['site_allowance_daily'] ?? null),
                     'supplementary_allowance_daily' => self::formatAmount($rates['supplementary_allowance_daily'] ?? null),
                 ],
-                'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
+                'primary_account' => EmployeePrimaryAccountResource::forPayrollRecord($record),
                 'salary_inputs_count' => $salaryInputsCount,
             ]);
         }
@@ -69,7 +68,7 @@ final class PayrollRecordResource
             'housing_allowance' => self::formatAmount($record->housing_allowance),
             'transport_allowance' => self::formatAmount($record->transport_allowance),
             'other_allowances' => self::formatAmount($record->other_allowances),
-            'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
+            'primary_account' => EmployeePrimaryAccountResource::forPayrollRecord($record),
             'salary_inputs_count' => $salaryInputsCount,
             'working_days' => $record->working_days,
             'present_days' => $record->present_days,

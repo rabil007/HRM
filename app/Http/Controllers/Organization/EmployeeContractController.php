@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\EmployeeContract;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\Payroll\Actions\SyncContractSalaryComponentsFromContract;
+use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 
@@ -86,6 +87,12 @@ class EmployeeContractController extends Controller
             && $employeeContract->company_id === $companyId,
             403,
         );
+
+        if (PayrollRecordLinkage::contractHasRecords((int) $employeeContract->id)) {
+            return back()->withErrors([
+                'employee_contract' => 'This contract cannot be deleted because it is linked to pay run records.',
+            ]);
+        }
 
         $employeeContract->delete();
 

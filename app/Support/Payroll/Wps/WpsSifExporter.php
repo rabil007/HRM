@@ -42,10 +42,11 @@ final class WpsSifExporter
             $record->loadMissing([
                 'employee.currentContract',
                 'employee.contracts',
-                'employee.primaryBankAccount.bank',
+                'contract' => fn ($query) => $query->withTrashed(),
             ]);
 
-            $bankAccount = $record->employee?->primaryBankAccount;
+            $bankAccount = $record->resolvedEmployeeBankAccount();
+            $bank = $record->resolvedBank();
             $fixedIncome = $rows->fixedIncome($record);
             $variableIncome = max((float) $record->net_salary - $fixedIncome, 0);
             $iban = strtoupper(preg_replace('/\s+/', '', (string) ($bankAccount?->iban ?? '')) ?? '');
@@ -61,7 +62,7 @@ final class WpsSifExporter
             $lines[] = implode(',', [
                 'EDR',
                 (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
-                (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
+                (string) ($bank?->uae_routing_code_agent_id ?? $bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
                 $iban,
                 $startDate?->format('dmY') ?? '',
                 $endDate?->format('dmY') ?? '',

@@ -64,7 +64,7 @@ final class WpsExportValidator
             $record->loadMissing([
                 'employee.currentContract',
                 'employee.contracts',
-                'employee.primaryBankAccount.bank',
+                'contract' => fn ($query) => $query->withTrashed(),
             ]);
             $employee = $record->employee;
             $reason = $this->skipReason($record);
@@ -105,7 +105,8 @@ final class WpsExportValidator
             return 'Labor contract ID is missing.';
         }
 
-        $bankAccount = $employee?->primaryBankAccount;
+        $bankAccount = $record->resolvedEmployeeBankAccount();
+        $bank = $record->resolvedBank();
 
         if ($bankAccount === null) {
             return 'Primary bank account is missing.';
@@ -115,7 +116,7 @@ final class WpsExportValidator
             return 'IBAN is missing.';
         }
 
-        if (! filled($bankAccount->bank?->uae_routing_code_agent_id)) {
+        if (! filled($bank?->uae_routing_code_agent_id ?? $bankAccount->bank?->uae_routing_code_agent_id)) {
             return 'Bank routing code is missing.';
         }
 

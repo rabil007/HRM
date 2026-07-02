@@ -8,6 +8,7 @@ use App\Http\Requests\Settings\MasterData\StoreBankRequest;
 use App\Http\Requests\Settings\MasterData\UpdateBankRequest;
 use App\Models\Bank;
 use App\Models\Country;
+use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
@@ -63,6 +64,14 @@ class BankController extends Controller
 
     public function destroy(Bank $bank)
     {
+        if (PayrollRecordLinkage::bankHasRecords((int) $bank->id)) {
+            return redirect()
+                ->route('settings.master-data.banks.index')
+                ->withErrors([
+                    'bank' => 'This bank cannot be deleted because it is used on pay run records.',
+                ]);
+        }
+
         $bank->delete();
 
         return redirect()->route('settings.master-data.banks.index');

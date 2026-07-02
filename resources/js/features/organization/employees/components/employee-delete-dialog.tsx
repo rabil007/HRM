@@ -19,8 +19,8 @@ export function EmployeeDeleteDialog({
             title="Delete employee"
             description={
                 employee
-                    ? `This will permanently delete ${employee.name}.`
-                    : 'This will permanently delete this employee.'
+                    ? `This will permanently delete ${employee.name}. Employees included in pay runs cannot be deleted.`
+                    : 'This will permanently delete this employee. Employees included in pay runs cannot be deleted.'
             }
             confirmText="Delete"
             onConfirm={onConfirm}

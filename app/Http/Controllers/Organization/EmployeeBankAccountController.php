@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Employee;
 use App\Models\EmployeeBankAccount;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
+use App\Support\Payroll\PayrollRecordLinkage;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -164,6 +165,12 @@ class EmployeeBankAccountController extends Controller
                 && (int) $bankAccount->company_id === $companyId,
             403,
         );
+
+        if (PayrollRecordLinkage::employeeBankAccountHasRecords((int) $bankAccount->id)) {
+            return back()->withErrors([
+                'employee_bank_account' => 'This bank account cannot be removed because it is linked to pay run records.',
+            ]);
+        }
 
         DB::transaction(function () use ($companyId, $employee, $bankAccount): void {
             $wasPrimary = $bankAccount->is_primary;

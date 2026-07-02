@@ -59,3 +59,39 @@ test('wps labor identifier falls back to employee labor_card_number', function (
 
     expect(WpsLaborIdentifier::forPayrollRecord($record))->toBe('99887766554433');
 });
+
+test('wps labor identifier prefers stored contract snapshot over current active contract', function () {
+    ['company' => $company] = makePayrollFixtures();
+
+    $employee = Employee::factory()->forCompany($company)->create([
+        'labor_card_number' => null,
+    ]);
+
+    $snapshotContract = EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'ended',
+        'labor_contract_id' => 'SNAPSHOT-111',
+    ]);
+
+    EmployeeContract::factory()->create([
+        'employee_id' => $employee->id,
+        'company_id' => $company->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'active',
+        'labor_contract_id' => 'ACTIVE-999',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create();
+
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'contract_id' => $snapshotContract->id,
+        'payroll_category' => PayrollCategory::Office,
+        'status' => 'approved',
+    ]);
+
+    expect(WpsLaborIdentifier::forPayrollRecord($record))->toBe('SNAPSHOT-111');
+});

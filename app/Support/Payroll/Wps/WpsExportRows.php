@@ -65,10 +65,11 @@ final class WpsExportRows
         $record->loadMissing([
             'employee.currentContract',
             'employee.contracts',
-            'employee.primaryBankAccount.bank',
+            'contract' => fn ($query) => $query->withTrashed(),
         ]);
 
-        $bankAccount = $record->employee?->primaryBankAccount;
+        $bankAccount = $record->resolvedEmployeeBankAccount();
+        $bank = $record->resolvedBank();
         $breakdown = $record->calculation_breakdown ?? [];
         $startDate = ! empty($breakdown['period_start_date'])
             ? CarbonImmutable::parse($breakdown['period_start_date'])
@@ -83,7 +84,7 @@ final class WpsExportRows
         return [
             'EDR',
             (string) (WpsLaborIdentifier::forPayrollRecord($record) ?? ''),
-            (string) ($bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
+            (string) ($bank?->uae_routing_code_agent_id ?? $bankAccount?->bank?->uae_routing_code_agent_id ?? ''),
             self::compactIban($bankAccount?->iban),
             $startDate?->format('Y-m-d') ?? '',
             $endDate?->format('Y-m-d') ?? '',

@@ -24,6 +24,8 @@ import {
 } from '@/components/ui/sheet';
 import { Switch } from '@/components/ui/switch';
 import { useSettingsMasterDataCan } from '@/hooks/use-has-permission';
+import { firstValidationError } from '@/lib/first-validation-error';
+import { toast } from '@/lib/toast';
 
 type Bank = {
     id: number;
@@ -144,6 +146,15 @@ export default function Banks({
             onFinish: () => {
                 setDeleteOpen(false);
                 setCurrent(null);
+            },
+            onError: (errors) => {
+                toast.error(
+                    firstValidationError(
+                        errors,
+                        'bank',
+                        'This bank could not be deleted.',
+                    ),
+                );
             },
         });
     };

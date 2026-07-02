@@ -1121,18 +1121,9 @@ export function PayrollShowContent({
                                             'border-l border-primary/8 bg-primary/2 text-right',
                                         )}
                                     >
-                                        <div className="flex flex-col items-end gap-0.5">
-                                            <SalaryCell
-                                                value={contract?.basic_salary}
-                                            />
-                                            {contract?.basic_salary &&
-                                                Number(contract.basic_salary) >
-                                                    0 && (
-                                                    <span className="text-[10px] text-muted-foreground/50">
-                                                        / day
-                                                    </span>
-                                                )}
-                                        </div>
+                                        <SalaryCell
+                                            value={contract?.basic_salary}
+                                        />
                                     </TableCell>
 
                                     {/* Supplementary */}

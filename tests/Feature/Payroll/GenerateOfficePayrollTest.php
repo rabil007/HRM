@@ -67,6 +67,51 @@ test('office payroll generation creates records for all office employees with fu
         ->and($summary['skipped_employees'])->toBe([]);
 });
 
+test('office payroll generation snapshots contract and bank account linkage', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.update']);
+
+    $period = PayrollPeriod::factory()->for($company)->office()->create([
+        'start_date' => '2026-06-01',
+        'end_date' => '2026-06-05',
+    ]);
+
+    $employee = createOfficeEmployeeWithContract($company, 'OFF-SNAP', 10000, 0, 0, 0);
+    $contract = $employee->fresh()->currentContract;
+    expect($contract)->not->toBeNull();
+
+    $bank = Bank::query()->create([
+        'name' => 'Office Snapshot Bank',
+        'uae_routing_code_agent_id' => '112233',
+        'is_active' => true,
+    ]);
+
+    $bankAccount = EmployeeBankAccount::query()->create([
+        'company_id' => $company->id,
+        'employee_id' => $employee->id,
+        'bank_id' => $bank->id,
+        'iban' => 'AE070331234567890123488',
+        'account_name' => 'Office Primary',
+        'is_primary' => true,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.generate', $period))
+        ->assertRedirect();
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->contract_id)->toBe($contract->id)
+        ->and($record->bank_id)->toBe($bank->id)
+        ->and($record->employee_bank_account_id)->toBe($bankAccount->id);
+});
+
 test('office payroll generation stores leave days from approved requests in period', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

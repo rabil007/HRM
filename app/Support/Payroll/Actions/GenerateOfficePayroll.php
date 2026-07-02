@@ -15,6 +15,7 @@ use App\Support\Payroll\OfficeLeavePeriodSummary;
 use App\Support\Payroll\OfficePayrollCalculator;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -51,7 +52,7 @@ final class GenerateOfficePayroll
             $employeesQuery->whereNotIn('employees.id', $excludedEmployeeIds);
         }
 
-        $employees = $employeesQuery->with(['currentContract.salaryComponents'])
+        $employees = $employeesQuery->with(['currentContract.salaryComponents', 'primaryBankAccount'])
             ->orderBy('employees.name')
             ->get();
 
@@ -141,6 +142,7 @@ final class GenerateOfficePayroll
                         'period_id' => $period->id,
                     ],
                     [
+                        ...ResolvePayrollRecordSnapshot::from($employee, $contract),
                         'payroll_category' => PayrollCategory::Office,
                         'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
                         'basic_salary' => $calculated['basic_salary'],

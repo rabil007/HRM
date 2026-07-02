@@ -46,6 +46,7 @@ import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filter
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
 import { toast } from '@/lib/toast';
+import { firstValidationError } from '@/lib/first-validation-error';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import {
@@ -215,6 +216,15 @@ export function EmployeesContent({
             onFinish: () => {
                 setIsDeleteOpen(false);
                 setCurrentEmployee(null);
+            },
+            onError: (errors) => {
+                toast.error(
+                    firstValidationError(
+                        errors,
+                        'employee',
+                        'This employee could not be deleted.',
+                    ),
+                );
             },
         });
     };

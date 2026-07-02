@@ -12,6 +12,7 @@ use App\Support\Payroll\CrewPayrollCalculator;
 use App\Support\Payroll\GeneratePayrollResult;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use App\Support\Payroll\PayrollGenerationError;
+use App\Support\Payroll\ResolvePayrollRecordSnapshot;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -35,6 +36,7 @@ final class GenerateCrewPayroll
         $employees = PayrollEmployeeQuery::activeQuery($period->company_id, PayrollCategory::Crew)
             ->with([
                 'currentContract.salaryComponents',
+                'primaryBankAccount',
                 'crewTimesheets' => fn ($query) => $query->where('period_id', $period->id),
             ])
             ->orderBy('employees.name')
@@ -112,6 +114,7 @@ final class GenerateCrewPayroll
                         'period_id' => $period->id,
                     ],
                     [
+                        ...ResolvePayrollRecordSnapshot::from($employee, $contract),
                         'payroll_category' => PayrollCategory::Crew,
                         'salary_payment_method' => $employee->salary_payment_method ?? SalaryPaymentMethod::BankTransfer,
                         'basic_salary' => $calculated['basic_salary'],
