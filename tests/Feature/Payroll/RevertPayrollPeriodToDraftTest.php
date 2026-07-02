@@ -67,13 +67,16 @@ test('authorized users can revert processing pay period to draft', function () {
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
     expect(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(0);
 
+    $showUrl = route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']);
+
     $this->withSession(['current_company_id' => $company->id])
+        ->from($showUrl)
         ->post(route('payroll.timesheets.store', $period), [
             'period_id' => $period->id,
             'employee_id' => $employee->id,
             'standby_days' => 4,
         ])
-        ->assertRedirect(route('payroll.show', $period));
+        ->assertRedirect($showUrl);
 
     $this->assertDatabaseHas('crew_timesheets', [
         'period_id' => $period->id,
