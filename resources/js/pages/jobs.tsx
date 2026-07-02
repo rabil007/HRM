@@ -42,7 +42,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Input } from '@/components/ui/input';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
-import { formatDisplayDateTime } from '@/lib/format-date';
+import { formatDisplayDateTimeInTimezone } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 
@@ -121,6 +121,7 @@ type Props = {
     statuses: string[];
     stats: Stats;
     registry: RegistryItem[];
+    scheduler_timezone: string;
     filters: {
         status: string;
         name: string;
@@ -202,8 +203,11 @@ export default function JobRunsViewer({
     statuses,
     stats,
     registry,
+    scheduler_timezone,
     filters,
 }: Props) {
+    const formatDateTime = (value: string | null | undefined) =>
+        formatDisplayDateTimeInTimezone(value, scheduler_timezone);
     const [openId, setOpenId] = useState<string | null>(null);
     const [deleteUuid, setDeleteUuid] = useState<string | null>(null);
     const [deleteHistoryId, setDeleteHistoryId] = useState<number | null>(null);
@@ -408,7 +412,8 @@ export default function JobRunsViewer({
                             Job runs
                         </h1>
                         <p className="mt-1 text-sm text-muted-foreground">
-                            Track queue history, failed jobs, and pending work.
+                            Track queue history, failed jobs, and pending work. Times use{' '}
+                            <span className="font-medium text-foreground">{scheduler_timezone}</span>.
                         </p>
                     </div>
 
@@ -829,7 +834,7 @@ export default function JobRunsViewer({
                                                             <span>
                                                                 Started{' '}
                                                                 {run.started_at
-                                                                    ? formatDisplayDateTime(
+                                                                    ? formatDateTime(
                                                                           run.started_at,
                                                                       )
                                                                     : '—'}
@@ -837,7 +842,7 @@ export default function JobRunsViewer({
                                                             {run.finished_at && (
                                                                 <span>
                                                                     · Finished{' '}
-                                                                    {formatDisplayDateTime(
+                                                                    {formatDateTime(
                                                                         run.finished_at,
                                                                     )}
                                                                 </span>
@@ -1086,7 +1091,7 @@ export default function JobRunsViewer({
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">
                                                             Failed{' '}
-                                                            {formatDisplayDateTime(
+                                                            {formatDateTime(
                                                                 job.failed_at,
                                                             )}
                                                         </div>
@@ -1260,20 +1265,20 @@ export default function JobRunsViewer({
                                                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                                             <span>
                                                                 Created{' '}
-                                                                {formatDisplayDateTime(
+                                                                {formatDateTime(
                                                                     job.created_at,
                                                                 )}
                                                             </span>
                                                             <span>
                                                                 · Available{' '}
-                                                                {formatDisplayDateTime(
+                                                                {formatDateTime(
                                                                     job.available_at,
                                                                 )}
                                                             </span>
                                                             {job.reserved_at && (
                                                                 <span className="text-amber-500">
                                                                     · Reserved{' '}
-                                                                    {formatDisplayDateTime(
+                                                                    {formatDateTime(
                                                                         job.reserved_at,
                                                                     )}
                                                                 </span>

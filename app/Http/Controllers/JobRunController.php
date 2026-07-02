@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\JobRun;
 use App\Support\Pagination\ResolvesPerPage;
+use App\Support\Queue\JobRegistry;
 use App\Support\Queue\JobRunQuery;
+use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -73,7 +75,8 @@ class JobRunController extends Controller
             'pagination' => $pagination,
             'names' => $query->distinctHistoryNames(),
             'statuses' => JobRunQuery::HISTORY_STATUSES,
-            'registry' => $this->getJobRegistry(),
+            'registry' => JobRegistry::entries(),
+            'scheduler_timezone' => ApplicationTimezone::identifier(),
             'stats' => [
                 'history_count' => JobRun::query()->count(),
                 'completed_count' => JobRun::query()->where('status', JobRun::STATUS_COMPLETED)->count(),
@@ -179,125 +182,5 @@ class JobRunController extends Controller
         }
 
         return back()->with('success', "All {$deleted} pending jobs removed.");
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function getJobRegistry(): array
-    {
-        return [
-            [
-                'type' => 'job',
-                'name' => 'FetchHikvisionAccessEventsJob',
-                'class' => 'App\Jobs\FetchHikvisionAccessEventsJob',
-                'purpose' => 'Fetches raw access log events from local Hikvision devices/APIs for a specific date (or scheduled runs) and stores them in the database.',
-                'trigger' => 'Dispatched automatically by daily fetch commands or manually from the Hikvision Settings dashboard.',
-                'queue' => 'default',
-                'connection' => 'database',
-                'parameters' => [
-                    'date' => 'Optional date string (Y-m-d). If null, fetches scheduled access events for yesterday.',
-                ],
-                'details' => 'Timeout is 180s when date is passed, or 300s when null. It automatically dispatches SyncHikvisionAttendanceJob upon successful run.',
-                'code_snippet' => "dispatch(new \\App\\Jobs\\FetchHikvisionAccessEventsJob('2026-06-25'));",
-            ],
-            [
-                'type' => 'job',
-                'name' => 'SyncHikvisionAttendanceJob',
-                'class' => 'App\Jobs\SyncHikvisionAttendanceJob',
-                'purpose' => 'Processes and synchronizes raw Hikvision access event logs against employee profiles, schedules, shifts, and rosters to generate accurate daily attendance logs.',
-                'trigger' => 'Automatically dispatched after FetchHikvisionAccessEventsJob finishes, or manually from the attendance recalculation UI.',
-                'queue' => 'default',
-                'connection' => 'database',
-                'parameters' => [
-                    'date' => 'Optional date string (Y-m-d). If null, syncs all scheduled/pending days.',
-                ],
-                'details' => 'Timeout is 600s. Has a maximum attempts count of 1.',
-                'code_snippet' => "dispatch(new \\App\\Jobs\\SyncHikvisionAttendanceJob('2026-06-25'));",
-            ],
-            [
-                'type' => 'job',
-                'name' => 'ProcessHikvisionWebhookEventJob',
-                'class' => 'App\Jobs\ProcessHikvisionWebhookEventJob',
-                'purpose' => 'Processes real-time webhook scan logs sent directly from Hikvision face-recognition terminals when an employee scans in/out.',
-                'trigger' => 'Hikvision Webhook controller endpoint when a scan event is received.',
-                'queue' => 'default',
-                'connection' => 'database',
-                'parameters' => [
-                    'payload' => 'Array containing Hikvision webhook event details.',
-                ],
-                'details' => 'Upserts events into hikvision_access_events and triggers real-time attendance recalculation for the scanning employee.',
-                'code_snippet' => 'dispatch(new \\App\\Jobs\\ProcessHikvisionWebhookEventJob($webhookPayload));',
-            ],
-            [
-                'type' => 'job',
-                'name' => 'SendDocumentExpiryAlertJob',
-                'class' => 'App\Jobs\SendDocumentExpiryAlertJob',
-                'purpose' => 'Checks for expiring employee/company documents (visas, passports, licenses) and sends email alerts to HR managers.',
-                'trigger' => 'Daily console command (documents:dispatch-expiry-alerts).',
-                'queue' => 'default',
-                'connection' => 'database',
-                'parameters' => [
-                    'companyId' => 'Integer company ID to scan documents for.',
-                ],
-                'details' => 'Tries up to 3 times with progressive backoff: 60s, 300s, 900s. Logs failures to document_alert_logs.',
-                'code_snippet' => 'dispatch(new \\App\\Jobs\\SendDocumentExpiryAlertJob($companyId));',
-            ],
-            [
-                'type' => 'command',
-                'name' => 'documents:dispatch-expiry-alerts',
-                'class' => 'App\Console\Commands\DispatchDocumentExpiryAlertsCommand',
-                'purpose' => 'Scans all active companies and dispatches visa/passport/document expiry notification jobs for each.',
-                'trigger' => 'Artisan Schedule (daily). Runs at 07:00 by default.',
-                'schedule' => '0 7 * * * (Daily at 07:00)',
-                'signature' => 'documents:dispatch-expiry-alerts {--company= : Limit to a single company ID}',
-                'details' => 'Runs daily without overlapping to prevent duplicate emails.',
-                'code_snippet' => 'php artisan documents:dispatch-expiry-alerts --company=1',
-            ],
-            [
-                'type' => 'command',
-                'name' => 'leave-balances:rollover',
-                'class' => 'App\Console\Commands\RolloverLeaveBalancesCommand',
-                'purpose' => 'Processes annual rollover of employee leave balances, resetting annual leaves and applying carryover rules.',
-                'trigger' => 'Artisan Schedule (yearly). Runs on Jan 1st.',
-                'schedule' => '30 0 1 1 * (Jan 1st at 00:30)',
-                'signature' => 'leave-balances:rollover',
-                'details' => 'Clears existing allocations and applies new annual accruals based on policy settings.',
-                'code_snippet' => 'php artisan leave-balances:rollover',
-            ],
-            [
-                'type' => 'command',
-                'name' => 'hikvision:fetch-access-events',
-                'class' => 'App\Console\Commands\FetchHikvisionAccessEventsCommand',
-                'purpose' => 'Fetches the previous day\'s access log events from the local Hikvision device API.',
-                'trigger' => 'Artisan Schedule (daily). Runs at 01:00.',
-                'schedule' => '0 1 * * * (Daily at 01:00)',
-                'signature' => 'hikvision:fetch-access-events',
-                'details' => 'Only runs if enabled in Hikvision settings. Dispatches FetchHikvisionAccessEventsJob.',
-                'code_snippet' => 'php artisan hikvision:fetch-access-events',
-            ],
-            [
-                'type' => 'command',
-                'name' => 'hikvision:fetch-todays-access-events',
-                'class' => 'App\Console\Commands\FetchTodaysHikvisionAccessEventsCommand',
-                'purpose' => 'Fetches the current day\'s (evening) access log events from local Hikvision devices.',
-                'trigger' => 'Artisan Schedule (daily). Runs at 19:30.',
-                'schedule' => '30 19 * * * (Daily at 19:30)',
-                'signature' => 'hikvision:fetch-todays-access-events',
-                'details' => 'Ensures recent evening punches are captured promptly for rosters. Only runs if enabled.',
-                'code_snippet' => 'php artisan hikvision:fetch-todays-access-events',
-            ],
-            [
-                'type' => 'command',
-                'name' => 'leave-balances:sync',
-                'class' => 'App\Console\Commands\SyncLeaveBalancesCommand',
-                'purpose' => 'Synchronizes employee leave balances and allocations based on approved requests.',
-                'trigger' => 'Console / Manual run.',
-                'schedule' => 'Manual run',
-                'signature' => 'leave-balances:sync',
-                'details' => 'Re-calculates leave allocations against taken leaves to fix any balance mismatches.',
-                'code_snippet' => 'php artisan leave-balances:sync',
-            ],
-        ];
     }
 }

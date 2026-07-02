@@ -1,6 +1,11 @@
 <?php
 
 use App\Models\User;
+use App\Support\EmployeeDocuments\DocumentExpiryAlertSchedule;
+use App\Support\Hikvision\HikvisionAccessEventsFetchSchedule;
+use App\Support\Hikvision\HikvisionEveningAccessEventsFetchSchedule;
+use App\Support\Queue\JobRegistry;
+use App\Support\Settings\ApplicationTimezone;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\Job;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -35,6 +40,32 @@ test('authenticated users can view job runs history tab', function () {
             ->where('stats.failed_count', 0)
             ->where('stats.pending_count', 0)
             ->where('stats.avg_duration_ms', 0)
+            ->has('registry'));
+});
+
+test('job registry schedules reflect configured dispatch times and timezone', function () {
+    $timezone = ApplicationTimezone::identifier();
+    $entries = collect(JobRegistry::entries());
+
+    $documentCommand = $entries->firstWhere('name', 'documents:dispatch-expiry-alerts');
+    $hikvisionFetchCommand = $entries->firstWhere('name', 'hikvision:fetch-access-events');
+    $hikvisionEveningCommand = $entries->firstWhere('name', 'hikvision:fetch-todays-access-events');
+
+    expect($documentCommand['schedule'])->toContain($timezone)
+        ->and($documentCommand['schedule'])->toContain(DocumentExpiryAlertSchedule::dispatchAt())
+        ->and($documentCommand['trigger'])->toContain(DocumentExpiryAlertSchedule::dispatchAt())
+        ->and($hikvisionFetchCommand['schedule'])->toContain(HikvisionAccessEventsFetchSchedule::dispatchAt())
+        ->and($hikvisionEveningCommand['schedule'])->toContain(HikvisionEveningAccessEventsFetchSchedule::dispatchAt());
+});
+
+test('jobs page exposes scheduler timezone to the client', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get(route('jobs.index', ['tab' => 'registry']))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('scheduler_timezone', ApplicationTimezone::identifier())
             ->has('registry'));
 });
 

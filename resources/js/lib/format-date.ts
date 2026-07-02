@@ -43,6 +43,36 @@ export function formatDisplayDateTime(
     return `${day}-${month}-${year} ${hours}:${minutes}`;
 }
 
+export function formatDisplayDateTimeInTimezone(
+    value: string | null | undefined,
+    timeZone: string,
+): string {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+
+    const parsed = new Date(value.trim());
+
+    if (Number.isNaN(parsed.getTime())) {
+        return value.trim();
+    }
+
+    const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).formatToParts(parsed);
+
+    const get = (type: Intl.DateTimeFormatPartTypes): string =>
+        parts.find((part) => part.type === type)?.value ?? '';
+
+    return `${get('day')}-${get('month')}-${get('year')} ${get('hour')}:${get('minute')}`;
+}
+
 function format12HourClock(parsed: Date): string {
     const minutes = String(parsed.getMinutes()).padStart(2, '0');
     let hours = parsed.getHours();
