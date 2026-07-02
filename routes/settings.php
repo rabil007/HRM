@@ -379,6 +379,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->middleware('can:settings.master-data.document-types.delete')
             ->name('document-types.destroy');
 
+        Route::get('projects/import/template', [ProjectController::class, 'importTemplate'])
+            ->middleware('can:settings.master-data.projects.view')
+            ->name('projects.import.template');
+        Route::post('projects/import', [ProjectController::class, 'import'])
+            ->middleware('can:settings.master-data.projects.create')
+            ->name('projects.import');
         Route::get('projects', [ProjectController::class, 'index'])
             ->middleware('can:settings.master-data.projects.view')
             ->name('projects.index');

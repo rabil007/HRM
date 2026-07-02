@@ -10,4 +10,8 @@ class Project extends Model
     use SoftDeletes;
 
     protected $guarded = [];
+
+    protected $casts = [
+        'is_active' => 'boolean',
+    ];
 }
