@@ -343,7 +343,10 @@ export function getSidebarData(permissions: string[]): SidebarData {
                         case '/organization/roles':
                             return has(permissions, 'roles.view') ? item : null;
                         case '/organization/users':
-                            return has(permissions, 'users.view') ? item : null;
+                            return has(permissions, 'users.view') &&
+                                has(permissions, 'users.create')
+                                ? item
+                                : null;
                         case '/organization/activity-logs':
                             return has(permissions, 'audit.view') ? item : null;
                         case '/organization/templates/employee-profile':
