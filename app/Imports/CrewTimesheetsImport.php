@@ -144,10 +144,23 @@ final class CrewTimesheetsImport
             return Carbon::instance(ExcelDate::excelToDateTimeObject((float) $value))->toDateString();
         }
 
-        $parsed = Carbon::createFromFormat('Y-m-d', (string) $value)
-            ?: Carbon::createFromFormat('d/m/Y', (string) $value)
-            ?: Carbon::createFromFormat('m/d/Y', (string) $value);
+        return $this->parseDateString(trim((string) $value));
+    }
 
-        return $parsed?->toDateString();
+    private function parseDateString(string $value): ?string
+    {
+        foreach (['d-m-Y', 'Y-m-d', 'd/m/Y', 'm/d/Y', 'm-d-Y', 'd.m.Y'] as $format) {
+            try {
+                $parsed = Carbon::createFromFormat('!'.$format, $value);
+
+                if ($parsed !== false) {
+                    return $parsed->toDateString();
+                }
+            } catch (\Throwable) {
+                continue;
+            }
+        }
+
+        return null;
     }
 }

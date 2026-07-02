@@ -72,9 +72,46 @@ test('crew timesheet template download includes roster with department and posit
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:I2');
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:I2')
+        ->and($sheet->getStyle('F2')->getNumberFormat()->getFormatCode())->toBe(CrewTimesheetTemplateExporter::DATE_FORMAT);
 
     @unlink($result['path']);
+});
+
+test('crew timesheet import parses dd-mm-yyyy dates from excel', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, [
+        'payroll.crew_timesheets.import',
+    ]);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    createImportCrewEmployee($company, '2057', 50, 661, 611);
+
+    $file = makeCrewTimesheetImportFile([
+        [
+            'employee_no' => '2057',
+            'name' => 'AHMED LATECH',
+            'standby_from' => '01-07-2026',
+            'standby_to' => '15-07-2026',
+            'onsite_from' => '16-07-2026',
+            'onsite_to' => '25-07-2026',
+        ],
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.timesheets.import.preview', $period), [
+            'file' => $file,
+        ])
+        ->assertOk()
+        ->assertJsonPath('summary.total', 1)
+        ->assertJsonPath('summary.valid', 1)
+        ->assertJsonPath('rows.0.standby_days', 15)
+        ->assertJsonPath('rows.0.onsite_days', 10);
 });
 
 test('crew timesheet import preview rejects unknown employee numbers', function () {

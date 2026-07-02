@@ -230,8 +230,10 @@ export function CrewTimesheetImportDialog({
                     <DialogDescription>
                         Download the template with your crew roster pre-filled.
                         Use Excel filters on Division or Department, then fill
-                        only the yellow date columns — days are calculated
-                        automatically. Rows are matched by employee number.
+                        only the yellow date columns as DD-MM-YYYY text (e.g.
+                        01-07-2026). Do not use the Excel date picker. Days are
+                        calculated automatically. Rows are matched by employee
+                        number.
                     </DialogDescription>
                 </DialogHeader>
 

@@ -8,6 +8,7 @@ use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Support\Payroll\PayrollEmployeeQuery;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
@@ -19,6 +20,9 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 final class CrewTimesheetTemplateExporter
 {
     private const INSTRUCTIONS_SHEET_NAME = 'How to fill';
+
+    /** Excel text format — keeps typed DD-MM-YYYY literal (avoids locale date parsing). */
+    public const DATE_FORMAT = NumberFormat::FORMAT_TEXT;
 
     /**
      * @return array{path: string, filename: string}
@@ -74,6 +78,7 @@ final class CrewTimesheetTemplateExporter
 
         $lastDataRow = max($rowNumber - 1, CrewTimesheetsImport::DATA_START_ROW);
         $this->applyWorksheetFormatting($sheet, $lastDataRow);
+        $this->applyDateColumnValidation($sheet, $lastDataRow);
         $this->addInstructionsSheet($spreadsheet, $period);
 
         $tempPath = tempnam(sys_get_temp_dir(), 'crew-timesheet-template-');
@@ -106,10 +111,10 @@ final class CrewTimesheetTemplateExporter
             'C' => 18,
             'D' => 18,
             'E' => 22,
-            'F' => 14,
-            'G' => 14,
-            'H' => 14,
-            'I' => 14,
+            'F' => 16,
+            'G' => 16,
+            'H' => 16,
+            'I' => 16,
         ];
 
         foreach ($columnWidths as $column => $width) {
@@ -193,12 +198,33 @@ final class CrewTimesheetTemplateExporter
         foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
             $sheet->getStyle("{$dateColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
-                ->setFormatCode(NumberFormat::FORMAT_DATE_YYYYMMDD2);
+                ->setFormatCode(self::DATE_FORMAT);
         }
 
         $sheet->getStyle('A'.CrewTimesheetsImport::DATA_START_ROW.":A{$lastDataRow}")
             ->getAlignment()
             ->setHorizontal(Alignment::HORIZONTAL_LEFT);
+    }
+
+    private function applyDateColumnValidation(Worksheet $sheet, int $lastDataRow): void
+    {
+        if ($lastDataRow < CrewTimesheetsImport::DATA_START_ROW) {
+            return;
+        }
+
+        for ($row = CrewTimesheetsImport::DATA_START_ROW; $row <= $lastDataRow; $row++) {
+            foreach (['F', 'G', 'H', 'I'] as $column) {
+                $validation = new DataValidation;
+                $validation->setType(DataValidation::TYPE_CUSTOM);
+                $validation->setAllowBlank(true);
+                $validation->setShowInputMessage(true);
+                $validation->setPromptTitle('DD-MM-YYYY');
+                $validation->setPrompt('Type the date as text: 01-07-2026 (= 1 July 2026). Day first, then month. Do not use the date picker.');
+                $validation->setFormula1('TRUE');
+
+                $sheet->getCell("{$column}{$row}")->setDataValidation($validation);
+            }
+        }
     }
 
     private function addInstructionsSheet(Spreadsheet $spreadsheet, PayrollPeriod $period): void
@@ -213,7 +239,7 @@ final class CrewTimesheetTemplateExporter
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
             ['3. Only fill the yellow date columns — days are calculated automatically on import.'],
             ['4. Gray columns are pre-filled — do not change Employee No.'],
-            ['5. Dates: use YYYY-MM-DD (e.g. 2026-06-01) or pick from the date picker.'],
+            ['5. Type dates as DD-MM-YYYY text (e.g. 01-07-2026 = 1 July 2026). Do not use the date picker — Excel may swap day and month.'],
             ['6. Leave a row blank if the employee had no standby or onsite days.'],
             ['7. Save and upload this file back to payroll.'],
             [''],
