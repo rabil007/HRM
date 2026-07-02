@@ -81,6 +81,7 @@ const PRIORITY_FIELDS = [
     'branch',
     'department',
     'position',
+    'project',
     'contract_type',
     'start_date',
 ];

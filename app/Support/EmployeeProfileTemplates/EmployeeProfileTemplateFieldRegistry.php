@@ -79,7 +79,7 @@ final class EmployeeProfileTemplateFieldRegistry
                 'department_id' => 'Department',
                 'position_id' => 'Position',
                 'rank_id' => 'Rank',
-                'project_id' => 'Project',
+                'project_id' => 'Project name',
                 'date_of_birth' => 'Date of birth',
                 'hire_date' => 'Date of hire',
                 'place_of_birth' => 'Place of birth',

@@ -11,6 +11,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\EmployeeProfileTemplate;
 use App\Models\Gender;
 use App\Models\Position;
+use App\Models\Project;
 use App\Models\Religion;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateRequestRules;
 use App\Support\EmployeeProfileTemplates\EmployeeProfileTemplateResolver;
@@ -71,6 +72,7 @@ class EmployeesImport
         'branch' => ['branch', 'branch name'],
         'department' => ['department', 'department name', 'dept'],
         'position' => ['position', 'position title', 'job title', 'title'],
+        'project' => ['project', 'project name', 'project title'],
         'gender' => ['gender'],
         'religion' => ['religion'],
         'nationality' => ['nationality', 'country'],
@@ -119,6 +121,7 @@ class EmployeesImport
             'branch' => ['employees', 'branch_id'],
             'department' => ['employees', 'department_id'],
             'position' => ['employees', 'position_id'],
+            'project' => ['employees', 'project_id'],
             'gender' => ['employees', 'gender_id'],
             'religion' => ['employees', 'religion_id'],
             'nationality' => ['employees', 'nationality_id'],
@@ -204,6 +207,7 @@ class EmployeesImport
         'branch',
         'department',
         'position',
+        'project',
         'gender',
         'religion',
         'nationality',
@@ -253,6 +257,11 @@ class EmployeesImport
      * @var array<string, int>|null
      */
     private ?array $countryMap = null;
+
+    /**
+     * @var array<string, int>|null
+     */
+    private ?array $projectMap = null;
 
     /**
      * @var array<string, int>|null
@@ -560,6 +569,7 @@ class EmployeesImport
                         'branch_id' => $resolved['branch_id'] ?? null,
                         'department_id' => $resolved['department_id'] ?? null,
                         'position_id' => $resolved['position_id'] ?? null,
+                        'project_id' => $resolved['project_id'] ?? null,
                         'gender_id' => $resolved['gender_id'] ?? null,
                         'religion_id' => $resolved['religion_id'] ?? null,
                         'nationality_id' => $resolved['nationality_id'] ?? null,
@@ -771,7 +781,7 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'bank' => $this->bankMap] as $key => $map) {
+        foreach (['gender' => $this->genderMap, 'religion' => $this->religionMap, 'nationality' => $this->countryMap, 'bank' => $this->bankMap, 'project' => $this->projectMap] as $key => $map) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
 
@@ -794,6 +804,7 @@ class EmployeesImport
             'branch_id' => null,
             'department_id' => null,
             'position_id' => null,
+            'project_id' => null,
             'gender_id' => null,
             'religion_id' => null,
             'nationality_id' => null,
@@ -808,10 +819,17 @@ class EmployeesImport
             }
         }
 
-        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'bank' => 'bank_id'] as $key => $field) {
+        foreach (['gender' => 'gender_id', 'religion' => 'religion_id', 'nationality' => 'nationality_id', 'bank' => 'bank_id', 'project' => 'project_id'] as $key => $field) {
             if (! empty($row[$key])) {
                 $name = self::normalize((string) $row[$key]);
-                $map = $key === 'gender' ? $this->genderMap : ($key === 'religion' ? $this->religionMap : ($key === 'nationality' ? $this->countryMap : $this->bankMap));
+                $map = match ($key) {
+                    'gender' => $this->genderMap,
+                    'religion' => $this->religionMap,
+                    'nationality' => $this->countryMap,
+                    'bank' => $this->bankMap,
+                    'project' => $this->projectMap,
+                    default => [],
+                };
                 $resolved[$field] = $map[$name] ?? null;
             }
         }
@@ -839,6 +857,11 @@ class EmployeesImport
 
         $this->positionMap = Position::query()
             ->where('company_id', $this->companyId)
+            ->pluck('id', 'title')
+            ->mapWithKeys(fn ($id, $title) => [self::normalize((string) $title) => (int) $id])
+            ->all();
+
+        $this->projectMap = Project::query()
             ->pluck('id', 'title')
             ->mapWithKeys(fn ($id, $title) => [self::normalize((string) $title) => (int) $id])
             ->all();

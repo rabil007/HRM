@@ -1271,6 +1271,66 @@ test('authenticated users can preview and import an employees CSV', function () 
     ]);
 });
 
+test('employee import resolves project name when project_id is enabled in template', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+
+    $country = Country::query()->create([
+        'code' => 'PRJ',
+        'name' => 'Project Land',
+        'dial_code' => '+971',
+        'is_active' => true,
+    ]);
+
+    $currency = Currency::query()->create([
+        'code' => 'PRJ',
+        'name' => 'Project Currency',
+        'symbol' => 'P$',
+        'is_active' => true,
+    ]);
+
+    $company = Company::query()->create([
+        'name' => 'Project Co',
+        'slug' => 'project-co',
+        'working_days' => [1, 2, 3, 4, 5],
+        'country_id' => $country->id,
+        'currency_id' => $currency->id,
+        'timezone' => 'Asia/Dubai',
+        'payroll_cycle' => 'monthly',
+        'status' => 'active',
+    ]);
+
+    $project = Project::query()->create([
+        'title' => 'North Field',
+        'is_active' => true,
+    ]);
+
+    $template = EmployeeProfileTemplate::query()->create([
+        'company_id' => $company->id,
+        'name' => 'With Project',
+        'configuration_json' => EmployeeProfileTemplateFieldRegistry::defaultConfiguration(),
+    ]);
+
+    grantCompanyPermissions($user, $company, ['employees.view', 'employees.import']);
+
+    $csv = "employee_no,name,project,contract_type,start_date\n"
+        ."EMP-PRJ-1,Project Employee,North Field,unlimited,2026-03-01\n";
+
+    $file = UploadedFile::fake()->createWithContent('employees.csv', $csv);
+
+    $this->post('/organization/employees/import', [
+        'file' => $file,
+        'employee_profile_template_id' => $template->id,
+    ])->assertRedirect('/organization/employees');
+
+    $this->assertDatabaseHas('employees', [
+        'company_id' => $company->id,
+        'employee_no' => 'EMP-PRJ-1',
+        'name' => 'Project Employee',
+        'project_id' => $project->id,
+    ]);
+});
+
 test('employee import rejects unsupported file types', function () {
     $user = User::factory()->create();
     $this->actingAs($user);

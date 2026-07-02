@@ -781,7 +781,7 @@ export function EmployeeHeaderCard({
 
                     {showField('project_id') && (
                         <EditableDetailSelectField
-                            label="Project"
+                            label="Project name"
                             field="project_id"
                             value={form.data.project_id}
                             displayValue={
