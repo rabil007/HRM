@@ -266,26 +266,29 @@ export function PayrollShowContent({
     const employeeSearchPlaceholder = `Search ${period.payroll_category_label.toLowerCase()} employees...`;
 
     const renderListToolbar = (extra?: React.ReactNode) => (
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-            <div className="min-w-0 flex-1">
-                <SearchBar
-                    value={list.searchInput}
-                    onChange={list.onSearchChange}
-                    placeholder={employeeSearchPlaceholder}
-                />
-            </div>
-            <DepartmentFilterControls
-                department_tree={department_tree}
-                department_tree_selected_id={department_tree_selected_id}
-                department_tree_selected_position_id={
-                    department_tree_selected_position_id
-                }
-                selectionCount={departmentTreeSelectionCount}
-                onSelectDepartment={handleDepartmentSelect}
-                onSelectPosition={handlePositionSelect}
-            />
-            {extra}
-        </div>
+        <SearchBar
+            value={list.searchInput}
+            onChange={list.onSearchChange}
+            placeholder={employeeSearchPlaceholder}
+            className="mb-4"
+            right={
+                <div className="flex shrink-0 flex-wrap items-center gap-3">
+                    <DepartmentFilterControls
+                        department_tree={department_tree}
+                        department_tree_selected_id={
+                            department_tree_selected_id
+                        }
+                        department_tree_selected_position_id={
+                            department_tree_selected_position_id
+                        }
+                        selectionCount={departmentTreeSelectionCount}
+                        onSelectDepartment={handleDepartmentSelect}
+                        onSelectPosition={handlePositionSelect}
+                    />
+                    {extra}
+                </div>
+            }
+        />
     );
 
     const handleGeneratePayroll = () => {
@@ -634,7 +637,7 @@ export function PayrollShowContent({
                               permissions.import_timesheets ? (
                                   <Button
                                       variant="outline"
-                                      className="h-12 rounded-xl px-6"
+                                      className="h-12 shrink-0 rounded-xl px-6"
                                       onClick={() =>
                                           setIsImportDialogOpen(true)
                                       }
@@ -662,27 +665,26 @@ export function PayrollShowContent({
                         </span>
                         <div className="h-px flex-1 bg-border/60" />
                     </div>
-                    <div className="mb-4 flex flex-wrap items-center gap-3">
-                        <div className="min-w-0 flex-1">
-                            <SearchBar
-                                value={list.searchInput}
-                                onChange={list.onSearchChange}
-                                placeholder="Search payroll records..."
+                    <SearchBar
+                        value={list.searchInput}
+                        onChange={list.onSearchChange}
+                        placeholder="Search payroll records..."
+                        className="mb-4"
+                        right={
+                            <DepartmentFilterControls
+                                department_tree={department_tree}
+                                department_tree_selected_id={
+                                    department_tree_selected_id
+                                }
+                                department_tree_selected_position_id={
+                                    department_tree_selected_position_id
+                                }
+                                selectionCount={departmentTreeSelectionCount}
+                                onSelectDepartment={handleDepartmentSelect}
+                                onSelectPosition={handlePositionSelect}
                             />
-                        </div>
-                        <DepartmentFilterControls
-                            department_tree={department_tree}
-                            department_tree_selected_id={
-                                department_tree_selected_id
-                            }
-                            department_tree_selected_position_id={
-                                department_tree_selected_position_id
-                            }
-                            selectionCount={departmentTreeSelectionCount}
-                            onSelectDepartment={handleDepartmentSelect}
-                            onSelectPosition={handlePositionSelect}
-                        />
-                    </div>
+                        }
+                    />
                     <PayrollSkippedBanner
                         summary={generation_summary}
                         payrollCategory={period.payroll_category}

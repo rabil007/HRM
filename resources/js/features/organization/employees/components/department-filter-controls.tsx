@@ -70,7 +70,7 @@ export function DepartmentFilterControls({
     );
 
     return (
-        <>
+        <div className="flex shrink-0 items-center gap-3">
             <Popover
                 open={isDepartmentsPopoverOpen}
                 onOpenChange={setIsDepartmentsPopoverOpen}
@@ -137,6 +137,6 @@ export function DepartmentFilterControls({
                     </div>
                 </SheetContent>
             </Sheet>
-        </>
+        </div>
     );
 }
