@@ -7,7 +7,6 @@ import {
     dataTableBodyRowClass,
     dataTableCellClass,
 } from '@/components/data-table';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     TableBody,
@@ -23,14 +22,8 @@ import {
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
-import { formatTimesheetAmount, formatTimesheetDays } from '../types';
-import {
-    buildCrewRateCalculation,
-    CrewRateAllowanceCell,
-    crewBasicPayAmount,
-    crewSitePayAmount,
-    crewSupplementaryPayAmount,
-} from './crew-rate-allowance-cell';
+import { formatTimesheetAmount } from '../types';
+import { CrewPayColumnCell } from './crew-rate-allowance-cell';
 import { PayrollEmployeeCell } from './payroll-employee-cell';
 import {
     PayrollRecordBankAccountCell,
@@ -41,7 +34,6 @@ import {
     PayrollRecordPayslipStatusCell,
 } from './payroll-record-payslip-cells';
 import { PayrollRecordSalaryInputsCell } from './payroll-record-salary-inputs-cell';
-
 import {
     PayrollRecordWpsSelectionCell,
     PayrollRecordWpsSelectionHead,
@@ -78,36 +70,40 @@ export function PayrollRecordsTable({
         (inputs) => inputs.length > 0,
     );
 
+    // col counts for group headers
+    const fixedCols = wpsSelection ? 4 : 3; // checkbox? + employee + bank + payment
+
     return (
         <OrganizationDataTable
-            minWidth={wpsSelection ? 'min-w-[1660px]' : 'min-w-[1600px]'}
+            minWidth={wpsSelection ? 'min-w-[1400px]' : 'min-w-[1340px]'}
         >
             <TableHeader>
+                {/* Group label row */}
                 <tr className="border-b-0">
-                    {wpsSelection ? (
-                        <th className="h-7 border-b border-border/30" />
-                    ) : null}
-                    <th className="h-7 border-b border-border/30" />
-                    <th className="h-7 border-b border-border/30" />
-                    <th className="h-7 border-b border-border/30" />
+                    {/* fixed cols placeholder */}
+                    {Array.from({ length: fixedCols }).map((_, i) => (
+                        <th
+                            key={i}
+                            className="h-7 border-b border-border/30"
+                        />
+                    ))}
+                    {/* Crew salary breakdown */}
                     <th
                         colSpan={2}
-                        className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
-                    >
-                        Days worked
-                    </th>
-                    <th
-                        colSpan={3}
                         className="h-7 border-x border-b border-primary/15 bg-primary/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-primary/50 uppercase"
                     >
-                        Rates & Allowances
+                        Salary breakdown
                     </th>
                     {showSalaryInputsColumn ? (
                         <th className="h-7 border-b border-border/30" />
                     ) : null}
-                    <th colSpan={2} className="h-7 border-b border-border/30" />
+                    <th
+                        colSpan={2}
+                        className="h-7 border-b border-border/30"
+                    />
                     <th className="h-7 border-b border-border/30" />
                 </tr>
+
                 <DataTableHeaderRow>
                     {wpsSelection ? (
                         <PayrollRecordWpsSelectionHead
@@ -123,18 +119,11 @@ export function PayrollRecordsTable({
                     </DataTableHead>
                     <DataTableHead>Bank account</DataTableHead>
                     <DataTableHead>Payment</DataTableHead>
-                    <DataTableHead className="border-l border-blue-500/10 bg-blue-500/3">
-                        Standby
-                    </DataTableHead>
-                    <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
-                        Onsite
+                    <DataTableHead className="border-l border-primary/10 bg-primary/3">
+                        Stand By
                     </DataTableHead>
                     <DataTableHead className="border-x border-primary/10 bg-primary/3">
-                        Basic
-                    </DataTableHead>
-                    <DataTableHead className="bg-primary/3">Site</DataTableHead>
-                    <DataTableHead className="border-r border-primary/10 bg-primary/3">
-                        Suppl.
+                        On Site
                     </DataTableHead>
                     {showSalaryInputsColumn ? (
                         <DataTableHead>Salary inputs</DataTableHead>
@@ -147,6 +136,7 @@ export function PayrollRecordsTable({
                     </DataTableHead>
                 </DataTableHeaderRow>
             </TableHeader>
+
             <TableBody>
                 {records.map((record) => {
                     const isSelected =
@@ -156,6 +146,7 @@ export function PayrollRecordsTable({
                         'bank_transfer') as SalaryPaymentMethodValue;
                     const netAmount = Number(record.net_salary ?? 0);
                     const grossAmount = Number(record.gross_salary ?? 0);
+
                     const standbyDays = Number(record.standby_days ?? 0);
                     const onsiteDays = Number(record.onsite_days ?? 0);
                     const basicDaily = Number(record.rates?.basic_daily ?? 0);
@@ -165,17 +156,15 @@ export function PayrollRecordsTable({
                     const supplementaryDaily = Number(
                         record.rates?.supplementary_allowance_daily ?? 0,
                     );
-                    const basicAmount = crewBasicPayAmount(
-                        standbyDays,
-                        onsiteDays,
-                        basicDaily,
-                    );
-                    const siteAmount = crewSitePayAmount(onsiteDays, siteDaily);
-                    const supplementaryAmount = crewSupplementaryPayAmount(
-                        standbyDays,
-                        onsiteDays,
-                        supplementaryDaily,
-                    );
+
+                    // standby pay = standby_days × (basic + supplementary)
+                    const standbyAmount = Number(record.standby_pay ?? 0);
+
+                    // onsite pay = onsite_days × (basic + supplementary + site)
+                    const onsiteAmount =
+                        Number(record.onsite_pay ?? 0) +
+                        Number(record.site_allowance ?? 0) +
+                        Number(record.supplementary_allowance ?? 0);
 
                     return (
                         <TableRow
@@ -202,13 +191,11 @@ export function PayrollRecordsTable({
                                 className={!wpsSelection ? 'pl-5' : undefined}
                             />
 
-                            {/* Bank account */}
                             <PayrollRecordBankAccountCell
                                 primary_account={record.primary_account}
                                 salary_payment_method={paymentMethod}
                             />
 
-                            {/* Payment method */}
                             <PayrollRecordPaymentMethodCell
                                 method={paymentMethod}
                                 label={
@@ -217,83 +204,36 @@ export function PayrollRecordsTable({
                                 }
                             />
 
-                            <CrewDaysWorkedCell
-                                days={standbyDays}
-                                variant="standby"
-                                className="border-l border-blue-500/8 bg-blue-500/2"
-                            />
-                            <CrewDaysWorkedCell
-                                days={onsiteDays}
-                                variant="onsite"
-                                className="border-r border-blue-500/8 bg-blue-500/2"
-                            />
+                            {/* Stand By */}
+                            <TableCell
+                                className={cn(
+                                    dataTableCellClass(),
+                                    'border-l border-primary/8 bg-primary/2',
+                                )}
+                            >
+                                <CrewPayColumnCell
+                                    days={standbyDays}
+                                    dailyBasic={basicDaily}
+                                    dailySupplementary={supplementaryDaily}
+                                    totalAmount={standbyAmount}
+                                    variant="standby"
+                                />
+                            </TableCell>
 
+                            {/* On Site */}
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
                                     'border-x border-primary/8 bg-primary/2',
                                 )}
                             >
-                                <CrewRateAllowanceCell
-                                    dailyRate={record.rates?.basic_daily}
-                                    calculation={buildCrewRateCalculation(
-                                        standbyDays,
-                                        onsiteDays,
-                                        basicDaily,
-                                    )}
-                                    amount={
-                                        basicAmount > 0
-                                            ? String(basicAmount)
-                                            : record.basic_salary
-                                    }
-                                />
-                            </TableCell>
-
-                            <TableCell
-                                className={cn(
-                                    dataTableCellClass(),
-                                    'bg-primary/2',
-                                )}
-                            >
-                                <CrewRateAllowanceCell
-                                    dailyRate={
-                                        record.rates?.site_allowance_daily
-                                    }
-                                    calculation={buildCrewRateCalculation(
-                                        standbyDays,
-                                        onsiteDays,
-                                        siteDaily,
-                                        { standby: false },
-                                    )}
-                                    amount={
-                                        siteAmount > 0
-                                            ? String(siteAmount)
-                                            : record.site_allowance
-                                    }
-                                />
-                            </TableCell>
-
-                            <TableCell
-                                className={cn(
-                                    dataTableCellClass(),
-                                    'border-r border-primary/8 bg-primary/2',
-                                )}
-                            >
-                                <CrewRateAllowanceCell
-                                    dailyRate={
-                                        record.rates
-                                            ?.supplementary_allowance_daily
-                                    }
-                                    calculation={buildCrewRateCalculation(
-                                        standbyDays,
-                                        onsiteDays,
-                                        supplementaryDaily,
-                                    )}
-                                    amount={
-                                        supplementaryAmount > 0
-                                            ? String(supplementaryAmount)
-                                            : record.supplementary_allowance
-                                    }
+                                <CrewPayColumnCell
+                                    days={onsiteDays}
+                                    dailyBasic={basicDaily}
+                                    dailySupplementary={supplementaryDaily}
+                                    dailySite={siteDaily}
+                                    totalAmount={onsiteAmount}
+                                    variant="onsite"
                                 />
                             </TableCell>
 
@@ -344,9 +284,7 @@ export function PayrollRecordsTable({
                                     )}
                                 >
                                     {netAmount > 0
-                                        ? formatTimesheetAmount(
-                                              record.net_salary,
-                                          )
+                                        ? formatTimesheetAmount(record.net_salary)
                                         : '—'}
                                 </span>
                             </TableCell>
@@ -440,37 +378,5 @@ export function PayrollRecordsTable({
                 })}
             </TableBody>
         </OrganizationDataTable>
-    );
-}
-
-function CrewDaysWorkedCell({
-    days,
-    variant,
-    className,
-}: {
-    days: number;
-    variant: 'standby' | 'onsite';
-    className?: string;
-}) {
-    const hasDays = days > 0;
-
-    return (
-        <TableCell className={cn(dataTableCellClass(), className)}>
-            {hasDays ? (
-                <Badge
-                    variant="secondary"
-                    className={cn(
-                        'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums',
-                        variant === 'standby'
-                            ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-                    )}
-                >
-                    {formatTimesheetDays(String(days))} days
-                </Badge>
-            ) : (
-                <span className="text-xs text-muted-foreground/40">—</span>
-            )}
-        </TableCell>
     );
 }
