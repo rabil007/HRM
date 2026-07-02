@@ -65,6 +65,7 @@ test('authorized users can revert processing pay period to draft', function () {
     $period->refresh();
     expect($period->status)->toBe(PayrollPeriodStatus::Draft);
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0);
+    expect(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(0);
 
     $this->withSession(['current_company_id' => $company->id])
         ->post(route('payroll.timesheets.store', $period), [
@@ -221,4 +222,64 @@ test('revert to draft removes salary inputs for the pay period', function () {
         ->assertSessionHas('success');
 
     expect(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0);
+});
+
+test('reverting approved crew pay period to draft removes all payroll records', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.periods.revert_to_draft']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'status' => PayrollPeriodStatus::Approved,
+        'approved_by' => $user->id,
+        'approved_at' => now(),
+    ]);
+
+    $firstEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+    $secondEmployee = Employee::factory()->forCompany($company)->create(['status' => 'active']);
+
+    foreach ([$firstEmployee, $secondEmployee] as $employee) {
+        EmployeeContract::factory()->create([
+            'employee_id' => $employee->id,
+            'company_id' => $company->id,
+            'payroll_category' => PayrollCategory::Crew,
+            'status' => 'active',
+        ]);
+    }
+
+    PayrollRecord::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $firstEmployee->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'approved',
+    ]);
+    PayrollRecord::factory()->for($company)->create([
+        'period_id' => $period->id,
+        'employee_id' => $secondEmployee->id,
+        'payroll_category' => PayrollCategory::Crew,
+        'status' => 'approved',
+    ]);
+
+    SalaryInput::factory()->for($company)->create([
+        'employee_id' => $firstEmployee->id,
+        'period_id' => $period->id,
+        'salary_input_type_id' => salaryInputTypeId($company, 'bonus'),
+        'amount' => 300,
+    ]);
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->post(route('payroll.revert-to-draft', $period))
+        ->assertRedirect(route('payroll.show', ['payrollPeriod' => $period, 'tab' => 'timesheets']))
+        ->assertSessionHas('success');
+
+    $period->refresh();
+
+    expect($period->status)->toBe(PayrollPeriodStatus::Draft)
+        ->and($period->approved_by)->toBeNull()
+        ->and($period->approved_at)->toBeNull()
+        ->and($period->excluded_employee_ids)->toBeNull()
+        ->and(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(0)
+        ->and(SalaryInput::query()->where('period_id', $period->id)->count())->toBe(0)
+        ->and(CrewTimesheet::query()->where('period_id', $period->id)->count())->toBe(0);
 });

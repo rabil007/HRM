@@ -593,7 +593,12 @@ class PayrollController extends Controller
                 'payrollPeriod' => $payrollPeriod,
                 'tab' => $defaultTab,
             ])
-            ->with('success', 'Pay period reverted to draft. Timesheets can be edited again.');
+            ->with(
+                'success',
+                $payrollPeriod->isCrew()
+                    ? 'Pay period reverted to draft. Timesheets and payroll records were cleared.'
+                    : 'Pay period reverted to draft. Payroll records were cleared.',
+            );
     }
 
     public function approve(

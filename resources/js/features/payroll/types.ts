@@ -52,7 +52,14 @@ export type PayrollPeriod = {
     payment_proof_url?: string | null;
     payment_proofs?: Array<{ id: number; name: string; url: string }>;
     created_at: string | null;
+    needs_payroll_update: boolean;
+    needs_payroll_update_reasons: PayrollNeedsUpdateReason[];
 };
+
+export type PayrollNeedsUpdateReason =
+    | 'salary_inputs'
+    | 'timesheets'
+    | 'new_timesheets';
 
 export type PayrollPeriodListItem = PayrollPeriod & {
     run_label: string;

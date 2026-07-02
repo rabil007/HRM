@@ -71,6 +71,7 @@ import { PayrollCategoryBadge } from './components/payroll-category-badge';
 import { PayrollEmployeeCell } from './components/payroll-employee-cell';
 import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
+import { PayrollNeedsUpdateBanner } from './components/payroll-needs-update-banner';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
 import {
@@ -327,6 +328,10 @@ export function PayrollShowContent({
             {},
             {
                 preserveScroll: true,
+                onSuccess: () => {
+                    setExcludedIds(new Set());
+                    setSelectedWpsRecordIds([]);
+                },
                 onFinish: () => {
                     setIsReverting(false);
                     setIsRevertDialogOpen(false);
@@ -472,6 +477,8 @@ export function PayrollShowContent({
     }, [canSelectForWpsExport, payroll_records, selectedWpsRecordIds]);
 
     const isProcessingPayRun = period.status === 'processing';
+    const needsPayrollUpdate =
+        period.needs_payroll_update && payroll_records.length > 0;
     const headerPrimaryActionClass =
         'h-12 rounded-xl border-0 px-6 bg-gradient-to-r from-blue-600 to-indigo-500 text-white hover:from-blue-700 hover:to-indigo-600 hover:text-white shadow-lg shadow-blue-500/25 transition-all duration-300 hover:scale-105 active:scale-95';
     const headerSecondaryActionClass =
@@ -571,15 +578,19 @@ export function PayrollShowContent({
                             {canGenerate ? (
                                 <Button
                                     variant={
-                                        isProcessingPayRun
+                                        isProcessingPayRun &&
+                                        !needsPayrollUpdate
                                             ? 'outline'
                                             : undefined
                                     }
-                                    className={
-                                        isProcessingPayRun
-                                            ? headerSecondaryActionClass
-                                            : headerPrimaryActionClass
-                                    }
+                                    className={cn(
+                                        needsPayrollUpdate &&
+                                            payroll_records.length > 0
+                                            ? 'relative h-12 animate-pulse rounded-xl border-0 bg-gradient-to-r from-amber-500 to-orange-500 px-6 text-white shadow-lg shadow-amber-500/30 transition-all duration-300 hover:from-amber-600 hover:to-orange-600 hover:text-white'
+                                            : isProcessingPayRun
+                                              ? headerSecondaryActionClass
+                                              : headerPrimaryActionClass,
+                                    )}
                                     onClick={() =>
                                         setIsGenerateDialogOpen(true)
                                     }
@@ -588,6 +599,9 @@ export function PayrollShowContent({
                                     {payroll_records.length > 0
                                         ? 'Update payroll'
                                         : 'Generate payroll'}
+                                    {needsPayrollUpdate ? (
+                                        <span className="absolute -top-1 -right-1 flex size-3 rounded-full bg-white ring-2 ring-amber-500" />
+                                    ) : null}
                                 </Button>
                             ) : null}
                             {canApprove ? (
@@ -689,6 +703,16 @@ export function PayrollShowContent({
                         summary={generation_summary}
                         payrollCategory={period.payroll_category}
                     />
+                    {needsPayrollUpdate ? (
+                        <PayrollNeedsUpdateBanner
+                            reasons={period.needs_payroll_update_reasons}
+                            onUpdate={
+                                canGenerate
+                                    ? () => setIsGenerateDialogOpen(true)
+                                    : undefined
+                            }
+                        />
+                    ) : null}
                     <PayrollPeriodDeliveryPanel
                         period={period}
                         payslip_summary={payslip_summary}

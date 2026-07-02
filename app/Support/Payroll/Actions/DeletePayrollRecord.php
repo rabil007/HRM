@@ -26,11 +26,9 @@ final class DeletePayrollRecord
         }
 
         DB::transaction(function () use ($period, $record): void {
-            if ($period->isOffice()) {
-                $period->salaryInputs()
-                    ->where('employee_id', $record->employee_id)
-                    ->delete();
-            }
+            $period->salaryInputs()
+                ->where('employee_id', $record->employee_id)
+                ->delete();
 
             if (filled($record->payslip_path) && Storage::disk('local')->exists($record->payslip_path)) {
                 Storage::disk('local')->delete($record->payslip_path);

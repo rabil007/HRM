@@ -23,7 +23,7 @@ export function PayrollRevertToDraftDialog({
     supportsTimesheets: boolean;
 }) {
     const description = supportsTimesheets
-        ? 'This unlocks timesheet editing and removes generated payroll records for this period. Excluded employees are reset, so everyone will be included the next time you generate payroll unless you exclude them again. You will need to generate payroll again after making changes.'
+        ? 'This removes all payroll records, salary inputs, and timesheets for this period. Excluded employees are reset, so everyone will be included the next time you generate payroll unless you exclude them again. You will need to enter timesheets and generate payroll again.'
         : 'This removes generated payroll records for this period and resets employee selection. All employees will be included the next time you generate payroll unless you exclude them again on the Employees tab.';
 
     return (
