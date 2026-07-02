@@ -63,6 +63,23 @@ test('cannot create user when employee already has linked user', function () {
     ])->assertStatus(422);
 });
 
+test('password must be at least 8 characters when creating user for employee', function () {
+    $auth = User::factory()->create();
+    $this->actingAs($auth);
+
+    [$company, $employee, $role] = createEmployeeForUserCreationTest(withRole: true);
+
+    grantCompanyPermissions($auth, $company, ['users.create', 'employees.update']);
+
+    $this->post("/organization/employees/{$employee->id}/user", [
+        'role_id' => $role->id,
+        'email' => 'new@example.com',
+        'name' => 'New User',
+        'password' => 'short',
+        'password_confirmation' => 'short',
+    ])->assertSessionHasErrors('password');
+});
+
 test('password confirmation must match when creating user for employee', function () {
     $auth = User::factory()->create();
     $this->actingAs($auth);
