@@ -1,4 +1,4 @@
-import { CalendarDays, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -24,6 +24,13 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
+import {
+    buildCrewRateCalculation,
+    CrewRateAllowanceCell,
+    crewBasicPayAmount,
+    crewSitePayAmount,
+    crewSupplementaryPayAmount,
+} from './crew-rate-allowance-cell';
 import { PayrollEmployeeCell } from './payroll-employee-cell';
 import {
     PayrollRecordBankAccountCell,
@@ -76,7 +83,6 @@ export function PayrollRecordsTable({
             minWidth={wpsSelection ? 'min-w-[1660px]' : 'min-w-[1600px]'}
         >
             <TableHeader>
-                {/* Group labels */}
                 <tr className="border-b-0">
                     {wpsSelection ? (
                         <th className="h-7 border-b border-border/30" />
@@ -88,10 +94,7 @@ export function PayrollRecordsTable({
                         colSpan={2}
                         className="h-7 border-x border-b border-blue-500/15 bg-blue-500/3 px-3 text-center text-[10px] font-bold tracking-[0.15em] text-blue-600/60 uppercase dark:text-blue-400/60"
                     >
-                        <span className="inline-flex items-center gap-1.5">
-                            <CalendarDays className="h-3 w-3" />
-                            Days worked
-                        </span>
+                        Days worked
                     </th>
                     <th
                         colSpan={3}
@@ -126,7 +129,7 @@ export function PayrollRecordsTable({
                     <DataTableHead className="border-r border-blue-500/10 bg-blue-500/3">
                         Onsite
                     </DataTableHead>
-                    <DataTableHead className="border-l border-primary/10 bg-primary/3">
+                    <DataTableHead className="border-x border-primary/10 bg-primary/3">
                         Basic
                     </DataTableHead>
                     <DataTableHead className="bg-primary/3">Site</DataTableHead>
@@ -153,6 +156,26 @@ export function PayrollRecordsTable({
                         'bank_transfer') as SalaryPaymentMethodValue;
                     const netAmount = Number(record.net_salary ?? 0);
                     const grossAmount = Number(record.gross_salary ?? 0);
+                    const standbyDays = Number(record.standby_days ?? 0);
+                    const onsiteDays = Number(record.onsite_days ?? 0);
+                    const basicDaily = Number(record.rates?.basic_daily ?? 0);
+                    const siteDaily = Number(
+                        record.rates?.site_allowance_daily ?? 0,
+                    );
+                    const supplementaryDaily = Number(
+                        record.rates?.supplementary_allowance_daily ?? 0,
+                    );
+                    const basicAmount = crewBasicPayAmount(
+                        standbyDays,
+                        onsiteDays,
+                        basicDaily,
+                    );
+                    const siteAmount = crewSitePayAmount(onsiteDays, siteDaily);
+                    const supplementaryAmount = crewSupplementaryPayAmount(
+                        standbyDays,
+                        onsiteDays,
+                        supplementaryDaily,
+                    );
 
                     return (
                         <TableRow
@@ -194,117 +217,83 @@ export function PayrollRecordsTable({
                                 }
                             />
 
-                            {/* Standby */}
+                            <CrewDaysWorkedCell
+                                days={standbyDays}
+                                variant="standby"
+                                className="border-l border-blue-500/8 bg-blue-500/2"
+                            />
+                            <CrewDaysWorkedCell
+                                days={onsiteDays}
+                                variant="onsite"
+                                className="border-r border-blue-500/8 bg-blue-500/2"
+                            />
+
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
-                                    'border-l border-blue-500/8 bg-blue-500/2',
+                                    'border-x border-primary/8 bg-primary/2',
                                 )}
                             >
-                                <div className="flex flex-col gap-0.5">
-                                    <Badge
-                                        variant="secondary"
-                                        className={cn(
-                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums',
-                                            record.standby_days &&
-                                                record.standby_days > 0
-                                                ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
-                                                : 'border-border/50 bg-transparent text-muted-foreground/50',
-                                        )}
-                                    >
-                                        {record.standby_days &&
-                                        record.standby_days > 0 ? (
-                                            <>
-                                                {formatTimesheetDays(
-                                                    String(record.standby_days),
-                                                )}{' '}
-                                                days
-                                            </>
-                                        ) : (
-                                            <>—</>
-                                        )}
-                                    </Badge>
-                                    {record.standby_days &&
-                                    record.standby_days > 0 ? (
-                                        <span className="text-xs text-muted-foreground tabular-nums">
-                                            {formatTimesheetAmount(
-                                                record.standby_pay,
-                                            )}
-                                        </span>
-                                    ) : null}
-                                </div>
+                                <CrewRateAllowanceCell
+                                    dailyRate={record.rates?.basic_daily}
+                                    calculation={buildCrewRateCalculation(
+                                        standbyDays,
+                                        onsiteDays,
+                                        basicDaily,
+                                    )}
+                                    amount={
+                                        basicAmount > 0
+                                            ? String(basicAmount)
+                                            : record.basic_salary
+                                    }
+                                />
                             </TableCell>
 
-                            {/* Onsite */}
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
-                                    'border-r border-blue-500/8 bg-blue-500/2',
+                                    'bg-primary/2',
                                 )}
                             >
-                                <div className="flex flex-col gap-0.5">
-                                    <Badge
-                                        variant="secondary"
-                                        className={cn(
-                                            'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums',
-                                            record.onsite_days &&
-                                                record.onsite_days > 0
-                                                ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-                                                : 'border-border/50 bg-transparent text-muted-foreground/50',
-                                        )}
-                                    >
-                                        {record.onsite_days &&
-                                        record.onsite_days > 0 ? (
-                                            <>
-                                                {formatTimesheetDays(
-                                                    String(record.onsite_days),
-                                                )}{' '}
-                                                days
-                                            </>
-                                        ) : (
-                                            <>—</>
-                                        )}
-                                    </Badge>
-                                    {record.onsite_days &&
-                                    record.onsite_days > 0 ? (
-                                        <span className="text-xs text-muted-foreground tabular-nums">
-                                            {formatTimesheetAmount(
-                                                record.onsite_pay,
-                                            )}
-                                        </span>
-                                    ) : null}
-                                </div>
+                                <CrewRateAllowanceCell
+                                    dailyRate={
+                                        record.rates?.site_allowance_daily
+                                    }
+                                    calculation={buildCrewRateCalculation(
+                                        standbyDays,
+                                        onsiteDays,
+                                        siteDaily,
+                                        { standby: false },
+                                    )}
+                                    amount={
+                                        siteAmount > 0
+                                            ? String(siteAmount)
+                                            : record.site_allowance
+                                    }
+                                />
                             </TableCell>
 
-                            {/* Basic salary */}
                             <TableCell
                                 className={cn(
                                     dataTableCellClass(),
-                                    'border-l border-primary/8 bg-primary/2 text-sm tabular-nums',
+                                    'border-r border-primary/8 bg-primary/2',
                                 )}
                             >
-                                <AmountCell value={record.basic_salary} />
-                            </TableCell>
-
-                            {/* Site allowance */}
-                            <TableCell
-                                className={cn(
-                                    dataTableCellClass(),
-                                    'bg-primary/2 text-sm tabular-nums',
-                                )}
-                            >
-                                <AmountCell value={record.site_allowance} />
-                            </TableCell>
-
-                            {/* Supplementary */}
-                            <TableCell
-                                className={cn(
-                                    dataTableCellClass(),
-                                    'border-r border-primary/8 bg-primary/2 text-sm tabular-nums',
-                                )}
-                            >
-                                <AmountCell
-                                    value={record.supplementary_allowance}
+                                <CrewRateAllowanceCell
+                                    dailyRate={
+                                        record.rates
+                                            ?.supplementary_allowance_daily
+                                    }
+                                    calculation={buildCrewRateCalculation(
+                                        standbyDays,
+                                        onsiteDays,
+                                        supplementaryDaily,
+                                    )}
+                                    amount={
+                                        supplementaryAmount > 0
+                                            ? String(supplementaryAmount)
+                                            : record.supplementary_allowance
+                                    }
                                 />
                             </TableCell>
 
@@ -454,10 +443,34 @@ export function PayrollRecordsTable({
     );
 }
 
-function AmountCell({ value }: { value: string | null | undefined }) {
-    if (!value || Number(value) === 0) {
-        return <span className="text-xs text-muted-foreground/40">—</span>;
-    }
+function CrewDaysWorkedCell({
+    days,
+    variant,
+    className,
+}: {
+    days: number;
+    variant: 'standby' | 'onsite';
+    className?: string;
+}) {
+    const hasDays = days > 0;
 
-    return <span>{formatTimesheetAmount(value)}</span>;
+    return (
+        <TableCell className={cn(dataTableCellClass(), className)}>
+            {hasDays ? (
+                <Badge
+                    variant="secondary"
+                    className={cn(
+                        'inline-flex w-fit items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-bold tabular-nums',
+                        variant === 'standby'
+                            ? 'border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300'
+                            : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
+                    )}
+                >
+                    {formatTimesheetDays(String(days))} days
+                </Badge>
+            ) : (
+                <span className="text-xs text-muted-foreground/40">—</span>
+            )}
+        </TableCell>
+    );
 }

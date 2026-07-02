@@ -230,6 +230,12 @@ export type PayrollRecordDeliveryFields = {
     salary_payment_method_label: string;
 };
 
+export type CrewPayrollDailyRates = {
+    basic_daily: string;
+    site_allowance_daily: string;
+    supplementary_allowance_daily: string;
+};
+
 export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     id: number;
     payroll_category: 'crew';
@@ -241,6 +247,7 @@ export type CrewPayrollRecordListItem = PayrollRecordDeliveryFields & {
     onsite_pay: string;
     site_allowance: string;
     supplementary_allowance: string;
+    rates: CrewPayrollDailyRates;
     overtime_pay: string;
     additional_amount: string;
     deduction_amount: string;

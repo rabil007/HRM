@@ -26,7 +26,7 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
     $result = (new CrewPayrollCalculator)->calculate($timesheet, $components);
 
     expect($result['calculation_breakdown']['lines'])->toMatchArray([
-        'standby_pay' => 750.0,
+        'standby_pay' => 1125.0,
         'onsite_pay' => 1500.0,
         'site_allowance' => 500.0,
         'supplementary_allowance' => 750.0,
@@ -34,9 +34,9 @@ test('crew payroll calculator applies standby onsite allowance and adjustment fo
         'additional' => 100.0,
         'deduction' => 50.0,
     ])
-        ->and($result['gross_salary'])->toBe('3800.00')
-        ->and($result['net_salary'])->toBe('3750.00')
-        ->and($result['basic_salary'])->toBe('2250.00')
+        ->and($result['gross_salary'])->toBe('4175.00')
+        ->and($result['net_salary'])->toBe('4125.00')
+        ->and($result['basic_salary'])->toBe('2625.00')
         ->and($result['other_allowances'])->toBe('1250.00')
         ->and($result['overtime_pay'])->toBe('200.00')
         ->and($result['bonus'])->toBe('100.00')
@@ -55,6 +55,30 @@ test('crew payroll calculator requires an active basic daily rate', function () 
 
     (new CrewPayrollCalculator)->calculate($timesheet, $components);
 })->throws(ValidationException::class);
+
+test('crew payroll calculator includes supplementary allowance on standby days', function () {
+    $timesheet = new CrewTimesheet([
+        'standby_days' => 2,
+        'onsite_days' => 15,
+    ]);
+
+    $components = Collection::make([
+        makeCalculatorComponent(SalaryComponentCode::Basic, 50),
+        makeCalculatorComponent(SalaryComponentCode::SiteAllowance, 661),
+        makeCalculatorComponent(SalaryComponentCode::SupplementaryAllowance, 611),
+    ]);
+
+    $result = (new CrewPayrollCalculator)->calculate($timesheet, $components);
+
+    expect($result['calculation_breakdown']['lines'])->toMatchArray([
+        'standby_pay' => 1322.0,
+        'onsite_pay' => 750.0,
+        'site_allowance' => 9915.0,
+        'supplementary_allowance' => 9165.0,
+    ])
+        ->and($result['gross_salary'])->toBe('21152.00')
+        ->and($result['net_salary'])->toBe('21152.00');
+});
 
 function makeCalculatorComponent(SalaryComponentCode $code, float $amount): ContractSalaryComponent
 {

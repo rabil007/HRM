@@ -39,7 +39,7 @@ final class CrewPayrollCalculator
 
         $standbyDays = (float) ($timesheet->standby_days ?? 0);
         $onsiteDays = (float) ($timesheet->onsite_days ?? 0);
-        $standbyPay = round($standbyDays * $basicRate, 2);
+        $standbyPay = round($standbyDays * ($basicRate + ($supplementaryRate ?? 0)), 2);
         $onsitePay = round($onsiteDays * $basicRate, 2);
         $siteAllowancePay = round($onsiteDays * ($siteRate ?? 0), 2);
         $supplementaryPay = round($onsiteDays * ($supplementaryRate ?? 0), 2);

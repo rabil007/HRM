@@ -56,9 +56,9 @@ test('crew payroll generation creates records for employees with timesheets and 
 
     expect($record)->not->toBeNull()
         ->and($record->payroll_category)->toBe(PayrollCategory::Crew)
-        ->and($record->gross_salary)->toBe('3800.00')
-        ->and($record->net_salary)->toBe('3750.00')
-        ->and($record->calculation_breakdown['lines']['standby_pay'])->toEqual(750);
+        ->and($record->gross_salary)->toBe('4175.00')
+        ->and($record->net_salary)->toBe('4125.00')
+        ->and($record->calculation_breakdown['lines']['standby_pay'])->toEqual(1125);
 
     expect(PayrollRecord::query()->where('period_id', $period->id)->count())->toBe(1);
 
@@ -204,6 +204,11 @@ test('payroll show includes payroll records on payroll tab', function () {
         'calculation_breakdown' => [
             'standby_days' => 5,
             'onsite_days' => 0,
+            'rates' => [
+                'basic_daily' => 100,
+                'site_allowance_daily' => 0,
+                'supplementary_allowance_daily' => 0,
+            ],
             'lines' => ['standby_pay' => 500],
         ],
     ]);
@@ -216,6 +221,7 @@ test('payroll show includes payroll records on payroll tab', function () {
             ->where('tab', 'payroll')
             ->has('payroll_records', 1)
             ->where('payroll_records.0.net_salary', '500.00')
+            ->where('payroll_records.0.rates.basic_daily', '100.00')
             ->where('permissions.generate_payroll', false));
 });
 

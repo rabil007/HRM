@@ -43,6 +43,8 @@ final class PayrollRecordResource
         ];
 
         if ($category === PayrollCategory::Crew) {
+            $rates = is_array($breakdown['rates'] ?? null) ? $breakdown['rates'] : [];
+
             return array_merge($base, [
                 'basic_salary' => self::formatAmount($record->basic_salary),
                 'deduction_amount' => self::formatAmount($record->total_deductions),
@@ -52,6 +54,11 @@ final class PayrollRecordResource
                 'onsite_pay' => self::formatAmount($lines['onsite_pay'] ?? null),
                 'site_allowance' => self::formatAmount($lines['site_allowance'] ?? null),
                 'supplementary_allowance' => self::formatAmount($lines['supplementary_allowance'] ?? null),
+                'rates' => [
+                    'basic_daily' => self::formatAmount($rates['basic_daily'] ?? null),
+                    'site_allowance_daily' => self::formatAmount($rates['site_allowance_daily'] ?? null),
+                    'supplementary_allowance_daily' => self::formatAmount($rates['supplementary_allowance_daily'] ?? null),
+                ],
                 'primary_account' => EmployeePrimaryAccountResource::forEmployee($record->employee),
                 'salary_inputs_count' => $salaryInputsCount,
             ]);
