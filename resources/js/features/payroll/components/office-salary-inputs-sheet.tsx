@@ -35,7 +35,12 @@ import type {
 } from '../types';
 import { formatTimesheetAmount } from '../types';
 
-const reloadProps = ['salary_inputs_by_employee'] as const;
+const reloadProps = [
+    'salary_inputs_by_employee',
+    'payroll_records',
+    'payroll_records_pagination',
+    'payroll_records_summary',
+] as const;
 
 function emptyForm(
     employeeId: number,

@@ -17,7 +17,7 @@ final class RecalculateOfficePayroll
         private readonly ApplyOfficeSalaryInputs $applySalaryInputs,
     ) {}
 
-    public function handle(PayrollPeriod $period): int
+    public function handle(PayrollPeriod $period, ?int $employeeId = null): int
     {
         abort_unless($period->isOffice(), 404);
 
@@ -27,13 +27,22 @@ final class RecalculateOfficePayroll
             ]);
         }
 
-        $records = PayrollRecord::query()
+        $recordsQuery = PayrollRecord::query()
             ->where('company_id', $period->company_id)
             ->where('period_id', $period->id)
-            ->where('payroll_category', PayrollCategory::Office)
-            ->get();
+            ->where('payroll_category', PayrollCategory::Office);
+
+        if ($employeeId !== null) {
+            $recordsQuery->where('employee_id', $employeeId);
+        }
+
+        $records = $recordsQuery->get();
 
         if ($records->isEmpty()) {
+            if ($employeeId !== null) {
+                return 0;
+            }
+
             throw ValidationException::withMessages([
                 'period_id' => 'Generate payroll before recalculating salary inputs.',
             ]);

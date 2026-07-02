@@ -6,6 +6,7 @@ use App\Models\Employee;
 use App\Models\PayrollPeriod;
 use App\Models\PayrollRecord;
 use App\Models\SalaryInput;
+use App\Support\Payroll\Actions\RecalculateOfficePayroll;
 use Inertia\Testing\AssertableInertia as Assert;
 
 test('authorized users can create salary inputs for office payroll periods', function () {
@@ -27,6 +28,20 @@ test('authorized users can create salary inputs for office payroll periods', fun
         'employee_id' => $employee->id,
         'period_id' => $period->id,
         'payroll_category' => PayrollCategory::Office,
+        'gross_salary' => 10000,
+        'net_salary' => 10000,
+        'calculation_breakdown' => [
+            'base' => [
+                'basic' => 10000,
+                'housing' => 0,
+                'transport' => 0,
+                'other' => 0,
+                'gross' => 10000,
+                'net' => 10000,
+                'bonus' => 0,
+                'unpaid_leave_deduction' => 0,
+            ],
+        ],
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -47,6 +62,15 @@ test('authorized users can create salary inputs for office payroll periods', fun
         'amount' => '500.00',
         'notes' => 'Performance bonus',
     ]);
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->gross_salary)->toBe('10500.00')
+        ->and($record->net_salary)->toBe('10500.00');
 });
 
 test('authorized users can update and delete salary inputs', function () {
@@ -63,12 +87,41 @@ test('authorized users can update and delete salary inputs', function () {
     ]);
     $employee = createOfficeEmployeeWithContract($company, 'OFF-SI-02', 10000, 0, 0, 0);
 
+    $record = PayrollRecord::factory()->for($company)->create([
+        'employee_id' => $employee->id,
+        'period_id' => $period->id,
+        'payroll_category' => PayrollCategory::Office,
+        'gross_salary' => 10000,
+        'net_salary' => 9800,
+        'late_deduction' => 200,
+        'total_deductions' => 200,
+        'calculation_breakdown' => [
+            'base' => [
+                'basic' => 10000,
+                'housing' => 0,
+                'transport' => 0,
+                'other' => 0,
+                'gross' => 10000,
+                'net' => 10000,
+                'bonus' => 0,
+                'unpaid_leave_deduction' => 0,
+            ],
+        ],
+    ]);
+
     $input = SalaryInput::factory()->for($company)->create([
         'employee_id' => $employee->id,
         'period_id' => $period->id,
         'salary_input_type_id' => salaryInputTypeId($company, 'loan'),
         'amount' => 200,
     ]);
+
+    app(RecalculateOfficePayroll::class)->handle($period, $employee->id);
+
+    $record->refresh();
+
+    expect($record->gross_salary)->toBe('10000.00')
+        ->and($record->net_salary)->toBe('9800.00');
 
     $lateTypeId = salaryInputTypeId($company, 'late');
 
@@ -86,12 +139,22 @@ test('authorized users can update and delete salary inputs', function () {
         ->amount->toBe('150.00')
         ->notes->toBe('Late arrival');
 
+    $record->refresh();
+
+    expect($record->late_deduction)->toBe('150.00')
+        ->and($record->net_salary)->toBe('9850.00');
+
     $this->withSession(['current_company_id' => $company->id])
         ->delete(route('payroll.salary-inputs.destroy', [$period, $input]))
         ->assertRedirect()
         ->assertSessionHas('success');
 
     $this->assertDatabaseMissing('salary_inputs', ['id' => $input->id]);
+
+    $record->refresh();
+
+    expect($record->late_deduction)->toBe('0.00')
+        ->and($record->net_salary)->toBe('10000.00');
 });
 
 test('salary input routes reject inputs from other companies', function () {
@@ -185,7 +248,7 @@ test('payroll show includes salary input type options for crew periods', functio
             ->where('salary_input_type_options.0.label', 'Bonus'));
 });
 
-test('creating salary inputs does not change payroll record amounts until payroll is regenerated', function () {
+test('creating salary inputs immediately updates payroll record amounts', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);
 
@@ -202,6 +265,18 @@ test('creating salary inputs does not change payroll record amounts until payrol
         'payroll_category' => PayrollCategory::Office,
         'gross_salary' => 10000,
         'net_salary' => 10000,
+        'calculation_breakdown' => [
+            'base' => [
+                'basic' => 10000,
+                'housing' => 0,
+                'transport' => 0,
+                'other' => 0,
+                'gross' => 10000,
+                'net' => 10000,
+                'bonus' => 0,
+                'unpaid_leave_deduction' => 0,
+            ],
+        ],
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -215,8 +290,8 @@ test('creating salary inputs does not change payroll record amounts until payrol
 
     $record->refresh();
 
-    expect($record->gross_salary)->toBe('10000.00')
-        ->and($record->net_salary)->toBe('10000.00');
+    expect($record->gross_salary)->toBe('10500.00')
+        ->and($record->net_salary)->toBe('10500.00');
 });
 
 test('authorized users can create salary inputs for crew payroll periods', function () {
@@ -241,6 +316,19 @@ test('authorized users can create salary inputs for crew payroll periods', funct
         'employee_id' => $employee->id,
         'period_id' => $period->id,
         'payroll_category' => PayrollCategory::Crew,
+        'bonus' => 0,
+        'other_deductions' => 0,
+        'total_deductions' => 0,
+        'gross_salary' => 1000,
+        'net_salary' => 1000,
+        'calculation_breakdown' => [
+            'base' => [
+                'gross' => 1000,
+                'net' => 1000,
+                'bonus' => 0,
+                'other_deductions' => 0,
+            ],
+        ],
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -261,4 +349,14 @@ test('authorized users can create salary inputs for crew payroll periods', funct
         'amount' => '250.00',
         'notes' => 'Crew bonus',
     ]);
+
+    $record = PayrollRecord::query()
+        ->where('period_id', $period->id)
+        ->where('employee_id', $employee->id)
+        ->first();
+
+    expect($record)->not->toBeNull()
+        ->and($record->bonus)->toBe('250.00')
+        ->and($record->gross_salary)->toBe('1250.00')
+        ->and($record->net_salary)->toBe('1250.00');
 });

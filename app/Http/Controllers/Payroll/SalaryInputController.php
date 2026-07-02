@@ -21,14 +21,25 @@ class SalaryInputController extends Controller
         StoreSalaryInputRequest $request,
         PayrollPeriod $payrollPeriod,
         StoreSalaryInput $storeSalaryInput,
+        RecalculateOfficePayroll $recalculateOfficePayroll,
+        RecalculateCrewPayroll $recalculateCrewPayroll,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
+        $employee = $request->employee();
+
         $storeSalaryInput->handle(
             $payrollPeriod,
-            $request->employee(),
+            $employee,
             $request->salaryInputData(),
+        );
+
+        $this->recalculateForEmployee(
+            $payrollPeriod,
+            $employee->id,
+            $recalculateOfficePayroll,
+            $recalculateCrewPayroll,
         );
 
         return $this->redirectAfterMutation($request, $payrollPeriod, 'Salary input added.');
@@ -39,6 +50,8 @@ class SalaryInputController extends Controller
         PayrollPeriod $payrollPeriod,
         SalaryInput $salaryInput,
         UpdateSalaryInput $updateSalaryInput,
+        RecalculateOfficePayroll $recalculateOfficePayroll,
+        RecalculateCrewPayroll $recalculateCrewPayroll,
     ): RedirectResponse {
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
@@ -49,6 +62,13 @@ class SalaryInputController extends Controller
             $request->salaryInputData(),
         );
 
+        $this->recalculateForEmployee(
+            $payrollPeriod,
+            $salaryInput->employee_id,
+            $recalculateOfficePayroll,
+            $recalculateCrewPayroll,
+        );
+
         return $this->redirectAfterMutation($request, $payrollPeriod, 'Salary input updated.');
     }
 
@@ -57,6 +77,8 @@ class SalaryInputController extends Controller
         PayrollPeriod $payrollPeriod,
         SalaryInput $salaryInput,
         DeleteSalaryInput $deleteSalaryInput,
+        RecalculateOfficePayroll $recalculateOfficePayroll,
+        RecalculateCrewPayroll $recalculateCrewPayroll,
     ): RedirectResponse {
         abort_unless(
             $request->user()?->can('payroll.salary_inputs.delete')
@@ -67,7 +89,16 @@ class SalaryInputController extends Controller
         $companyId = (int) $request->attributes->get('current_company_id');
         abort_unless((int) $payrollPeriod->company_id === $companyId, 404);
 
+        $employeeId = $salaryInput->employee_id;
+
         $deleteSalaryInput->handle($payrollPeriod, $salaryInput);
+
+        $this->recalculateForEmployee(
+            $payrollPeriod,
+            $employeeId,
+            $recalculateOfficePayroll,
+            $recalculateCrewPayroll,
+        );
 
         return $this->redirectAfterMutation($request, $payrollPeriod, 'Salary input removed.');
     }
@@ -94,6 +125,21 @@ class SalaryInputController extends Controller
         return redirect()
             ->route('payroll.show', ['payrollPeriod' => $payrollPeriod, 'tab' => 'payroll'])
             ->with('success', "Recalculated payroll for {$updatedCount} employee(s).");
+    }
+
+    private function recalculateForEmployee(
+        PayrollPeriod $payrollPeriod,
+        int $employeeId,
+        RecalculateOfficePayroll $recalculateOfficePayroll,
+        RecalculateCrewPayroll $recalculateCrewPayroll,
+    ): void {
+        if ($payrollPeriod->isOffice()) {
+            $recalculateOfficePayroll->handle($payrollPeriod, $employeeId);
+
+            return;
+        }
+
+        $recalculateCrewPayroll->handle($payrollPeriod, $employeeId);
     }
 
     private function redirectAfterMutation(
