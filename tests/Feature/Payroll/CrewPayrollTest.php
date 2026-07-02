@@ -65,6 +65,43 @@ test('crew payroll board lists only employees with active crew contracts', funct
             ->where('period.id', $period->id));
 });
 
+test('payroll show includes all board employee ids matching pagination total', function () {
+    ['user' => $user, 'company' => $company] = makePayrollFixtures();
+    $this->actingAs($user);
+
+    grantCompanyPermissions($user, $company, ['payroll.crew_timesheets.view']);
+
+    $period = PayrollPeriod::factory()->for($company)->create([
+        'payroll_category' => PayrollCategory::Crew,
+    ]);
+
+    foreach (range(1, 25) as $index) {
+        $employee = Employee::factory()->forCompany($company)->create([
+            'employee_no' => sprintf('CREW-%03d', $index),
+            'status' => 'active',
+        ]);
+
+        EmployeeContract::factory()->create([
+            'employee_id' => $employee->id,
+            'company_id' => $company->id,
+            'payroll_category' => PayrollCategory::Crew,
+            'status' => 'active',
+        ]);
+    }
+
+    $this->withSession(['current_company_id' => $company->id])
+        ->get(route('payroll.show', [
+            'payrollPeriod' => $period,
+            'per_page' => 20,
+        ]))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('rows', 20)
+            ->has('all_board_employee_ids', 25)
+            ->where('pagination.total', 25)
+            ->where('pagination.per_page', 20));
+});
+
 test('payroll show can filter board rows by department', function () {
     ['user' => $user, 'company' => $company] = makePayrollFixtures();
     $this->actingAs($user);

@@ -84,6 +84,10 @@ import { PayrollRecordsTable } from './components/payroll-records-table';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
+import {
+    getPayrollBoardSelectionSummary,
+    pruneExcludedIds,
+} from './lib/payroll-board-selection';
 import type {
     CrewPayrollRecordListItem,
     CrewPayrollRow,
@@ -101,6 +105,7 @@ export function PayrollShowContent({
     period,
     rows,
     pagination,
+    all_board_employee_ids,
     payroll_records,
     payroll_records_pagination,
     all_payroll_record_ids,
@@ -225,6 +230,12 @@ export function PayrollShowContent({
     useEffect(() => {
         setSelectedWpsRecordIds(all_payroll_record_ids);
     }, [period.id, all_payroll_record_ids]);
+
+    useEffect(() => {
+        setExcludedIds((current) =>
+            pruneExcludedIds(current, all_board_employee_ids),
+        );
+    }, [all_board_employee_ids]);
 
     const list = useServerPaginationFilters({
         url: show.url(period.id),
@@ -818,10 +829,13 @@ export function PayrollShowContent({
             );
         }
 
-        const allIds = rows.map((r) => r.employee.id);
-        const allSelected = excludedIds.size === 0;
-        const noneSelected =
-            excludedIds.size === rows.length && rows.length > 0;
+        const allIds = all_board_employee_ids;
+        const selection = getPayrollBoardSelectionSummary({
+            pagination,
+            allBoardEmployeeIds: allIds,
+            excludedIds,
+            rows,
+        });
 
         const handleSelectAll = (checked: boolean | 'indeterminate') => {
             if (checked === true) {
@@ -848,7 +862,7 @@ export function PayrollShowContent({
             });
         };
 
-        const includedCount = rows.length - excludedIds.size;
+        const includedCount = selection.includedCount;
 
         return (
             <div className="space-y-6">
@@ -912,26 +926,26 @@ export function PayrollShowContent({
                             </span>{' '}
                             of{' '}
                             <span className="font-semibold text-foreground">
-                                {rows.length}
+                                {selection.totalCount}
                             </span>{' '}
                             employees included
                         </span>
-                        {excludedIds.size > 0 && (
+                        {selection.excludedCount > 0 && (
                             <Badge
                                 variant="outline"
                                 className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                             >
-                                {excludedIds.size} excluded
+                                {selection.excludedCount} excluded
                             </Badge>
                         )}
                     </div>
-                    {excludedIds.size > 0 && (
+                    {selection.excludedCount > 0 && (
                         <button
                             type="button"
                             onClick={() => setExcludedIds(new Set())}
                             className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
                         >
-                            Select all
+                            Include all
                         </button>
                     )}
                 </div>
@@ -969,13 +983,7 @@ export function PayrollShowContent({
                             <DataTableHead className="w-10">
                                 <Checkbox
                                     id="select-all-crew-employees"
-                                    checked={
-                                        allSelected
-                                            ? true
-                                            : noneSelected
-                                              ? false
-                                              : 'indeterminate'
-                                    }
+                                    checked={selection.headerChecked}
                                     onCheckedChange={handleSelectAll}
                                     aria-label="Select all employees"
                                     className="rounded"
@@ -1331,15 +1339,7 @@ export function PayrollShowContent({
                     </TableBody>
                 </OrganizationDataTable>
 
-                <Pagination
-                    currentPage={pagination.current_page}
-                    lastPage={pagination.last_page}
-                    perPage={pagination.per_page}
-                    total={pagination.total}
-                    from={pagination.from}
-                    to={pagination.to}
-                    onPageChange={list.goToPage}
-                />
+                <Pagination {...list.paginationProps} label="employees" />
             </div>
         );
     }
@@ -1444,9 +1444,9 @@ export function PayrollShowContent({
             <OfficeEmployeesTabContent
                 period={period}
                 rows={rows}
-                pagination={pagination}
+                paginationProps={list.paginationProps}
+                allBoardEmployeeIds={all_board_employee_ids}
                 employee_stats={employee_stats}
-                onPageChange={list.goToPage}
                 excludedIds={excludedIds}
                 setExcludedIds={setExcludedIds}
                 rowDates={rowDates}
@@ -1714,9 +1714,9 @@ function SalaryCell({ value }: { value: string | null | undefined }) {
 function OfficeEmployeesTabContent({
     period,
     rows,
-    pagination,
+    paginationProps,
+    allBoardEmployeeIds,
     employee_stats,
-    onPageChange,
     excludedIds,
     setExcludedIds,
     rowDates,
@@ -1724,9 +1724,18 @@ function OfficeEmployeesTabContent({
 }: {
     period: PayrollPeriod;
     rows: CrewPayrollRow[];
-    pagination: PaginationMeta;
+    paginationProps: {
+        currentPage: number;
+        lastPage: number;
+        from: number | null;
+        to: number | null;
+        total: number;
+        perPage: number;
+        onPerPageChange: (perPage: number) => void;
+        onPageChange: (page: number) => void;
+    };
+    allBoardEmployeeIds: number[];
     employee_stats: EmployeeStats | null;
-    onPageChange: (page: number) => void;
     excludedIds: Set<number>;
     setExcludedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
     rowDates: Record<number, { start: string; end: string }>;
@@ -1754,15 +1763,25 @@ function OfficeEmployeesTabContent({
         }));
     };
 
-    const allIds = rows.map((r) => r.employee.id);
-    const allSelected = excludedIds.size === 0;
-    const noneSelected = excludedIds.size === rows.length && rows.length > 0;
+    const selection = getPayrollBoardSelectionSummary({
+        pagination: {
+            current_page: paginationProps.currentPage,
+            last_page: paginationProps.lastPage,
+            per_page: paginationProps.perPage,
+            total: paginationProps.total,
+            from: paginationProps.from,
+            to: paginationProps.to,
+        },
+        allBoardEmployeeIds,
+        excludedIds,
+        rows,
+    });
 
     const handleSelectAll = (checked: boolean | 'indeterminate') => {
         if (checked === true) {
             setExcludedIds(new Set());
         } else {
-            setExcludedIds(new Set(allIds));
+            setExcludedIds(new Set(allBoardEmployeeIds));
         }
     };
 
@@ -1783,7 +1802,7 @@ function OfficeEmployeesTabContent({
         });
     };
 
-    const includedCount = rows.length - excludedIds.size;
+    const includedCount = selection.includedCount;
 
     return (
         <div className="space-y-6">
@@ -1847,26 +1866,26 @@ function OfficeEmployeesTabContent({
                         </span>{' '}
                         of{' '}
                         <span className="font-semibold text-foreground">
-                            {rows.length}
+                            {selection.totalCount}
                         </span>{' '}
                         employees included
                     </span>
-                    {excludedIds.size > 0 && (
+                    {selection.excludedCount > 0 && (
                         <Badge
                             variant="outline"
                             className="ml-1 border-amber-500/30 bg-amber-500/10 text-[10px] font-semibold text-amber-700 dark:text-amber-300"
                         >
-                            {excludedIds.size} excluded
+                            {selection.excludedCount} excluded
                         </Badge>
                     )}
                 </div>
-                {excludedIds.size > 0 && (
+                {selection.excludedCount > 0 && (
                     <button
                         type="button"
                         onClick={() => setExcludedIds(new Set())}
                         className="text-xs font-medium text-primary underline-offset-2 transition-colors hover:underline"
                     >
-                        Select all
+                        Include all
                     </button>
                 )}
             </div>
@@ -1879,13 +1898,7 @@ function OfficeEmployeesTabContent({
                         <DataTableHead className="w-10">
                             <Checkbox
                                 id="select-all-employees"
-                                checked={
-                                    allSelected
-                                        ? true
-                                        : noneSelected
-                                          ? false
-                                          : 'indeterminate'
-                                }
+                                checked={selection.headerChecked}
                                 onCheckedChange={handleSelectAll}
                                 aria-label="Select all employees"
                                 className="rounded"
@@ -2087,15 +2100,7 @@ function OfficeEmployeesTabContent({
                 </TableBody>
             </OrganizationDataTable>
 
-            <Pagination
-                currentPage={pagination.current_page}
-                lastPage={pagination.last_page}
-                perPage={pagination.per_page}
-                total={pagination.total}
-                from={pagination.from}
-                to={pagination.to}
-                onPageChange={onPageChange}
-            />
+            <Pagination {...paginationProps} label="employees" />
         </div>
     );
 }

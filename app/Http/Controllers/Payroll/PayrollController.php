@@ -170,11 +170,20 @@ class PayrollController extends Controller
             return redirect()->route('payroll.show', $params);
         }
 
+        $boardSearch = $search !== '' ? $search : null;
+
         $paginator = $boardQuery->paginate(
             companyId: $companyId,
             period: $payrollPeriod,
-            search: $search !== '' ? $search : null,
+            search: $boardSearch,
             perPage: $perPage,
+            filters: $boardFilters,
+        );
+
+        $allBoardEmployeeIds = $boardQuery->allEmployeeIds(
+            companyId: $companyId,
+            period: $payrollPeriod,
+            search: $boardSearch,
             filters: $boardFilters,
         );
 
@@ -327,6 +336,7 @@ class PayrollController extends Controller
             'leave_types' => $leaveTypes,
             'rows' => $paginator->items(),
             'pagination' => $this->paginationMeta($paginator),
+            'all_board_employee_ids' => $allBoardEmployeeIds,
             'payroll_records' => $payrollRecords,
             'payroll_records_pagination' => $payrollRecordsPagination,
             'all_payroll_record_ids' => $allPayrollRecordIds,

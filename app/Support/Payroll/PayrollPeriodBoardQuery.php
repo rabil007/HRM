@@ -95,6 +95,31 @@ final class PayrollPeriodBoardQuery
     }
 
     /**
+     * @return list<int>
+     */
+    public function allEmployeeIds(
+        int $companyId,
+        PayrollPeriod $period,
+        ?string $search = null,
+        ?PayrollPeriodBoardFilters $filters = null,
+    ): array {
+        $payrollCategory = $period->payroll_category ?? PayrollCategory::Crew;
+        $filters ??= new PayrollPeriodBoardFilters;
+
+        $query = PayrollEmployeeQuery::activeQuery($companyId, $payrollCategory);
+
+        $this->applySearch($query, $search);
+        $this->applyBoardFilters($query, $companyId, $filters);
+
+        return $query
+            ->orderBy('employees.name')
+            ->pluck('employees.id')
+            ->map(fn ($id) => (int) $id)
+            ->values()
+            ->all();
+    }
+
+    /**
      * @return Collection<int, EmployeeLeavePeriodSummary>
      */
     private function loadOfficeLeaveByEmployee(
