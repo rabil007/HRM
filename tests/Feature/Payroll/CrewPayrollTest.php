@@ -328,9 +328,16 @@ test('authorized users can upsert crew timesheets for draft periods', function (
         'remarks' => 'May payroll',
     ];
 
+    $showUrl = route('payroll.show', [
+        'payrollPeriod' => $period,
+        'tab' => 'timesheets',
+        'search' => 'CREW-001',
+    ]);
+
     $this->withSession(['current_company_id' => $company->id])
+        ->from($showUrl)
         ->post(route('payroll.timesheets.store', $period), $payload)
-        ->assertRedirect(route('payroll.show', $period));
+        ->assertRedirect($showUrl);
 
     $this->assertDatabaseHas('crew_timesheets', [
         'company_id' => $company->id,

@@ -466,9 +466,7 @@ class PayrollController extends Controller
             $request->timesheetData(),
         );
 
-        return redirect()
-            ->route('payroll.show', $payrollPeriod)
-            ->with('success', 'Crew timesheet saved.');
+        return back();
     }
 
     public function importTemplate(PayrollPeriod $payrollPeriod)

@@ -15,7 +15,7 @@ import {
     Users,
     XCircle,
 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     approve,
     cancel,
@@ -61,7 +61,6 @@ import type { SalaryPaymentMethodValue } from '@/features/organization/employees
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import type { PaginationMeta } from '@/types/pagination';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
@@ -159,12 +158,30 @@ export function PayrollShowContent({
             }
         >
     >({});
+    const crewDatesRef = useRef(crewDates);
+    const crewSaveTimersRef = useRef<
+        Record<number, ReturnType<typeof setTimeout>>
+    >({});
+
+    useEffect(() => {
+        crewDatesRef.current = crewDates;
+    }, [crewDates]);
+
+    useEffect(() => {
+        const timers = crewSaveTimersRef.current;
+
+        return () => {
+            Object.values(timers).forEach((timer) => {
+                clearTimeout(timer);
+            });
+        };
+    }, []);
 
     const handleCrewDateChange = (
         employeeId: number,
         field: 'standby_from' | 'standby_to' | 'onsite_from' | 'onsite_to',
         val: string,
-        initialTimesheet: any,
+        initialTimesheet: CrewPayrollRow['timesheet'],
     ) => {
         setCrewDates((prev) => {
             const existing = prev[employeeId] ?? {
@@ -174,57 +191,97 @@ export function PayrollShowContent({
                 onsite_to: initialTimesheet?.onsite_to ?? '',
             };
 
-            return {
+            const next = {
                 ...prev,
                 [employeeId]: {
                     ...existing,
                     [field]: val,
                 },
             };
+
+            crewDatesRef.current = next;
+
+            return next;
         });
+
+        scheduleSaveCrewTimesheet(employeeId, initialTimesheet);
     };
 
-    const handleSaveCrewTimesheet = (
-        employeeId: number,
-        initialTimesheet: any,
-    ) => {
-        const current = crewDates[employeeId];
+    const saveCrewTimesheet = useCallback(
+        (employeeId: number, initialTimesheet: CrewPayrollRow['timesheet']) => {
+            const current = crewDatesRef.current[employeeId];
 
-        if (!current) {
-            return;
-        }
+            if (!current) {
+                return;
+            }
 
-        const standby_days = calculateInclusiveDays(
-            current.standby_from,
-            current.standby_to,
-        );
-        const onsite_days = calculateInclusiveDays(
-            current.onsite_from,
-            current.onsite_to,
-        );
+            const standby_days = calculateInclusiveDays(
+                current.standby_from,
+                current.standby_to,
+            );
+            const onsite_days = calculateInclusiveDays(
+                current.onsite_from,
+                current.onsite_to,
+            );
 
-        router.post(
-            storeTimesheet.url(period.id),
-            {
-                period_id: period.id,
-                employee_id: employeeId,
-                standby_from: current.standby_from || null,
-                standby_to: current.standby_to || null,
-                standby_days: standby_days ? Number(standby_days) : null,
-                onsite_from: current.onsite_from || null,
-                onsite_to: current.onsite_to || null,
-                onsite_days: onsite_days ? Number(onsite_days) : null,
-                overtime_amount: initialTimesheet?.overtime_amount ?? 0,
-                additional_amount: initialTimesheet?.additional_amount ?? 0,
-                deduction_amount: initialTimesheet?.deduction_amount ?? 0,
-                remarks: initialTimesheet?.remarks ?? null,
-            },
-            {
-                preserveScroll: true,
-                preserveState: true,
-            },
-        );
-    };
+            router.post(
+                storeTimesheet.url(period.id),
+                {
+                    period_id: period.id,
+                    employee_id: employeeId,
+                    standby_from: current.standby_from || null,
+                    standby_to: current.standby_to || null,
+                    standby_days: standby_days ? Number(standby_days) : null,
+                    onsite_from: current.onsite_from || null,
+                    onsite_to: current.onsite_to || null,
+                    onsite_days: onsite_days ? Number(onsite_days) : null,
+                    overtime_amount: initialTimesheet?.overtime_amount ?? 0,
+                    additional_amount:
+                        initialTimesheet?.additional_amount ?? 0,
+                    deduction_amount: initialTimesheet?.deduction_amount ?? 0,
+                    remarks: initialTimesheet?.remarks ?? null,
+                },
+                {
+                    preserveScroll: true,
+                    preserveState: true,
+                    only: ['rows'],
+                    onSuccess: () => {
+                        setCrewDates((prev) => {
+                            if (!prev[employeeId]) {
+                                return prev;
+                            }
+
+                            const next = { ...prev };
+                            delete next[employeeId];
+                            crewDatesRef.current = next;
+
+                            return next;
+                        });
+                    },
+                },
+            );
+        },
+        [period.id],
+    );
+
+    const scheduleSaveCrewTimesheet = useCallback(
+        (
+            employeeId: number,
+            initialTimesheet: CrewPayrollRow['timesheet'],
+        ) => {
+            const existingTimer = crewSaveTimersRef.current[employeeId];
+
+            if (existingTimer) {
+                clearTimeout(existingTimer);
+            }
+
+            crewSaveTimersRef.current[employeeId] = setTimeout(() => {
+                delete crewSaveTimersRef.current[employeeId];
+                saveCrewTimesheet(employeeId, initialTimesheet);
+            }, 800);
+        },
+        [saveCrewTimesheet],
+    );
 
     useEffect(() => {
         setSelectedWpsRecordIds(all_payroll_record_ids);
@@ -1124,12 +1181,6 @@ export function PayrollShowContent({
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() =>
-                                                        handleSaveCrewTimesheet(
-                                                            row.employee.id,
-                                                            row.timesheet,
-                                                        )
-                                                    }
                                                     className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                                 <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
@@ -1143,12 +1194,6 @@ export function PayrollShowContent({
                                                             row.employee.id,
                                                             'standby_to',
                                                             e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    onBlur={() =>
-                                                        handleSaveCrewTimesheet(
-                                                            row.employee.id,
                                                             row.timesheet,
                                                         )
                                                     }
@@ -1200,12 +1245,6 @@ export function PayrollShowContent({
                                                             row.timesheet,
                                                         )
                                                     }
-                                                    onBlur={() =>
-                                                        handleSaveCrewTimesheet(
-                                                            row.employee.id,
-                                                            row.timesheet,
-                                                        )
-                                                    }
                                                     className="h-7 w-[130px] rounded-md border-border/50 bg-background/60 px-1.5 font-mono text-[11px] shadow-none transition-colors focus:bg-background [&::-webkit-calendar-picker-indicator]:cursor-pointer [&::-webkit-calendar-picker-indicator]:opacity-50 hover:[&::-webkit-calendar-picker-indicator]:opacity-90 [&::-webkit-calendar-picker-indicator]:dark:invert"
                                                 />
                                                 <span className="shrink-0 text-[10px] font-bold text-muted-foreground/40">
@@ -1219,12 +1258,6 @@ export function PayrollShowContent({
                                                             row.employee.id,
                                                             'onsite_to',
                                                             e.target.value,
-                                                            row.timesheet,
-                                                        )
-                                                    }
-                                                    onBlur={() =>
-                                                        handleSaveCrewTimesheet(
-                                                            row.employee.id,
                                                             row.timesheet,
                                                         )
                                                     }
