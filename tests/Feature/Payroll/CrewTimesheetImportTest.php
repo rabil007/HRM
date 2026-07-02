@@ -65,14 +65,14 @@ test('crew timesheet template download includes roster with department and posit
     expect($sheet)->not->toBeNull()
         ->and($sheet->getCell('A1')->getValue())->toBe('Employee No')
         ->and($sheet->getCell('C1')->getValue())->toBe('Division')
-        ->and($sheet->getCell('K1')->getValue())->toBe('Onsite Days')
+        ->and($sheet->getCell('I1')->getValue())->toBe('Onsite To')
         ->and($sheet->getCell('A2')->getValue())->toBe('2057')
         ->and($sheet->getCell('B2')->getValue())->toBe('AHMED LATECH')
         ->and($sheet->getCell('C2')->getValue())->toBe('Marine')
         ->and($sheet->getCell('D2')->getValue())->toBe('Deck')
         ->and($sheet->getCell('E2')->getValue())->toBe('Chief Officer')
         ->and($sheet->getCell('F2')->getValue())->toBeNull()
-        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:K2');
+        ->and($sheet->getAutoFilter()->getRange())->toBe('A1:I2');
 
     @unlink($result['path']);
 });
@@ -90,7 +90,7 @@ test('crew timesheet import preview rejects unknown employee numbers', function 
     ]);
 
     $file = makeCrewTimesheetImportFile([
-        ['employee_no' => '9999', 'name' => 'Unknown', 'onsite_days' => 10],
+        ['employee_no' => '9999', 'name' => 'Unknown'],
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -123,10 +123,8 @@ test('crew timesheet import creates timesheets for valid rows', function () {
             'name' => 'AHMED LATECH',
             'standby_from' => '2026-01-16',
             'standby_to' => '2026-01-17',
-            'standby_days' => 2,
             'onsite_from' => '2026-01-01',
             'onsite_to' => '2026-01-15',
-            'onsite_days' => 15,
         ],
     ]);
 
@@ -165,7 +163,7 @@ test('crew timesheet import cannot run on approved periods', function () {
     createImportCrewEmployee($company, '2057', 50, 661, 611);
 
     $file = makeCrewTimesheetImportFile([
-        ['employee_no' => '2057', 'name' => 'AHMED LATECH', 'onsite_days' => 10],
+        ['employee_no' => '2057', 'name' => 'AHMED LATECH'],
     ]);
 
     $this->withSession(['current_company_id' => $company->id])
@@ -219,10 +217,8 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
         'Position',
         'Standby From',
         'Standby To',
-        'Standby Days',
         'Onsite From',
         'Onsite To',
-        'Onsite Days',
     ];
 
     foreach ($headers as $columnIndex => $header) {
@@ -239,10 +235,8 @@ function makeCrewTimesheetImportFile(array $rows): UploadedFile
         $sheet->setCellValue('E'.$rowNumber, $row['position'] ?? '');
         $sheet->setCellValue('F'.$rowNumber, $row['standby_from'] ?? '');
         $sheet->setCellValue('G'.$rowNumber, $row['standby_to'] ?? '');
-        $sheet->setCellValue('H'.$rowNumber, $row['standby_days'] ?? 0);
-        $sheet->setCellValue('I'.$rowNumber, $row['onsite_from'] ?? '');
-        $sheet->setCellValue('J'.$rowNumber, $row['onsite_to'] ?? '');
-        $sheet->setCellValue('K'.$rowNumber, $row['onsite_days'] ?? 0);
+        $sheet->setCellValue('H'.$rowNumber, $row['onsite_from'] ?? '');
+        $sheet->setCellValue('I'.$rowNumber, $row['onsite_to'] ?? '');
         $rowNumber++;
     }
 

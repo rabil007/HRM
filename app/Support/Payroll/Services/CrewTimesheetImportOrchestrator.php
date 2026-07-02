@@ -6,6 +6,7 @@ use App\Enums\PayrollCategory;
 use App\Imports\CrewTimesheetsImport;
 use App\Models\Employee;
 use App\Models\PayrollPeriod;
+use App\Support\Attendance\CalculateLeaveRequestDays;
 use App\Support\Payroll\Actions\UpsertCrewTimesheet;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -207,10 +208,16 @@ final class CrewTimesheetImportOrchestrator
         return [
             'standby_from' => $parsedRow['standby_from'],
             'standby_to' => $parsedRow['standby_to'],
-            'standby_days' => $parsedRow['standby_days'],
+            'standby_days' => $this->calculateInclusiveDays(
+                $parsedRow['standby_from'],
+                $parsedRow['standby_to'],
+            ),
             'onsite_from' => $parsedRow['onsite_from'],
             'onsite_to' => $parsedRow['onsite_to'],
-            'onsite_days' => $parsedRow['onsite_days'],
+            'onsite_days' => $this->calculateInclusiveDays(
+                $parsedRow['onsite_from'],
+                $parsedRow['onsite_to'],
+            ),
             'overtime_amount' => 0,
             'additional_amount' => 0,
             'deduction_amount' => 0,
@@ -235,6 +242,15 @@ final class CrewTimesheetImportOrchestrator
             'deduction_amount' => ['nullable', 'numeric', 'min:0'],
             'remarks' => ['nullable', 'string'],
         ];
+    }
+
+    private function calculateInclusiveDays(?string $from, ?string $to): ?float
+    {
+        if (! filled($from) || ! filled($to)) {
+            return null;
+        }
+
+        return round((new CalculateLeaveRequestDays)($from, $to), 2);
     }
 
     private function assertImportablePeriod(PayrollPeriod $period): void

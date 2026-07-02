@@ -30,13 +30,9 @@ final class CrewTimesheetsImport
 
     private const COL_STANDBY_TO = 'G';
 
-    private const COL_STANDBY_DAYS = 'H';
+    private const COL_ONSITE_FROM = 'H';
 
-    private const COL_ONSITE_FROM = 'I';
-
-    private const COL_ONSITE_TO = 'J';
-
-    private const COL_ONSITE_DAYS = 'K';
+    private const COL_ONSITE_TO = 'I';
 
     /**
      * @return list<array<string, mixed>>
@@ -67,10 +63,8 @@ final class CrewTimesheetsImport
                 'position' => $this->stringValue($sheet, self::COL_POSITION, $rowNumber),
                 'standby_from' => $this->dateValue($sheet, self::COL_STANDBY_FROM, $rowNumber),
                 'standby_to' => $this->dateValue($sheet, self::COL_STANDBY_TO, $rowNumber),
-                'standby_days' => $this->numericValue($sheet, self::COL_STANDBY_DAYS, $rowNumber),
                 'onsite_from' => $this->dateValue($sheet, self::COL_ONSITE_FROM, $rowNumber),
                 'onsite_to' => $this->dateValue($sheet, self::COL_ONSITE_TO, $rowNumber),
-                'onsite_days' => $this->numericValue($sheet, self::COL_ONSITE_DAYS, $rowNumber),
             ];
         }
 
@@ -135,21 +129,6 @@ final class CrewTimesheetsImport
         }
 
         return $string;
-    }
-
-    private function numericValue(Worksheet $sheet, string $column, int $row): ?float
-    {
-        $value = $sheet->getCell($column.$row)->getCalculatedValue();
-
-        if ($value === null || $value === '' || $value === '-') {
-            return null;
-        }
-
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        return round((float) $value, 2);
     }
 
     private function dateValue(Worksheet $sheet, string $column, int $row): ?string

@@ -230,8 +230,8 @@ export function CrewTimesheetImportDialog({
                     <DialogDescription>
                         Download the template with your crew roster pre-filled.
                         Use Excel filters on Division or Department, then fill
-                        only the yellow Standby and Onsite columns. Rows are
-                        matched by employee number.
+                        only the yellow date columns — days are calculated
+                        automatically. Rows are matched by employee number.
                     </DialogDescription>
                 </DialogHeader>
 

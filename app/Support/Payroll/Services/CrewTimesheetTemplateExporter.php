@@ -47,10 +47,8 @@ final class CrewTimesheetTemplateExporter
             'Position',
             'Standby From',
             'Standby To',
-            'Standby Days',
             'Onsite From',
             'Onsite To',
-            'Onsite Days',
         ];
 
         foreach ($headers as $columnIndex => $header) {
@@ -100,7 +98,7 @@ final class CrewTimesheetTemplateExporter
     private function applyWorksheetFormatting(Worksheet $sheet, int $lastDataRow): void
     {
         $sheet->freezePane('F2');
-        $sheet->setAutoFilter("A1:K{$lastDataRow}");
+        $sheet->setAutoFilter("A1:I{$lastDataRow}");
 
         $columnWidths = [
             'A' => 14,
@@ -112,8 +110,6 @@ final class CrewTimesheetTemplateExporter
             'G' => 14,
             'H' => 14,
             'I' => 14,
-            'J' => 14,
-            'K' => 14,
         ];
 
         foreach ($columnWidths as $column => $width) {
@@ -148,14 +144,14 @@ final class CrewTimesheetTemplateExporter
             ],
         ]));
 
-        $sheet->getStyle('F1:H1')->applyFromArray(array_merge($headerStyle, [
+        $sheet->getStyle('F1:G1')->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'B45309'],
             ],
         ]));
 
-        $sheet->getStyle('I1:K1')->applyFromArray(array_merge($headerStyle, [
+        $sheet->getStyle('H1:I1')->applyFromArray(array_merge($headerStyle, [
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => '1D4ED8'],
@@ -166,7 +162,7 @@ final class CrewTimesheetTemplateExporter
             return;
         }
 
-        $dataRange = 'A'.CrewTimesheetsImport::DATA_START_ROW.":K{$lastDataRow}";
+        $dataRange = 'A'.CrewTimesheetsImport::DATA_START_ROW.":I{$lastDataRow}";
 
         $sheet->getStyle($dataRange)->applyFromArray([
             'alignment' => [
@@ -187,26 +183,17 @@ final class CrewTimesheetTemplateExporter
             ],
         ]);
 
-        $sheet->getStyle('F'.CrewTimesheetsImport::DATA_START_ROW.":K{$lastDataRow}")->applyFromArray([
+        $sheet->getStyle('F'.CrewTimesheetsImport::DATA_START_ROW.":I{$lastDataRow}")->applyFromArray([
             'fill' => [
                 'fillType' => Fill::FILL_SOLID,
                 'startColor' => ['rgb' => 'FFFBEB'],
             ],
         ]);
 
-        foreach (['F', 'G', 'I', 'J'] as $dateColumn) {
+        foreach (['F', 'G', 'H', 'I'] as $dateColumn) {
             $sheet->getStyle("{$dateColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$dateColumn}{$lastDataRow}")
                 ->getNumberFormat()
                 ->setFormatCode(NumberFormat::FORMAT_DATE_YYYYMMDD2);
-        }
-
-        foreach (['H', 'K'] as $daysColumn) {
-            $sheet->getStyle("{$daysColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$daysColumn}{$lastDataRow}")
-                ->getNumberFormat()
-                ->setFormatCode(NumberFormat::FORMAT_NUMBER_00);
-            $sheet->getStyle("{$daysColumn}".CrewTimesheetsImport::DATA_START_ROW.":{$daysColumn}{$lastDataRow}")
-                ->getAlignment()
-                ->setHorizontal(Alignment::HORIZONTAL_CENTER);
         }
 
         $sheet->getStyle('A'.CrewTimesheetsImport::DATA_START_ROW.":A{$lastDataRow}")
@@ -224,7 +211,7 @@ final class CrewTimesheetTemplateExporter
             [''],
             ['1. Open the "'.CrewTimesheetsImport::SHEET_NAME.'" tab.'],
             ['2. Use the header filters (▼) to narrow by Division or Department.'],
-            ['3. Only fill the yellow columns (Standby / Onsite dates and days).'],
+            ['3. Only fill the yellow date columns — days are calculated automatically on import.'],
             ['4. Gray columns are pre-filled — do not change Employee No.'],
             ['5. Dates: use YYYY-MM-DD (e.g. 2026-06-01) or pick from the date picker.'],
             ['6. Leave a row blank if the employee had no standby or onsite days.'],
