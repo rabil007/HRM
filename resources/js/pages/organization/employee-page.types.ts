@@ -1,5 +1,5 @@
-import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type { DocumentProfileItem, DocumentTypeOption } from '@/features/organization/documents/shared/types';
+import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
 import type {
     ApprovalLocationOption,
     BankOption,

@@ -302,9 +302,11 @@ export default function JobRunsViewer({
     // Filter registry items client-side based on search query
     const filteredRegistry = useMemo(() => {
         const query = (filters.q || list.searchInput || '').toLowerCase().trim();
+
         if (!query) {
             return registry;
         }
+
         return registry.filter(
             (item) =>
                 item.name.toLowerCase().includes(query) ||
@@ -704,8 +706,12 @@ export default function JobRunsViewer({
                                                                 {run.context && Object.keys(run.context).length > 0 && (
                                                                     <div className="mt-2 grid grid-cols-2 gap-3 max-w-lg pt-2 border-t border-emerald-500/10">
                                                                         {Object.entries(run.context).map(([key, value]) => {
-                                                                            if (value === null || value === undefined) return null;
+                                                                            if (value === null || value === undefined) {
+return null;
+}
+
                                                                             const formattedKey = key.replace(/_/g, ' ');
+
                                                                             return (
                                                                                 <div key={key} className="flex flex-col">
                                                                                     <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">{formattedKey}</span>

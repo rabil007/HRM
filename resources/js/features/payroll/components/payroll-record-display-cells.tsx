@@ -4,9 +4,10 @@ import { Badge } from '@/components/ui/badge';
 import { TableCell } from '@/components/ui/table';
 import {
     cashPaymentBadgeLabel,
-    isCashPaymentMethod,
-    type SalaryPaymentMethodValue,
+    isCashPaymentMethod
+    
 } from '@/features/organization/employees/salary-payment-method';
+import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
 import type { OfficePrimaryAccount } from '../types';
 
 export function PayrollRecordPaymentMethodCell({

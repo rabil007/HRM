@@ -1,3 +1,4 @@
+import { Loader2, Copy, Check, MessageCircle, Lock, Key, Calendar } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -10,10 +11,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, Copy, Check, MessageCircle, Lock, Key, Calendar } from 'lucide-react';
 import { toast } from '@/lib/toast';
-import { fetchDocumentShareLinks } from './fetch-document-share-links';
 import { buildWhatsAppMessage } from './build-whatsapp-message';
+import { fetchDocumentShareLinks } from './fetch-document-share-links';
 import type { ShareLinkDocument } from './types';
 
 type ShareLinksModalProps = {
@@ -30,6 +30,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
     if (navigator.clipboard && window.isSecureContext) {
         try {
             await navigator.clipboard.writeText(text);
+
             return true;
         } catch {
             // Fall through to fallback
@@ -50,6 +51,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
+
         return successful;
     } catch {
         return false;
@@ -74,6 +76,7 @@ export function ShareLinksModal({
 
     const handleGenerate = async () => {
         setIsGenerating(true);
+
         try {
             const { documents: shareDocuments } = await fetchDocumentShareLinks(
                 shareLinksUrl,
@@ -92,6 +95,7 @@ export function ShareLinksModal({
 
     const handleCopyLink = async (url: string, index: number) => {
         const successful = await copyToClipboard(url);
+
         if (successful) {
             setCopiedIndex(index);
             setTimeout(() => setCopiedIndex(null), 2000);
@@ -104,6 +108,7 @@ export function ShareLinksModal({
     const handleCopyAll = async () => {
         const message = buildWhatsAppMessage(employee.name, generatedLinks);
         const successful = await copyToClipboard(message);
+
         if (successful) {
             setCopiedAll(true);
             setTimeout(() => setCopiedAll(false), 2000);
@@ -135,9 +140,11 @@ export function ShareLinksModal({
     const generateRandomPassword = () => {
         const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%';
         let pass = '';
+
         for (let i = 0; i < 8; i++) {
             pass += chars.charAt(Math.floor(Math.random() * chars.length));
         }
+
         setPassword(pass);
     };
 
@@ -170,6 +177,7 @@ export function ShareLinksModal({
                                     checked={usePassword}
                                     onCheckedChange={(checked) => {
                                         setUsePassword(checked === true);
+
                                         if (checked === true && !password) {
                                             generateRandomPassword();
                                         }

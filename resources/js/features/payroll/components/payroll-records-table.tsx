@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
-import { type SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
+import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
 import { cn } from '@/lib/utils';
 import type { CrewPayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount, formatTimesheetDays } from '../types';
@@ -122,7 +122,6 @@ export function PayrollRecordsTable({
                     const paymentMethod = (record.salary_payment_method ?? 'bank_transfer') as SalaryPaymentMethodValue;
                     const netAmount = Number(record.net_salary ?? 0);
                     const grossAmount = Number(record.gross_salary ?? 0);
-                    const deductions = Number(record.deduction_amount ?? 0);
 
                     return (
                         <TableRow
@@ -349,5 +348,6 @@ function AmountCell({ value }: { value: string | null | undefined }) {
     if (!value || Number(value) === 0) {
         return <span className="text-muted-foreground/40 text-xs">—</span>;
     }
+
     return <span>{formatTimesheetAmount(value)}</span>;
 }

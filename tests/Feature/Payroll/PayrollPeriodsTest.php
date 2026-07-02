@@ -113,7 +113,10 @@ test('new pay period can be created with same start date if previous period was 
         ])
         ->assertRedirect();
 
-    expect(PayrollPeriod::query()->where('company_id', $company->id)->where('start_date', '2026-01-01')->count())->toBe(2);
+    expect(PayrollPeriod::query()
+        ->where('company_id', $company->id)
+        ->whereDate('start_date', '2026-01-01')
+        ->count())->toBe(2);
 });
 
 test('payroll hub can filter periods by payroll category', function () {

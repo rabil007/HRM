@@ -1,7 +1,7 @@
 import { Link, router } from '@inertiajs/react';
 import { Calculator, CalendarDays, CheckCircle2, Paperclip, RotateCcw, Upload, XCircle } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
-import type { PaginationMeta } from '@/types/pagination';
+import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     approve,
     cancel,
@@ -13,7 +13,6 @@ import {
     show,
     storeTimesheet,
 } from '@/actions/App/Http/Controllers/Payroll/PayrollController';
-import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
 import {
     OrganizationDataTable,
     DataTableHead,
@@ -34,19 +33,14 @@ import { Input } from '@/components/ui/input';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { resolveEmployeeImageUrl } from '@/features/organization/employees/lib/employee-avatar';
-import {
-    type SalaryPaymentMethodValue,
-} from '@/features/organization/employees/salary-payment-method';
+import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
+import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
+import type { PaginationMeta } from '@/types/pagination';
 import { CrewTimesheetImportDialog } from './components/crew-timesheet-import-dialog';
 import { OfficePayrollRecordsTable } from './components/office-payroll-records-table';
-import {
-    PayrollRecordBankAccountCell,
-    PayrollRecordPaymentMethodCell,
-} from './components/payroll-record-display-cells';
 import { OfficeSalaryInputsSheet } from './components/office-salary-inputs-sheet';
 import { PayrollApproveDialog } from './components/payroll-approve-dialog';
 import { PayrollCancelDialog } from './components/payroll-cancel-dialog';
@@ -55,9 +49,13 @@ import { PayrollGenerateDialog } from './components/payroll-generate-dialog';
 import { PayrollMarkPaidDialog } from './components/payroll-mark-paid-dialog';
 import { PayrollPeriodDeliveryPanel } from './components/payroll-period-delivery-panel';
 import { PayrollPeriodStatusBadge } from './components/payroll-period-status-badge';
+import {
+    PayrollRecordBankAccountCell,
+    PayrollRecordPaymentMethodCell,
+} from './components/payroll-record-display-cells';
+import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRecordsSummaryCards } from './components/payroll-records-summary-cards';
 import { PayrollRecordsTable } from './components/payroll-records-table';
-import { PayrollRecordRemoveDialog } from './components/payroll-record-remove-dialog';
 import { PayrollRevertToDraftDialog } from './components/payroll-revert-to-draft-dialog';
 import { PayrollSkippedBanner } from './components/payroll-skipped-banner';
 import { calculateInclusiveDays } from './lib/calculate-inclusive-days';
@@ -133,6 +131,7 @@ export function PayrollShowContent({
                 onsite_from: initialTimesheet?.onsite_from ?? '',
                 onsite_to: initialTimesheet?.onsite_to ?? '',
             };
+
             return {
                 ...prev,
                 [employeeId]: {
@@ -145,7 +144,10 @@ export function PayrollShowContent({
 
     const handleSaveCrewTimesheet = (employeeId: number, initialTimesheet: any) => {
         const current = crewDates[employeeId];
-        if (!current) return;
+
+        if (!current) {
+return;
+}
 
         const standby_days = calculateInclusiveDays(current.standby_from, current.standby_to);
         const onsite_days = calculateInclusiveDays(current.onsite_from, current.onsite_to);
@@ -247,11 +249,13 @@ export function PayrollShowContent({
     const handleMarkPaid = (files?: File[] | File | null) => {
         setIsMarkingPaid(true);
         const payload: Record<string, any> = {};
+
         if (Array.isArray(files) && files.length > 0) {
             payload.payment_proofs = files;
         } else if (files instanceof File) {
             payload.payment_proof = files;
         }
+
         router.post(
             markPaid.url(period.id),
             payload,
@@ -673,11 +677,13 @@ export function PayrollShowContent({
         const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
             setExcludedIds((prev) => {
                 const next = new Set(prev);
+
                 if (checked === true) {
                     next.delete(employeeId);
                 } else {
                     next.add(employeeId);
                 }
+
                 return next;
             });
         };
@@ -1380,6 +1386,7 @@ function SalaryCell({ value }: { value: string | null | undefined }) {
     if (!value || Number(value) === 0) {
         return <span className="text-muted-foreground/40 text-xs">—</span>;
     }
+
     return (
         <span className="tabular-nums font-medium">
             {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -1443,11 +1450,13 @@ function OfficeEmployeesTabContent({
     const handleRowToggle = (employeeId: number, checked: boolean | 'indeterminate') => {
         setExcludedIds((prev) => {
             const next = new Set(prev);
+
             if (checked === true) {
                 next.delete(employeeId);
             } else {
                 next.add(employeeId);
             }
+
             return next;
         });
     };

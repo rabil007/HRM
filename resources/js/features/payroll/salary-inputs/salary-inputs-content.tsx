@@ -30,9 +30,10 @@ import { SalaryInputTypeDeleteDialog } from './components/salary-input-type-dele
 import { SalaryInputTypeFormSheet } from './components/salary-input-type-form-sheet';
 import {
     defaultSalaryInputTypeFormData,
-    salaryInputTypeToFormData,
-    type SalaryInputTypeRecord,
+    salaryInputTypeToFormData
+    
 } from './types';
+import type {SalaryInputTypeRecord} from './types';
 
 export function SalaryInputsContent({
     salary_input_types,

@@ -14,20 +14,8 @@ use Illuminate\Support\Collection;
 
 final class SyncAttendanceRecordsFromHikvision
 {
-    private float $syncStartedAt = 0;
-
     public function syncCompany(int $companyId, CarbonInterface $from, CarbonInterface $to): int
     {
-        $this->syncStartedAt = microtime(true);
-
-        // #region agent log
-        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'syncCompany started', [
-            'company_id' => $companyId,
-            'from' => $from->toDateTimeString(),
-            'to' => $to->toDateTimeString(),
-        ]);
-        // #endregion
-
         $timezone = (string) config('app.timezone', 'UTC');
         $workingDays = $this->resolveWorkingDays($companyId);
         $synced = 0;
@@ -43,30 +31,12 @@ final class SyncAttendanceRecordsFromHikvision
             ->orderBy('id')
             ->get();
 
-        // #region agent log
-        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'employees loaded', [
-            'company_id' => $companyId,
-            'employee_count' => $employees->count(),
-        ]);
-        // #endregion
-
-        $eventsQueryStartedAt = microtime(true);
         $companyEvents = $this->loadCompanyEventsForWindow($employees, $rangeStart, $rangeEnd);
-        $eventsQueryElapsedMs = (int) round((microtime(true) - $eventsQueryStartedAt) * 1000);
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByPersonId */
         $eventsByPersonId = $companyEvents->groupBy(
             fn (HikvisionAccessEvent $event): string => (string) ($event->person_hikvision_id ?? ''),
         );
-
-        // #region agent log
-        $this->debugLog('D', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'company events loaded', [
-            'company_id' => $companyId,
-            'events_count' => $companyEvents->count(),
-            'query_elapsed_ms' => $eventsQueryElapsedMs,
-            'distinct_person_ids' => $eventsByPersonId->keys()->filter(fn (string $key) => $key !== '')->count(),
-        ]);
-        // #endregion
 
         foreach ($employees as $employee) {
             $employeeEvents = $this->resolveEmployeeEvents($employee, $eventsByPersonId, $companyEvents);
@@ -80,15 +50,6 @@ final class SyncAttendanceRecordsFromHikvision
                 $employeeEvents,
             );
         }
-
-        // #region agent log
-        $this->debugLog('B', 'SyncAttendanceRecordsFromHikvision.php:syncCompany', 'syncCompany finished', [
-            'company_id' => $companyId,
-            'employee_count' => $employees->count(),
-            'synced_records' => $synced,
-            'elapsed_ms' => (int) round((microtime(true) - $this->syncStartedAt) * 1000),
-        ]);
-        // #endregion
 
         return $synced;
     }
@@ -236,19 +197,7 @@ final class SyncAttendanceRecordsFromHikvision
         array $workingDays,
         Collection $events,
     ): int {
-        $personId = (string) ($employee->hikvisionPerson?->person_id ?? '');
         $synced = 0;
-
-        // #region agent log
-        $this->debugLog('A', 'SyncAttendanceRecordsFromHikvision.php:syncEmployee', 'employee events resolved', [
-            'employee_id' => $employee->id,
-            'employee_name' => $employee->name,
-            'person_id' => $personId,
-            'events_count' => $events->count(),
-            'date_from' => $rangeStart->toDateString(),
-            'date_to' => $rangeEnd->toDateString(),
-        ]);
-        // #endregion
 
         /** @var Collection<string, Collection<int, HikvisionAccessEvent>> $eventsByDate */
         $eventsByDate = $events->groupBy(
@@ -432,16 +381,6 @@ final class SyncAttendanceRecordsFromHikvision
      */
     private function resolveClockTimesForDay(Collection $dayEvents): array
     {
-        $dayEventCount = $dayEvents->count();
-
-        if ($dayEventCount > 100) {
-            // #region agent log
-            $this->debugLog('C', 'SyncAttendanceRecordsFromHikvision.php:resolveClockTimesForDay', 'large dayEvents collection', [
-                'day_events_count' => $dayEventCount,
-            ]);
-            // #endregion
-        }
-
         $clockIn = null;
         $clockInTimestamp = null;
         $clockOut = null;
@@ -528,27 +467,5 @@ final class SyncAttendanceRecordsFromHikvision
         )
             ? AttendanceRecord::SOURCE_MOBILE
             : AttendanceRecord::SOURCE_BIOMETRIC;
-    }
-
-    /**
-     * @param  array<string, mixed>  $data
-     */
-    private function debugLog(string $hypothesisId, string $location, string $message, array $data = []): void
-    {
-        // #region agent log
-        file_put_contents(
-            '/Users/mohammedrabil/Herd/OMS-HRM/.cursor/debug-906348.log',
-            json_encode([
-                'sessionId' => '906348',
-                'hypothesisId' => $hypothesisId,
-                'location' => $location,
-                'message' => $message,
-                'data' => $data,
-                'timestamp' => (int) round(microtime(true) * 1000),
-                'runId' => 'post-fix',
-            ], JSON_THROW_ON_ERROR)."\n",
-            FILE_APPEND
-        );
-        // #endregion
     }
 }

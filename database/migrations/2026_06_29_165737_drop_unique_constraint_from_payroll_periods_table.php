@@ -12,6 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('payroll_periods', function (Blueprint $table) {
+            $table->index('company_id');
             $table->dropUnique('payroll_periods_company_start_category_unique');
         });
     }
@@ -26,6 +27,7 @@ return new class extends Migration
                 ['company_id', 'start_date', 'payroll_category'],
                 'payroll_periods_company_start_category_unique',
             );
+            $table->dropIndex(['company_id']);
         });
     }
 };

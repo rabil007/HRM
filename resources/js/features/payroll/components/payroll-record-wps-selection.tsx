@@ -1,5 +1,5 @@
-import { Checkbox } from '@/components/ui/checkbox';
 import { DataTableHead } from '@/components/data-table';
+import { Checkbox } from '@/components/ui/checkbox';
 import { TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 

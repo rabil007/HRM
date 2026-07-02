@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import { Link } from '@inertiajs/react';
 import { AlertTriangle, ArrowUpRight, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { PayrollCategory, PayrollGenerationSummary } from '../types';
 

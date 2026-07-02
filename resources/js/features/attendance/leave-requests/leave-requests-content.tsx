@@ -21,8 +21,8 @@ import { ViewToggle } from '@/components/view-toggle';
 import { useServerPaginationFilters } from '@/hooks/use-server-pagination-filters';
 import { useViewPreference } from '@/hooks/use-view-preference';
 import { formatDisplayDate } from '@/lib/format-date';
-import { cn } from '@/lib/utils';
 import { toast } from '@/lib/toast';
+import { cn } from '@/lib/utils';
 import type { PaginationMeta } from '@/types/pagination';
 import { LeaveRequestCancelDialog } from './components/leave-request-cancel-dialog';
 import { LeaveRequestCard } from './components/leave-request-card';
@@ -205,6 +205,7 @@ export function LeaveRequestsContent({
                     { value: 'cancelled', label: 'Cancelled', count: status_counts.cancelled, color: 'bg-muted-foreground', activeClass: 'border-border bg-muted/20 ring-border/40 text-muted-foreground' }
                 ].map((opt) => {
                     const isActive = filters.status === opt.value;
+
                     return (
                         <button
                             key={opt.value}

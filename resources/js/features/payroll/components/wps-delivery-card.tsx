@@ -1,8 +1,8 @@
 import { Link } from '@inertiajs/react';
 import { AlertCircle, ArrowUpRight, Building2, CheckCircle2, ChevronDown, FileDown } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
 import { show as showEmployee } from '@/actions/App/Http/Controllers/Organization/EmployeeController';
+import { index as wpsIndex } from '@/actions/App/Http/Controllers/Payroll/WpsExportController';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,8 +14,8 @@ import {
 import { cn } from '@/lib/utils';
 import { summarizeWpsPeriod, summarizeWpsSelection } from '../lib/wps-selection-summary';
 import type { WpsPreview } from '../types';
-import { PayrollPeriodProgress } from './payroll-period-progress';
 import { WpsExportButton } from '../wps/wps-export-button';
+import { PayrollPeriodProgress } from './payroll-period-progress';
 
 function WpsStat({
     label,

@@ -12,8 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 import type { SalaryPaymentMethodValue } from '@/features/organization/employees/salary-payment-method';
+import { cn } from '@/lib/utils';
 import type { OfficePayrollRecordListItem, SalaryInput } from '../types';
 import { formatTimesheetAmount } from '../types';
 import {

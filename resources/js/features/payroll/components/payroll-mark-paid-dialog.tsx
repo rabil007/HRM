@@ -28,13 +28,18 @@ export function PayrollMarkPaidDialog({
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
+        if (!e.target.files || e.target.files.length === 0) {
+return;
+}
+
         const newFiles = Array.from(e.target.files);
         setSelectedFiles((prev) => {
             const existingKeys = new Set(prev.map((f) => `${f.name}-${f.size}`));
             const filtered = newFiles.filter((f) => !existingKeys.has(`${f.name}-${f.size}`));
+
             return [...prev, ...filtered];
         });
+
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
@@ -47,10 +52,12 @@ export function PayrollMarkPaidDialog({
     const handleClose = (newOpen: boolean) => {
         if (!newOpen) {
             setSelectedFiles([]);
+
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         }
+
         onOpenChange(newOpen);
     };
 

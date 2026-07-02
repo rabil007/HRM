@@ -85,9 +85,11 @@ export function OfficeSalaryInputsSheet({
     const form = useForm<SalaryInputFormData>(emptyForm(record?.employee.id ?? 0, defaultTypeId));
 
     const currentRecordId = record?.employee.id ?? null;
+
     if (open !== prevOpen || currentRecordId !== prevRecordId) {
         setPrevOpen(open);
         setPrevRecordId(currentRecordId);
+
         if (open && record) {
             setEditingInput(null);
             setIsFormVisible(false);

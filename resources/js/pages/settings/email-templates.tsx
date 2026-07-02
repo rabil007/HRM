@@ -1,7 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
 import { CheckCircle2, Clock, Eye, FileText, Mail, Plus, SlidersHorizontal } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
     MasterDataActiveToggle,
     MasterDataField,
@@ -30,11 +29,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import {
-    EmailTemplatePreviewDialog,
-    type EmailTemplatePreviewTarget,
+    EmailTemplatePreviewDialog
+    
 } from '@/features/settings/email-template-preview-dialog';
+import type {EmailTemplatePreviewTarget} from '@/features/settings/email-template-preview-dialog';
 import { toast } from '@/lib/toast';
 
 export type EmailTemplateItem = {
@@ -324,6 +325,7 @@ export default function EmailTemplatesSettings({
                         <TabsList className="bg-muted/40 p-1 border border-border/40 rounded-xl h-11 self-start">
                             {categories.map((category) => {
                                 const count = templates.filter((t) => t.category === category.value).length;
+
                                 return (
                                     <TabsTrigger
                                         key={category.value}

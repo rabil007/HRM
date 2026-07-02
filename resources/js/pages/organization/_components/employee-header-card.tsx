@@ -21,11 +21,12 @@ import {
     EditableHeaderNameField,
     EditableHeaderPillTextField,
 } from '@/features/organization/employees/profile/components/editable-header-fields';
-import type { CountryOption } from '@/features/organization/employees/types';
 import {
-    SALARY_PAYMENT_METHOD_OPTIONS,
-    type SalaryPaymentMethodValue,
+    SALARY_PAYMENT_METHOD_OPTIONS
+    
 } from '@/features/organization/employees/salary-payment-method';
+import type {SalaryPaymentMethodValue} from '@/features/organization/employees/salary-payment-method';
+import type { CountryOption } from '@/features/organization/employees/types';
 import { useMutableSelectOptions } from '@/hooks/use-mutable-select-options';
 import { formatDisplayDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
